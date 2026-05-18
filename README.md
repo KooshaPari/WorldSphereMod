@@ -35,9 +35,18 @@ This fork uses a different `GUID` (`worldsphere3d.fork`) than upstream so it
 is **co-installable** with the original `WorldSphereMod`. Enable only one at a
 time in NeoModLoader to avoid double-patching.
 
-Drop the built mod into
-`%APPDATA%/NeoModLoader/Mods/WorldSphereMod3D/` (Windows) or the equivalent
-under `~/Library/Application Support/` (macOS) / `~/.config/` (Linux).
+NeoModLoader compiles `Code/*.cs` at runtime, so the install copies sources
+(plus `Assemblies/`, `AssetBundles/`, `GameResources/`, `Locales/`, `mod.json`)
+into `<WorldBox>/Mods/WorldSphereMod3D/`. On Windows the fastest path is:
+
+```powershell
+./Tools/install.ps1
+```
+
+The script auto-detects the default Steam install at
+`C:/Program Files (x86)/Steam/steamapps/common/Worldbox/`. Override with
+`-WorldBoxPath`, `-InstallFolderName`, or by setting `$env:WORLDBOX_PATH`.
+Pass `-SkipBuild` to skip the `dotnet build` sanity check.
 
 ## Building
 
