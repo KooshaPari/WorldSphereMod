@@ -15,11 +15,11 @@ This fork lands a real 3D pipeline on top of that foundation:
 | Phase | Status | What changes |
 |---|---|---|
 | 0  | landed       | Fork metadata, build portability (`WORLDBOX_PATH`), CI, settings/API v2 |
-| 1  | scaffolding  | Voxelized actors / items / drops / projectiles (per-pixel cube mesh) |
-| 2  | planned      | Procedural building meshes (extruded footprint + roof inference) |
-| 3  | planned      | Crossed-quad foliage / clouds with wind shader |
-| 4  | planned      | Mesh water (Gerstner waves, shoreline foam, depth tint) |
-| 5  | planned      | Directional sun + cascaded shadow maps + SSAO |
+| 1  | ready-to-test | Voxelized actors + buildings (with greedy meshing); awaits in-game smoke test |
+| 2  | code-complete | Procedural building meshes (heuristic landed); gated, awaits in-game smoke test |
+| 3  | designed     | Crossed-quad foliage / clouds with wind shader (see `docs/phase3-architecture.md`) |
+| 4  | foundation   | Mesh water — data + mesh layer landed; lifecycle wire + Gerstner shader pending |
+| 5  | research     | Directional sun + cascaded shadows + SSAO (see `docs/phase5-prep.md`) |
 | 6  | planned      | Skeletal animation driver (auto-rigged from sprite anatomy) |
 | 7  | planned      | Worldspace UI (nameplates, health bars, selection rings) |
 | 8  | planned      | Procedural sky + day/night cycle + fog |
