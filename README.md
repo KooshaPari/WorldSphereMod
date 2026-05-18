@@ -18,7 +18,7 @@ This fork lands a real 3D pipeline on top of that foundation:
 | 1  | ready-to-test | Voxelized actors + buildings (with greedy meshing); awaits in-game smoke test |
 | 2  | code-complete | Procedural building meshes (heuristic landed); gated, awaits in-game smoke test |
 | 3  | code-complete (3a) | Trees/bushes/rocks as crossed-quads + cloud refactor pending (see `docs/phase3-architecture.md`) |
-| 4  | foundation   | Mesh water — data + mesh layer landed; lifecycle wire + Gerstner shader pending |
+| 4  | code-complete (lite) | Mesh water — WaterGerstner shader source landed; AssetBundle bake deferred to Phase 5b |
 | 5  | research     | Directional sun + cascaded shadows + SSAO (see `docs/phase5-prep.md`) |
 | 6  | planned      | Skeletal animation driver (auto-rigged from sprite anatomy) |
 | 7  | planned      | Worldspace UI (nameplates, health bars, selection rings) |
