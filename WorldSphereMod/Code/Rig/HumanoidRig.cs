@@ -156,21 +156,76 @@ namespace WorldSphereMod.Rig
         }
 
         /// <summary>
-        /// Step 2: bind-pose evaluation. Returns one local TRS matrix per bone built from
-        /// <see cref="BoneDefinition.BindPoseOffset"/> scaled by <paramref name="scale"/>.
-        /// The <paramref name="fd"/> argument is unused at this step; Step 3 will project
-        /// 2D animation signals (arm-swing, head pitch, leg stride) onto bone rotations.
-        /// Typed as <c>object</c> so this file compiles whether or not <c>AnimationFrameData</c>
-        /// is reachable from the current build's reference assemblies.
+        /// Step 8: 2D-to-3D projection. Projects sprite-scale animation signals from
+        /// <see cref="AnimationFrameData"/> onto per-bone local TRS matrices per the
+        /// mapping table in docs/phase6-architecture.md section 4. Missing/renamed fields
+        /// are tolerated by <see cref="SafeReadFloat"/>/<see cref="SafeReadVector2"/> —
+        /// the mapping is best-effort, so unknown signals silently degrade to identity
+        /// and the rig falls back to bind-pose for those bones.
         /// </summary>
-        public static Matrix4x4[] Evaluate(object fd, float scale)
+        public static Matrix4x4[] Evaluate(AnimationFrameData? fd, float scale)
         {
-            var matrices = new Matrix4x4[Bones.Length];
-            for (int i = 0; i < Bones.Length; i++)
+            var m = new Matrix4x4[Bones.Length];
+            for (int i = 0; i < m.Length; i++) m[i] = Matrix4x4.identity;
+
+            if (fd == null) return m;
+
+            // size_unit drives "lying down" detection — y/x < 0.6 means actor is prone.
+            Vector2 size = SafeReadVector2(fd, "size_unit");
+            if (size.x > 0.001f && size.y / size.x < 0.6f)
             {
-                matrices[i] = Matrix4x4.TRS(Bones[i].BindPoseOffset * scale, Quaternion.identity, Vector3.one);
+                m[(int)BoneId.Root] = Matrix4x4.Rotate(Quaternion.Euler(-90f, 0, 0));
             }
-            return matrices;
+
+            // Arm-swing: read fd.arm_swing or similar via reflection if it exists.
+            float armSwing = SafeReadFloat(fd, "arm_swing");   // expected range roughly -1..1
+            if (Mathf.Abs(armSwing) > 0.01f)
+            {
+                m[(int)BoneId.LArmUpper] = Matrix4x4.TRS(Bones[(int)BoneId.LArmUpper].BindPoseOffset,
+                    Quaternion.Euler(0, armSwing * 45f, 0), Vector3.one);
+                m[(int)BoneId.RArmUpper] = Matrix4x4.TRS(Bones[(int)BoneId.RArmUpper].BindPoseOffset,
+                    Quaternion.Euler(0, -armSwing * 45f, 0), Vector3.one);
+            }
+
+            // Leg stride: similar mapping.
+            float stride = SafeReadFloat(fd, "leg_stride");
+            if (Mathf.Abs(stride) > 0.01f)
+            {
+                m[(int)BoneId.LLegUpper] = Matrix4x4.TRS(Bones[(int)BoneId.LLegUpper].BindPoseOffset,
+                    Quaternion.Euler(0, stride * 35f, 0), Vector3.one);
+                m[(int)BoneId.RLegUpper] = Matrix4x4.TRS(Bones[(int)BoneId.RLegUpper].BindPoseOffset,
+                    Quaternion.Euler(0, -stride * 35f, 0), Vector3.one);
+                // Lower legs follow at half amplitude.
+                m[(int)BoneId.LLegLower] = Matrix4x4.TRS(Bones[(int)BoneId.LLegLower].BindPoseOffset,
+                    Quaternion.Euler(0, stride * 17.5f, 0), Vector3.one);
+                m[(int)BoneId.RLegLower] = Matrix4x4.TRS(Bones[(int)BoneId.RLegLower].BindPoseOffset,
+                    Quaternion.Euler(0, -stride * 17.5f, 0), Vector3.one);
+            }
+
+            return m;
+        }
+
+        static float SafeReadFloat(object fd, string fieldName)
+        {
+            try
+            {
+                var f = fd.GetType().GetField(fieldName);
+                if (f != null && (f.FieldType == typeof(float) || f.FieldType == typeof(double)))
+                    return System.Convert.ToSingle(f.GetValue(fd));
+            }
+            catch { }
+            return 0f;
+        }
+
+        static Vector2 SafeReadVector2(object fd, string fieldName)
+        {
+            try
+            {
+                var f = fd.GetType().GetField(fieldName);
+                if (f != null && f.FieldType == typeof(Vector2)) return (Vector2)f.GetValue(fd)!;
+            }
+            catch { }
+            return Vector2.zero;
         }
     }
 }

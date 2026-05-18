@@ -89,7 +89,8 @@ namespace WorldSphereMod.Rig
                 }
                 try
                 {
-                    toSubmit = DispatchSkin(key, svm);
+                    AnimationFrameData? fd = a.getAnimationFrameData();
+                    toSubmit = DispatchSkin(key, svm, fd);
                 }
                 catch (Exception ex)
                 {
@@ -118,7 +119,7 @@ namespace WorldSphereMod.Rig
             VoxelRender.Submit(toSubmit, trs, tint);
         }
 
-        static Mesh DispatchSkin(long key, SkinnedVoxelMesh svm)
+        static Mesh DispatchSkin(long key, SkinnedVoxelMesh svm, AnimationFrameData? fd)
         {
             ResolveShaderIds();
 
@@ -129,12 +130,13 @@ namespace WorldSphereMod.Rig
             }
 
             EnsureMatricesBuffer();
-            // Bind-pose evaluation — Step 3+ swaps in animation-driven matrices. Matrix4x4
-            // is column-major in Unity; HLSL float4x4 with mul(M, v) expects row-major-ish
-            // semantics but Unity's compute path already matches the C# convention when
-            // copied as 16 contiguous floats. SetMatrices is not available on GraphicsBuffer
-            // pre-2022, so flatten manually into a scratch float[].
-            var matrices = HumanoidRig.Evaluate(null, 1f);
+            // Matrix4x4 is column-major in Unity; HLSL float4x4 with mul(M, v) expects
+            // row-major-ish semantics but Unity's compute path already matches the C#
+            // convention when copied as 16 contiguous floats. SetMatrices is not
+            // available on GraphicsBuffer pre-2022, so flatten manually into a scratch
+            // float[]. Step 8 swaps the bind-pose stub for the AnimationFrameData
+            // projection from HumanoidRig.Evaluate.
+            var matrices = HumanoidRig.Evaluate(fd, 1f);
             int boneCount = matrices.Length;
             for (int b = 0; b < boneCount; b++)
             {
