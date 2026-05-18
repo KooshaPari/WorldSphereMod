@@ -32,6 +32,8 @@ namespace WorldSphereMod.Lighting
 
             LightingRoot.rotation = Quaternion.Euler(TimeOfDayToEuler(TimeOfDay), 30f, 0f);
 
+            SunRig.Bind(Sun);
+
             ShadowCascadeConfig.Apply(Core.savedSettings.HighShadows);
         }
 
@@ -57,6 +59,8 @@ namespace WorldSphereMod.Lighting
             {
                 LightingRoot.rotation = Quaternion.Euler(TimeOfDayToEuler(TimeOfDay), 30f, 0f);
             }
+
+            SunRig.Drive(TimeOfDay / 24f);
         }
 
         static float TimeOfDayToEuler(float hours)

@@ -18,9 +18,14 @@ using WorldSphereMod;
     {
         declare = pModDecl;
         Object = pGameObject;
-        if (!SystemInfo.supportsInstancing || !SystemInfo.supportsComputeShaders || !SystemInfo.supportsIndirectArgumentsBuffer)
+        if (!SystemInfo.supportsInstancing)
         {
             throw new IncompatibleHardwareException();
+        }
+        if (!SystemInfo.supportsComputeShaders || !SystemInfo.supportsIndirectArgumentsBuffer)
+        {
+            Debug.LogWarning("[WSM3D] Compute/IndirectArgs not supported; impostor-only mode.");
+            WorldSphereMod.LOD.LodSelector.ImpostorOnlyMode = true;
         }
     }
     public string GetUrl()

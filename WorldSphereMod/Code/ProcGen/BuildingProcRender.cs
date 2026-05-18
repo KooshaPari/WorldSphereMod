@@ -34,8 +34,23 @@ namespace WorldSphereMod.ProcGen
                         continue;
                     }
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode());
-                    // Step 3: Voxel + Proxy + Impostor all route to the same Voxel path. Step 4 adds the
-                    // real impostor billboard. The hysteresis + cull is already a measurable win here.
+
+                    if (tier == WorldSphereMod.LOD.LodTier.Impostor)
+                    {
+                        Sprite? impSp = rd.main_sprites[i];
+                        if (impSp == null) { rd.scales[i] = Vector3.zero; continue; }
+                        Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(impSp);
+                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
+                        if (im == null || imMat == null) { rd.scales[i] = Vector3.zero; continue; }
+                        Vector3 imPos = rd.positions[i];
+                        Vector3 imScl = rd.scales[i];
+                        if (rd.flip_x_states[i]) imScl.x = -imScl.x;
+                        Quaternion br = Tools.RotateToCamera(ref imPos);
+                        Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
+                        MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
+                        rd.scales[i] = Vector3.zero;
+                        continue;
+                    }
 
                     BuildingRules rules = BuildingRulesRegistry.Resolve(b.asset.id);
 

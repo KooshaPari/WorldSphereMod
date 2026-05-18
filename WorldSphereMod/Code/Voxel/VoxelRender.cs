@@ -121,11 +121,25 @@ namespace WorldSphereMod.Voxel
                         continue;
                     }
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, a.GetHashCode());
-                    // Step 3: Voxel + Proxy + Impostor all route to the same Voxel path. Step 4 adds the
-                    // real impostor billboard. The hysteresis + cull is already a measurable win here.
 
                     Sprite sp = rd.main_sprites[i];
                     if (sp == null) continue;
+
+                    if (tier == WorldSphereMod.LOD.LodTier.Impostor)
+                    {
+                        Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
+                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
+                        if (im == null || imMat == null) continue;
+                        Vector3 imPos = rd.positions[i];
+                        Vector3 imScl = rd.scales[i];
+                        if (rd.flip_x_states[i]) imScl.x = -imScl.x;
+                        Quaternion br = Tools.RotateToCamera(ref imPos);
+                        Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
+                        MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
+                        rd.has_normal_render[i] = false;
+                        continue;
+                    }
+
                     Mesh m = VoxelMeshCache.Get(sp);
                     if (m == null) continue;
 
@@ -173,11 +187,25 @@ namespace WorldSphereMod.Voxel
                         continue;
                     }
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode());
-                    // Step 3: Voxel + Proxy + Impostor all route to the same Voxel path. Step 4 adds the
-                    // real impostor billboard. The hysteresis + cull is already a measurable win here.
 
                     Sprite sp = rd.main_sprites[i];
                     if (sp == null) continue;
+
+                    if (tier == WorldSphereMod.LOD.LodTier.Impostor)
+                    {
+                        Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
+                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
+                        if (im == null || imMat == null) { rd.scales[i] = Vector3.zero; continue; }
+                        Vector3 imPos = rd.positions[i];
+                        Vector3 imScl = rd.scales[i];
+                        if (rd.flip_x_states[i]) imScl.x = -imScl.x;
+                        Quaternion br = Tools.RotateToCamera(ref imPos);
+                        Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
+                        MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
+                        rd.scales[i] = Vector3.zero;
+                        continue;
+                    }
+
                     Mesh m = VoxelMeshCache.Get(sp);
                     if (m == null) continue;
 
