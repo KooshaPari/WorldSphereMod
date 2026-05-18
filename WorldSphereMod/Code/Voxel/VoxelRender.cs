@@ -186,6 +186,7 @@ namespace WorldSphereMod.Voxel
         {
             VoxelRender.Flush();
             VoxelMeshCache.DrainPendingDestroy();
+            WorldSphereMod.ProcGen.ProcGenCache.DrainPendingDestroy();
         }
     }
 }

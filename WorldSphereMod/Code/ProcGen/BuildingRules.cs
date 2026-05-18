@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
@@ -88,6 +89,32 @@ namespace WorldSphereMod.ProcGen
             if (registry == null || r == null) return;
             if (string.IsNullOrEmpty(r.AssetId)) return;
             registry[r.AssetId!] = r;
+        }
+    }
+
+    public static class BuildingRulesRegistry
+    {
+        static readonly ConcurrentDictionary<string, BuildingRules> _rules =
+            new ConcurrentDictionary<string, BuildingRules>();
+
+        public static void Register(string assetId, BuildingRules rules)
+        {
+            if (string.IsNullOrEmpty(assetId) || rules == null) return;
+            _rules[assetId] = rules;
+            // Drop the cached mesh so the next frame regenerates against the new rules.
+            ProcGenCache.Invalidate(assetId);
+        }
+
+        public static BuildingRules Resolve(string assetId)
+        {
+            if (string.IsNullOrEmpty(assetId)) return BuildingRules.Default;
+            return _rules.TryGetValue(assetId, out var r) ? r : BuildingRules.Default;
+        }
+
+        public static void Invalidate(string assetId)
+        {
+            if (string.IsNullOrEmpty(assetId)) return;
+            ProcGenCache.Invalidate(assetId);
         }
     }
 }
