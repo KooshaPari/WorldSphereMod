@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "wsm3d": {
+      "command": "python",
+      "args": ["-m", "wsm3d_mcp.server"],
+      "cwd": "${workspaceFolder}/Tools/wsm3d-mcp",
+      "disabled": false,
+      "alwaysAllow": ["*"]
+    },
+    "wsm3d-http": {
+      "url": "http://127.0.0.1:8766",
+      "disabled": false,
+      "alwaysAllow": ["*"]
+    }
+  }
+}

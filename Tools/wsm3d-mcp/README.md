@@ -38,36 +38,28 @@ Health check: `curl http://127.0.0.1:8766/health`
 python -m wsm3d_mcp.server
 ```
 
-## Claude Desktop Config
+## Claude Integration
 
-Add to `~/.claude/mcp-servers.json`:
+The MCP server is automatically registered in `.claude/mcp-servers.json` (project-local config).
 
-```json
-{
-  "mcpServers": {
-    "wsm3d": {
-      "command": "python",
-      "args": ["-m", "wsm3d_mcp.server"],
-      "disabled": false,
-      "alwaysAllow": ["*"]
-    }
-  }
-}
+### First-Time Setup
+
+```bash
+# 1. Clone the repo (if not already)
+git clone https://github.com/KooshaPari/WorldSphereMod.git
+
+# 2. Install MCP server in development mode
+pip install -e Tools/wsm3d-mcp
+
+# 3. Restart Claude Code
+# The MCP server will auto-connect via stdio mode (stdio) or HTTP (wsm3d-http)
 ```
 
-Or HTTP mode:
+### Manual Config (if needed)
 
-```json
-{
-  "mcpServers": {
-    "wsm3d": {
-      "url": "http://127.0.0.1:8766",
-      "disabled": false,
-      "alwaysAllow": ["*"]
-    }
-  }
-}
-```
+The config at `.claude/mcp-servers.json` has two entries:
+- **`wsm3d`** (stdio): `python -m wsm3d_mcp.server` — auto-connect on Claude startup
+- **`wsm3d-http`** (HTTP): `http://127.0.0.1:8766` — use when the server is pre-started in HTTP mode
 
 ## Tools
 

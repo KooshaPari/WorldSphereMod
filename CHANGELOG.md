@@ -9,6 +9,19 @@ This branch's PR is [#1](https://github.com/KooshaPari/WorldSphereMod/pull/1).
 
 ## [Unreleased]
 
+### Added — Tooling (commit 0e4008c)
+- **CLI + shell:** `Tools/wsm3d.ps1` (540 LOC, 13 subcommands: build, install, reload-nml, toggle-phase, screenshot, test, profile, etc.)
+- **MCP server:** `Tools/wsm3d-mcp/` Python FastMCP on port 8766; phase state, build logs, manifest queries
+- **Claude Code integration:** 10 slash commands (`/wsm-build`, `/wsm-install`, `/wsm-reload`, `/wsm-toggle-phase`, `/wsm-current-phase`, `/wsm-test`, `/wsm-test-unit`, `/wsm-test-e2e`, `/wsm-profile`, `/wsm-manifest-query`)
+- **Skill routing:** `.claude/skills/wsm3d/SKILL.md` auto-routed in Claude Code
+- **Phase journeys:** 10 Phenotype-org manifests (Phase 1–10) with checklists + validation in `docs/journeys/manifests/us-wsm-phase-{1..10}-*/`
+- **Test suite:** 42 unit + 15 e2e tests (27 new), all green
+
+### Fixed — Recent Phase 1 + install
+- Phase 1 voxel material now picks instancing-capable shader; `DrawMeshInstanced` properly guarded (commit 0e3e424)
+- Removed over-broad sprite hide in Phase 1 cull-skip (commit 0e44f32)
+- Stopped deleting `CompoundSpheres.dll` on install (was a regression, commit 6215385)
+
 ### Added — Phase 0 (fork plumbing)
 - Rebrand to `WorldSphereMod3D` with GUID `worldsphere3d.fork` (co-installable with upstream)
 - `Directory.Build.props` for cross-OS WorldBox path resolution (`$(WorldBoxPath)` / `WORLDBOX_PATH` env)

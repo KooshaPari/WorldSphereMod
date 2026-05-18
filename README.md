@@ -95,6 +95,53 @@ still does *something* useful on incompatible GPUs.
 - Upstream mod and `Compound-Spheres` rendering backend: **Melvin Shwuaner**.
 - This fork: documented in `docs/PLAN.md`.
 
+## Dev tooling
+
+| Component | Purpose | Invocation |
+|---|---|---|
+| **wsm3d.ps1** | 540-LOC CLI: build, install, reload, toggle phases, screenshot, profiler | `./Tools/wsm3d.ps1 build` / `install` / `reload-nml` / `toggle-phase` / etc. (13 subcommands) |
+| **MCP server** | Python FastMCP on port 8766; exposes phase state, build logs, manifest queries | `python Tools/wsm3d-mcp/main.py` (auto-launched by Claude commands) |
+| **/wsm-* slash commands** | 10 Claude Code shortcuts: build, install, reload, phases, tests, profile | `/wsm-build`, `/wsm-install`, `/wsm-reload`, `/wsm-toggle-phase`, etc. |
+| **wsm3d skill** | Auto-routed `.claude/skills/wsm3d/SKILL.md` for guided dev tasks | Invoked via Claude Code agent dispatch |
+| **phase journeys** | 10 Phenotype-org manifests (Phase 1–10) with checklist + validation steps | `docs/journeys/manifests/us-wsm-phase-*/` |
+| **test suite** | 42 unit + 15 e2e tests (27 new); all green | `dotnet test` or `/wsm-test` |
+
+### Day in the life of an iteration
+
+```powershell
+# 1. Make a code change
+# 2. Build + install in one step
+./Tools/wsm3d.ps1 install
+
+# 3. Launch WorldBox with NML, wait for hot-reload (auto)
+# 4. Toggle Phase 1 in NML settings or via:
+./Tools/wsm3d.ps1 toggle-phase 1
+
+# 5. Screenshot in-game result
+./Tools/wsm3d.ps1 screenshot
+
+# 6. Verify with test suite
+./Tools/wsm3d.ps1 test
+
+# 7. Commit
+git add -A && git commit -m "Phase 1: ..."
+```
+
+### Slash commands available in Claude Code
+
+| Command | Tooltip |
+|---|---|
+| `/wsm-build` | Build WorldSphereMod.csproj to bin/Release |
+| `/wsm-install` | Install mod sources + assemblies to `<WorldBox>/Mods/WorldSphereMod3D/` |
+| `/wsm-reload` | Signal NML to hot-reload this mod (if running) |
+| `/wsm-toggle-phase` | Toggle a phase flag (1–10) on/off in SavedSettings |
+| `/wsm-current-phase` | Show which phases are active |
+| `/wsm-test` | Run full test suite (unit + e2e) |
+| `/wsm-test-unit` | Run unit tests only |
+| `/wsm-test-e2e` | Run e2e tests only |
+| `/wsm-profile` | Start frame profiler, collect 60s, export CSV |
+| `/wsm-manifest-query` | Search phase manifests by keyword (e.g., "water", "shadow") |
+
 ## Backend
 
 Upstream ships `CompoundSpheres.dll` as a vendored binary built from

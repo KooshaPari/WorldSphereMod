@@ -1,0 +1,81 @@
+name: journeys-gate
+
+# Regression gate: validates all Phenotype journey manifests parse correctly
+# and the verify CLI can ingest them in mock mode (schema-only, no actual
+# screenshot verification).
+
+on:
+  pull_request:
+  push:
+    branches: [main, "claude/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  journeys-verify:
+    name: journeys verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Clone and build phenotype-journey
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/KooshaPari/phenotype-journeys /tmp/pj
+          cd /tmp/pj
+          cargo build --release --bin phenotype-journey
+
+      - name: Validate manifests JSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Validating manifest JSON structure..."
+          jq . docs/journeys/manifests/*/manifest.json > /dev/null
+          echo "✓ All manifests are valid JSON"
+
+      - name: Verify manifests in mock mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          PJ_BIN="/tmp/pj/target/release/phenotype-journey"
+          MANIFEST_DIR="docs/journeys/manifests"
+
+          echo "Verifying all manifests with phenotype-journey (mock mode)..."
+
+          for manifest in $(find "$MANIFEST_DIR" -maxdepth 2 -name "manifest.json" | sort); do
+            phase_id=$(basename $(dirname "$manifest"))
+            echo ""
+            echo "→ $phase_id"
+
+            # Run verify in mock mode; accept failure from screenshot checks but
+            # reject errors from schema/binary issues. Extract just result status.
+            "$PJ_BIN" verify "$manifest" --mode mock 2>&1 | tail -5
+          done
+
+          echo ""
+          echo "✓ All manifests verified"
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: journeys-manifests
+          path: docs/journeys/manifests/
+          if-no-files-found: ignore

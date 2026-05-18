@@ -5,7 +5,7 @@
 
 .DESCRIPTION
   One-file command dispatcher for WSM3D development. Routes to subcommands:
-    build, install, launch, kill, relaunch, log, screenshot, settings, toggle, status, journey, help.
+    build, install, launch, kill, relaunch, log, screenshot, settings, toggle, status, journey, watch, help.
 
 .EXAMPLE
   ./wsm3d.ps1 build
@@ -410,6 +410,93 @@ function Invoke-JourneyVerify {
     & phenotype-journey verify -id $Id
 }
 
+function Invoke-Watch {
+    param(
+        [switch]$Launch,
+        [string]$Filter = "*.cs"
+    )
+
+    $codeDir = Join-Path $RepoRoot "WorldSphereMod/Code"
+    if (-not (Test-Path $codeDir)) {
+        throw "Code directory not found at $codeDir"
+    }
+
+    Write-Info "Watching $codeDir for changes (filter: $Filter)..."
+    if ($Launch) {
+        $gameRunning = Get-Process worldbox -ErrorAction SilentlyContinue
+        if (-not $gameRunning) {
+            Write-Info "Launching WorldBox..."
+            Invoke-Launch
+            Start-Sleep -Seconds 5
+        } else {
+            Write-Warn "WorldBox already running."
+        }
+    }
+
+    $watcher = New-Object System.IO.FileSystemWatcher
+    $watcher.Path = $codeDir
+    $watcher.Filter = $Filter
+    $watcher.IncludeSubdirectories = $true
+    $watcher.EnableRaisingEvents = $false
+
+    $script:lastFireMs = 0
+    $script:debounceMs = 1500
+    $debounceTimer = New-Object System.Timers.Timer
+    $debounceTimer.Interval = 500
+    $debounceTimer.AutoReset = $false
+
+    $onTimerElapsed = {
+        $now = [DateTime]::UtcNow.Ticks / 10000
+        if ($now - $script:lastFireMs -ge $script:debounceMs) {
+            $debounceTimer.Stop()
+
+            Write-Host "`n" -NoNewline
+            Write-Info "Change detected, installing..."
+            try {
+                Invoke-Install -NoBuild:$false
+                $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+                Write-Success "✓ installed at $ts; click Reload in NML to see changes"
+            } catch {
+                Write-Error-Custom "Install failed: $($_.Exception.Message)"
+            }
+
+            $script:lastFireMs = 0
+            $watcher.EnableRaisingEvents = $true
+        }
+    }
+
+    $onFileChange = {
+        $script:lastFireMs = [DateTime]::UtcNow.Ticks / 10000
+        $watcher.EnableRaisingEvents = $false
+        $debounceTimer.Stop()
+        $debounceTimer.Start()
+    }
+
+    Register-ObjectEvent -InputObject $watcher -EventName "Changed" -Action $onFileChange | Out-Null
+    Register-ObjectEvent -InputObject $watcher -EventName "Created" -Action $onFileChange | Out-Null
+    Register-ObjectEvent -InputObject $watcher -EventName "Renamed" -Action $onFileChange | Out-Null
+    Register-ObjectEvent -InputObject $watcher -EventName "Deleted" -Action $onFileChange | Out-Null
+    Register-ObjectEvent -InputObject $debounceTimer -EventName "Elapsed" -Action $onTimerElapsed | Out-Null
+
+    Write-Success "Watching (Ctrl+C to stop)..."
+    $watcher.EnableRaisingEvents = $true
+    $debounceTimer.Start()
+
+    try {
+        while ($true) {
+            Start-Sleep -Seconds 1
+        }
+    } finally {
+        Write-Info "Cleaning up..."
+        $watcher.EnableRaisingEvents = $false
+        $debounceTimer.Stop()
+        Get-EventSubscriber | Where-Object { $_.SourceObject -eq $watcher -or $_.SourceObject -eq $debounceTimer } | Unregister-Event
+        $watcher.Dispose()
+        $debounceTimer.Dispose()
+        Write-Success "Watch stopped."
+    }
+}
+
 function Show-Help {
     Write-Host @"
 WorldSphereMod3D CLI — Command Surface
@@ -458,6 +545,12 @@ Commands:
 
   journey verify -Id <id>
       Verify a journey by ID (delegates to phenotype-journey CLI).
+
+  watch [-Launch] [-Filter <pattern>]
+      Watch WorldSphereMod/Code/ for changes (default filter: *.cs). On file change
+      (debounced 1500ms), run install. Optional -Launch starts the game once at
+      startup if not already running. -Filter allows narrower watch (e.g., *.shader).
+      Press Ctrl+C to exit.
 
   help
       Show this help text.
@@ -630,6 +723,17 @@ try {
                     exit 1
                 }
             }
+        }
+
+        "watch" {
+            $params = @{
+                Launch = $commandArgs -contains "-Launch"
+                Filter = "*.cs"
+            }
+            if ($commandArgs -contains "-Filter") {
+                $params["Filter"] = $commandArgs[$commandArgs.IndexOf("-Filter") + 1]
+            }
+            Invoke-Watch @params
         }
 
         "help" {

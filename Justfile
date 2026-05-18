@@ -101,9 +101,105 @@ lint-fix:
 # Pre-release gate: build + tests + lint + docs build all green.
 release-check: build-all test-all lint docs-build
 
+# ── Journeys ──────────────────────────────────────────────────────────────
+
+# Verify all Phenotype journey manifests in mock mode (offline, deterministic).
+journeys:
+    #!/bin/bash
+    set -euo pipefail
+
+    # Try to find phenotype-journey on PATH; if not, build it locally.
+    if command -v phenotype-journey &> /dev/null; then
+      PJ_BIN="phenotype-journey"
+      echo "Using phenotype-journey from PATH"
+    else
+      CACHE_DIR="tools/.cache/phenotype-journeys"
+      PJ_BIN="$CACHE_DIR/target/release/phenotype-journey"
+
+      if [ ! -f "$PJ_BIN" ]; then
+        echo "Building phenotype-journey to $CACHE_DIR..."
+        mkdir -p "$CACHE_DIR"
+        if ! git clone https://github.com/KooshaPari/phenotype-journeys "$CACHE_DIR" 2>&1 | grep -v "Cloning into"; then
+          echo "✗ Failed to clone phenotype-journeys"
+          exit 1
+        fi
+        cd "$CACHE_DIR"
+        if ! cargo build --release --bin phenotype-journey 2>&1 | tail -10; then
+          echo ""
+          echo "✗ Build failed (requires Rust nightly for edition2024)"
+          echo "  Install: rustup default nightly"
+          echo "  Then: just journeys"
+          exit 1
+        fi
+        cd - > /dev/null
+      fi
+    fi
+
+    echo ""
+    echo "Verifying manifests in mock mode..."
+    for manifest in $(find docs/journeys/manifests -maxdepth 2 -name "manifest.json" | sort); do
+      phase_id=$(basename $(dirname "$manifest"))
+      "$PJ_BIN" verify "$manifest" --mode mock 2>&1 | head -1 && echo "  ✓ $phase_id"
+    done
+    echo ""
+    echo "All manifests verified."
+
+# Capture screenshots for journey assertions. Use /wsm-screenshot or Tools/wsm3d.ps1.
+journeys-capture:
+    #!/bin/bash
+    echo "→ Screenshot capture workflow:"
+    echo ""
+    echo "  1. Launch game with the mod: just install-mod"
+    echo "  2. Use Claude WSM3D commands:"
+    echo "     /wsm-screenshot [manifest-id] [step-index]"
+    echo ""
+    echo "  3. Or use PowerShell:"
+    echo "     pwsh Tools/wsm3d.ps1 screenshot [options]"
+    echo ""
+    echo "See docs/journeys/CAPTURE.md for details."
+
 # ── Clean ─────────────────────────────────────────────────────────────────
 
 # Remove every bin/ and obj/ directory in the repo.
 clean:
     find . -type d \( -name bin -o -name obj \) -not -path './.git/*' -prune -exec rm -rf {} + 2>/dev/null || true
     @echo "Cleaned bin/ and obj/."
+
+# ── MCP Server ─────────────────────────────────────────────────────────────
+
+# Install MCP server for WorldSphereMod tooling.
+mcp-install:
+    #!/bin/bash
+    if command -v uv &>/dev/null; then
+        uv pip install -e Tools/wsm3d-mcp
+    else
+        pip install -e Tools/wsm3d-mcp
+    fi
+
+# Run WSM3D MCP server on http://localhost:8766
+mcp-run:
+    python -m wsm3d_mcp.server --http --port 8766
+
+# ── Mod Installation ──────────────────────────────────────────────────────
+
+# Install mod into local WorldBox (PowerShell, synonym for 'install').
+install-mod:
+    pwsh Tools/install.ps1
+
+# Relaunch WorldBox with the mod (PowerShell).
+relaunch:
+    pwsh Tools/wsm3d.ps1 relaunch
+
+# Capture screenshot for journey asset (PowerShell).
+screenshot:
+    pwsh Tools/wsm3d.ps1 screenshot
+
+# ── Dev CLI ───────────────────────────────────────────────────────────────
+
+# Hot-reload: build + install on file change.
+watch:
+    pwsh Tools/wsm3d.ps1 watch
+
+# Print machine-readable diagnostic status (JSON).
+doctor:
+    pwsh Tools/wsm3d.ps1 status -Json

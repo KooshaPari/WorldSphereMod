@@ -12,10 +12,10 @@ authors = [
     {name = "KooshaPari", email = "kooshapari@gmail.com"},
 ]
 dependencies = [
-    "fastmcp>=0.2.0",
-    "pydantic>=2.0",
-    "uvicorn>=0.24.0",
-    "python-dotenv>=1.0.0",
+    "fastmcp>=3.3.1",
+    "pydantic>=2.13.4",
+    "uvicorn>=0.47.0",
+    "python-dotenv>=1.2.2",
 ]
 
 [project.optional-dependencies]

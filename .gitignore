@@ -11,3 +11,6 @@ docs/.vitepress/cache/
 
 # Vercel
 .vercel/
+
+# tools cache (phenotype-journeys build, etc.)
+tools/.cache/
