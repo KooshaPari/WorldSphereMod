@@ -38,6 +38,13 @@ using WorldSphereMod;
         {
             Object.AddComponent<WorldSphereMod.Voxel.VoxelFrameDriver>();
         }
+        if (Object != null && Object.GetComponent<WorldSphereMod.Perf.ProfilerFrameDriver>() == null)
+        {
+            Object.AddComponent<WorldSphereMod.Perf.ProfilerFrameDriver>();
+        }
+        // Phase 7 Step 1: rig-tracker MonoBehaviour. EnsureCreated is idempotent
+        // and gated on IsWorld3D && WorldspaceUI internally.
+        WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated();
     }
 
     public void PostInit()

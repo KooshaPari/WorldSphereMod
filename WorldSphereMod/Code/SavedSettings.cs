@@ -42,6 +42,7 @@ namespace WorldSphereMod
         public float FogDensity = 0.0f;
         // Phase 9: URP post-processing (bloom, color grading, vignette).
         public bool PostFX = false;
+        public bool ParticleEffects = false;
         // Phase 10: LOD ladder + impostor fallback.
         public float LODScale = 1.0f;
         public float WaterDetail = 1.0f;

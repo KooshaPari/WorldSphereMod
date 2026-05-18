@@ -188,6 +188,7 @@ namespace WorldSphereMod.Voxel
             VoxelMeshCache.DrainPendingDestroy();
             WorldSphereMod.ProcGen.ProcGenCache.DrainPendingDestroy();
             WorldSphereMod.Water.WaterRender.UpdateLifecycle();
+            WorldSphereMod.Lighting.SunDriver.Update();
         }
     }
 }

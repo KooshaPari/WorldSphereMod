@@ -59,6 +59,7 @@ namespace WorldSphereMod
             WorldSphereTab.Begin();
             DimensionConverter.Prepare();
             Patch();
+            if (Core.IsWorld3D) WorldSphereMod.Lighting.SunDriver.Init();
             DoSomeOtherStuff();
         }
         static void DoSomeOtherStuff()
