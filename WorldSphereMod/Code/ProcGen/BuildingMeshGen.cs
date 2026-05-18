@@ -16,6 +16,12 @@ namespace WorldSphereMod.ProcGen
             {
                 return UnitCube($"procgen:fallback:{asset?.id ?? "null"}");
             }
+            // Atlased textures imported without Read/Write enabled throw on GetPixels32.
+            // Bail with a stub cube rather than crashing the render pass.
+            if (!sprite.texture.isReadable)
+            {
+                return UnitCube($"procgen:unreadable:{asset?.id ?? "null"}");
+            }
 
             Rect texRect = sprite.textureRect;
             int w = Mathf.Max(1, (int)texRect.width);
@@ -36,7 +42,10 @@ namespace WorldSphereMod.ProcGen
             RectInt bbox = DetectFootprint(pixels, w, h);
             if (bbox.width <= 0 || bbox.height <= 0)
             {
-                return UnitCube($"procgen:fallback:{asset?.id ?? "null"}");
+                // Blank/transparent sprite — return null so the cache doesn't poison
+                // this asset id with a unit-cube fallback for the session. Common during
+                // building construction animations where some frames are temporarily empty.
+                return null;
             }
 
             float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
@@ -59,7 +68,7 @@ namespace WorldSphereMod.ProcGen
             List<DoorSpec> openings = InferOpenings(pixels, w, h, bbox, rules);
 
             Color wallColor = SampleWallColor(pixels, w, bbox, stories);
-            InferRoof(pixels, w, bbox, rules, out RoofStyle roofStyle, out Color roofColor);
+            InferRoof(pixels, w, bbox, rules, wallColor, out RoofStyle roofStyle, out Color roofColor);
 
             return BuildMesh(asset, halfX, halfZ, storyHeight, bbox, openings, pxToWorld, wallColor, roofColor, roofStyle, rules.PerpendicularRoof);
         }
@@ -131,11 +140,17 @@ namespace WorldSphereMod.ProcGen
                 else { hue[yy] = -1f; lum[yy] = 0f; }
             }
 
+            // Seed bandHue from the first non-transparent row, not hue[0]. A transparent
+            // top row leaves hue[0]=-1, which would make the first opaque row always
+            // trigger a phantom band break (inflated story count on padded sprites).
+            int seed = 0;
+            while (seed < bbox.height && hue[seed] < 0f) seed++;
+            if (seed >= bbox.height) return 1;
             int bands = 1;
-            float bandHue = hue[0];
-            float bandLumSum = lum[0];
+            float bandHue = hue[seed];
+            float bandLumSum = lum[seed];
             int bandLen = 1;
-            for (int yy = 1; yy < bbox.height; yy++)
+            for (int yy = seed + 1; yy < bbox.height; yy++)
             {
                 if (hue[yy] < 0f) continue;
                 float dH = Mathf.Min(Mathf.Abs(hue[yy] - bandHue), 360f - Mathf.Abs(hue[yy] - bandHue));
@@ -263,19 +278,26 @@ namespace WorldSphereMod.ProcGen
             return AverageColor(px, w, bbox.xMin, yStart, bbox.width, slice);
         }
 
-        static bool IsRoofPixel(Color32 c32, out float hueDeg)
+        // "Roof pixel" = visibly distinct from the wall color and either coloured (any hue
+        // with mild saturation) or a desaturated dark/light tone that still contrasts with
+        // the wall band. Previously restricted to warm hues (0-40° or 340-360°) which
+        // missed grey stone, green thatch, and blue slate roofs — most WorldBox buildings.
+        static bool IsRoofPixel(Color32 c32, out float hueDeg, Color wallRef)
         {
             hueDeg = -1f;
             if (c32.a <= AlphaThreshold) return false;
-            Color.RGBToHSV((Color)c32, out float H, out float S, out float _);
-            if (S <= 0.3f) return false;
-            float deg = H * 360f;
-            hueDeg = deg;
-            return (deg <= 40f) || (deg >= 340f);
+            Color c = c32;
+            Color.RGBToHSV(c, out float H, out float _, out float _2);
+            hueDeg = H * 360f;
+            float dr = c.r - wallRef.r;
+            float dg = c.g - wallRef.g;
+            float db = c.b - wallRef.b;
+            float dist = Mathf.Sqrt(dr * dr + dg * dg + db * db);
+            return dist > 0.18f;
         }
 
         static void InferRoof(Color32[] px, int w, RectInt bbox, BuildingRules rules,
-            out RoofStyle style, out Color color)
+            Color wallRef, out RoofStyle style, out Color color)
         {
             if (rules.Roof != RoofStyle.Inferred)
             {
@@ -303,7 +325,7 @@ namespace WorldSphereMod.ProcGen
                 {
                     int y = bandYStart + yy;
                     Color32 c = px[y * w + x];
-                    if (IsRoofPixel(c, out float hueDeg))
+                    if (IsRoofPixel(c, out float hueDeg, wallRef))
                     {
                         int bin = Mathf.Clamp((int)(hueDeg / 10f), 0, 35);
                         hueBins[bin]++;

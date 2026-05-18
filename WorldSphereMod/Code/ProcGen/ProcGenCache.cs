@@ -46,12 +46,16 @@ namespace WorldSphereMod.ProcGen
             }
 
             Mesh m = BuildingMeshGen.Generate(asset, rules);
+            // Don't cache a null result — Generate returns null for blank construction
+            // frames; we want to retry on the next call when the sprite is non-blank
+            // rather than poisoning the cache with a permanent fallback.
+            if (m == null) return null;
 
             lock (_cache)
             {
                 if (_cache.TryGetValue(key, out var existing))
                 {
-                    if (m != null) _pendingDestroy.Enqueue(m);
+                    _pendingDestroy.Enqueue(m);
                     existing.LastFrame = _frame;
                     _cache[key] = existing;
                     return existing.Mesh;
@@ -78,18 +82,16 @@ namespace WorldSphereMod.ProcGen
 
         public static void Clear()
         {
+            // Route everything through _pendingDestroy so the actual Object.Destroy
+            // calls happen on the main thread via DrainPendingDestroy, not under the
+            // lock. Object.Destroy is main-thread-only — see Unity docs.
             lock (_cache)
             {
                 foreach (var e in _cache.Values)
                 {
-                    if (e.Mesh != null) Object.Destroy(e.Mesh);
+                    if (e.Mesh != null) _pendingDestroy.Enqueue(e.Mesh);
                 }
                 _cache.Clear();
-                while (_pendingDestroy.Count > 0)
-                {
-                    var m = _pendingDestroy.Dequeue();
-                    if (m != null) Object.Destroy(m);
-                }
             }
         }
 

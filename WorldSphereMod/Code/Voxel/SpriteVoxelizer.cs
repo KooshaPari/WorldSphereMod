@@ -35,6 +35,12 @@ namespace WorldSphereMod.Voxel
             {
                 return CreateEmpty();
             }
+            // Atlased textures imported without Read/Write enabled throw on GetPixels32.
+            // Return an empty mesh so the caller (cache) doesn't crash the render pass.
+            if (!sprite.texture.isReadable)
+            {
+                return CreateEmpty();
+            }
 
             // Read the sprite's rectangle out of its atlas. We don't use the
             // 8x8 fast-path here because actor sprites are typically larger;
