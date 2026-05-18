@@ -1,6 +1,15 @@
-# ADR-NNNN: Title
+# ADR-NNN: Title
 
-**Status:** Proposed | Accepted | Rejected | Superseded by ADR-NNNN | Deprecated
+<!--
+  Filename convention: ADR-NNN-<kebab-title>.md (Phenotype org standard,
+  per docs/phenotype-conventions.md §5). The existing ADRs 0001-0005
+  predate this convention and ship as NNNN-kebab.md — grandfathered to
+  avoid breaking inbound links. New ADRs MUST use the ADR-NNN-<kebab>.md
+  form. See ADR.md at repo root for the canonical index.
+-->
+
+
+**Status:** Proposed | Accepted | Rejected | Superseded by ADR-NNN | Deprecated
 
 **Date:** YYYY-MM-DD
 
@@ -66,7 +75,7 @@ it without re-deriving the reasoning.
 
 ## References
 
-- Related ADRs: ADR-NNNN
+- Related ADRs: ADR-NNN
 - Linked design docs: `docs/phase{N}-architecture.md`
 - Code anchors: `path/to/file.cs:LINE`
 - External references: upstream commits, vendor docs, papers

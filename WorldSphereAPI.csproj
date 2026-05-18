@@ -15,10 +15,13 @@
   <ItemGroup>
     <Compile Remove="WorldSphereMod\**" />
     <Compile Remove="WorldSphereTester\**" />
+    <Compile Remove="tests\**" />
     <EmbeddedResource Remove="WorldSphereMod\**" />
     <EmbeddedResource Remove="WorldSphereTester\**" />
+    <EmbeddedResource Remove="tests\**" />
     <None Remove="WorldSphereMod\**" />
     <None Remove="WorldSphereTester\**" />
+    <None Remove="tests\**" />
   </ItemGroup>
 
   <ItemGroup>
