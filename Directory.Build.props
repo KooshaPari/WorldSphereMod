@@ -1,0 +1,25 @@
+<Project>
+
+  <!--
+    Hard fork build portability.
+    Override the path to your WorldBox install (the folder containing worldbox_Data/) with:
+      $env:WORLDBOX_PATH = "D:/SteamLibrary/steamapps/common/worldbox"   (PowerShell)
+      export WORLDBOX_PATH="$HOME/.steam/steam/steamapps/common/worldbox" (bash)
+      dotnet build /p:WorldBoxPath="C:/Path/To/worldbox"                  (CLI override)
+
+    Defaults below cover the typical Steam install locations on each OS so vanilla
+    contributors don't have to set anything. Resolved with first-wins order.
+  -->
+
+  <PropertyGroup>
+    <WorldBoxPath Condition="'$(WorldBoxPath)' == '' AND '$(WORLDBOX_PATH)' != ''">$(WORLDBOX_PATH)</WorldBoxPath>
+    <WorldBoxPath Condition="'$(WorldBoxPath)' == '' AND '$(OS)' == 'Windows_NT'">C:/Program Files (x86)/Steam/steamapps/common/worldbox</WorldBoxPath>
+    <WorldBoxPath Condition="'$(WorldBoxPath)' == '' AND $([MSBuild]::IsOSPlatform('OSX'))">$(HOME)/Library/Application Support/Steam/steamapps/common/worldbox</WorldBoxPath>
+    <WorldBoxPath Condition="'$(WorldBoxPath)' == '' AND $([MSBuild]::IsOSPlatform('Linux'))">$(HOME)/.steam/steam/steamapps/common/worldbox</WorldBoxPath>
+
+    <WorldBoxManaged>$(WorldBoxPath)/worldbox_Data/Managed</WorldBoxManaged>
+    <WorldBoxNML>$(WorldBoxPath)/worldbox_Data/StreamingAssets/mods/NML</WorldBoxNML>
+    <WorldBoxNMLAssemblies>$(WorldBoxNML)/Assemblies</WorldBoxNMLAssemblies>
+  </PropertyGroup>
+
+</Project>

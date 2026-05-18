@@ -1,10 +1,93 @@
-# WorldSphereMod
-The 3D Worldbox Mod
+# WorldSphereMod3D (hard fork)
 
-This Mod has an API so that other mods:
+A hard fork of [MelvinShwuaner/WorldSphereMod](https://github.com/MelvinShwuaner/WorldSphereMod)
+that finishes the 3D conversion of WorldBox.
 
-can detect if the game is in 3D Mode
+Upstream `WorldSphereMod` puts the **terrain** in 3D but leaves every visible
+entity — actors, buildings, drops, items, projectiles, effects, talk bubbles,
+shadows, even Crabzilla and dragons — as a 2D `SpriteRenderer` that's been
+rotated to face the camera. UI is flat Canvas, water is tile colour, foliage
+is sprite cards, lighting is a skybox + per-tile baked colour, animation is
+frame-swap sprite arrays.
 
-can change the 3D Attributes of actors, effects, buildings, and projectiles
+This fork lands a real 3D pipeline on top of that foundation:
 
-The Backend (for rendering the sphere) https://github.com/MelvinShwuaner/Compound-Spheres
+| Phase | Status | What changes |
+|---|---|---|
+| 0  | landed       | Fork metadata, build portability (`WORLDBOX_PATH`), CI, settings/API v2 |
+| 1  | scaffolding  | Voxelized actors / items / drops / projectiles (per-pixel cube mesh) |
+| 2  | planned      | Procedural building meshes (extruded footprint + roof inference) |
+| 3  | planned      | Crossed-quad foliage / clouds with wind shader |
+| 4  | planned      | Mesh water (Gerstner waves, shoreline foam, depth tint) |
+| 5  | planned      | Directional sun + cascaded shadow maps + SSAO |
+| 6  | planned      | Skeletal animation driver (auto-rigged from sprite anatomy) |
+| 7  | planned      | Worldspace UI (nameplates, health bars, selection rings) |
+| 8  | planned      | Procedural sky + day/night cycle + fog |
+| 9  | planned      | Mesh particles + decals + post-processing |
+| 10 | planned      | LOD ladder, impostor fallback for older hardware, polish |
+
+The full plan, including file-by-file changes and verification steps, lives
+at `docs/PLAN.md`.
+
+## Installation
+
+This fork uses a different `GUID` (`worldsphere3d.fork`) than upstream so it
+is **co-installable** with the original `WorldSphereMod`. Enable only one at a
+time in NeoModLoader to avoid double-patching.
+
+Drop the built mod into
+`%APPDATA%/NeoModLoader/Mods/WorldSphereMod3D/` (Windows) or the equivalent
+under `~/Library/Application Support/` (macOS) / `~/.config/` (Linux).
+
+## Building
+
+The build uses your local WorldBox install for reference assemblies. Point
+`WORLDBOX_PATH` at it (the folder containing `worldbox_Data/`):
+
+```bash
+# Linux/macOS
+export WORLDBOX_PATH="$HOME/.steam/steam/steamapps/common/worldbox"
+dotnet build WorldSphereMod.csproj -c Release
+
+# Windows PowerShell
+$env:WORLDBOX_PATH = "C:/Program Files (x86)/Steam/steamapps/common/worldbox"
+dotnet build WorldSphereMod.csproj -c Release
+```
+
+If `WORLDBOX_PATH` is unset the build falls back to the default Steam
+location for the host OS (see `Directory.Build.props`).
+
+## API
+
+External mods linking against `WorldSphereAPI.dll` keep the v1 surface
+unchanged. New v2 calls (`IsModel3D`, `RegisterCustomMesh`, …) safely no-op
+when the connected host is upstream rather than this fork.
+
+```csharp
+if (WorldSphereAPI.Connect(out var api))
+{
+    if (api.IsModel3D) {
+        api.RegisterCustomMesh("my_unit", myHandMadeMesh, myAlbedo);
+    }
+}
+```
+
+## Compatibility & hardware
+
+The compute-shader / GPU-instancing / indirect-args gate from upstream is
+preserved (`Mod.cs:21`). Hardware that fails the gate gets the same red icon
+as before. Phase 10 will add an impostor-billboard fallback path so the mod
+still does *something* useful on incompatible GPUs.
+
+## Credits
+
+- Upstream mod and `Compound-Spheres` rendering backend: **Melvin Shwuaner**.
+- This fork: documented in `docs/PLAN.md`.
+
+## Backend
+
+Upstream ships `CompoundSpheres.dll` as a vendored binary built from
+[MelvinShwuaner/Compound-Spheres](https://github.com/MelvinShwuaner/Compound-Spheres).
+Phase 0 keeps the vendored DLL for compatibility; Phase 5 replaces it with a
+submodule build (`External/Compound-Spheres-3D/`) that emits per-vertex normals
+and exposes a water-mask buffer.

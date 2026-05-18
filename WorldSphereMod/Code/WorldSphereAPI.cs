@@ -1,5 +1,6 @@
 ﻿using NeoModLoader.General;
 using System;
+using System.Collections.Concurrent;
 using System.Reflection;
 using UnityEngine;
 using WorldSphereMod.Effects;
@@ -8,6 +9,8 @@ namespace WorldSphereMod.API
 {
     public static class WorldSphereModAPI
     {
+        // Upstream v1 surface (preserved verbatim for compatibility) ----------
+
         public static bool IsWorld3D()
         {
             return Core.IsWorld3D;
@@ -37,9 +40,43 @@ namespace WorldSphereMod.API
             }
             catch (Exception ex)
             {
-                Debug.Log($"Setting of Name {Name} and Type {Type} Not Found!");
+                Debug.Log($"Setting of Name {Name} and Type {Type} Not Found! ({ex.Message})");
                 return null;
             }
+        }
+
+        // v2 surface (WorldSphereMod3D fork additions) -------------------------
+        //
+        // Backwards-compatible: any mod that linked against v1 still works. New
+        // entry points let downstream mods override the voxelization / procgen /
+        // rigging defaults the fork ships with.
+
+        /// <summary>True once the v2 mesh pipeline (voxel/procgen) is active.</summary>
+        public static bool IsModel3D()
+        {
+            return Core.IsWorld3D
+                && Core.savedSettings.VoxelEntities
+                && SystemInfo.supportsInstancing;
+        }
+
+        internal static readonly ConcurrentDictionary<string, MeshOverride> MeshOverrides
+            = new ConcurrentDictionary<string, MeshOverride>();
+
+        /// <summary>Replace the auto-voxelized mesh for an asset with an author-supplied one.</summary>
+        public static void RegisterCustomMesh(string assetId, Mesh mesh, Texture albedo)
+        {
+            if (string.IsNullOrEmpty(assetId) || mesh == null) return;
+            MeshOverrides[assetId] = new MeshOverride { Mesh = mesh, Albedo = albedo };
+        }
+
+        /// <summary>Fired whenever the day/night driver advances. Argument: 0..1 (0=midnight, 0.5=noon).</summary>
+        public static event Action<float>? OnTimeOfDayChanged;
+        internal static void RaiseTimeOfDay(float t) => OnTimeOfDayChanged?.Invoke(t);
+
+        internal struct MeshOverride
+        {
+            public Mesh Mesh;
+            public Texture Albedo;
         }
     }
 }

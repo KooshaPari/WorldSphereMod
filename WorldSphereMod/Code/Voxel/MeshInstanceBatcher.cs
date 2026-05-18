@@ -1,0 +1,106 @@
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.Rendering;
+
+namespace WorldSphereMod.Voxel
+{
+    /// <summary>
+    /// GPU-instanced renderer for voxel/procgen meshes. Buckets submissions by
+    /// (mesh, material) and flushes them via <see cref="Graphics.DrawMeshInstanced"/> —
+    /// 1023 instances per call. The mod's compute-shader/instancing gate in
+    /// <c>Mod.OnLoad</c> guarantees the GPU supports this path.
+    ///
+    /// Usage:
+    /// <code>
+    ///   MeshInstanceBatcher.Submit(mesh, material, matrix, color);
+    ///   ...
+    ///   MeshInstanceBatcher.Flush();   // call once per frame after render data is built
+    /// </code>
+    /// </summary>
+    public static class MeshInstanceBatcher
+    {
+        struct Key
+        {
+            public Mesh Mesh;
+            public Material Material;
+            public override int GetHashCode()
+            {
+                int m = Mesh != null ? Mesh.GetInstanceID() : 0;
+                int x = Material != null ? Material.GetInstanceID() : 0;
+                return m * 397 ^ x;
+            }
+            public override bool Equals(object obj)
+            {
+                if (obj is Key k) return k.Mesh == Mesh && k.Material == Material;
+                return false;
+            }
+        }
+
+        class Bucket
+        {
+            public readonly List<Matrix4x4> Matrices = new List<Matrix4x4>(1024);
+            public readonly List<Vector4>   Colors   = new List<Vector4>(1024);
+            public MaterialPropertyBlock    Block    = new MaterialPropertyBlock();
+        }
+
+        static readonly Dictionary<Key, Bucket> _buckets = new Dictionary<Key, Bucket>(128);
+        static readonly int _colorProp = Shader.PropertyToID("_InstanceColor");
+        const int kBatch = 1023;
+
+        public static long FrameDrawCalls;
+        public static long FrameInstances;
+
+        public static void Submit(Mesh mesh, Material mat, Matrix4x4 matrix, Color tint)
+        {
+            if (mesh == null || mat == null) return;
+            var k = new Key { Mesh = mesh, Material = mat };
+            if (!_buckets.TryGetValue(k, out var b))
+            {
+                b = new Bucket();
+                _buckets[k] = b;
+            }
+            b.Matrices.Add(matrix);
+            b.Colors.Add(tint);
+        }
+
+        public static void Flush(int layer = 0, ShadowCastingMode shadows = ShadowCastingMode.On, bool receive = true)
+        {
+            FrameDrawCalls = 0;
+            FrameInstances = 0;
+
+            var mats = new Matrix4x4[kBatch];
+            var cols = new Vector4[kBatch];
+
+            foreach (var kv in _buckets)
+            {
+                var bucket = kv.Value;
+                int total = bucket.Matrices.Count;
+                FrameInstances += total;
+                int offset = 0;
+                while (offset < total)
+                {
+                    int n = Mathf.Min(kBatch, total - offset);
+                    bucket.Matrices.CopyTo(offset, mats, 0, n);
+                    bucket.Colors.CopyTo(offset, cols, 0, n);
+                    bucket.Block.Clear();
+                    bucket.Block.SetVectorArray(_colorProp, cols);
+                    Graphics.DrawMeshInstanced(
+                        kv.Key.Mesh, 0, kv.Key.Material,
+                        mats, n, bucket.Block,
+                        shadows, receive, layer);
+                    FrameDrawCalls++;
+                    offset += n;
+                }
+                bucket.Matrices.Clear();
+                bucket.Colors.Clear();
+            }
+        }
+
+        public static void Reset()
+        {
+            _buckets.Clear();
+            FrameDrawCalls = 0;
+            FrameInstances = 0;
+        }
+    }
+}

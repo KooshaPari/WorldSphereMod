@@ -4,8 +4,12 @@ delegate bool IsWorld3D();
 delegate void MakePerp(string ID);
 delegate object GetSetting(string Name, Type Type);
 delegate void EditEffect(string ID, bool IsUpright, bool SeperateSprite, float ExtraHeight, bool OnGround);
+delegate bool IsModel3D();
+delegate void RegisterCustomMesh(string assetId, UnityEngine.Mesh mesh, UnityEngine.Texture albedo);
 /// <summary>
-/// WorldSphereMod API Calller
+/// WorldSphereMod API Calller. Compatible with both upstream WorldSphereMod (v1)
+/// and the WorldSphereMod3D fork (v2). v2-only members fall back to safe defaults
+/// when connected to a v1 host.
 /// </summary>
 public class WorldSphereAPI
 {
@@ -15,11 +19,25 @@ public class WorldSphereAPI
     MakePerp proj;
     EditEffect editEffect;
     GetSetting getSetting;
+    IsModel3D? isModel3D;
+    RegisterCustomMesh? registerCustomMesh;
     internal WorldSphereAPI() { }
     /// <summary>
     /// returns true if the world Is 3D
     /// </summary>
     public bool IsWorld3D { get { return is3D(); } }
+    /// <summary>
+    /// returns true if the v2 mesh pipeline is active (voxel/procgen meshes,
+    /// not just camera-billboarded sprites). False on v1 hosts.
+    /// </summary>
+    public bool IsModel3D { get { return isModel3D != null && isModel3D(); } }
+    /// <summary>
+    /// Override the auto-voxelized mesh for a given asset id. No-op on v1 hosts.
+    /// </summary>
+    public void RegisterCustomMesh(string assetId, UnityEngine.Mesh mesh, UnityEngine.Texture albedo)
+    {
+        registerCustomMesh?.Invoke(assetId, mesh, albedo);
+    }
     internal WorldSphereAPI(Type WorldSpherePort)
     {
         is3D = (IsWorld3D)Delegate.CreateDelegate(typeof(IsWorld3D), WorldSpherePort.GetMethod("IsWorld3D", BindingFlags.Static | BindingFlags.Public));
@@ -28,6 +46,18 @@ public class WorldSphereAPI
         proj = (MakePerp)Delegate.CreateDelegate(typeof(MakePerp), WorldSpherePort.GetMethod("MakeProjectilePerp", BindingFlags.Static | BindingFlags.Public));
         editEffect = (EditEffect)Delegate.CreateDelegate(typeof(EditEffect), WorldSpherePort.GetMethod("EditEffect", BindingFlags.Static | BindingFlags.Public));
         getSetting = (GetSetting)Delegate.CreateDelegate(typeof(GetSetting), WorldSpherePort.GetMethod("GetSetting", BindingFlags.Static | BindingFlags.Public));
+
+        // v2 surface — present only when connected to WorldSphereMod3D.
+        MethodInfo? isModel = WorldSpherePort.GetMethod("IsModel3D", BindingFlags.Static | BindingFlags.Public);
+        if (isModel != null)
+        {
+            isModel3D = (IsModel3D)Delegate.CreateDelegate(typeof(IsModel3D), isModel);
+        }
+        MethodInfo? regMesh = WorldSpherePort.GetMethod("RegisterCustomMesh", BindingFlags.Static | BindingFlags.Public);
+        if (regMesh != null)
+        {
+            registerCustomMesh = (RegisterCustomMesh)Delegate.CreateDelegate(typeof(RegisterCustomMesh), regMesh);
+        }
     }
     /// <summary>
     /// gets a setting
@@ -84,7 +114,9 @@ public class WorldSphereAPI
     public static bool Connect(out WorldSphereAPI API)
     {
         API = null;
-        Type WorldSpherePort = Type.GetType("WorldSphereMod.API.WorldSphereModAPI, THE_3D_WORLDBOX_MOD, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
+        // Try the WorldSphereMod3D fork first, fall back to upstream WorldSphereMod.
+        Type WorldSpherePort = Type.GetType("WorldSphereMod.API.WorldSphereModAPI, WorldSphereMod3D, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null")
+            ?? Type.GetType("WorldSphereMod.API.WorldSphereModAPI, THE_3D_WORLDBOX_MOD, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
         if (WorldSpherePort != null)
         {
             API = new WorldSphereAPI(WorldSpherePort);
