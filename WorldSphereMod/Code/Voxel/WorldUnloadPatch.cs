@@ -19,6 +19,7 @@ namespace WorldSphereMod.Voxel
             try { WorldSphereMod.ProcGen.ProcGenCache.Clear(); } catch (System.Exception e) { Debug.LogWarning("ProcGenCache.Clear: " + e.Message); }
             try { WorldSphereMod.Foliage.CrossedQuadMeshCache.Clear(); } catch (System.Exception e) { Debug.LogWarning("CrossedQuadMeshCache.Clear: " + e.Message); }
             try { WorldSphereMod.Rig.RigCache.Clear(); } catch (System.Exception e) { Debug.LogWarning("RigCache.Clear: " + e.Message); }
+            try { WorldSphereMod.Rig.RigDriver.Clear(); } catch (System.Exception e) { Debug.LogWarning("RigDriver.Clear: " + e.Message); }
             try { WorldSphereMod.LOD.ImpostorBillboard.Clear(); } catch (System.Exception e) { Debug.LogWarning("ImpostorBillboard.Clear: " + e.Message); }
             try { WorldSphereMod.LOD.LodSelector.ResetHysteresis(); } catch (System.Exception e) { Debug.LogWarning("LodSelector.ResetHysteresis: " + e.Message); }
             try { WorldSphereMod.Voxel.VoxelRender.Reset(); } catch (System.Exception e) { Debug.LogWarning("VoxelRender.Reset: " + e.Message); }

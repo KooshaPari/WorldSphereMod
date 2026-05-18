@@ -122,6 +122,22 @@ namespace WorldSphereMod.Voxel
                     }
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, a.GetHashCode());
 
+                    if (Core.savedSettings.SkeletalAnimation && tier != WorldSphereMod.LOD.LodTier.Impostor)
+                    {
+                        WorldSphereMod.Rig.RigType rigType = ResolveRigType(a.asset.id);
+                        if (rigType != WorldSphereMod.Rig.RigType.None)
+                        {
+                            Vector3 skPos = rd.positions[i];
+                            Vector3 skRot = rd.rotations[i];
+                            Vector3 skScl = rd.scales[i];
+                            if (rd.flip_x_states[i]) skScl.x = -skScl.x;
+                            WorldSphereMod.Rig.RigDriver.SubmitSkinnedActor(
+                                a, skPos, Quaternion.Euler(0f, skRot.y, 0f), skScl, rd.colors[i], rigType);
+                            rd.has_normal_render[i] = false;
+                            continue;
+                        }
+                    }
+
                     Sprite sp = rd.main_sprites[i];
                     if (sp == null) continue;
 
@@ -153,6 +169,14 @@ namespace WorldSphereMod.Voxel
                     // Hide the sprite quad for this actor — we drew the 3D mesh instead.
                     rd.has_normal_render[i] = false;
                 }
+            }
+
+            // TODO Step 11: replace with Constants.ActorRigTypes registry lookup so quadrupeds
+            // and rigless assets (birds, snakes) route correctly. Default-humanoid is fine for
+            // Step 5 because every rig still resolves to the same bind-pose identity output.
+            static WorldSphereMod.Rig.RigType ResolveRigType(string assetId)
+            {
+                return WorldSphereMod.Rig.RigType.Humanoid;
             }
         }
 
