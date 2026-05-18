@@ -11,8 +11,9 @@ namespace WorldSphereMod.Water
         static bool _materialAttempted;
 
         MeshFilter? _filter;
-        MeshRenderer? _renderer;
+        internal MeshRenderer? _renderer;
         Mesh? _mesh;
+        Material? _instanceMaterial;   // per-renderer copy of _material; we own SetFloat on this
         float _waveTime;
 
         public static WaterSurface? Create(Transform parent)
@@ -35,6 +36,9 @@ namespace WorldSphereMod.Water
             surface._mesh = new Mesh { name = "WorldSphere.Water" };
             surface._mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
             filter.sharedMesh = surface._mesh;
+            // Touch renderer.material once to materialize the per-instance copy. We use it for
+            // SetFloat in LateUpdate so we don't mutate the shared template asset.
+            surface._instanceMaterial = renderer.material;
             surface.RebuildMesh();
 
             Instance = surface;
@@ -46,8 +50,15 @@ namespace WorldSphereMod.Water
             if (Instance == null) return;
             var go = Instance.gameObject;
             if (Instance._mesh != null) Object.Destroy(Instance._mesh);
+            if (Instance._instanceMaterial != null) Object.Destroy(Instance._instanceMaterial);
             Instance = null;
             if (go != null) Object.Destroy(go);
+            // Destroy the shared template too so a subsequent Create reallocates against the
+            // current Unity state — otherwise a world reload that invalidates the shader would
+            // resurface a stale Material handle.
+            if (_material != null) Object.Destroy(_material);
+            _material = null;
+            _materialAttempted = false;
         }
 
         public void RebuildMesh()
@@ -59,10 +70,28 @@ namespace WorldSphereMod.Water
 
             var tiles = World.world.tiles_list;
             int tileCount = tiles.Length;
+            int width = MapBox.width;
+            int height = MapBox.height;
 
             var vertices = new List<Vector3>(tileCount);
             var triangles = new List<int>(tileCount * 6);
             float sea = WaterMaskBuffer.SeaLevel;
+
+            // Vertex dedup at grid corners. cx is modulo width so the cylindrical X-wrap seam
+            // collapses to one vertex per shared corner — eliminates the lighting stripe that
+            // RecalculateNormals would otherwise produce from split duplicate verts.
+            var cornerIndex = new Dictionary<long, int>(tileCount * 4);
+
+            int GetCorner(int cx, int cy)
+            {
+                int wx = ((cx % width) + width) % width;
+                long key = ((long)wx << 32) | (uint)cy;
+                if (cornerIndex.TryGetValue(key, out int idx)) return idx;
+                idx = vertices.Count;
+                vertices.Add(Core.Sphere.SpherePos(cx, cy, sea));
+                cornerIndex[key] = idx;
+                return idx;
+            }
 
             for (int i = 0; i < tileCount; i++)
             {
@@ -73,24 +102,13 @@ namespace WorldSphereMod.Water
                 int x = t.x;
                 int y = t.y;
 
-                // CCW from above when viewed from +height: (x,y) -> (x+1,y) -> (x+1,y+1) -> (x,y+1).
-                Vector3 v0 = Core.Sphere.SpherePos(x,     y,     sea);
-                Vector3 v1 = Core.Sphere.SpherePos(x + 1, y,     sea);
-                Vector3 v2 = Core.Sphere.SpherePos(x + 1, y + 1, sea);
-                Vector3 v3 = Core.Sphere.SpherePos(x,     y + 1, sea);
+                int i0 = GetCorner(x,     y);
+                int i1 = GetCorner(x + 1, y);
+                int i2 = GetCorner(x + 1, y + 1);
+                int i3 = GetCorner(x,     y + 1);
 
-                int baseIdx = vertices.Count;
-                vertices.Add(v0);
-                vertices.Add(v1);
-                vertices.Add(v2);
-                vertices.Add(v3);
-
-                triangles.Add(baseIdx + 0);
-                triangles.Add(baseIdx + 1);
-                triangles.Add(baseIdx + 2);
-                triangles.Add(baseIdx + 0);
-                triangles.Add(baseIdx + 2);
-                triangles.Add(baseIdx + 3);
+                triangles.Add(i0); triangles.Add(i1); triangles.Add(i2);
+                triangles.Add(i0); triangles.Add(i2); triangles.Add(i3);
             }
 
             _mesh.SetVertices(vertices);
@@ -102,9 +120,10 @@ namespace WorldSphereMod.Water
         void LateUpdate()
         {
             _waveTime += Time.deltaTime;
-            if (_renderer != null && _renderer.sharedMaterial != null)
+            // Write to the per-renderer instance material so we never mutate the shared template.
+            if (_instanceMaterial != null)
             {
-                _renderer.sharedMaterial.SetFloat("_WaveTime", _waveTime);
+                _instanceMaterial.SetFloat("_WaveTime", _waveTime);
             }
         }
 
@@ -114,26 +133,31 @@ namespace WorldSphereMod.Water
             if (_materialAttempted) return false;
             _materialAttempted = true;
 
-            // Placeholder shader fallback chain — Step 4 replaces this with WaterGerstner.shader.
-            string[] candidates =
+            // Prefer the WaterGerstner shader shipped under Resources/Shaders/. When the
+            // AssetBundle ships the lit/baked version (Phase 5b), this Resources path still
+            // works as a fallback because the shader source file resolves the same name.
+            Shader? s = Resources.Load<Shader>("Shaders/WaterGerstner");
+            if (s == null)
             {
-                "Universal Render Pipeline/Particles/Unlit",
-                "Particles/Standard Unlit",
-                "Sprites/Default",
-                "Hidden/Internal-Colored",
-            };
-            Shader? s = null;
-            foreach (var name in candidates)
-            {
-                s = Shader.Find(name);
-                if (s != null) break;
+                string[] candidates =
+                {
+                    "Universal Render Pipeline/Particles/Unlit",
+                    "Particles/Standard Unlit",
+                    "Sprites/Default",
+                    "Hidden/Internal-Colored",
+                };
+                foreach (var name in candidates)
+                {
+                    s = Shader.Find(name);
+                    if (s != null) break;
+                }
             }
             if (s == null)
             {
                 Debug.LogWarning("[WorldSphereMod3D] No water shader found; water disabled.");
                 return false;
             }
-            _material = new Material(s) { name = "WSM3D.Water.Placeholder" };
+            _material = new Material(s) { name = "WSM3D.Water" };
             _material.color = Color.white;
             return true;
         }
