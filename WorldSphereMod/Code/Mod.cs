@@ -31,6 +31,13 @@ using WorldSphereMod;
     public void Init()
     {
         Core.Init();
+        // Phase 1: per-frame flush driver for batched voxel mesh draw calls.
+        // No-op when SavedSettings.VoxelEntities is false (Flush early-returns
+        // until a material is resolved on first Submit).
+        if (Object != null && Object.GetComponent<WorldSphereMod.Voxel.VoxelFrameDriver>() == null)
+        {
+            Object.AddComponent<WorldSphereMod.Voxel.VoxelFrameDriver>();
+        }
     }
 
     public void PostInit()

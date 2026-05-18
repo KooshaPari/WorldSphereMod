@@ -19,8 +19,12 @@ namespace WorldSphereMod
 
         // --- v2 (WorldSphereMod3D fork) additions ---
         // Phase 1: Voxel actor/item/projectile rendering. When false, falls back
-        // to the upstream camera-billboard sprite path.
-        public bool VoxelEntities = true;
+        // to the upstream camera-billboard sprite path. Defaults OFF during
+        // alpha — flip via the in-game settings tab once a build of yours is
+        // verified to render voxel meshes correctly. The wiring is in place but
+        // the supplied placeholder material is unlit; Phase 5 ships the real
+        // lit + shadow-casting shader.
+        public bool VoxelEntities = false;
         // Phase 2: Procedural building meshes (vs. billboarded building sprites).
         public bool ProceduralBuildings = true;
         // Phase 3: Crossed-quad foliage (vs. billboarded sprite top tiles).
