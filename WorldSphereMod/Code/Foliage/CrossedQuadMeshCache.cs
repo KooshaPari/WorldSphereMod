@@ -105,15 +105,25 @@ namespace WorldSphereMod.Foliage
 
         static void Evict()
         {
-            // Caller holds _lock. Drop the oldest 10% of entries.
-            int toDrop = Mathf.Max(1, _cache.Count / 10);
-            var sorted = new List<KeyValuePair<long, Entry>>(_cache);
-            sorted.Sort((a, b) => a.Value.LastFrame.CompareTo(b.Value.LastFrame));
-            for (int i = 0; i < toDrop && i < sorted.Count; i++)
+            // Caller holds _lock. O(N) two-pass eviction — find frame range, drop bottom decile.
+            if (_cache.Count == 0) return;
+            ulong minFrame = ulong.MaxValue, maxFrame = 0;
+            foreach (var v in _cache.Values)
             {
-                var kv = sorted[i];
-                if (kv.Value.Mesh != null) _pendingDestroy.Enqueue(kv.Value.Mesh);
-                _cache.Remove(kv.Key);
+                if (v.LastFrame < minFrame) minFrame = v.LastFrame;
+                if (v.LastFrame > maxFrame) maxFrame = v.LastFrame;
+            }
+            if (maxFrame == minFrame) return;
+            ulong threshold = minFrame + (maxFrame - minFrame) / 10;
+            var toRemove = new List<long>();
+            foreach (var kv in _cache)
+            {
+                if (kv.Value.LastFrame <= threshold) toRemove.Add(kv.Key);
+            }
+            foreach (var key in toRemove)
+            {
+                if (_cache[key].Mesh != null) _pendingDestroy.Enqueue(_cache[key].Mesh);
+                _cache.Remove(key);
             }
         }
     }
