@@ -656,8 +656,8 @@ namespace WorldSphereMod.ProcGen
             {
                 Vector3 r0 = new Vector3(0f, ridgeY, -halfZ);
                 Vector3 r1 = new Vector3(0f, ridgeY,  halfZ);
-                AddQuad(wBL, wFL, r0, r1, color, verts, cols, tris);
-                AddQuad(wFR, wBR, r1, r0, color, verts, cols, tris);
+                AddQuad(wBR, wFR, r0, r1, color, verts, cols, tris);
+                AddQuad(wFL, wBL, r1, r0, color, verts, cols, tris);
                 AddTri(wFR, wFL, r0, color, verts, cols, tris);
                 AddTri(wBL, wBR, r1, color, verts, cols, tris);
             }
@@ -690,8 +690,8 @@ namespace WorldSphereMod.ProcGen
             {
                 Vector3 r0 = new Vector3(0f, ridgeY, -ridgeHalf);
                 Vector3 r1 = new Vector3(0f, ridgeY,  ridgeHalf);
-                AddQuad(wBL, wFL, r0, r1, color, verts, cols, tris);
-                AddQuad(wFR, wBR, r1, r0, color, verts, cols, tris);
+                AddQuad(wBR, wFR, r0, r1, color, verts, cols, tris);
+                AddQuad(wFL, wBL, r1, r0, color, verts, cols, tris);
                 AddTri(wFR, wFL, r0, color, verts, cols, tris);
                 AddTri(wBL, wBR, r1, color, verts, cols, tris);
             }
