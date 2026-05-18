@@ -55,6 +55,7 @@ using WorldSphereMod;
         // and gated on IsWorld3D && WorldspaceUI internally.
         WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated();
         WorldSphereMod.Lighting.TimeOfDay.EnsureCreated();
+        WorldSphereMod.Lighting.ProceduralSky.EnsureCreated();
     }
 
     public void PostInit()

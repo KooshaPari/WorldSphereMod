@@ -36,13 +36,13 @@ namespace WorldSphereMod
         // Phase 6: Skeletal animation driver for voxel actors.
         public bool SkeletalAnimation = false;
         // Phase 7: Worldspace UI (nameplates, health bars, selection rings).
-        public bool WorldspaceUI = false;
+        public bool WorldspaceUI = true;
         // Phase 8: Day/night cycle + procedural sky + fog.
         public bool DayNightCycle = false;
         public float FogDensity = 0.0f;
         // Phase 9: URP post-processing (bloom, color grading, vignette).
         public bool PostFX = false;
-        public bool ParticleEffects = false;
+        public bool ParticleEffects = true;
         // Phase 10: LOD ladder + impostor fallback.
         public float LODScale = 1.0f;
         public float WaterDetail = 1.0f;

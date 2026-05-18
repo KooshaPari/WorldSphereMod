@@ -59,6 +59,16 @@ State of the world for the next Claude Code instance (or human) resuming work.
 
 **Phase 4** — pre-implementation design docs only. No code yet.
 
+## What has landed in latest wave
+
+**Phase 7** — Worldspace UI (default ON): nameplate + HP bar + damage popup MonoBehaviours wired through the actor render pipeline. Selection ring code is in place but awaits a `SelectionManager` investigation pass to find the right hook.
+
+**Phase 8** — Day/night (default OFF, opt-in): autonomous `TimeOfDay` driver with `SunRig` color gradient and `ProceduralSky` shader source. `MapBox.world_time` probe falls back gracefully since the field is absent on current WorldBox builds.
+
+**Phase 9** — Particles + decals + PostFX (default ON for particles, OFF for PostFX): mesh-particle bursts on 5 effect IDs, 3-channel `DecalPool`, and URP PostFX volume gated by the `PostFX` flag.
+
+**Phase 10** — LOD + impostors (no proxy): `FrustumCuller`, `LodSelector`, `ImpostorBillboard`, and a softened hardware gate landed. The Proxy LOD tier still falls through to the Voxel path until a dedicated proxy mesh exists.
+
 **Tooling**:
 - `./Tools/install.ps1` — one-shot build + copy into `<WorldBox>/Mods/WorldSphereMod3D/`.
 - `./Tools/uninstall.ps1` — remove the installed copy.

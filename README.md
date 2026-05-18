@@ -21,10 +21,10 @@ This fork lands a real 3D pipeline on top of that foundation:
 | 4  | code-complete (lite) | Mesh water — WaterGerstner shader source landed; AssetBundle bake deferred to Phase 5b |
 | 5  | research     | Directional sun + cascaded shadows + SSAO (see `docs/phase5-prep.md`) |
 | 6  | planned      | Skeletal animation driver (auto-rigged from sprite anatomy) |
-| 7  | planned      | Worldspace UI (nameplates, health bars, selection rings) |
-| 8  | planned      | Procedural sky + day/night cycle + fog |
-| 9  | planned      | Mesh particles + decals + post-processing |
-| 10 | planned      | LOD ladder, impostor fallback for older hardware, polish |
+| 7  | code-complete (no selection hook) | Worldspace UI: nameplate, HP bar, damage popups landed; selection ring code in place pending SelectionManager investigation. |
+| 8  | code-complete (autonomous) | TimeOfDay autonomous driver + SunRig color gradient; ProceduralSky shader source landed; MapBox.world_time probe falls back since field absent. |
+| 9  | code-complete | Particle bursts on 5 effect IDs + 3-channel DecalPool + URP PostFX (opt-in via PostFX flag, default off). |
+| 10 | code-complete (no proxy) | FrustumCuller + LodSelector + ImpostorBillboard + softened hardware gate; Proxy tier still routes to Voxel. |
 
 The full plan, including file-by-file changes and verification steps, lives
 at `docs/PLAN.md`.
