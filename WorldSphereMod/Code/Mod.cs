@@ -49,6 +49,7 @@ using WorldSphereMod;
         // Phase 7 Step 1: rig-tracker MonoBehaviour. EnsureCreated is idempotent
         // and gated on IsWorld3D && WorldspaceUI internally.
         WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated();
+        WorldSphereMod.Lighting.TimeOfDay.EnsureCreated();
     }
 
     public void PostInit()

@@ -129,6 +129,7 @@ namespace WorldSphereMod.Worldspace
             if (_root != null) rig.SetParent(_root, worldPositionStays: false);
             _rigs[a] = rig;
             NameplateWorld.Attach(a, rig);
+            HealthBar.Attach(a, rig);
             return rig;
         }
 
@@ -136,6 +137,7 @@ namespace WorldSphereMod.Worldspace
         {
             if (!_rigs.TryGetValue(a, out Transform rig)) return;
             NameplateWorld.Detach(a);
+            HealthBar.Detach(a);
             if (rig != null) Object.Destroy(rig.gameObject);
             _rigs.Remove(a);
         }
