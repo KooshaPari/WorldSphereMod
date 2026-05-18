@@ -59,9 +59,9 @@ namespace WorldSphereMod.ProcGen
             List<DoorSpec> openings = InferOpenings(pixels, w, h, bbox, rules);
 
             Color wallColor = SampleWallColor(pixels, w, bbox, stories);
-            Color roofColor = SampleTopColor(pixels, w, bbox);
+            InferRoof(pixels, w, bbox, rules, out RoofStyle roofStyle, out Color roofColor);
 
-            return BuildMesh(asset, halfX, halfZ, storyHeight, bbox, openings, pxToWorld, wallColor, roofColor);
+            return BuildMesh(asset, halfX, halfZ, storyHeight, bbox, openings, pxToWorld, wallColor, roofColor, roofStyle, rules.PerpendicularRoof);
         }
 
         static Sprite? ResolveSprite(BuildingAsset asset)
@@ -263,6 +263,122 @@ namespace WorldSphereMod.ProcGen
             return AverageColor(px, w, bbox.xMin, yStart, bbox.width, slice);
         }
 
+        static bool IsRoofPixel(Color32 c32, out float hueDeg)
+        {
+            hueDeg = -1f;
+            if (c32.a <= AlphaThreshold) return false;
+            Color.RGBToHSV((Color)c32, out float H, out float S, out float _);
+            if (S <= 0.3f) return false;
+            float deg = H * 360f;
+            hueDeg = deg;
+            return (deg <= 40f) || (deg >= 340f);
+        }
+
+        static void InferRoof(Color32[] px, int w, RectInt bbox, BuildingRules rules,
+            out RoofStyle style, out Color color)
+        {
+            if (rules.Roof != RoofStyle.Inferred)
+            {
+                style = rules.Roof;
+                color = SampleTopColor(px, w, bbox);
+                return;
+            }
+
+            int bandH = Mathf.Max(1, Mathf.RoundToInt(bbox.height * 0.2f));
+            int bandYStart = bbox.yMin + bbox.height - bandH;
+
+            int[] topRun = new int[bbox.width];
+            int columnsWithRoof = 0;
+            // Hue histogram: 36 bins of 10 degrees each (0..360).
+            int[] hueBins = new int[36];
+            long sumR = 0, sumG = 0, sumB = 0;
+            int roofPixelCount = 0;
+
+            for (int xx = 0; xx < bbox.width; xx++)
+            {
+                int x = bbox.xMin + xx;
+                int run = 0;
+                bool inRun = true;
+                for (int yy = bandH - 1; yy >= 0; yy--)
+                {
+                    int y = bandYStart + yy;
+                    Color32 c = px[y * w + x];
+                    if (IsRoofPixel(c, out float hueDeg))
+                    {
+                        int bin = Mathf.Clamp((int)(hueDeg / 10f), 0, 35);
+                        hueBins[bin]++;
+                        sumR += c.r; sumG += c.g; sumB += c.b;
+                        roofPixelCount++;
+                        if (inRun) run++;
+                    }
+                    else
+                    {
+                        if (c.a > AlphaThreshold) inRun = false;
+                    }
+                }
+                topRun[xx] = run;
+                if (run > 0) columnsWithRoof++;
+            }
+
+            if (roofPixelCount == 0)
+            {
+                style = RoofStyle.Flat;
+                color = SampleTopColor(px, w, bbox);
+                return;
+            }
+
+            float invN = 1f / (roofPixelCount * 255f);
+            color = new Color(sumR * invN, sumG * invN, sumB * invN, 1f);
+
+            float coverage = (float)columnsWithRoof / Mathf.Max(1, bbox.width);
+            if (coverage < 0.6f)
+            {
+                style = RoofStyle.Flat;
+                return;
+            }
+
+            float mean = 0f;
+            for (int i = 0; i < bbox.width; i++) mean += topRun[i];
+            mean /= Mathf.Max(1, bbox.width);
+
+            float variance = 0f;
+            for (int i = 0; i < bbox.width; i++)
+            {
+                float d = topRun[i] - mean;
+                variance += d * d;
+            }
+            variance /= Mathf.Max(1, bbox.width);
+            float stddev = Mathf.Sqrt(variance);
+            float uniformity = mean > 0f ? stddev / mean : 1f;
+
+            // Center-vs-edge heuristic for hipped: middle third averages noticeably taller than edges.
+            int third = Mathf.Max(1, bbox.width / 3);
+            float edgeSum = 0f;
+            int edgeN = 0;
+            float centerSum = 0f;
+            int centerN = 0;
+            for (int i = 0; i < bbox.width; i++)
+            {
+                if (i < third || i >= bbox.width - third) { edgeSum += topRun[i]; edgeN++; }
+                else { centerSum += topRun[i]; centerN++; }
+            }
+            float edgeMean = edgeN > 0 ? edgeSum / edgeN : 0f;
+            float centerMean = centerN > 0 ? centerSum / centerN : 0f;
+
+            if (uniformity < 0.35f)
+            {
+                style = RoofStyle.Gable;
+            }
+            else if (centerMean > edgeMean * 1.4f && edgeMean > 0f)
+            {
+                style = RoofStyle.Hipped;
+            }
+            else
+            {
+                style = RoofStyle.Flat;
+            }
+        }
+
         static Color AverageColor(Color32[] px, int w, int x0, int y0, int rw, int rh)
         {
             float r = 0f, g = 0f, b = 0f;
@@ -287,7 +403,7 @@ namespace WorldSphereMod.ProcGen
 
         static Mesh BuildMesh(BuildingAsset asset, float halfX, float halfZ, float height,
             RectInt bbox, List<DoorSpec> openings, float pxToWorld,
-            Color wallColor, Color roofColor)
+            Color wallColor, Color roofColor, RoofStyle roofStyle, bool perpendicularRoof)
         {
             var verts = new List<Vector3>(64);
             var cols = new List<Color>(64);
@@ -311,7 +427,18 @@ namespace WorldSphereMod.ProcGen
             EmitWall(Side.Back, halfX, halfZ, height, openingsBySide[2], bbox, pxToWorld, wallColor, verts, cols, tris);
             EmitWall(Side.Left, halfX, halfZ, height, openingsBySide[3], bbox, pxToWorld, wallColor, verts, cols, tris);
 
-            EmitRoofCap(halfX, halfZ, height, roofColor, verts, cols, tris);
+            switch (roofStyle)
+            {
+                case RoofStyle.Gable:
+                    EmitGableRoof(halfX, halfZ, height, roofColor, perpendicularRoof, verts, cols, tris);
+                    break;
+                case RoofStyle.Hipped:
+                    EmitHippedRoof(halfX, halfZ, height, roofColor, perpendicularRoof, verts, cols, tris);
+                    break;
+                default:
+                    EmitRoofCap(halfX, halfZ, height, roofColor, verts, cols, tris);
+                    break;
+            }
 
             var mesh = new Mesh { name = $"procgen:{asset?.id ?? "null"}" };
             if (verts.Count > 65535) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
@@ -482,6 +609,92 @@ namespace WorldSphereMod.ProcGen
             cols.Add(color); cols.Add(color); cols.Add(color); cols.Add(color);
             tris.Add(i); tris.Add(i + 1); tris.Add(i + 2);
             tris.Add(i); tris.Add(i + 2); tris.Add(i + 3);
+        }
+
+        static void AddQuad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Color color,
+            List<Vector3> verts, List<Color> cols, List<int> tris)
+        {
+            int i = verts.Count;
+            verts.Add(a); verts.Add(b); verts.Add(c); verts.Add(d);
+            cols.Add(color); cols.Add(color); cols.Add(color); cols.Add(color);
+            tris.Add(i); tris.Add(i + 1); tris.Add(i + 2);
+            tris.Add(i); tris.Add(i + 2); tris.Add(i + 3);
+        }
+
+        static void AddTri(Vector3 a, Vector3 b, Vector3 c, Color color,
+            List<Vector3> verts, List<Color> cols, List<int> tris)
+        {
+            int i = verts.Count;
+            verts.Add(a); verts.Add(b); verts.Add(c);
+            cols.Add(color); cols.Add(color); cols.Add(color);
+            tris.Add(i); tris.Add(i + 1); tris.Add(i + 2);
+        }
+
+        static void EmitGableRoof(float halfX, float halfZ, float height, Color color,
+            bool perpendicular, List<Vector3> verts, List<Color> cols, List<int> tris)
+        {
+            // Default: ridge runs along the long axis. PerpendicularRoof flips it onto the short axis.
+            bool xIsLong = halfX >= halfZ;
+            bool ridgeAlongX = perpendicular ? !xIsLong : xIsLong;
+            float ridgeY = height + Mathf.Min(halfX, halfZ);
+
+            Vector3 wFL = new Vector3(-halfX, height, -halfZ);
+            Vector3 wFR = new Vector3( halfX, height, -halfZ);
+            Vector3 wBR = new Vector3( halfX, height,  halfZ);
+            Vector3 wBL = new Vector3(-halfX, height,  halfZ);
+
+            if (ridgeAlongX)
+            {
+                Vector3 r0 = new Vector3(-halfX, ridgeY, 0f);
+                Vector3 r1 = new Vector3( halfX, ridgeY, 0f);
+                AddQuad(wFR, wFL, r0, r1, color, verts, cols, tris);
+                AddQuad(wBL, wBR, r1, r0, color, verts, cols, tris);
+                AddTri(wFL, wBL, r0, color, verts, cols, tris);
+                AddTri(wBR, wFR, r1, color, verts, cols, tris);
+            }
+            else
+            {
+                Vector3 r0 = new Vector3(0f, ridgeY, -halfZ);
+                Vector3 r1 = new Vector3(0f, ridgeY,  halfZ);
+                AddQuad(wBL, wFL, r0, r1, color, verts, cols, tris);
+                AddQuad(wFR, wBR, r1, r0, color, verts, cols, tris);
+                AddTri(wFR, wFL, r0, color, verts, cols, tris);
+                AddTri(wBL, wBR, r1, color, verts, cols, tris);
+            }
+        }
+
+        static void EmitHippedRoof(float halfX, float halfZ, float height, Color color,
+            bool perpendicular, List<Vector3> verts, List<Color> cols, List<int> tris)
+        {
+            bool xIsLong = halfX >= halfZ;
+            bool ridgeAlongX = perpendicular ? !xIsLong : xIsLong;
+            float longHalf = ridgeAlongX ? halfX : halfZ;
+            float ridgeY = height + Mathf.Min(halfX, halfZ);
+            float ridgeHalf = longHalf * 0.4f;
+
+            Vector3 wFL = new Vector3(-halfX, height, -halfZ);
+            Vector3 wFR = new Vector3( halfX, height, -halfZ);
+            Vector3 wBR = new Vector3( halfX, height,  halfZ);
+            Vector3 wBL = new Vector3(-halfX, height,  halfZ);
+
+            if (ridgeAlongX)
+            {
+                Vector3 r0 = new Vector3(-ridgeHalf, ridgeY, 0f);
+                Vector3 r1 = new Vector3( ridgeHalf, ridgeY, 0f);
+                AddQuad(wFR, wFL, r0, r1, color, verts, cols, tris);
+                AddQuad(wBL, wBR, r1, r0, color, verts, cols, tris);
+                AddTri(wFL, wBL, r0, color, verts, cols, tris);
+                AddTri(wBR, wFR, r1, color, verts, cols, tris);
+            }
+            else
+            {
+                Vector3 r0 = new Vector3(0f, ridgeY, -ridgeHalf);
+                Vector3 r1 = new Vector3(0f, ridgeY,  ridgeHalf);
+                AddQuad(wBL, wFL, r0, r1, color, verts, cols, tris);
+                AddQuad(wFR, wBR, r1, r0, color, verts, cols, tris);
+                AddTri(wFR, wFL, r0, color, verts, cols, tris);
+                AddTri(wBL, wBR, r1, color, verts, cols, tris);
+            }
         }
 
         static Mesh UnitCube(string name)
