@@ -79,6 +79,9 @@ namespace WorldSphereMod.Worldspace
         public static void Clear()
         {
             foreach (var kv in _rings) if (kv.Value != null) Object.Destroy(kv.Value);
+            foreach (var m in _torusByRadius.Values) if (m != null) Object.Destroy(m);
+            _torusByRadius.Clear();
+            if (_material != null) { Object.Destroy(_material); _material = null; }
             _rings.Clear();
         }
 

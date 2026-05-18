@@ -12,9 +12,11 @@ namespace WorldSphereMod.Voxel
     [HarmonyPatch(typeof(Core.Sphere), nameof(Core.Sphere.Finish))]
     public static class WorldUnloadPatch
     {
+        // TODO: three-Postfix ordering with other unload sinks is currently non-deterministic but harmless because cache contents are disjoint.
         [HarmonyPrefix]
         public static void OnFinish()
         {
+            try { WorldSphereMod.Worldspace.WorldUIRenderer.OnWorldUnload(); } catch (System.Exception e) { Debug.LogWarning("WorldUIRenderer.OnWorldUnload: " + e.Message); }
             try { WorldSphereMod.Voxel.VoxelMeshCache.Clear(); } catch (System.Exception e) { Debug.LogWarning("VoxelMeshCache.Clear: " + e.Message); }
             try { WorldSphereMod.ProcGen.ProcGenCache.Clear(); } catch (System.Exception e) { Debug.LogWarning("ProcGenCache.Clear: " + e.Message); }
             try { WorldSphereMod.Foliage.CrossedQuadMeshCache.Clear(); } catch (System.Exception e) { Debug.LogWarning("CrossedQuadMeshCache.Clear: " + e.Message); }

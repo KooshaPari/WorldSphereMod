@@ -76,5 +76,7 @@ namespace WorldSphereMod.LOD
         {
             _hyst.Clear();
         }
+
+        public static void Remove(int instanceId) { _hyst.Remove(instanceId); }
     }
 }

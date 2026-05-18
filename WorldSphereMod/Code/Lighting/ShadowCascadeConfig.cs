@@ -10,7 +10,8 @@ namespace WorldSphereMod.Lighting
     // have URP injected by other mods or future builds; probe by name and no-op if absent.
     public static class ShadowCascadeConfig
     {
-        static bool _stashed;
+        static bool _hasOriginals;
+        static bool _active;
         static int _origCount;
         static float _origDistance;
         static Vector3 _origCascade4;
@@ -82,7 +83,7 @@ namespace WorldSphereMod.Lighting
                 return;
             }
 
-            if (!_stashed)
+            if (!_hasOriginals)
             {
                 _origCount = (int)(ReadProp(urp, urpType, "shadowCascadeCount") ?? 1);
                 _origDistance = (float)(ReadProp(urp, urpType, "shadowDistance") ?? 50f);
@@ -90,7 +91,7 @@ namespace WorldSphereMod.Lighting
                 _origCascade2 = (float)(ReadProp(urp, urpType, "cascade2Split") ?? 0.25f);
                 _origDepthBias = (float)(ReadProp(urp, urpType, "shadowDepthBias") ?? 1.0f);
                 _origNormalBias = (float)(ReadProp(urp, urpType, "shadowNormalBias") ?? 1.0f);
-                _stashed = true;
+                _hasOriginals = true;
             }
 
             if (highShadows)
@@ -106,15 +107,16 @@ namespace WorldSphereMod.Lighting
             WriteProp(urp, urpType, "shadowDistance", 50f);
             WriteProp(urp, urpType, "shadowDepthBias", 1.0f);
             WriteProp(urp, urpType, "shadowNormalBias", 1.0f);
+            _active = true;
         }
 
         public static void Reset()
         {
-            if (!_stashed) return;
+            if (!_hasOriginals) return;
             Type? urpType = GetUrpAssetType();
-            if (urpType == null) { _stashed = false; return; }
+            if (urpType == null) { _active = false; return; }
             UnityEngine.Object? urp = GetActiveUrpAsset(urpType);
-            if (urp == null) { _stashed = false; return; }
+            if (urp == null) { _active = false; return; }
 
             WriteProp(urp, urpType, "shadowCascadeCount", _origCount);
             WriteProp(urp, urpType, "shadowDistance", _origDistance);
@@ -122,7 +124,7 @@ namespace WorldSphereMod.Lighting
             WriteProp(urp, urpType, "cascade2Split", _origCascade2);
             WriteProp(urp, urpType, "shadowDepthBias", _origDepthBias);
             WriteProp(urp, urpType, "shadowNormalBias", _origNormalBias);
-            _stashed = false;
+            _active = false;
         }
     }
 }

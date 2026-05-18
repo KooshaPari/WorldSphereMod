@@ -47,6 +47,7 @@ namespace WorldSphereMod.Worldspace
             }
             Instance._rigs.Clear();
             Instance._seenThisFrame.Clear();
+            HealthBar.Reset();
             if (Instance._root != null) Object.Destroy(Instance._root.gameObject);
             Instance._root = null;
             GameObject go = Instance.gameObject;
@@ -138,6 +139,7 @@ namespace WorldSphereMod.Worldspace
             if (!_rigs.TryGetValue(a, out Transform rig)) return;
             NameplateWorld.Detach(a);
             HealthBar.Detach(a);
+            WorldSphereMod.LOD.LodSelector.Remove(a.GetHashCode());
             if (rig != null) Object.Destroy(rig.gameObject);
             _rigs.Remove(a);
         }

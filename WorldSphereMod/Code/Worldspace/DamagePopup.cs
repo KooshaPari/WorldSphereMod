@@ -83,6 +83,14 @@ namespace WorldSphereMod.Worldspace
             if (_root == null) return;
             float now = Time.time;
             Camera? cam = CameraManager.MainCamera;
+            if (cam != null)
+            {
+                foreach (var e in _active)
+                {
+                    var canvas = e.obj?.GetComponent<Canvas>();
+                    if (canvas != null && canvas.worldCamera == null) canvas.worldCamera = cam;
+                }
+            }
             for (int i = _active.Count - 1; i >= 0; i--)
             {
                 var e = _active[i];

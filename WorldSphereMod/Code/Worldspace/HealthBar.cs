@@ -7,8 +7,13 @@ namespace WorldSphereMod.Worldspace
         internal Actor? Actor;
         MeshRenderer? _renderer;
         MaterialPropertyBlock? _block;
-        Material? _material;
         static readonly int _hpProp = Shader.PropertyToID("_HpFraction");
+
+        static Mesh? _sharedMesh;
+        static Material? _sharedMat;
+
+        static System.Reflection.MethodInfo? _ratioMethod;
+        static bool _ratioMethodResolved;
 
         public static HealthBar? Attach(Actor a, Transform rigRoot)
         {
@@ -22,18 +27,15 @@ namespace WorldSphereMod.Worldspace
             go.transform.localScale = new Vector3(0.8f, 0.08f, 1f);
 
             var mf = go.AddComponent<MeshFilter>();
-            mf.sharedMesh = BuildQuadMesh();
+            mf.sharedMesh = GetSharedMesh();
             var mr = go.AddComponent<MeshRenderer>();
-            var shader = Shader.Find("Sprites/Default");
-            var mat = shader != null ? new Material(shader) { name = "WSM3D.HpBar" } : null;
-            if (mat != null) mr.sharedMaterial = mat;
+            mr.sharedMaterial = GetSharedMaterial();
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             mr.receiveShadows = false;
 
             var bar = go.AddComponent<HealthBar>();
             bar.Actor = a;
             bar._renderer = mr;
-            bar._material = mat;
             bar._block = new MaterialPropertyBlock();
             return bar;
         }
@@ -48,26 +50,29 @@ namespace WorldSphereMod.Worldspace
             if (bar != null) Object.Destroy(bar.gameObject);
         }
 
+        public static void Reset()
+        {
+            if (_sharedMesh != null) { Object.Destroy(_sharedMesh); _sharedMesh = null; }
+            if (_sharedMat != null) { Object.Destroy(_sharedMat); _sharedMat = null; }
+        }
+
+        static float GetHpRatio(Actor a)
+        {
+            if (!_ratioMethodResolved)
+            {
+                _ratioMethod = a.GetType().GetMethod("getHealthRatio");
+                _ratioMethodResolved = true;
+            }
+            if (_ratioMethod == null) return 1f;
+            try { return _ratioMethod.Invoke(a, null) is float r ? Mathf.Clamp01(r) : 1f; }
+            catch { return 1f; }
+        }
+
         void LateUpdate()
         {
             if (Actor == null || _renderer == null) return;
-            // HP fraction via reflection: Actor.health and .max_health are common WorldBox fields.
-            float hp = 1f;
-            try
-            {
-                // Actor has no health/max_health fields; the canonical accessor is
-                // getHealthRatio() which returns the [0,1] fraction directly.
-                var t = Actor.GetType();
-                var ratioM = t.GetMethod("getHealthRatio");
-                if (ratioM != null)
-                {
-                    object? boxed = ratioM.Invoke(Actor, null);
-                    if (boxed is float r) hp = Mathf.Clamp01(r);
-                }
-            }
-            catch { /* leave hp=1 on reflection failure */ }
+            float hp = GetHpRatio(Actor);
 
-            // Drive bar via tint color (simple 2-tone) — full bar = green, low bar = red.
             Color c = Color.Lerp(Color.red, Color.green, hp);
             if (_renderer != null && _block != null)
             {
@@ -75,7 +80,6 @@ namespace WorldSphereMod.Worldspace
                 _renderer.SetPropertyBlock(_block);
             }
 
-            // Face camera horizontally (yaw only).
             var cam = WorldSphereMod.NewCamera.CameraManager.MainCamera;
             if (cam != null)
             {
@@ -84,8 +88,22 @@ namespace WorldSphereMod.Worldspace
                     transform.rotation = Quaternion.LookRotation(fwd, Vector3.up);
             }
 
-            // Scale x by hp to show the fill.
             var s = transform.localScale; s.x = 0.8f * hp; transform.localScale = s;
+        }
+
+        static Mesh GetSharedMesh()
+        {
+            if (_sharedMesh != null) return _sharedMesh;
+            _sharedMesh = BuildQuadMesh();
+            return _sharedMesh;
+        }
+
+        static Material? GetSharedMaterial()
+        {
+            if (_sharedMat != null) return _sharedMat;
+            var shader = Shader.Find("Sprites/Default");
+            if (shader != null) _sharedMat = new Material(shader) { name = "WSM3D.HpBar" };
+            return _sharedMat;
         }
 
         static Mesh BuildQuadMesh()
