@@ -117,7 +117,12 @@ namespace WorldSphereMod.Voxel
                     float radius = 0.5f;
                     if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, radius))
                     {
-                        rd.has_normal_render[i] = false;
+                        // Offscreen per our frustum probe: skip voxel emission.
+                        // Do NOT flip has_normal_render — vanilla rendering has
+                        // its own culling, and a false negative here (stale
+                        // planes, wrong camera, position-space mismatch) used
+                        // to make the actor entirely invisible because we hid
+                        // the sprite without drawing a replacement.
                         continue;
                     }
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, a.GetHashCode());
@@ -207,7 +212,11 @@ namespace WorldSphereMod.Voxel
                     float radius = 0.5f;
                     if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, radius))
                     {
-                        rd.scales[i] = Vector3.zero;
+                        // See ActorVoxelEmit cull-skip: leave the building's
+                        // scale alone on a cull miss. Vanilla rendering will
+                        // not draw an offscreen building anyway, and zeroing
+                        // scales[i] used to hide buildings entirely when the
+                        // frustum probe was wrong.
                         continue;
                     }
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode());
@@ -219,7 +228,11 @@ namespace WorldSphereMod.Voxel
                     {
                         Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
                         Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
-                        if (im == null || imMat == null) { rd.scales[i] = Vector3.zero; continue; }
+                        // Impostor mesh build failed: fall through to vanilla
+                        // sprite (don't zero scales — that's the "hide the
+                        // sprite because we drew our own mesh" path, which
+                        // we didn't actually do here).
+                        if (im == null || imMat == null) continue;
                         Vector3 imPos = rd.positions[i];
                         Vector3 imScl = rd.scales[i];
                         if (rd.flip_x_states[i]) imScl.x = -imScl.x;
