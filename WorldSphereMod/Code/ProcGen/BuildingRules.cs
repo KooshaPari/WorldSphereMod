@@ -7,6 +7,13 @@ using UnityEngine;
 
 namespace WorldSphereMod.ProcGen
 {
+    public enum BuildingShape
+    {
+        Procgen,
+        CrossedQuad,
+        Single
+    }
+
     public enum RoofStyle
     {
         Inferred,
@@ -33,6 +40,8 @@ namespace WorldSphereMod.ProcGen
         public DoorSpec[] Doors;
         public DoorSpec[] Windows;
         public bool PerpendicularRoof;
+        public BuildingShape Shape;
+        public float SwayAmplitude;
 
         public BuildingRules()
         {
@@ -43,6 +52,8 @@ namespace WorldSphereMod.ProcGen
             Doors = Array.Empty<DoorSpec>();
             Windows = Array.Empty<DoorSpec>();
             PerpendicularRoof = false;
+            Shape = BuildingShape.Procgen;
+            SwayAmplitude = 0f;
         }
 
         public static BuildingRules Default => new BuildingRules();
@@ -108,7 +119,21 @@ namespace WorldSphereMod.ProcGen
         public static BuildingRules Resolve(string assetId)
         {
             if (string.IsNullOrEmpty(assetId)) return BuildingRules.Default;
-            return _rules.TryGetValue(assetId, out var r) ? r : BuildingRules.Default;
+            if (_rules.TryGetValue(assetId, out var r)) return r;
+            // Vanilla asset IDs encode kind in their prefix; auto-route foliage/rocks before mod overrides land.
+            if (assetId.StartsWith("tree_", StringComparison.Ordinal)
+                || assetId.StartsWith("bush_", StringComparison.Ordinal)
+                || assetId.StartsWith("palm_", StringComparison.Ordinal))
+            {
+                return new BuildingRules { AssetId = assetId, Shape = BuildingShape.CrossedQuad, SwayAmplitude = 1.0f };
+            }
+            if (assetId.StartsWith("rock_", StringComparison.Ordinal)
+                || assetId.StartsWith("stone_", StringComparison.Ordinal)
+                || assetId.StartsWith("boulder_", StringComparison.Ordinal))
+            {
+                return new BuildingRules { AssetId = assetId, Shape = BuildingShape.Single, SwayAmplitude = 0f };
+            }
+            return BuildingRules.Default;
         }
 
         public static void Invalidate(string assetId)
