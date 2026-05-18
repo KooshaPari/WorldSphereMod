@@ -1,7 +1,6 @@
 # Handoff — pick up locally
 
-State of the world for the next Claude Code instance (or human) resuming
-work on this fork.
+State of the world for the next Claude Code instance (or human) resuming work.
 
 ## Where things are
 
@@ -11,100 +10,88 @@ work on this fork.
 | Open draft PR | https://github.com/KooshaPari/WorldSphereMod/pull/1 |
 | Full plan | `docs/PLAN.md` |
 | Phase 1 review | `docs/phase1-review.md` |
+| Phase 1 smoke test | `docs/smoke-test-phase1.md` |
 | Phase 2 architecture | `docs/phase2-architecture.md` |
+| Phase 3 architecture | `docs/phase3-architecture.md` |
+| Phase 4 architecture | `docs/phase4-architecture.md` |
+| Phase 5 prep notes | `docs/phase5-prep.md` |
 | `render_data` field map | `docs/render-data-fields.md` |
 | Voxel module | `WorldSphereMod/Code/Voxel/` |
-| ProcGen module (Phase 2) | `WorldSphereMod/Code/ProcGen/` (scaffolding) |
-| Install script | `Tools/install.ps1` |
-| Build portability | `Directory.Build.props` (uses `WORLDBOX_PATH` env) |
-| CI | `.github/workflows/build.yml` (API build only — mod build is local) |
+| ProcGen module (Phase 2) | `WorldSphereMod/Code/ProcGen/` |
+| Install / Uninstall scripts | `Tools/install.ps1`, `Tools/uninstall.ps1` |
+| Build portability | `Directory.Build.props` (`WORLDBOX_PATH` env) |
+| CI | `.github/workflows/build.yml` (API build only — mod build local) |
 
-## What has landed since the original handoff
+## What has landed
 
-- Phase 1 voxel pipeline scaffolding (actor render Postfix + driver + cache).
-- `chore: default unimplemented phase flags to false` — Phases 2-8 default OFF
-  per the project's "default-OFF until validated" rule.
-- `perf(voxel): greedy meshing in SpriteVoxelizer` — ~5-10x vertex reduction.
-- `tooling: add Tools/install.ps1 for fast iteration`.
-- Decompiled `render_data` field map for both `ActorManager` and
-  `BuildingManager` saved to `docs/render-data-fields.md`. `BuildingRenderData`
-  has **no `has_normal_render`** field — voxel-building sprite suppression
-  must use `main_sprites[i] = null` (verify) or `scales[i] = Vector3.zero`.
-- Phase 2 procgen architecture finalised; 8-commit implementation plan
-  in `docs/phase2-architecture.md`.
-- Phase 1 code review identified 5 issues; fixes #1-4 in progress in a
-  bundled "Phase 1 hardening" commit.
+**Phase 0** — fork plumbing, Phase flag defaults corrected to OFF.
+
+**Phase 1** — voxel pipeline complete:
+- `Voxel/SpriteVoxelizer.cs` with greedy meshing (~5-10× vertex reduction).
+- `Voxel/VoxelMeshCache.cs` (lock + deferred destroy).
+- `Voxel/MeshInstanceBatcher.cs` (per-batch sized color array).
+- `Voxel/VoxelRender.cs` — Postfixes on both `ActorManager.precalculateRenderDataParallel`
+  and `BuildingManager.precalculateRenderDataParallel`. Yaw-only rotation. `VoxelFrameDriver`
+  flushes batcher + drains both caches in `LateUpdate`.
+- All 5 Phase 1 review issues addressed (#5 deferred — read-back not needed yet).
+
+**Phase 2** — procgen buildings, 6 of 8 commits landed in this PR:
+- Step 1: `ProcGen/BuildingRules.cs` data types.
+- Step 2: `ProcGen/ProcGenCache.cs` LRU + deferred destroy.
+- Step 3: real heuristic pipeline (footprint, stories, openings, walls) in
+  `BuildingMeshGen.cs`.
+- Step 4: gable/hipped/flat roof inference + outward-normal winding fix.
+- Step 5: `ProcGen/BuildingProcRender.cs` Postfix wired; `BuildingRulesRegistry`.
+- Step 6: `WorldSphereModAPI.RegisterBuildingRules` (internal) and external delegate
+  binding (Unity-free).
+- **Pending**: Step 7 (flip `ProceduralBuildings=true` default) blocks on smoke test.
+  Step 8 (PR + screenshots) blocks on Phase 1 in-game.
+
+**Phase 3 + Phase 4** — pre-implementation design docs only. No code yet.
+
+**Tooling**:
+- `./Tools/install.ps1` — one-shot build + copy into `<WorldBox>/Mods/WorldSphereMod3D/`.
+- `./Tools/uninstall.ps1` — remove the installed copy.
 
 ## Local build + install
 
-This Windows machine has WorldBox at the default Steam path. The full
-mod build is `dotnet build WorldSphereMod.csproj -c Release` (~5s, 0
-errors, 46 pre-existing warnings). The install procedure is automated:
+WorldBox is at the default Steam path. Full mod build is `dotnet build WorldSphereMod.csproj -c Release` (~5s, 0 errors, ~47 pre-existing warnings).
 
 ```powershell
 ./Tools/install.ps1
 ```
 
-NML compiles `Code/*.cs` at runtime, so install copies source + AssetBundles
-+ Assemblies + GameResources + Locales + mod.json into
-`<WorldBox>/Mods/WorldSphereMod3D/`. Override the WorldBox path with
-`-WorldBoxPath` or `$env:WORLDBOX_PATH`.
+NML compiles `Code/*.cs` at runtime, so install copies source + assets + `Assemblies/CompoundSpheres.dll`.
 
 ## In-game smoke test (Phase 1)
 
-After install, with the active "Phase 1 hardening" commit applied:
+See `docs/smoke-test-phase1.md` for the full checklist. Quick version:
 
-1. Launch WorldBox; confirm terrain renders identically to upstream (regression
-   check on Phase 0 plumbing).
-2. Open Settings → WorldSphere tab → enable "Voxel Entities".
-3. Generate a small kingdom (~500 units). Sweep camera 360°.
-4. Verify:
-   - Actors render as voxel meshes from any angle (unlit; that's expected
-     until Phase 5).
-   - Actors do **not** lean / topple while walking (regression on review #4).
-   - Per-actor tint colors are correct on every actor in the final batch
-     (regression on review #1; happens when actor count is not a multiple of
-     1023).
-5. Capture before/after screenshots into `docs/screenshots/phase-1-*.png`
-   and link from PR #1.
+1. `./Tools/install.ps1` → launch WorldBox.
+2. Confirm terrain regression-clean with `VoxelEntities = false` (default).
+3. Toggle on, generate 500-unit kingdom, sweep camera 360°.
+4. Verify: voxel actors render, no body topple while walking, all batches tinted correctly, no flicker on 1023-unit boundaries.
+5. Optional: enable `VoxelEntities && !ProceduralBuildings` to see voxel buildings.
+6. Capture before/after into `docs/screenshots/phase-1-*.png`.
 
 ## Recommended next steps
 
-1. **Land Phase 1 hardening** (in flight). Fixes #1-#4 from `docs/phase1-review.md`.
-2. **Smoke test Phase 1** per the steps above. If clean, flip
-   `SavedSettings.VoxelEntities = true` and call Phase 1 done.
-3. **Voxel buildings re-enable.** Field map is at `docs/render-data-fields.md`.
-   The actor Postfix is the template; building variant must drop the
-   `has_normal_render`, `has_item`, `item_*`, `shadow_position`, and
-   `shadow_scales` branches. Gate behind `VoxelEntities && !ProceduralBuildings`.
-4. **Ship the real `VoxelLit.shader`** (half a day with Unity).
-   Unity Hub + 2021.3.45f1 + 6000.3.11f1 are installed on this machine. The
-   PLAN spec'd 2022.3 specifically — check AssetBundle compatibility before
-   committing to 2021.3.
-5. **Phase 2 procedural buildings.** Architecture is in
-   `docs/phase2-architecture.md`. Implement in the 8 atomic commits the
-   doc lists. Ship as its own PR.
+1. **Smoke test Phase 1** (user-driven). If clean, flip `SavedSettings.VoxelEntities = true` and call Phase 1 done.
+2. **Smoke test Phase 2** (user-driven). Toggle `ProceduralBuildings = true` and verify the heuristic produces reasonable building meshes for vanilla assets. Tweak `BuildingMeshGen` heuristic thresholds if many false-positive gables/hipped roofs.
+3. **Phase 3 implementation** — blocked on confirming the WorldBox top-tile draw entry point. Decompile investigation in flight.
+4. **Phase 4 implementation (Phase 4-lite)** — design ships independently of Phase 5 backend work. CPU height-threshold mask is sufficient.
+5. **Phase 5** — Unity 2022.3 install + `Compound-Spheres-3D` submodule. Adds per-vertex normals + water-mask SSBO. See `docs/phase5-prep.md`.
 
 ## Open design questions
 
-- Per-instance color via `_InstanceColor`: declared in `MeshInstanceBatcher`
-  but the placeholder shader doesn't read it. The Phase 5 lit shader needs
-  to honor it.
-- Skeletal animation (Phase 6) will replace static voxel meshes with
-  skinned variants. Plan to change the cache key from
-  `(Sprite.GetInstanceID, depth)` to `(SpriteId, rigId)` when rigging arrives.
-- External `BuildingRules` ergonomics: API takes `object` (delegate-type
-  boundary). Consider adding a `RegisterBuildingRules(string assetId,
-  string rulesJson)` overload so external mod authors don't need to copy
-  the struct. See Phase 2 architecture risk #4.
+- Per-instance color via `_InstanceColor`: declared in `MeshInstanceBatcher` but the placeholder shader doesn't read it. Phase 5 lit shader must honor it.
+- Skeletal animation (Phase 6) cache key: currently `Sprite.GetInstanceID`. Switch to `(SpriteId, rigId)` when rigging arrives.
+- External `BuildingRules` ergonomics: API takes `object` (delegate boundary). Consider a `RegisterBuildingRules(string assetId, string rulesJson)` overload so external mod authors don't need to copy the struct.
+- `VoxelRender.Reset()` exists but isn't wired to a world-reload hook (no such hook exists in `Core` yet). Multi-world sessions may stop rendering voxels after the second `World.NewWorldStart` until restart.
 
 ## Don't forget
 
-- `claude/research-ultraplan-fork-DdgI5` is the dev branch. Push there,
-  not to `main`.
-- One PR per phase (Phase 1 fixes amend Phase 1's PR; Phase 2 ships its
-  own PR). Commits within a phase can be incremental.
-- Don't bump the GUID in `mod.json` casually — it's how this fork stays
-  co-installable with upstream.
-- Hooks: SessionStart will load skills + memory automatically; the
-  /loop 5m cadence drives recurring re-entry.
+- `claude/research-ultraplan-fork-DdgI5` is the dev branch. Push there, not `main`.
+- One PR per phase. Commits within a phase can be incremental.
+- Don't bump the GUID in `mod.json` casually — it's the co-installable identity.
+- Phase 2-8 flags all default OFF per project rule. Each phase flips its own when validated.
