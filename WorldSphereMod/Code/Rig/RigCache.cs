@@ -141,9 +141,10 @@ namespace WorldSphereMod.Rig
         {
             lock (_lock)
             {
-                foreach (var e in _cache.Values)
+                foreach (var kv in _cache)
                 {
-                    if (e.Mesh.BaseMesh != null) Object.Destroy(e.Mesh.BaseMesh);
+                    if (kv.Value.Mesh.BaseMesh != null) Object.Destroy(kv.Value.Mesh.BaseMesh);
+                    RigDriver.ReleaseGpuMesh(kv.Key);
                 }
                 _cache.Clear();
                 _pendingDestroy.Clear();
@@ -182,6 +183,7 @@ namespace WorldSphereMod.Rig
             foreach (var key in toRemove)
             {
                 if (_cache[key].Mesh.BaseMesh != null) _pendingDestroy.Enqueue(_cache[key].Mesh.BaseMesh);
+                RigDriver.ReleaseGpuMesh(key);
                 _cache.Remove(key);
             }
         }

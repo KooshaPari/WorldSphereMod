@@ -219,6 +219,25 @@ namespace WorldSphereMod.Rig
             _matricesBuf = new GraphicsBuffer(GraphicsBuffer.Target.Structured, bones, sizeof(float) * 16);
         }
 
+        /// <summary>
+        /// Called by RigCache when an entry is evicted or the cache is cleared.
+        /// Disposes the matching GPU buffer set + proxy mesh so each cache eviction
+        /// has matching GPU cleanup (otherwise the (sprite,rig) entry leaks until
+        /// world unload).
+        /// </summary>
+        public static void ReleaseGpuMesh(long key)
+        {
+            if (_gpu.TryGetValue(key, out var g))
+            {
+                g.Vertices?.Dispose();
+                g.BoneIndices?.Dispose();
+                g.Skinned?.Dispose();
+                if (g.Proxy != null) UnityEngine.Object.Destroy(g.Proxy);
+                _gpu.Remove(key);
+            }
+            _skinnedMeshCache.Remove(key);
+        }
+
         public static void Clear()
         {
             _skinnedMeshCache.Clear();
