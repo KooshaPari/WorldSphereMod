@@ -67,6 +67,8 @@ namespace WorldSphereMod.Voxel
             b.Colors.Add(tint);
         }
 
+        static bool _instancingErrorLogged;
+
         public static void Flush(int layer = 0, ShadowCastingMode shadows = ShadowCastingMode.On, bool receive = true)
         {
             FrameDrawCalls = 0;
@@ -81,8 +83,6 @@ namespace WorldSphereMod.Voxel
                 while (offset < total)
                 {
                     int n = Mathf.Min(kBatch, total - offset);
-                    // Reuse per-bucket scratch buffers; grow on demand so allocations only
-                    // occur when the per-bucket high-water mark increases (typically once).
                     if (bucket.MatScratch.Length < n)
                     {
                         bucket.MatScratch = new Matrix4x4[n];
@@ -92,11 +92,29 @@ namespace WorldSphereMod.Voxel
                     bucket.Colors.CopyTo(offset, bucket.ColScratch, 0, n);
                     bucket.Block.Clear();
                     bucket.Block.SetVectorArray(_colorProp, bucket.ColScratch);
-                    Graphics.DrawMeshInstanced(
-                        kv.Key.Mesh, 0, kv.Key.Material,
-                        bucket.MatScratch, n, bucket.Block,
-                        shadows, receive, layer);
-                    FrameDrawCalls++;
+                    try
+                    {
+                        Graphics.DrawMeshInstanced(
+                            kv.Key.Mesh, 0, kv.Key.Material,
+                            bucket.MatScratch, n, bucket.Block,
+                            shadows, receive, layer);
+                        FrameDrawCalls++;
+                    }
+                    catch (System.InvalidOperationException ex)
+                    {
+                        // Material instancing capability changed mid-flight, or VoxelRender
+                        // resolved a material whose shader's instancing variant isn't in this
+                        // build. Log once + bail on this bucket so we don't spam the same
+                        // exception per-frame per-instance. Without this guard, a single bad
+                        // material crashes the entire frame's voxel render pass.
+                        if (!_instancingErrorLogged)
+                        {
+                            _instancingErrorLogged = true;
+                            string matName = kv.Key.Material != null ? kv.Key.Material.shader.name : "<null>";
+                            Debug.LogError($"[WSM3D] DrawMeshInstanced rejected material (shader='{matName}'): {ex.Message}");
+                        }
+                        break;
+                    }
                     offset += n;
                 }
                 bucket.Matrices.Clear();

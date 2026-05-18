@@ -49,26 +49,41 @@ namespace WorldSphereMod.Voxel
             if (_materialAttempted) return false;
             _materialAttempted = true;
 
+            // DrawMeshInstanced throws InvalidOperationException ("Material needs
+            // to enable instancing for use with DrawMeshInstanced") when the
+            // shader's instancing variant wasn't compiled into the build.
+            // Material.enableInstancing reflects actual shader capability after
+            // the set — if the shader doesn't support instancing, the property
+            // stays false. Walk the fallback list and accept only one that
+            // actually supports it. Sprites/Default + Hidden/Internal-Colored
+            // are removed: both fail this check on URP at runtime.
             string[] candidates =
             {
+                "Universal Render Pipeline/Lit",
+                "Universal Render Pipeline/Simple Lit",
+                "Universal Render Pipeline/Unlit",
                 "Universal Render Pipeline/Particles/Unlit",
+                "Standard",
                 "Particles/Standard Unlit",
-                "Sprites/Default",
-                "Hidden/Internal-Colored",
             };
-            Shader? s = null;
             foreach (var name in candidates)
             {
-                s = Shader.Find(name);
-                if (s != null) break;
+                Shader? s = Shader.Find(name);
+                if (s == null) continue;
+                Material m = new Material(s) { name = "WSM3D.Voxel.Placeholder" };
+                m.enableInstancing = true;
+                if (!m.enableInstancing)
+                {
+                    Object.Destroy(m);
+                    continue;
+                }
+                _material = m;
+                Debug.Log($"[WSM3D] Voxel material resolved via '{name}'.");
+                return true;
             }
-            if (s == null)
-            {
-                Debug.LogWarning("[WSM3D] No voxel shader found; disabling voxel renderer.");
-                return false;
-            }
-            _material = new Material(s) { name = "WSM3D.Voxel.Placeholder", enableInstancing = true };
-            return true;
+            Debug.LogWarning("[WSM3D] No instancing-capable shader found; voxel renderer disabled. " +
+                             "Phase 1 will be a no-op until a real lit instancing-capable shader ships in Phase 5.");
+            return false;
         }
 
         /// <summary>Per-frame submission. Matrix should already include scale.</summary>
