@@ -8,6 +8,7 @@ delegate bool IsModel3D();
 // Unity types are passed as object so this assembly stays free of any
 // UnityEngine reference — the WorldSphereMod3D host casts internally.
 delegate void RegisterCustomMesh(string assetId, object mesh, object albedo);
+delegate void RegisterBuildingRules(string assetId, object rules);
 /// <summary>
 /// WorldSphereMod API Calller. Compatible with both upstream WorldSphereMod (v1)
 /// and the WorldSphereMod3D fork (v2). v2-only members fall back to safe defaults
@@ -23,6 +24,7 @@ public class WorldSphereAPI
     GetSetting getSetting;
     IsModel3D? isModel3D;
     RegisterCustomMesh? registerCustomMesh;
+    RegisterBuildingRules? registerBuildingRules;
     internal WorldSphereAPI() { }
     /// <summary>
     /// returns true if the world Is 3D
@@ -43,6 +45,18 @@ public class WorldSphereAPI
     {
         registerCustomMesh?.Invoke(assetId, mesh, albedo);
     }
+    /// <summary>
+    /// Override the procgen heuristic rules for a building asset (Phase 2). Pass a
+    /// <c>BuildingRules</c> instance typed as <see cref="object"/> — external callers
+    /// can either copy the BuildingRules struct definition locally or use reflection
+    /// against the host assembly. No-op on v1 hosts.
+    /// </summary>
+    /// <param name="assetId">WorldBox building asset id (e.g. "house_human")</param>
+    /// <param name="rules">A WorldSphereMod.ProcGen.BuildingRules instance (boxed as object)</param>
+    public void RegisterBuildingRules(string assetId, object rules)
+    {
+        registerBuildingRules?.Invoke(assetId, rules);
+    }
     internal WorldSphereAPI(Type WorldSpherePort)
     {
         is3D = (IsWorld3D)Delegate.CreateDelegate(typeof(IsWorld3D), WorldSpherePort.GetMethod("IsWorld3D", BindingFlags.Static | BindingFlags.Public));
@@ -62,6 +76,11 @@ public class WorldSphereAPI
         if (regMesh != null)
         {
             registerCustomMesh = (RegisterCustomMesh)Delegate.CreateDelegate(typeof(RegisterCustomMesh), regMesh);
+        }
+        MethodInfo? regBuilding = WorldSpherePort.GetMethod("RegisterBuildingRules", BindingFlags.Static | BindingFlags.Public);
+        if (regBuilding != null)
+        {
+            registerBuildingRules = (RegisterBuildingRules)Delegate.CreateDelegate(typeof(RegisterBuildingRules), regBuilding);
         }
     }
     /// <summary>

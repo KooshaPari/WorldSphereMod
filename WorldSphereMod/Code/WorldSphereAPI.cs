@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using UnityEngine;
 using WorldSphereMod.Effects;
+using WorldSphereMod.ProcGen;
 
 namespace WorldSphereMod.API
 {
@@ -77,6 +78,23 @@ namespace WorldSphereMod.API
         /// <summary>Fired whenever the day/night driver advances. Argument: 0..1 (0=midnight, 0.5=noon).</summary>
         public static event Action<float>? OnTimeOfDayChanged;
         internal static void RaiseTimeOfDay(float t) => OnTimeOfDayChanged?.Invoke(t);
+
+        /// <summary>
+        /// Override the heuristic procgen rules for a building asset. The rules struct
+        /// arrives boxed as <see cref="object"/> so <c>WorldSphereAPI.dll</c> stays free
+        /// of any reference to this mod's types; we cast here. Callers from external
+        /// assemblies can construct an equivalent <c>BuildingRules</c> via reflection
+        /// or by referencing this assembly directly.
+        /// </summary>
+        public static void RegisterBuildingRules(string assetId, object rulesObj)
+        {
+            if (string.IsNullOrEmpty(assetId)) return;
+            if (rulesObj is BuildingRules rules)
+            {
+                rules.AssetId = assetId;
+                BuildingRulesRegistry.Register(assetId, rules);
+            }
+        }
 
         internal struct MeshOverride
         {
