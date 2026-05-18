@@ -9,7 +9,7 @@ export default defineConfig({
   cleanUrls: true,
   appearance: 'dark',
   ignoreDeadLinks: true,
-  srcExclude: ['**/screenshots/**'],
+  srcExclude: ['**/screenshots/**', '**/journeys/assets/**/README.md'],
 
   themeConfig: {
     siteTitle: 'WorldSphereMod3D',

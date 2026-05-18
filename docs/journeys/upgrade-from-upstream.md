@@ -24,6 +24,8 @@ behavior changes, and (for mod authors) port any custom API integrations.
    `GUID = worldsphere3d.fork`, so it lives in a separate `Mods/` folder
    and won't overwrite the upstream install.
 
+   ![NeoModLoader mod manager listing both upstream WorldSphereMod and WorldSphereMod3D side-by-side, upstream disabled and fork enabled](./assets/upgrade-from-upstream/01-coexist.png)
+
 3. **Enable `WorldSphereMod3D`** in NeoModLoader.
 
 4. **Load your existing save.** Upstream saves are compatible — the fork
@@ -32,6 +34,8 @@ behavior changes, and (for mod authors) port any custom API integrations.
    vendored `CompoundSpheres.dll`, see
    [ADR-0002](/adr/0002-defer-shader-bake-to-unity-2022-3) and
    [`PLAN.md` Phase 0](/PLAN#phase-0--fork-plumbing-12-days)).
+
+   ![Player.log excerpt showing the settings migration v1.5 → v2.0 log line as the fork picks up the existing config and defaults the new v2 flags](./assets/upgrade-from-upstream/02-migration-log.png)
 
 5. **Compare visuals.** Out of the box you'll see:
    - **Same** terrain mesh, water tiling, camera, settings tab.
@@ -42,6 +46,8 @@ behavior changes, and (for mod authors) port any custom API integrations.
      skeletal animation, high shadows, day/night, PostFX. Flip the
      corresponding flags in the settings tab to opt in (see [install &
      play](/journeys/install-and-play) step 6).
+
+   ![Before/after split-screen: upstream sprite-billboard actors on the left, WorldSphereMod3D voxel actors with worldspace UI on the right, same world seed](./assets/upgrade-from-upstream/03-before-after.png)
 
 ### As a mod author (you ship a mod that uses `WorldSphereAPI`)
 
