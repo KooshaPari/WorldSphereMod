@@ -38,15 +38,24 @@ namespace WorldSphereMod
             try
             {
                 loadedData = JsonConvert.DeserializeObject<SavedSettings>(File.ReadAllText($"{Paths.ModsConfigPath}/WorldSphereMod.json"));
-                if (loadedData == null || loadedData.Version != SettingsVersion)
-                {
-                    throw new FileLoadException();
-                }
+                if (loadedData == null) throw new FileLoadException();
             }
             catch
             {
                 SaveSettings();
                 return false;
+            }
+            // Version mismatch: keep the deserialized values (Json.NET will have filled
+            // in the v1.5 fields it recognised and left the v2 fork additions at their
+            // defaults). Bump Version forward and re-save so subsequent loads are clean.
+            // This preserves the user's existing preferences across a v1.5 → v2.0 upgrade
+            // rather than discarding them.
+            if (loadedData.Version != SettingsVersion)
+            {
+                loadedData.Version = SettingsVersion;
+                savedSettings = loadedData;
+                SaveSettings();
+                return true;
             }
             savedSettings = loadedData;
             return true;
