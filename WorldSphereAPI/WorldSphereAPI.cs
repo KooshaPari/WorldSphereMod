@@ -1,11 +1,13 @@
-﻿using System;
+using System;
 using System.Reflection;
 delegate bool IsWorld3D();
 delegate void MakePerp(string ID);
 delegate object GetSetting(string Name, Type Type);
 delegate void EditEffect(string ID, bool IsUpright, bool SeperateSprite, float ExtraHeight, bool OnGround);
 delegate bool IsModel3D();
-delegate void RegisterCustomMesh(string assetId, UnityEngine.Mesh mesh, UnityEngine.Texture albedo);
+// Unity types are passed as object so this assembly stays free of any
+// UnityEngine reference — the WorldSphereMod3D host casts internally.
+delegate void RegisterCustomMesh(string assetId, object mesh, object albedo);
 /// <summary>
 /// WorldSphereMod API Calller. Compatible with both upstream WorldSphereMod (v1)
 /// and the WorldSphereMod3D fork (v2). v2-only members fall back to safe defaults
@@ -34,7 +36,10 @@ public class WorldSphereAPI
     /// <summary>
     /// Override the auto-voxelized mesh for a given asset id. No-op on v1 hosts.
     /// </summary>
-    public void RegisterCustomMesh(string assetId, UnityEngine.Mesh mesh, UnityEngine.Texture albedo)
+    /// <param name="assetId">WorldBox asset id (e.g. "human" or "house_human")</param>
+    /// <param name="mesh">A <c>UnityEngine.Mesh</c> instance (typed as object to keep this assembly Unity-free)</param>
+    /// <param name="albedo">A <c>UnityEngine.Texture</c> instance, or <c>null</c></param>
+    public void RegisterCustomMesh(string assetId, object mesh, object albedo)
     {
         registerCustomMesh?.Invoke(assetId, mesh, albedo);
     }

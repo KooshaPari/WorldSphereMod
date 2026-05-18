@@ -62,11 +62,16 @@ namespace WorldSphereMod.API
         internal static readonly ConcurrentDictionary<string, MeshOverride> MeshOverrides
             = new ConcurrentDictionary<string, MeshOverride>();
 
-        /// <summary>Replace the auto-voxelized mesh for an asset with an author-supplied one.</summary>
-        public static void RegisterCustomMesh(string assetId, Mesh mesh, Texture albedo)
+        /// <summary>
+        /// Replace the auto-voxelized mesh for an asset with an author-supplied one.
+        /// The Unity types arrive boxed as <see cref="object"/> to keep
+        /// <c>WorldSphereAPI.dll</c> free of any Unity reference; we cast here.
+        /// </summary>
+        public static void RegisterCustomMesh(string assetId, object mesh, object albedo)
         {
-            if (string.IsNullOrEmpty(assetId) || mesh == null) return;
-            MeshOverrides[assetId] = new MeshOverride { Mesh = mesh, Albedo = albedo };
+            if (string.IsNullOrEmpty(assetId)) return;
+            if (!(mesh is Mesh m)) return;
+            MeshOverrides[assetId] = new MeshOverride { Mesh = m, Albedo = albedo as Texture };
         }
 
         /// <summary>Fired whenever the day/night driver advances. Argument: 0..1 (0=midnight, 0.5=noon).</summary>
