@@ -43,7 +43,10 @@ namespace WorldSphereMod.Foliage
             if (mat == null) return true;
 
             List<WorldTile> tiles = pTileTypeAsset.getCurrentTiles();
-            if (tiles == null || tiles.Count == 0) return false;
+            // Nothing to render in 3D — let the vanilla draw handle the (no-op) emit.
+            // Returning false here would actively suppress vanilla, blinking walls invisible
+            // during transient empty states (world load, zone transitions, tile removal).
+            if (tiles == null || tiles.Count == 0) return true;
 
             Mesh mesh = GetOrBuildPrism();
 

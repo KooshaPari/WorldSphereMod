@@ -77,8 +77,17 @@ namespace WorldSphereMod.Rig
 
             EnsureGpu();
 
-            long key = ((long)sp.GetInstanceID() << 8) | (byte)rigType;
+            // Cast to uint before shifting so the int's sign bit doesn't sign-extend across
+            // the long, which would collide sprite IDs whose bit 23 differs.
+            long key = ((long)(uint)sp.GetInstanceID() << 8) | (byte)rigType;
             Mesh? toSubmit = null;
+
+            // GPU dispatch path is disabled pending Phase 6 Step 9 (per-actor DrawProcedural).
+            // The current per-(sprite,rig) proxy mesh is overwritten by every actor sharing the
+            // same key in the same frame — the batcher reads vertices at Flush time, so all
+            // instances see whichever actor was processed last. Forcing _gpuOK=false routes
+            // every humanoid through the correct CPU bind-pose path until DrawProcedural lands.
+            _gpuOK = false;
 
             if (_gpuOK && rigType == RigType.Humanoid && svm.BoneIndices != null && svm.BaseMesh.vertexCount > 0)
             {

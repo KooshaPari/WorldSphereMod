@@ -33,6 +33,7 @@ namespace WorldSphereMod.Worldspace
         [HarmonyPostfix]
         public static void OnUnselect(Actor pActor)
         {
+            if (!Core.IsWorld3D || !Core.savedSettings.WorldspaceUI) return;
             if (pActor == null) return;
             SelectionRing.Hide(pActor);
         }
@@ -41,6 +42,7 @@ namespace WorldSphereMod.Worldspace
         [HarmonyPostfix]
         public static void OnRemoveSelected(Actor pActor)
         {
+            if (!Core.IsWorld3D || !Core.savedSettings.WorldspaceUI) return;
             if (pActor == null) return;
             SelectionRing.Hide(pActor);
         }
@@ -50,6 +52,7 @@ namespace WorldSphereMod.Worldspace
         public static void OnClearPrefix(out List<Actor>? __state)
         {
             __state = null;
+            if (!Core.IsWorld3D || !Core.savedSettings.WorldspaceUI) return;
             var set = SelectedUnit._units_hashset;
             if (set == null || set.Count == 0) return;
             __state = new List<Actor>(set);
@@ -60,6 +63,7 @@ namespace WorldSphereMod.Worldspace
         public static void OnClearPostfix(List<Actor>? __state)
         {
             if (__state == null) return;
+            if (!Core.IsWorld3D || !Core.savedSettings.WorldspaceUI) return;
             for (int i = 0; i < __state.Count; i++)
             {
                 Actor a = __state[i];
