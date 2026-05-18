@@ -29,6 +29,9 @@
 param(
     [string]$WorldBoxPath = $(if ($env:WORLDBOX_PATH) { $env:WORLDBOX_PATH } else { "C:/Program Files (x86)/Steam/steamapps/common/Worldbox" }),
     [string]$InstallFolderName = "WorldSphereMod3D",
+    [string]$Configuration = "Release",
+    [string]$Tfm = "net5.0",
+    [string]$AssemblyName = "WorldSphereMod3D",
     [switch]$SkipBuild
 )
 
@@ -37,6 +40,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $modSrc   = Join-Path $repoRoot "WorldSphereMod"
 $modDst   = Join-Path $WorldBoxPath "Mods/$InstallFolderName"
+$builtDll = Join-Path $repoRoot "bin/$Configuration/$Tfm/$AssemblyName.dll"
 
 if (-not (Test-Path (Join-Path $WorldBoxPath "worldbox_Data"))) {
     throw "WorldBox not found at $WorldBoxPath (no worldbox_Data subfolder). Pass -WorldBoxPath or set `$env:WORLDBOX_PATH."
@@ -73,7 +77,27 @@ foreach ($item in $items) {
     }
 }
 
+# Replace the legacy upstream-named CompoundSpheres.dll (shipped in source for
+# co-installability tests with upstream) with the freshly-built fork DLL.
+# Without this, NeoModLoader loads the stale assembly and skips the runtime
+# Roslyn pass over Code/, so source changes since the prior install silently
+# do not take effect.
+$installedAssemblies = Join-Path $modDst "Assemblies"
+$stale = Join-Path $installedAssemblies "CompoundSpheres.dll"
+$stalePdb = Join-Path $installedAssemblies "CompoundSpheres.pdb"
+if (Test-Path $stale)    { Remove-Item -Force $stale }
+if (Test-Path $stalePdb) { Remove-Item -Force $stalePdb }
+
+if (Test-Path $builtDll) {
+    Write-Host "[install]   $AssemblyName.dll (from $builtDll)" -ForegroundColor DarkCyan
+    Copy-Item -Force -Path $builtDll -Destination (Join-Path $installedAssemblies "$AssemblyName.dll")
+    $builtPdb = [System.IO.Path]::ChangeExtension($builtDll, ".pdb")
+    if (Test-Path $builtPdb) { Copy-Item -Force -Path $builtPdb -Destination (Join-Path $installedAssemblies "$AssemblyName.pdb") }
+} else {
+    Write-Host "[install] WARNING: built DLL not found at $builtDll — relying on NML runtime compile of Code/" -ForegroundColor Yellow
+}
+
 Write-Host ""
 Write-Host "[install] installed to $modDst" -ForegroundColor Green
-Write-Host "[install] launch WorldBox, NeoModLoader will compile Code/*.cs on startup."
+Write-Host "[install] launch WorldBox, NeoModLoader will load Assemblies/$AssemblyName.dll (or compile Code/*.cs as fallback)."
 Write-Host "[install] verify in-game: Settings tab -> WorldSphere section. The 'Voxel Entities' toggle gates Phase 1."

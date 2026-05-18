@@ -68,3 +68,23 @@ Start with one of these:
 | 10 — LOD + impostor | landed | Soft hardware gate; Proxy tier falls through to Voxel |
 
 See [`HANDOFF`](/HANDOFF) for the live state and any blocking items.
+
+## Live deploys
+
+This site builds in two places simultaneously — same VitePress source, two
+hosts:
+
+| Target | URL | Driver |
+|---|---|---|
+| GitHub Pages | <https://kooshapari.github.io/WorldSphereMod/> | `.github/workflows/docs-deploy.yml` (uses `actions/deploy-pages`, builds with `DOCS_BASE=/WorldSphereMod/`) |
+| Vercel Production | the project's Vercel domain | `.github/workflows/vercel-production.yml` (uses Vercel CLI, builds with `DOCS_BASE=/`) |
+
+The split exists because GH Pages serves under a repo-path prefix while
+Vercel serves from the project root; the `DOCS_BASE` env var in
+`docs/.vitepress/config.mts` lets one VitePress config target both.
+
+The setup is fully CLI-automated — no GitHub UI clicks required:
+
+- Pages source toggle: `gh api -X POST repos/<owner>/<repo>/pages -F build_type=workflow`
+- Vercel link: `vercel link --yes --project <name>` (writes `.vercel/project.json`)
+- Repo secrets: `gh secret set VERCEL_TOKEN/VERCEL_ORG_ID/VERCEL_PROJECT_ID`
