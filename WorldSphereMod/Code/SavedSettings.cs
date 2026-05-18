@@ -26,19 +26,19 @@ namespace WorldSphereMod
         // lit + shadow-casting shader.
         public bool VoxelEntities = false;
         // Phase 2: Procedural building meshes (vs. billboarded building sprites).
-        public bool ProceduralBuildings = true;
+        public bool ProceduralBuildings = false;
         // Phase 3: Crossed-quad foliage (vs. billboarded sprite top tiles).
-        public bool CrossedQuadFoliage = true;
+        public bool CrossedQuadFoliage = false;
         // Phase 4: Mesh water surface (vs. flat tile color).
-        public bool MeshWater = true;
+        public bool MeshWater = false;
         // Phase 5: Directional sun + cascaded shadow maps.
-        public bool HighShadows = true;
+        public bool HighShadows = false;
         // Phase 6: Skeletal animation driver for voxel actors.
-        public bool SkeletalAnimation = true;
+        public bool SkeletalAnimation = false;
         // Phase 7: Worldspace UI (nameplates, health bars, selection rings).
-        public bool WorldspaceUI = true;
+        public bool WorldspaceUI = false;
         // Phase 8: Day/night cycle + procedural sky + fog.
-        public bool DayNightCycle = true;
+        public bool DayNightCycle = false;
         public float FogDensity = 0.0f;
         // Phase 9: URP post-processing (bloom, color grading, vignette).
         public bool PostFX = false;
