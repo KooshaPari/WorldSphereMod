@@ -15,6 +15,22 @@ namespace WorldSphereMod.Rig
     {
         static readonly Dictionary<long, Mesh> _skinnedMeshCache = new Dictionary<long, Mesh>();
 
+        static ComputeShader? _skinCS;
+        static int _kernel;
+        static bool _gpuProbed;
+        static bool _gpuOK;
+        static bool _gpuStubLogged;
+
+        static void EnsureGpu()
+        {
+            if (_gpuProbed) return;
+            _gpuProbed = true;
+            _skinCS = Resources.Load<ComputeShader>("Shaders/VoxelSkin");
+            if (_skinCS == null) return;
+            _kernel = _skinCS.FindKernel("CSMain");
+            _gpuOK = SystemInfo.supportsComputeShaders && _kernel >= 0;
+        }
+
         public static void SubmitSkinnedActor(
             Actor a, Vector3 pos, Quaternion rot, Vector3 scl, Color tint,
             RigType rigType)
@@ -25,6 +41,15 @@ namespace WorldSphereMod.Rig
 
             SkinnedVoxelMesh svm = RigCache.GetOrBuild(sp, rigType);
             if (svm.BaseMesh == null) return;
+
+            // Step 7: real per-frame compute skinning dispatch + managed-side buffer
+            // plumbing. Step 6 lands only the shader source + capability probe.
+            EnsureGpu();
+            if (_gpuOK && !_gpuStubLogged)
+            {
+                _gpuStubLogged = true;
+                Debug.Log("[WSM3D] Compute skinning available; ship-time using CPU bind-pose pending Step 7.");
+            }
 
             // Step 5: CPU bind-pose skinning. HumanoidRig.Evaluate returns identity
             // matrices today, so the skinned vertex buffer equals the base mesh — cache
@@ -44,6 +69,10 @@ namespace WorldSphereMod.Rig
         public static void Clear()
         {
             _skinnedMeshCache.Clear();
+            _gpuProbed = false;
+            _gpuOK = false;
+            _gpuStubLogged = false;
+            _skinCS = null;
         }
     }
 }
