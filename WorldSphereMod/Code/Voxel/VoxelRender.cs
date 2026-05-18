@@ -131,11 +131,48 @@ namespace WorldSphereMod.Voxel
             }
         }
 
-        // Building voxelization deferred to Phase 2 — buildings get a dedicated
-        // procedural mesh pipeline rather than a per-pixel cube voxel mesh.
-        // BuildingManager.render_data may not share the actor render_data layout
-        // 1:1 and we can't verify without a Unity build, so we leave buildings
-        // as upstream sprite billboards in Phase 1.
+        // Phase 1 fallback for buildings. Phase 2's procgen building meshes override
+        // this when SavedSettings.ProceduralBuildings flips on; until then, when the
+        // player turns Voxel Entities on, voxelizing the building sprite is the best
+        // we can do for 3D buildings without procgen.
+        [HarmonyPatch(typeof(BuildingManager), nameof(BuildingManager.precalculateRenderDataParallel))]
+        public static class BuildingVoxelEmit
+        {
+            [HarmonyPostfix]
+            public static void EmitVoxels(BuildingManager __instance)
+            {
+                if (!Core.IsWorld3D || !Core.savedSettings.VoxelEntities) return;
+                if (Core.savedSettings.ProceduralBuildings) return;
+                if (!EnsureMaterial()) return;
+
+                var rd = __instance.render_data;
+                var arr = __instance._array_visible_buildings;
+                int n = __instance._visible_buildings_count;
+                for (int i = 0; i < n; i++)
+                {
+                    Building b = arr[i];
+                    if (b == null || b.asset == null) continue;
+                    if (Constants.PerpBuildings.ContainsKey(b.asset.id)) continue;
+
+                    Sprite sp = rd.main_sprites[i];
+                    if (sp == null) continue;
+                    Mesh m = VoxelMeshCache.Get(sp);
+                    if (m == null) continue;
+
+                    Vector3 pos = rd.positions[i];
+                    Vector3 rot = rd.rotations[i];
+                    Vector3 scl = rd.scales[i];
+                    if (rd.flip_x_states[i]) scl.x = -scl.x;
+                    Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
+                    Submit(m, trs, rd.colors[i]);
+                    // BuildingRenderData has no has_normal_render. Suppressing via scales[i]=0
+                    // hides the sprite quad without nulling main_sprites (downstream
+                    // calculateColoredSprite() chokes on null). Shadow sprite still draws as a
+                    // ground decal under the 3D mesh — fine until Phase 5 ships real shadows.
+                    rd.scales[i] = Vector3.zero;
+                }
+            }
+        }
     }
 
     /// <summary>
