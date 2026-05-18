@@ -16,17 +16,18 @@ namespace WorldSphereMod.Voxel
         [HarmonyPrefix]
         public static void OnFinish()
         {
-            try { WorldSphereMod.Worldspace.WorldUIRenderer.OnWorldUnload(); } catch (System.Exception e) { Debug.LogWarning("WorldUIRenderer.OnWorldUnload: " + e.Message); }
-            try { WorldSphereMod.Voxel.VoxelMeshCache.Clear(); } catch (System.Exception e) { Debug.LogWarning("VoxelMeshCache.Clear: " + e.Message); }
-            try { WorldSphereMod.ProcGen.ProcGenCache.Clear(); } catch (System.Exception e) { Debug.LogWarning("ProcGenCache.Clear: " + e.Message); }
-            try { WorldSphereMod.Foliage.CrossedQuadMeshCache.Clear(); } catch (System.Exception e) { Debug.LogWarning("CrossedQuadMeshCache.Clear: " + e.Message); }
-            try { WorldSphereMod.Rig.RigCache.Clear(); } catch (System.Exception e) { Debug.LogWarning("RigCache.Clear: " + e.Message); }
-            try { WorldSphereMod.Rig.RigDriver.Clear(); } catch (System.Exception e) { Debug.LogWarning("RigDriver.Clear: " + e.Message); }
-            try { WorldSphereMod.LOD.ImpostorBillboard.Clear(); } catch (System.Exception e) { Debug.LogWarning("ImpostorBillboard.Clear: " + e.Message); }
-            try { WorldSphereMod.LOD.LodSelector.ResetHysteresis(); } catch (System.Exception e) { Debug.LogWarning("LodSelector.ResetHysteresis: " + e.Message); }
-            try { WorldSphereMod.Voxel.VoxelRender.Reset(); } catch (System.Exception e) { Debug.LogWarning("VoxelRender.Reset: " + e.Message); }
-            try { WorldSphereMod.Voxel.MeshInstanceBatcher.Reset(); } catch (System.Exception e) { Debug.LogWarning("MeshInstanceBatcher.Reset: " + e.Message); }
-            try { WorldSphereMod.Foliage.FoliageTileRender.ClearCache(); } catch (System.Exception e) { Debug.LogWarning("FoliageTileRender.ClearCache: " + e.Message); }
+            try { WorldSphereMod.Worldspace.WorldUIRenderer.OnWorldUnload(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] WorldUIRenderer.OnWorldUnload: " + e.Message); }
+            try { WorldSphereMod.Voxel.VoxelMeshCache.Clear(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] VoxelMeshCache.Clear: " + e.Message); }
+            try { WorldSphereMod.Voxel.SpriteVoxelizer.ClearPixelCache(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] SpriteVoxelizer.ClearPixelCache: " + e.Message); }
+            try { WorldSphereMod.ProcGen.ProcGenCache.Clear(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] ProcGenCache.Clear: " + e.Message); }
+            try { WorldSphereMod.Foliage.CrossedQuadMeshCache.Clear(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] CrossedQuadMeshCache.Clear: " + e.Message); }
+            try { WorldSphereMod.Rig.RigCache.Clear(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] RigCache.Clear: " + e.Message); }
+            try { WorldSphereMod.Rig.RigDriver.Clear(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] RigDriver.Clear: " + e.Message); }
+            try { WorldSphereMod.LOD.ImpostorBillboard.Clear(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] ImpostorBillboard.Clear: " + e.Message); }
+            try { WorldSphereMod.LOD.LodSelector.ResetHysteresis(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] LodSelector.ResetHysteresis: " + e.Message); }
+            try { WorldSphereMod.Voxel.VoxelRender.Reset(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] VoxelRender.Reset: " + e.Message); }
+            try { WorldSphereMod.Voxel.MeshInstanceBatcher.Reset(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] MeshInstanceBatcher.Reset: " + e.Message); }
+            try { WorldSphereMod.Foliage.FoliageTileRender.ClearCache(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] FoliageTileRender.ClearCache: " + e.Message); }
         }
     }
 }

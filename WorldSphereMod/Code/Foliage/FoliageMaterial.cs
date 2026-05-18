@@ -23,7 +23,7 @@ namespace WorldSphereMod.Foliage
             if (s == null) s = Shader.Find("Sprites/Default");
             if (s == null)
             {
-                Debug.LogWarning("[WorldSphereMod3D] No foliage shader found; disabling foliage renderer.");
+                Debug.LogWarning("[WSM3D] No foliage shader found; disabling foliage renderer.");
                 return false;
             }
             _material = new Material(s) { name = "WSM3D.Foliage.Placeholder", enableInstancing = true };

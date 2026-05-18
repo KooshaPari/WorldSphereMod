@@ -41,7 +41,7 @@ namespace WorldSphereMod.API
             }
             catch (Exception ex)
             {
-                Debug.Log($"Setting of Name {Name} and Type {Type} Not Found! ({ex.Message})");
+                Debug.Log($"[WSM3D] Setting of Name {Name} and Type {Type} Not Found! ({ex.Message})");
                 return null;
             }
         }

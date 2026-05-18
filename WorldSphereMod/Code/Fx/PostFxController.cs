@@ -56,9 +56,9 @@ namespace WorldSphereMod.Fx
                 if (p != null && p.CanWrite) { p.SetValue(target, value); return; }
                 var f = type.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
                 if (f != null) { f.SetValue(target, value); return; }
-                Debug.LogWarning($"PostFxController: no settable member {type.Name}.{name}");
+                Debug.LogWarning($"[WSM3D] PostFxController: no settable member {type.Name}.{name}");
             }
-            catch (Exception e) { Debug.LogWarning($"PostFxController: write {type.Name}.{name} failed: {e.Message}"); }
+            catch (Exception e) { Debug.LogWarning($"[WSM3D] PostFxController: write {type.Name}.{name} failed: {e.Message}"); }
         }
 
         // Sets `value` on the URP override's parameter named `paramName`. URP parameters are
@@ -77,7 +77,7 @@ namespace WorldSphereMod.Fx
                 }
                 if (param == null)
                 {
-                    Debug.LogWarning($"PostFxController: parameter {t.Name}.{paramName} not found");
+                    Debug.LogWarning($"[WSM3D] PostFxController: parameter {t.Name}.{paramName} not found");
                     return;
                 }
                 Type pt = param.GetType();
@@ -95,7 +95,7 @@ namespace WorldSphereMod.Fx
                 var overrideField = pt.GetField("overrideState", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
                 overrideField?.SetValue(param, true);
             }
-            catch (Exception e) { Debug.LogWarning($"PostFxController: write param {paramName} failed: {e.Message}"); }
+            catch (Exception e) { Debug.LogWarning($"[WSM3D] PostFxController: write param {paramName} failed: {e.Message}"); }
         }
 
         static object? GetUniversalAdditionalCameraData(Camera cam, Type additionalDataType)
@@ -105,7 +105,7 @@ namespace WorldSphereMod.Fx
                 var existing = cam.GetComponent(additionalDataType);
                 if (existing != null) return existing;
             }
-            catch (Exception e) { Debug.LogWarning($"PostFxController: GetComponent UACD failed: {e.Message}"); }
+            catch (Exception e) { Debug.LogWarning($"[WSM3D] PostFxController: GetComponent UACD failed: {e.Message}"); }
 
             // Walk known extension method holders.
             string[] candidates =
@@ -122,12 +122,12 @@ namespace WorldSphereMod.Fx
                     var m = ext.GetMethod("GetUniversalAdditionalCameraData", BindingFlags.Static | BindingFlags.Public);
                     if (m != null) return m.Invoke(null, new object[] { cam });
                 }
-                catch (Exception e) { Debug.LogWarning($"PostFxController: {name}.GetUniversalAdditionalCameraData failed: {e.Message}"); }
+                catch (Exception e) { Debug.LogWarning($"[WSM3D] PostFxController: {name}.GetUniversalAdditionalCameraData failed: {e.Message}"); }
             }
 
             // Fallback: AddComponent if extension method not located.
             try { return cam.gameObject.AddComponent(additionalDataType); }
-            catch (Exception e) { Debug.LogWarning($"PostFxController: AddComponent UACD failed: {e.Message}"); return null; }
+            catch (Exception e) { Debug.LogWarning($"[WSM3D] PostFxController: AddComponent UACD failed: {e.Message}"); return null; }
         }
 
         public static void Create()
@@ -145,7 +145,7 @@ namespace WorldSphereMod.Fx
             if (volumeType == null || profileType == null || additionalDataType == null
                 || bloomType == null || colorAdjustmentsType == null || vignetteType == null)
             {
-                Debug.LogWarning("PostFxController: URP types not present at runtime — post-FX disabled.");
+                Debug.LogWarning("[WSM3D] PostFxController: URP types not present at runtime — post-FX disabled.");
                 return;
             }
 
@@ -155,7 +155,7 @@ namespace WorldSphereMod.Fx
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"PostFxController: failed to allocate volume GO: {e.Message}");
+                Debug.LogWarning($"[WSM3D] PostFxController: failed to allocate volume GO: {e.Message}");
                 return;
             }
 
@@ -166,7 +166,7 @@ namespace WorldSphereMod.Fx
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"PostFxController: AddComponent Volume failed: {e.Message}");
+                Debug.LogWarning($"[WSM3D] PostFxController: AddComponent Volume failed: {e.Message}");
                 UnityEngine.Object.Destroy(_volumeGO);
                 _volumeGO = null;
                 return;
@@ -182,7 +182,7 @@ namespace WorldSphereMod.Fx
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"PostFxController: failed to create VolumeProfile: {e.Message}");
+                Debug.LogWarning($"[WSM3D] PostFxController: failed to create VolumeProfile: {e.Message}");
                 _profile = null;
             }
 
@@ -246,9 +246,9 @@ namespace WorldSphereMod.Fx
                         return m.Invoke(profile, args);
                     }
                 }
-                Debug.LogWarning($"PostFxController: VolumeProfile.Add not found for {overrideType.Name}");
+                Debug.LogWarning($"[WSM3D] PostFxController: VolumeProfile.Add not found for {overrideType.Name}");
             }
-            catch (Exception e) { Debug.LogWarning($"PostFxController: Add override {overrideType.Name} failed: {e.Message}"); }
+            catch (Exception e) { Debug.LogWarning($"[WSM3D] PostFxController: Add override {overrideType.Name} failed: {e.Message}"); }
             return null;
         }
 
@@ -262,18 +262,18 @@ namespace WorldSphereMod.Fx
             {
                 object? acd = null;
                 try { acd = cam.GetComponent(additionalDataType); }
-                catch (Exception e) { Debug.LogWarning($"PostFxController: GetComponent UACD during Destroy failed: {e.Message}"); }
+                catch (Exception e) { Debug.LogWarning($"[WSM3D] PostFxController: GetComponent UACD during Destroy failed: {e.Message}"); }
                 if (acd != null) TryWrite(acd, additionalDataType, "renderPostProcessing", false);
             }
 
             try { UnityEngine.Object.Destroy(_volumeGO); }
-            catch (Exception e) { Debug.LogWarning($"PostFxController: Destroy GO failed: {e.Message}"); }
+            catch (Exception e) { Debug.LogWarning($"[WSM3D] PostFxController: Destroy GO failed: {e.Message}"); }
             _volumeGO = null;
 
             if (_profile != null)
             {
                 try { UnityEngine.Object.Destroy(_profile); }
-                catch (Exception e) { Debug.LogWarning($"PostFxController: Destroy profile failed: {e.Message}"); }
+                catch (Exception e) { Debug.LogWarning($"[WSM3D] PostFxController: Destroy profile failed: {e.Message}"); }
                 _profile = null;
             }
         }

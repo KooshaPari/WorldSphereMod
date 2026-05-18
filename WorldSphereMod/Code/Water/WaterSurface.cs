@@ -154,7 +154,7 @@ namespace WorldSphereMod.Water
             }
             if (s == null)
             {
-                Debug.LogWarning("[WorldSphereMod3D] No water shader found; water disabled.");
+                Debug.LogWarning("[WSM3D] No water shader found; water disabled.");
                 return false;
             }
             _material = new Material(s) { name = "WSM3D.Water" };

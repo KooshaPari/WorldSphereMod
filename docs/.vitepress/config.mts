@@ -1,16 +1,10 @@
 import { defineConfig } from 'vitepress'
 
-// GitHub Pages base path: when GITHUB_ACTIONS is set we serve from /<repo>/,
-// otherwise from /. The fork repo name defaults to WorldSphereMod.
-const isPagesBuild = process.env.GITHUB_ACTIONS === 'true' || process.env.GITHUB_PAGES === 'true'
-const repoName = process.env.GITHUB_REPOSITORY?.split('/')[1] || 'WorldSphereMod'
-const docsBase = isPagesBuild ? `/${repoName}/` : '/'
-
 export default defineConfig({
   title: 'WorldSphereMod3D',
   description: 'Hard fork of WorldSphereMod that finishes the 3D conversion of WorldBox.',
   lang: 'en-US',
-  base: docsBase,
+  base: '/WorldSphereMod/',
   lastUpdated: true,
   cleanUrls: true,
   appearance: 'dark',

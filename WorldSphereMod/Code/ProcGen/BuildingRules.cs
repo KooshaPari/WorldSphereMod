@@ -73,7 +73,7 @@ namespace WorldSphereMod.ProcGen
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[WorldSphereMod.ProcGen] BuildingRulesLoader: failed to enumerate '{path}': {ex.Message}");
+                Debug.LogWarning($"[WSM3D] BuildingRulesLoader: failed to enumerate '{path}': {ex.Message}");
                 return registry;
             }
 
@@ -88,7 +88,7 @@ namespace WorldSphereMod.ProcGen
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogWarning($"[WorldSphereMod.ProcGen] BuildingRulesLoader: failed to parse '{file}': {ex.Message}");
+                    Debug.LogWarning($"[WSM3D] BuildingRulesLoader: failed to parse '{file}': {ex.Message}");
                 }
             }
 

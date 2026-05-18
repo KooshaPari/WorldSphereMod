@@ -30,7 +30,7 @@ namespace WorldSphereMod.ProcGen
             int y0 = (int)texRect.y;
             int texW = sprite.texture.width;
 
-            Color32[] full = sprite.texture.GetPixels32();
+            Color32[] full = WorldSphereMod.Voxel.SpriteVoxelizer.GetPixelsCached(sprite.texture);
             Color32[] pixels = new Color32[w * h];
             for (int y = 0; y < h; y++)
             {

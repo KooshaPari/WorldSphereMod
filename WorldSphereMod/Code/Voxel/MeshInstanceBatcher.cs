@@ -41,6 +41,10 @@ namespace WorldSphereMod.Voxel
             public readonly List<Matrix4x4> Matrices = new List<Matrix4x4>(1024);
             public readonly List<Vector4>   Colors   = new List<Vector4>(1024);
             public MaterialPropertyBlock    Block    = new MaterialPropertyBlock();
+            // Scratch buffers reused across frames; grown (never shrunk) to current batch
+            // size so DrawMeshInstanced gets a tight-fitting array without per-frame allocation.
+            public Matrix4x4[] MatScratch = new Matrix4x4[kBatch];
+            public Vector4[]   ColScratch = new Vector4[kBatch];
         }
 
         static readonly Dictionary<Key, Bucket> _buckets = new Dictionary<Key, Bucket>(128);
@@ -77,15 +81,20 @@ namespace WorldSphereMod.Voxel
                 while (offset < total)
                 {
                     int n = Mathf.Min(kBatch, total - offset);
-                    var mats = new Matrix4x4[n];
-                    var cols = new Vector4[n];
-                    bucket.Matrices.CopyTo(offset, mats, 0, n);
-                    bucket.Colors.CopyTo(offset, cols, 0, n);
+                    // Reuse per-bucket scratch buffers; grow on demand so allocations only
+                    // occur when the per-bucket high-water mark increases (typically once).
+                    if (bucket.MatScratch.Length < n)
+                    {
+                        bucket.MatScratch = new Matrix4x4[n];
+                        bucket.ColScratch = new Vector4[n];
+                    }
+                    bucket.Matrices.CopyTo(offset, bucket.MatScratch, 0, n);
+                    bucket.Colors.CopyTo(offset, bucket.ColScratch, 0, n);
                     bucket.Block.Clear();
-                    bucket.Block.SetVectorArray(_colorProp, cols);
+                    bucket.Block.SetVectorArray(_colorProp, bucket.ColScratch);
                     Graphics.DrawMeshInstanced(
                         kv.Key.Mesh, 0, kv.Key.Material,
-                        mats, n, bucket.Block,
+                        bucket.MatScratch, n, bucket.Block,
                         shadows, receive, layer);
                     FrameDrawCalls++;
                     offset += n;

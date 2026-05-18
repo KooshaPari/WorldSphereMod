@@ -1,5 +1,7 @@
 # WorldSphereMod3D (hard fork)
 
+Docs: <https://kooshapari.github.io/WorldSphereMod/>
+
 A hard fork of [MelvinShwuaner/WorldSphereMod](https://github.com/MelvinShwuaner/WorldSphereMod)
 that finishes the 3D conversion of WorldBox.
 

@@ -64,7 +64,7 @@ namespace WorldSphereMod.Voxel
             }
             if (s == null)
             {
-                Debug.LogWarning("[WorldSphereMod3D] No voxel shader found; disabling voxel renderer.");
+                Debug.LogWarning("[WSM3D] No voxel shader found; disabling voxel renderer.");
                 return false;
             }
             _material = new Material(s) { name = "WSM3D.Voxel.Placeholder", enableInstancing = true };

@@ -51,7 +51,7 @@ namespace WorldSphereMod.Lighting
                 var f = type.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
                 if (f != null) return f.GetValue(target);
             }
-            catch (Exception e) { Debug.LogWarning($"ShadowCascadeConfig: read {name} failed: {e.Message}"); }
+            catch (Exception e) { Debug.LogWarning($"[WSM3D] ShadowCascadeConfig: read {name} failed: {e.Message}"); }
             return null;
         }
 
@@ -63,9 +63,9 @@ namespace WorldSphereMod.Lighting
                 if (p != null && p.CanWrite) { p.SetValue(target, value); return; }
                 var f = type.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
                 if (f != null) { f.SetValue(target, value); return; }
-                Debug.LogWarning($"ShadowCascadeConfig: no settable member {name}");
+                Debug.LogWarning($"[WSM3D] ShadowCascadeConfig: no settable member {name}");
             }
-            catch (Exception e) { Debug.LogWarning($"ShadowCascadeConfig: write {name} failed: {e.Message}"); }
+            catch (Exception e) { Debug.LogWarning($"[WSM3D] ShadowCascadeConfig: write {name} failed: {e.Message}"); }
         }
 
         public static void Apply(bool highShadows)
@@ -73,13 +73,13 @@ namespace WorldSphereMod.Lighting
             Type? urpType = GetUrpAssetType();
             if (urpType == null)
             {
-                Debug.LogWarning("ShadowCascadeConfig: URP not in use (UniversalRenderPipelineAsset type not found).");
+                Debug.LogWarning("[WSM3D] ShadowCascadeConfig: URP not in use (UniversalRenderPipelineAsset type not found).");
                 return;
             }
             UnityEngine.Object? urp = GetActiveUrpAsset(urpType);
             if (urp == null)
             {
-                Debug.LogWarning("ShadowCascadeConfig: URP not in use (no active UniversalRenderPipelineAsset).");
+                Debug.LogWarning("[WSM3D] ShadowCascadeConfig: URP not in use (no active UniversalRenderPipelineAsset).");
                 return;
             }
 

@@ -23,6 +23,28 @@ namespace WorldSphereMod.Voxel
         /// <summary>Voxel depth in texels. 1 = flat extruded card, &gt;1 = chunkier. </summary>
         public const int DefaultDepth = 1;
 
+        // Per-texture pixel cache. Sprite atlases share one underlying Texture2D across many
+        // sprites; without this, each sprite voxelization re-paid the cost of decoding the
+        // entire atlas via GetPixels32(). Keyed by Texture.GetInstanceID() so atlas swap-outs
+        // and texture deletions invalidate naturally via ClearPixelCache() at world unload.
+        static readonly Dictionary<int, Color32[]> _texPixelCache = new Dictionary<int, Color32[]>(64);
+
+        internal static Color32[] GetPixelsCached(Texture2D tex)
+        {
+            int key = tex.GetInstanceID();
+            if (_texPixelCache.TryGetValue(key, out var px)) return px;
+            px = tex.GetPixels32();
+            _texPixelCache[key] = px;
+            return px;
+        }
+
+        /// <summary>Drop the per-texture pixel cache. Wire into world unload so stale atlas
+        /// pixel arrays don't pin GC memory across sessions.</summary>
+        public static void ClearPixelCache()
+        {
+            _texPixelCache.Clear();
+        }
+
         /// <summary>
         /// Build a voxel mesh from the given sprite. Pulls pixels via the same atlas-aware
         /// path the terrain uses (<see cref="Tools.PixelsFromSpriteAtlas"/>) when the sprite
@@ -50,7 +72,7 @@ namespace WorldSphereMod.Voxel
             int h = Mathf.Max(1, (int)r.height);
             int x0 = (int)r.x;
             int y0 = (int)r.y;
-            Color32[] tex = sprite.texture.GetPixels32();
+            Color32[] tex = GetPixelsCached(sprite.texture);
             int texW = sprite.texture.width;
 
             // Build the alpha mask. We treat any pixel with alpha > 16 as solid;
@@ -126,7 +148,7 @@ namespace WorldSphereMod.Voxel
             int h = Mathf.Max(1, (int)r.height);
             int x0 = (int)r.x;
             int y0 = (int)r.y;
-            Color32[] tex = sprite.texture.GetPixels32();
+            Color32[] tex = GetPixelsCached(sprite.texture);
             int texW = sprite.texture.width;
 
             bool[,,] solid = new bool[w, h, depth];
@@ -149,6 +171,9 @@ namespace WorldSphereMod.Voxel
             }
 
             Vector2 pivot = sprite.pivot;
+            float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
+            Vector3 origin = new Vector3(-pivot.x / ppu, -pivot.y / ppu, -(depth * 0.5f) / ppu);
+            float cell = 1f / ppu;
             float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
             Vector3 origin = new Vector3(-pivot.x / ppu, -pivot.y / ppu, -(depth * 0.5f) / ppu);
             float cell = 1f / ppu;
