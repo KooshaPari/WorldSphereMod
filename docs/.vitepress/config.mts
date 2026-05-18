@@ -4,7 +4,9 @@ export default defineConfig({
   title: 'WorldSphereMod3D',
   description: 'Hard fork of WorldSphereMod that finishes the 3D conversion of WorldBox.',
   lang: 'en-US',
-  base: '/WorldSphereMod/',
+  // base is repo-subpath on GitHub Pages (kooshapari.github.io/WorldSphereMod/),
+  // but root on Vercel / dev. DOCS_BASE overrides for non-Pages targets.
+  base: process.env.DOCS_BASE ?? '/WorldSphereMod/',
   lastUpdated: true,
   cleanUrls: true,
   appearance: 'dark',

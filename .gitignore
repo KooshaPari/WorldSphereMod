@@ -8,3 +8,6 @@ docs/.vitepress/cache/
 
 # npm
 **/node_modules/
+
+# Vercel
+.vercel/
