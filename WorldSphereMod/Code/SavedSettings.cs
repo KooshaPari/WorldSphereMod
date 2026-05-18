@@ -28,7 +28,7 @@ namespace WorldSphereMod
         // Phase 2: Procedural building meshes (vs. billboarded building sprites).
         public bool ProceduralBuildings = false;
         // Phase 3: Crossed-quad foliage (vs. billboarded sprite top tiles).
-        public bool CrossedQuadFoliage = false;
+        public bool CrossedQuadFoliage = true;
         // Phase 4: Mesh water surface (vs. flat tile color).
         public bool MeshWater = false;
         // Phase 5: Directional sun + cascaded shadow maps.

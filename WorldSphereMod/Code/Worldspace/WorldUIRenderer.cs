@@ -40,6 +40,7 @@ namespace WorldSphereMod.Worldspace
         {
             if (Instance == null) return;
             SelectionRing.Clear();
+            DamagePopup.Clear();
             foreach (var kv in Instance._rigs)
             {
                 if (kv.Value != null) Object.Destroy(kv.Value.gameObject);
@@ -66,10 +67,12 @@ namespace WorldSphereMod.Worldspace
             GameObject rootGo = new GameObject("WSM3D.UIRigs");
             _root = rootGo.transform;
             _root.SetParent(transform, worldPositionStays: false);
+            DamagePopup.Init(_root);
         }
 
         void OnDestroy()
         {
+            DamagePopup.Clear();
             if (Instance == this) Instance = null;
         }
 
@@ -114,6 +117,7 @@ namespace WorldSphereMod.Worldspace
             }
 
             SelectionRing.UpdateAll();
+            DamagePopup.Tick();
         }
 
         internal Transform RegisterActor(Actor a)

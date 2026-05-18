@@ -47,7 +47,17 @@ State of the world for the next Claude Code instance (or human) resuming work.
 - **Pending**: Step 7 (flip `ProceduralBuildings=true` default) blocks on smoke test.
   Step 8 (PR + screenshots) blocks on Phase 1 in-game.
 
-**Phase 3 + Phase 4** — pre-implementation design docs only. No code yet.
+**Phase 3a** — crossed-quad foliage landed:
+- Trees, bushes and rocks now render as crossed-quad meshes (two intersecting
+  alpha-tested quads per instance) via the foliage pipeline gated on
+  `SavedSettings.CrossedQuadFoliage` (default ON).
+- Mesh + material caches share the `MeshInstanceBatcher` flush path; wind
+  shader hook is in place but uses the placeholder lit shader until Phase 5.
+- Phase 3b (surface overlays / decorations driven by `WorldTilemap` —
+  flowers, grass tufts, footprints, etc.) is still **designed-only**; see
+  `docs/phase3-architecture.md`. Cloud refactor is also pending in 3b.
+
+**Phase 4** — pre-implementation design docs only. No code yet.
 
 **Tooling**:
 - `./Tools/install.ps1` — one-shot build + copy into `<WorldBox>/Mods/WorldSphereMod3D/`.
