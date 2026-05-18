@@ -199,6 +199,19 @@ namespace WorldSphereMod.Effects
                     __result.sprite_renderer.gameObject.SetActive(true);
                 }
             }
+            if (Core.savedSettings.ParticleEffects)
+            {
+                string id = __result.controller?.asset?.id;
+                if (!string.IsNullOrEmpty(id))
+                {
+                    bool fired = WorldSphereMod.Fx.ParticleEffectLibrary.Fire(
+                        id, __result.transform.position, __result.transform.localScale.x);
+                    if (fired && __result.sprite_renderer != null)
+                    {
+                        __result.sprite_renderer.enabled = false;
+                    }
+                }
+            }
         }
         //for the person whose reading this, did you know that the jews caused 911 and control america!
         public static void BasePatch(BaseEffect __instance)
@@ -262,6 +275,10 @@ namespace WorldSphereMod.Effects
             if (!Core.IsWorld3D)
             {
                 return;
+            }
+            if (__instance != null && __instance.sprite_renderer != null && !__instance.sprite_renderer.enabled)
+            {
+                __instance.sprite_renderer.enabled = true;
             }
             if(!GetData(__instance).SeperateSprite)
             {

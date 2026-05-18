@@ -70,12 +70,14 @@ namespace WorldSphereMod.Rig
             return built;
         }
 
-        // Step 3: use the real SpriteVoxelizer output as the base mesh. Per-vertex bone
-        // indices are uniformly Spine for now — true per-voxel mapping needs a non-greedy
-        // voxelizer variant and lands in Step 4. The SegmentVoxels result is computed but
-        // discarded; Step 4 will consume it.
+        // Step 4: voxelize without greedy merging so each emitted vertex can be traced back
+        // to a single source texel, then look up that texel's BoneId from
+        // HumanoidRig.SegmentVoxels. Vertices whose texel index is out of range or maps to a
+        // transparent pixel (BoneId.Root sentinel from SegmentVoxels) fall back to Spine.
         static SkinnedVoxelMesh BuildHumanoid(Sprite sprite)
         {
+            BoneId[] segment = null;
+            int segW = 0, segH = 0;
             if (sprite.texture != null && sprite.texture.isReadable)
             {
                 Rect r = sprite.textureRect;
@@ -96,14 +98,31 @@ namespace WorldSphereMod.Rig
                         sub[dstRow + x] = tex[srcRow + x];
                     }
                 }
-                _ = HumanoidRig.SegmentVoxels(w, h, sub);
+                segment = HumanoidRig.SegmentVoxels(w, h, sub);
+                segW = w;
+                segH = h;
             }
 
-            var mesh = SpriteVoxelizer.Build(sprite, SpriteVoxelizer.DefaultDepth);
+            var mesh = SpriteVoxelizer.BuildPerTexel(sprite, SpriteVoxelizer.DefaultDepth, out int[] vertexToTexel);
             var boneIndices = new byte[mesh.vertexCount];
-            // Placeholder: anchor every vertex to Spine so Step 5's RigDriver compute path can
-            // be exercised end-to-end. Per-voxel mapping lands in Step 4.
-            for (int i = 0; i < boneIndices.Length; i++) boneIndices[i] = (byte)BoneId.Spine;
+            int segLen = segment != null ? segment.Length : 0;
+            int vmapLen = vertexToTexel != null ? vertexToTexel.Length : 0;
+            for (int i = 0; i < boneIndices.Length; i++)
+            {
+                BoneId bone = BoneId.Spine;
+                if (segment != null && i < vmapLen)
+                {
+                    int t = vertexToTexel[i];
+                    if (t >= 0 && t < segLen)
+                    {
+                        BoneId b = segment[t];
+                        // SegmentVoxels uses Root=0 as the "unassigned / transparent" sentinel;
+                        // remap to Spine so those verts don't anchor to the world origin.
+                        bone = b == BoneId.Root ? BoneId.Spine : b;
+                    }
+                }
+                boneIndices[i] = (byte)bone;
+            }
 
             return new SkinnedVoxelMesh
             {

@@ -102,6 +102,136 @@ namespace WorldSphereMod.Voxel
             return mesh;
         }
 
+        /// <summary>
+        /// Phase 6 Step 4: per-texel voxel build with no greedy merging. Emits up to six
+        /// unit-cube faces per opaque texel (only the faces that border a transparent or
+        /// out-of-bounds neighbour, matching <see cref="Build"/>'s face-culling). For every
+        /// emitted face all four vertices share the same source texel index
+        /// <c>x + y * spriteW</c>, written into <paramref name="vertexToTexel"/>. RigCache
+        /// uses that mapping to project <see cref="Rig.HumanoidRig.SegmentVoxels"/> output
+        /// from pixel space onto per-vertex bone indices. The depth axis collapses to the
+        /// front-most texel (z=0) because the source is a 2D sprite — every (x,y,z) column of
+        /// solid voxels descends from the same texel.
+        /// </summary>
+        public static Mesh BuildPerTexel(Sprite sprite, int depth, out int[] vertexToTexel)
+        {
+            if (sprite == null || sprite.texture == null || !sprite.texture.isReadable)
+            {
+                vertexToTexel = System.Array.Empty<int>();
+                return CreateEmpty();
+            }
+
+            Rect r = sprite.textureRect;
+            int w = Mathf.Max(1, (int)r.width);
+            int h = Mathf.Max(1, (int)r.height);
+            int x0 = (int)r.x;
+            int y0 = (int)r.y;
+            Color32[] tex = sprite.texture.GetPixels32();
+            int texW = sprite.texture.width;
+
+            bool[,,] solid = new bool[w, h, depth];
+            Color32[,,] color = new Color32[w, h, depth];
+            for (int y = 0; y < h; y++)
+            {
+                int row = (y0 + y) * texW + x0;
+                for (int x = 0; x < w; x++)
+                {
+                    Color32 c = tex[row + x];
+                    if (c.a > 16)
+                    {
+                        for (int z = 0; z < depth; z++)
+                        {
+                            solid[x, y, z] = true;
+                            color[x, y, z] = c;
+                        }
+                    }
+                }
+            }
+
+            Vector2 pivot = sprite.pivot;
+            float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
+            Vector3 origin = new Vector3(-pivot.x / ppu, -pivot.y / ppu, -(depth * 0.5f) / ppu);
+            float cell = 1f / ppu;
+
+            var verts = new List<Vector3>();
+            var cols  = new List<Color32>();
+            var tris  = new List<int>();
+            var vToT  = new List<int>();
+
+            for (int x = 0; x < w; x++)
+            {
+                for (int y = 0; y < h; y++)
+                {
+                    for (int z = 0; z < depth; z++)
+                    {
+                        if (!solid[x, y, z]) continue;
+                        Color32 c = color[x, y, z];
+                        int texel = x + y * w;
+
+                        // dir 0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z
+                        TryEmitTexelFace(0, x, y, z, w, h, depth, solid, c, texel, origin, cell, verts, cols, tris, vToT);
+                        TryEmitTexelFace(1, x, y, z, w, h, depth, solid, c, texel, origin, cell, verts, cols, tris, vToT);
+                        TryEmitTexelFace(2, x, y, z, w, h, depth, solid, c, texel, origin, cell, verts, cols, tris, vToT);
+                        TryEmitTexelFace(3, x, y, z, w, h, depth, solid, c, texel, origin, cell, verts, cols, tris, vToT);
+                        TryEmitTexelFace(4, x, y, z, w, h, depth, solid, c, texel, origin, cell, verts, cols, tris, vToT);
+                        TryEmitTexelFace(5, x, y, z, w, h, depth, solid, c, texel, origin, cell, verts, cols, tris, vToT);
+                    }
+                }
+            }
+
+            var mesh = new Mesh { name = $"voxel-pt:{sprite.name}" };
+            if (verts.Count > 65535)
+            {
+                mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            }
+            mesh.SetVertices(verts);
+            mesh.SetColors(cols);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            // No UploadMeshData(true) here: callers (RigCache) need to keep CPU-side vertex
+            // data readable so they can stamp per-vertex bone indices alongside vertexToTexel.
+
+            vertexToTexel = vToT.ToArray();
+            return mesh;
+        }
+
+        static void TryEmitTexelFace(int dir, int cx, int cy, int cz,
+            int w, int h, int d, bool[,,] solid, Color32 c, int texel,
+            Vector3 origin, float cell,
+            List<Vector3> verts, List<Color32> cols, List<int> tris, List<int> vertexToTexel)
+        {
+            int nx = cx, ny = cy, nz = cz;
+            switch (dir)
+            {
+                case 0: nx++; break;
+                case 1: nx--; break;
+                case 2: ny++; break;
+                case 3: ny--; break;
+                case 4: nz++; break;
+                case 5: nz--; break;
+            }
+            bool neighborSolid =
+                nx >= 0 && nx < w &&
+                ny >= 0 && ny < h &&
+                nz >= 0 && nz < d &&
+                solid[nx, ny, nz];
+            if (neighborSolid) return;
+
+            int s, u, v;
+            switch (dir >> 1)
+            {
+                case 0: s = cx; u = cy; v = cz; break;
+                case 1: s = cy; u = cx; v = cz; break;
+                default: s = cz; u = cx; v = cy; break;
+            }
+
+            int baseIdx = verts.Count;
+            EmitQuad(dir, s, u, v, 1, 1, c, origin, cell, verts, cols, tris);
+            int added = verts.Count - baseIdx;
+            for (int i = 0; i < added; i++) vertexToTexel.Add(texel);
+        }
+
         // Mikola Lysenko-style binary greedy meshing: 6 face directions, per-slice 2D mask, merge equal-color cells into rectangles.
         static void GreedyMesh(bool[,,] solid, Color32[,,] color, int w, int h, int d,
             Vector3 origin, float cell,
