@@ -1,0 +1,61 @@
+# Normalize line endings to LF in the repo. This codebase has been emitting
+# CRLF/LF warnings consistently — pinning eol=lf here resolves them and
+# matches the .editorconfig contract.
+* text=auto eol=lf
+
+# Explicit text files — force LF on the bytes Git stores.
+*.cs       text eol=lf
+*.csproj   text eol=lf
+*.sln      text eol=lf
+*.props    text eol=lf
+*.targets  text eol=lf
+*.json     text eol=lf
+*.yaml     text eol=lf
+*.yml      text eol=lf
+*.md       text eol=lf
+*.txt      text eol=lf
+*.xml      text eol=lf
+*.sh       text eol=lf
+*.ps1      text eol=lf
+*.cmd      text eol=lf
+*.bat      text eol=lf
+*.editorconfig text eol=lf
+.gitignore     text eol=lf
+.gitattributes text eol=lf
+Dockerfile     text eol=lf
+
+# Binary assets — never line-ending-normalized, never diffed as text.
+*.dll        binary
+*.exe        binary
+*.pdb        binary
+*.so         binary
+*.dylib      binary
+*.png        binary
+*.jpg        binary
+*.jpeg       binary
+*.gif        binary
+*.ico        binary
+*.tga        binary
+*.psd        binary
+*.zip        binary
+*.7z         binary
+*.tar        binary
+*.gz         binary
+*.nupkg      binary
+*.shader     binary
+*.compute    binary
+*.mat        binary
+*.prefab     binary
+*.unity      binary
+*.asset      binary
+*.fbx        binary
+*.glb        binary
+*.gltf       binary
+*.obj        binary
+*.ogg        binary
+*.wav        binary
+*.mp3        binary
+
+# Unity AssetBundles ship as extension-less binary blobs under
+# WorldSphereMod/AssetBundles/{win,linux,osx}/.
+WorldSphereMod/AssetBundles/** binary

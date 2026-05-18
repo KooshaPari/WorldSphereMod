@@ -1,0 +1,47 @@
+{
+  "name": "WorldSphereMod3D",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:1-8.0-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/dotnet:2": {
+      "version": "8.0",
+      "additionalVersions": []
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "moby": true
+    },
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csdevkit",
+        "ms-dotnettools.csharp",
+        "ms-azuretools.vscode-docker",
+        "editorconfig.editorconfig",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "files.eol": "\n",
+        "files.insertFinalNewline": true,
+        "files.trimTrailingWhitespace": true,
+        "dotnet.defaultSolution": "WorldSphereMod.sln",
+        "omnisharp.enableEditorConfigSupport": true,
+        "omnisharp.enableRoslynAnalyzers": true,
+        "editor.formatOnSave": false
+      }
+    }
+  },
+  "workspaceFolder": "/workspaces/WorldSphereMod",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/WorldSphereMod,type=bind,consistency=cached",
+  "remoteEnv": {
+    "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+    "DOTNET_NOLOGO": "1",
+    "DOTNET_SKIP_FIRST_TIME_EXPERIENCE": "1"
+  },
+  "containerEnv": {
+    "_NOTE": "WORLDBOX_PATH is intentionally NOT set. The full mod (WorldSphereMod.csproj) cannot be built inside a container because it references proprietary WorldBox DLLs that are not redistributable. Only WorldSphereAPI.csproj builds in this devcontainer. See CLAUDE.md and Directory.Build.props for the local-build contract."
+  },
+  "postCreateCommand": "dotnet restore WorldSphereAPI.csproj && dotnet build WorldSphereAPI.csproj -c Release",
+  "remoteUser": "vscode"
+}
