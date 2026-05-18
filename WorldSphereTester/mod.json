@@ -1,0 +1,7 @@
+{
+  "name": "WorldSphereTester",
+  "author": "WorldSphereMod3D fork tester",
+  "version": "0.1.0",
+  "description": "API regression harness for WorldSphereMod3D. Calls every public WorldSphereAPI method on PostInit and logs results.",
+  "GUID": "worldsphere3d.tester"
+}

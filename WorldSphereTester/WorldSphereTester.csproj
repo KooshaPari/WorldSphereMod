@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      netstandard2.1 because WorldBox's UnityEngine.CoreModule.dll is itself
+      built against netstandard2.1 and the C# compiler refuses to link a 2.0
+      consumer against a 2.1 producer ("uses higher version than referenced").
+      Still strictly looser than the main mod's net5.0 target and Unity's
+      mono runtime loads netstandard2.1 IL fine — matches what NeoModLoader
+      ships against.
+    -->
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <AssemblyName>WorldSphereTester</AssemblyName>
+    <RootNamespace>WorldSphereTester</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WorldSphereAPI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="NeoModLoader">
+      <HintPath>$(WorldBoxPath)/worldbox_Data/StreamingAssets/mods/NeoModLoader.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(WorldBoxManaged)/UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="mod.json">
+      <CopyToOutputDirectory>PreserveNewestIfChanged</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
