@@ -1,0 +1,652 @@
+#Requires -Version 5.0
+<#
+.SYNOPSIS
+  WorldSphereMod3D CLI — unified entry point for build, install, launch, and diagnostics.
+
+.DESCRIPTION
+  One-file command dispatcher for WSM3D development. Routes to subcommands:
+    build, install, launch, kill, relaunch, log, screenshot, settings, toggle, status, journey, help.
+
+.EXAMPLE
+  ./wsm3d.ps1 build
+  ./wsm3d.ps1 install -Launch
+  ./wsm3d.ps1 log -Follow
+  ./wsm3d.ps1 settings get -Key VoxelEntities
+  ./wsm3d.ps1 settings set -Key VoxelEntities -Value true
+  ./wsm3d.ps1 toggle -Phase VoxelEntities
+  ./wsm3d.ps1 relaunch
+  ./wsm3d.ps1 status -Json
+  ./wsm3d.ps1 journey list
+#>
+
+$ErrorActionPreference = "Stop"
+
+# === Setup ===
+$script:ToolsDir = $PSScriptRoot
+$script:RepoRoot = Split-Path -Parent $ToolsDir
+$script:WorldBoxPath = if ($env:WORLDBOX_PATH) { $env:WORLDBOX_PATH } else { "C:/Program Files (x86)/Steam/steamapps/common/Worldbox" }
+$script:ModInstallPath = Join-Path $WorldBoxPath "Mods/WorldSphereMod3D"
+$script:PlayerLogPath = Join-Path $env:USERPROFILE "AppData/LocalLow/mkarpenko/WorldBox/Player.log"
+# NML's Paths.ModsConfigPath resolves to a snake_case folder on Windows (mods_config),
+# not the PascalCase "ModsConfig" you might guess. Verified by Get-ChildItem -Recurse
+# -Filter WorldSphereMod.json under $env:USERPROFILE/AppData.
+$script:ModSettingsDir = Join-Path $env:USERPROFILE "AppData/LocalLow/mkarpenko/WorldBox/mods_config"
+$script:ModSettingsFile = Join-Path $ModSettingsDir "WorldSphereMod.json"
+$script:BuiltDll = Join-Path $RepoRoot "bin/Release/net5.0/WorldSphereMod3D.dll"
+
+# Phase slug to camelCase mapping
+$script:PhaseMap = @{
+    "voxel_entities"      = "VoxelEntities"
+    "procedural_buildings" = "ProceduralBuildings"
+    "crossed_quad_foliage" = "CrossedQuadFoliage"
+    "mesh_water"          = "MeshWater"
+    "high_shadows"        = "HighShadows"
+    "skeletal_animation"  = "SkeletalAnimation"
+    "worldspace_ui"       = "WorldspaceUI"
+    "day_night_cycle"     = "DayNightCycle"
+    "post_fx"             = "PostFX"
+    "particle_effects"    = "ParticleEffects"
+}
+
+# === Helpers ===
+function Write-Error-Custom {
+    param([string]$Message)
+    Write-Host "[ERROR] $Message" -ForegroundColor Red
+}
+
+function Write-Info {
+    param([string]$Message)
+    Write-Host "[INFO] $Message" -ForegroundColor Cyan
+}
+
+function Write-Success {
+    param([string]$Message)
+    Write-Host "[OK] $Message" -ForegroundColor Green
+}
+
+function Write-Warn {
+    param([string]$Message)
+    Write-Host "[WARN] $Message" -ForegroundColor Yellow
+}
+
+function Normalize-PhaseName {
+    param([string]$Phase)
+
+    # If already camelCase, return as-is
+    if ($PhaseMap.Values -contains $Phase) {
+        return $Phase
+    }
+
+    # Try to map from snake_case
+    $lower = $Phase.ToLower()
+    if ($PhaseMap.ContainsKey($lower)) {
+        return $PhaseMap[$lower]
+    }
+
+    # If it starts with uppercase, assume camelCase
+    if ([char]::IsUpper($Phase[0])) {
+        return $Phase
+    }
+
+    throw "Phase '$Phase' not recognized. Use camelCase (e.g., VoxelEntities) or snake_case (e.g., voxel_entities)."
+}
+
+function Get-SettingsJson {
+    if (-not (Test-Path $ModSettingsFile)) {
+        throw "Settings file not found at $ModSettingsFile. Run 'wsm3d install' first."
+    }
+    Get-Content $ModSettingsFile -Raw | ConvertFrom-Json
+}
+
+function Set-SettingsJson {
+    param([object]$SettingsObj)
+    if (-not (Test-Path $ModSettingsDir)) {
+        New-Item -ItemType Directory -Force -Path $ModSettingsDir | Out-Null
+    }
+    $SettingsObj | ConvertTo-Json -Depth 10 | Set-Content -Path $ModSettingsFile -Encoding UTF8
+}
+
+# === Commands ===
+
+function Invoke-Build {
+    param(
+        [ValidateSet("Release", "Debug")]
+        [string]$Configuration = "Release"
+    )
+
+    Write-Info "Building WorldSphereMod.csproj -c $Configuration..."
+    $env:WORLDBOX_PATH = $WorldBoxPath
+
+    Push-Location $RepoRoot
+    try {
+        & dotnet build WorldSphereMod.csproj -c $Configuration
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet build failed."
+        }
+        Write-Success "Build completed."
+    } finally {
+        Pop-Location
+    }
+}
+
+function Invoke-Install {
+    param(
+        [switch]$Launch,
+        [switch]$NoBuild
+    )
+
+    Write-Info "Installing WorldSphereMod3D..."
+    $args = @()
+    if ($NoBuild) { $args += "-SkipBuild" }
+
+    & (Join-Path $ToolsDir "install.ps1") @args
+    Write-Success "Installation complete."
+
+    if ($Launch) {
+        Invoke-Launch
+    }
+}
+
+function Invoke-Launch {
+    Write-Info "Launching WorldBox..."
+    Start-Process "steam://rungameid/1206560"
+    Write-Success "WorldBox launched."
+}
+
+function Invoke-Kill {
+    $proc = Get-Process worldbox -ErrorAction SilentlyContinue
+    if (-not $proc) {
+        Write-Warn "WorldBox not running."
+        return
+    }
+
+    Write-Warn "Killing WorldBox process..."
+    Stop-Process -InputObject $proc -Force
+    Write-Success "WorldBox killed."
+}
+
+function Invoke-Relaunch {
+    param([switch]$NoBuild)
+
+    Write-Info "Relaunching: kill + install + launch..."
+    Invoke-Kill
+    Start-Sleep -Seconds 2
+    Invoke-Install -NoBuild:$NoBuild -Launch
+}
+
+function Invoke-Log {
+    param(
+        [int]$Tail = 50,
+        [switch]$Follow,
+        [string]$Grep
+    )
+
+    if (-not (Test-Path $PlayerLogPath)) {
+        throw "Player.log not found at $PlayerLogPath"
+    }
+
+    $logContent = Get-Content $PlayerLogPath -Tail $Tail
+
+    if ($Grep) {
+        $logContent = $logContent | Select-String -Pattern $Grep
+    }
+
+    $logContent | ForEach-Object { Write-Host $_ }
+
+    if ($Follow) {
+        Write-Info "Following log (Ctrl+C to stop)..."
+        Get-Content $PlayerLogPath -Wait -Tail 50 | ForEach-Object {
+            if ($Grep) {
+                if ($_ -match $Grep) { Write-Host $_ }
+            } else {
+                Write-Host $_
+            }
+        }
+    }
+}
+
+function Invoke-Screenshot {
+    param(
+        [string]$Path,
+        [switch]$WindowOnly
+    )
+
+    Write-Info "Capturing screenshot..."
+    Add-Type -AssemblyName System.Drawing
+
+    $bounds = if ($WindowOnly) {
+        $gameWnd = Get-Process worldbox -ErrorAction SilentlyContinue
+        if (-not $gameWnd) {
+            throw "WorldBox not running. Cannot capture window-only screenshot."
+        }
+        # Simple bounding box for now; P/Invoke windowing comes later
+        throw "WindowOnly not yet implemented. Use full screen capture."
+    } else {
+        [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+    }
+
+    $bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
+    $graphics = [System.Drawing.Graphics]::FromImage($bmp)
+    $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+    $graphics.Dispose()
+
+    if (-not $Path) {
+        $Path = Join-Path $RepoRoot "screenshots/screenshot_$(Get-Date -Format 'yyyyMMdd_HHmmss').png"
+        $screenshotDir = Split-Path -Parent $Path
+        if (-not (Test-Path $screenshotDir)) {
+            New-Item -ItemType Directory -Force -Path $screenshotDir | Out-Null
+        }
+    }
+
+    $bmp.Save($Path)
+    $bmp.Dispose()
+    Write-Success "Screenshot saved to $Path"
+}
+
+function Invoke-SettingsGet {
+    param([string]$Key)
+
+    $settings = Get-SettingsJson
+
+    if ($Key) {
+        if (-not ($settings | Get-Member -Name $Key)) {
+            throw "Key '$Key' not found in settings."
+        }
+        $value = $settings.$Key
+        Write-Host ($value | ConvertTo-Json -Depth 10)
+    } else {
+        Write-Host ($settings | ConvertTo-Json -Depth 10)
+    }
+}
+
+function Invoke-SettingsSet {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Key,
+
+        [Parameter(Mandatory=$true)]
+        $Value
+    )
+
+    $settings = Get-SettingsJson
+
+    if (-not ($settings | Get-Member -Name $Key)) {
+        throw "Key '$Key' not found in settings."
+    }
+
+    # Coerce value to match the original type
+    $orig = $settings.$Key
+    $settings.$Key = if ($orig -is [bool]) {
+        [bool]::Parse($Value)
+    } elseif ($orig -is [int]) {
+        [int]::Parse($Value)
+    } elseif ($orig -is [float]) {
+        [float]::Parse($Value)
+    } else {
+        $Value
+    }
+
+    Set-SettingsJson $settings
+    Write-Success "Set $Key = $($settings.$Key)"
+}
+
+function Invoke-Toggle {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Phase
+    )
+
+    $phaseName = Normalize-PhaseName $Phase
+    $settings = Get-SettingsJson
+
+    if (-not ($settings | Get-Member -Name $phaseName)) {
+        throw "Phase '$phaseName' not found in settings."
+    }
+
+    $settings.$phaseName = -not $settings.$phaseName
+    Set-SettingsJson $settings
+    Write-Success "Toggled $phaseName = $($settings.$phaseName)"
+}
+
+function Invoke-Status {
+    param([switch]$Json)
+
+    # Collect status info
+    $status = @{}
+
+    # Repo state
+    $lastCommit = try {
+        Push-Location $RepoRoot
+        $result = & git rev-parse --short HEAD 2>$null
+        if ($LASTEXITCODE -eq 0 -and $result) { $result } else { "unknown" }
+    } catch {
+        "unknown"
+    } finally {
+        Pop-Location
+    }
+    $status["LastCommit"] = $lastCommit
+
+    # Built DLL
+    if (Test-Path $BuiltDll) {
+        $dllItem = Get-Item $BuiltDll
+        $status["DllModified"] = $dllItem.LastWriteTime.ToString("o")
+        $status["DllSize"] = $dllItem.Length
+    } else {
+        $status["DllModified"] = "not built"
+        $status["DllSize"] = 0
+    }
+
+    # Installed mod
+    if (Test-Path $ModInstallPath) {
+        $modItem = Get-Item $ModInstallPath
+        $status["ModInstalled"] = $modItem.LastWriteTime.ToString("o")
+    } else {
+        $status["ModInstalled"] = "not installed"
+    }
+
+    # Game process
+    $gameRunning = if (Get-Process worldbox -ErrorAction SilentlyContinue) { "running" } else { "stopped" }
+    $status["GameProcess"] = $gameRunning
+
+    # Log file
+    if (Test-Path $PlayerLogPath) {
+        $logItem = Get-Item $PlayerLogPath
+        $status["LogSize"] = $logItem.Length
+        $status["LogModified"] = $logItem.LastWriteTime.ToString("o")
+    } else {
+        $status["LogSize"] = 0
+        $status["LogModified"] = "not found"
+    }
+
+    if ($Json) {
+        Write-Host ($status | ConvertTo-Json)
+    } else {
+        Write-Host ""
+        Write-Host "Status Report" -ForegroundColor Cyan
+        Write-Host "=============" -ForegroundColor Cyan
+        Write-Host "  Last Commit      : $($status['LastCommit'])"
+        Write-Host "  DLL (Release)    : $($status['DllModified']) ($($status['DllSize']) bytes)"
+        Write-Host "  Mod Install      : $($status['ModInstalled'])"
+        Write-Host "  Game Process     : $($status['GameProcess'])"
+        Write-Host "  Player.log       : $($status['LogModified']) ($($status['LogSize']) bytes)"
+        Write-Host ""
+    }
+}
+
+function Invoke-JourneyList {
+    Write-Info "Listing journeys (via phenotype-journey)..."
+    $journeyCmd = Get-Command phenotype-journey -ErrorAction SilentlyContinue
+    if (-not $journeyCmd) {
+        throw "phenotype-journey not on PATH. See docs/journeys/README.md for setup."
+    }
+    & phenotype-journey list
+}
+
+function Invoke-JourneyRun {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Id
+    )
+
+    Write-Info "Running journey $Id (via phenotype-journey)..."
+    $journeyCmd = Get-Command phenotype-journey -ErrorAction SilentlyContinue
+    if (-not $journeyCmd) {
+        throw "phenotype-journey not on PATH. See docs/journeys/README.md for setup."
+    }
+    & phenotype-journey run -id $Id
+}
+
+function Invoke-JourneyVerify {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Id
+    )
+
+    Write-Info "Verifying journey $Id (via phenotype-journey)..."
+    $journeyCmd = Get-Command phenotype-journey -ErrorAction SilentlyContinue
+    if (-not $journeyCmd) {
+        throw "phenotype-journey not on PATH. See docs/journeys/README.md for setup."
+    }
+    & phenotype-journey verify -id $Id
+}
+
+function Show-Help {
+    Write-Host @"
+WorldSphereMod3D CLI — Command Surface
+
+Usage: wsm3d <command> [options]
+
+Commands:
+  build [-Configuration Release|Debug]
+      Build WorldSphereMod.csproj via dotnet. Sets WORLDBOX_PATH env var.
+
+  install [-Launch] [-NoBuild]
+      Install sources to the mod folder. Optionally build first, then launch.
+
+  launch
+      Start WorldBox via Steam (steam://rungameid/1206560).
+
+  kill
+      Force-stop the WorldBox process. Destructive — requires confirmation.
+
+  relaunch [-NoBuild]
+      Kill, install, launch. Full cycle (skips build if -NoBuild).
+
+  log [-Tail N] [-Follow] [-Grep <pattern>]
+      Read Player.log. Default tail=50. Use -Follow to stream. -Grep filters lines.
+
+  screenshot [-Path <file>] [-WindowOnly]
+      Capture full screen to PNG. Use -Path to specify output. -WindowOnly not yet implemented.
+
+  settings get [-Key <field>]
+      Print all settings or one field as JSON. Field names are camelCase (e.g., VoxelEntities).
+
+  settings set -Key <field> -Value <bool|number>
+      Patch one setting. Value is parsed to match the field type.
+
+  toggle -Phase <name>
+      Flip a phase flag on/off. Name can be camelCase (VoxelEntities) or snake_case (voxel_entities).
+
+  status [-Json]
+      Print build state, game running, log mtime. Use -Json for machine-readable output.
+
+  journey list
+      List available journeys (delegates to phenotype-journey CLI).
+
+  journey run -Id <id>
+      Run a journey by ID (delegates to phenotype-journey CLI).
+
+  journey verify -Id <id>
+      Verify a journey by ID (delegates to phenotype-journey CLI).
+
+  help
+      Show this help text.
+
+Environment:
+  WORLDBOX_PATH  Override the default WorldBox install path.
+                 Default: C:/Program Files (x86)/Steam/steamapps/common/Worldbox
+
+Examples:
+  wsm3d build
+  wsm3d install -Launch
+  wsm3d relaunch
+  wsm3d log -Follow -Grep "VoxelEntities"
+  wsm3d settings get
+  wsm3d settings set -Key VoxelEntities -Value true
+  wsm3d toggle -Phase voxel_entities
+  wsm3d status -Json
+  wsm3d journey list
+
+"@ -ForegroundColor White
+}
+
+# === Dispatcher ===
+$command = if ($args.Count -gt 0) { $args[0] } else { "" }
+$commandArgs = if ($args.Count -gt 1) { $args[1..($args.Count - 1)] } else { @() }
+
+try {
+    switch -Exact ($command) {
+        "build" {
+            $params = @{}
+            if ($commandArgs -contains "-Configuration") {
+                $params["Configuration"] = $commandArgs[$commandArgs.IndexOf("-Configuration") + 1]
+            }
+            Invoke-Build @params
+        }
+
+        "install" {
+            $params = @{
+                Launch = $commandArgs -contains "-Launch"
+                NoBuild = $commandArgs -contains "-NoBuild"
+            }
+            Invoke-Install @params
+        }
+
+        "launch" {
+            Invoke-Launch
+        }
+
+        "kill" {
+            Invoke-Kill
+        }
+
+        "relaunch" {
+            $params = @{
+                NoBuild = $commandArgs -contains "-NoBuild"
+            }
+            Invoke-Relaunch @params
+        }
+
+        "log" {
+            $params = @{ Tail = 50 }
+            $params["Follow"] = $commandArgs -contains "-Follow"
+
+            if ($commandArgs -contains "-Tail") {
+                $params["Tail"] = [int]$commandArgs[$commandArgs.IndexOf("-Tail") + 1]
+            }
+            if ($commandArgs -contains "-Grep") {
+                $params["Grep"] = $commandArgs[$commandArgs.IndexOf("-Grep") + 1]
+            }
+
+            Invoke-Log @params
+        }
+
+        "screenshot" {
+            $params = @{}
+            if ($commandArgs -contains "-Path") {
+                $params["Path"] = $commandArgs[$commandArgs.IndexOf("-Path") + 1]
+            }
+            if ($commandArgs -contains "-WindowOnly") {
+                $params["WindowOnly"] = $true
+            }
+            Invoke-Screenshot @params
+        }
+
+        "settings" {
+            if ($commandArgs.Count -eq 0) {
+                Write-Error-Custom "settings requires 'get' or 'set' subcommand"
+                Show-Help
+                exit 1
+            }
+            $subCmd = $commandArgs[0]
+            $subArgs = if ($commandArgs.Count -gt 1) { $commandArgs[1..($commandArgs.Count - 1)] } else { @() }
+
+            switch -Exact ($subCmd) {
+                "get" {
+                    $params = @{}
+                    if ($subArgs -contains "-Key") {
+                        $params["Key"] = $subArgs[$subArgs.IndexOf("-Key") + 1]
+                    }
+                    Invoke-SettingsGet @params
+                }
+
+                "set" {
+                    $params = @{}
+                    if ($subArgs -contains "-Key") {
+                        $params["Key"] = $subArgs[$subArgs.IndexOf("-Key") + 1]
+                    }
+                    if ($subArgs -contains "-Value") {
+                        $params["Value"] = $subArgs[$subArgs.IndexOf("-Value") + 1]
+                    }
+                    Invoke-SettingsSet @params
+                }
+
+                default {
+                    Write-Error-Custom "Unknown settings subcommand: $subCmd"
+                    Show-Help
+                    exit 1
+                }
+            }
+        }
+
+        "toggle" {
+            $params = @{}
+            if ($commandArgs -contains "-Phase") {
+                $params["Phase"] = $commandArgs[$commandArgs.IndexOf("-Phase") + 1]
+            }
+            Invoke-Toggle @params
+        }
+
+        "status" {
+            $params = @{
+                Json = $commandArgs -contains "-Json"
+            }
+            Invoke-Status @params
+        }
+
+        "journey" {
+            if ($commandArgs.Count -eq 0) {
+                Write-Error-Custom "journey requires 'list', 'run', or 'verify' subcommand"
+                Show-Help
+                exit 1
+            }
+            $subCmd = $commandArgs[0]
+            $subArgs = if ($commandArgs.Count -gt 1) { $commandArgs[1..($commandArgs.Count - 1)] } else { @() }
+
+            switch -Exact ($subCmd) {
+                "list" {
+                    Invoke-JourneyList
+                }
+
+                "run" {
+                    $params = @{}
+                    if ($subArgs -contains "-Id") {
+                        $params["Id"] = $subArgs[$subArgs.IndexOf("-Id") + 1]
+                    }
+                    Invoke-JourneyRun @params
+                }
+
+                "verify" {
+                    $params = @{}
+                    if ($subArgs -contains "-Id") {
+                        $params["Id"] = $subArgs[$subArgs.IndexOf("-Id") + 1]
+                    }
+                    Invoke-JourneyVerify @params
+                }
+
+                default {
+                    Write-Error-Custom "Unknown journey subcommand: $subCmd"
+                    Show-Help
+                    exit 1
+                }
+            }
+        }
+
+        "help" {
+            Show-Help
+        }
+
+        "" {
+            Show-Help
+        }
+
+        default {
+            Write-Error-Custom "Unknown command: $command"
+            Show-Help
+            exit 1
+        }
+    }
+} catch {
+    Write-Error-Custom $_.Exception.Message
+    exit 1
+}

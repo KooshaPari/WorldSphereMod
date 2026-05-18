@@ -1,0 +1,52 @@
+[
+  {
+    "id": "us-wsm-phase-1-voxel-actors",
+    "intent": "Validate Phase 1 (VoxelEntities) replaces actor billboards with voxel meshes.",
+    "file": "us-wsm-phase-1-voxel-actors/manifest.json"
+  },
+  {
+    "id": "us-wsm-phase-2-mesh-buildings",
+    "intent": "Validate Phase 2 (ProceduralBuildings) renders buildings as procedural meshes.",
+    "file": "us-wsm-phase-2-mesh-buildings/manifest.json"
+  },
+  {
+    "id": "us-wsm-phase-3-crossed-foliage",
+    "intent": "Validate Phase 3 (CrossedQuadFoliage) renders trees and bushes with crossed quads and wind animation.",
+    "file": "us-wsm-phase-3-crossed-foliage/manifest.json"
+  },
+  {
+    "id": "us-wsm-phase-4-mesh-water",
+    "intent": "Validate Phase 4 (MeshWater) renders water with Gerstner waves and shoreline foam.",
+    "file": "us-wsm-phase-4-mesh-water/manifest.json"
+  },
+  {
+    "id": "us-wsm-phase-5-shadows",
+    "intent": "Validate Phase 5 (HighShadows) renders directional sun shadows with cascaded shadow maps.",
+    "file": "us-wsm-phase-5-shadows/manifest.json"
+  },
+  {
+    "id": "us-wsm-phase-6-skeletal",
+    "intent": "Validate Phase 6 (SkeletalAnimation) animates voxel actors via skeleton rig.",
+    "file": "us-wsm-phase-6-skeletal/manifest.json"
+  },
+  {
+    "id": "us-wsm-phase-7-worldspace-ui",
+    "intent": "Validate Phase 7 (WorldspaceUI) renders nameplates, HP bars, and selection rings in 3D space.",
+    "file": "us-wsm-phase-7-worldspace-ui/manifest.json"
+  },
+  {
+    "id": "us-wsm-phase-8-day-night",
+    "intent": "Validate Phase 8 (DayNightCycle) cycles sky color from dawn to noon to dusk.",
+    "file": "us-wsm-phase-8-day-night/manifest.json"
+  },
+  {
+    "id": "us-wsm-phase-9-postfx",
+    "intent": "Validate Phase 9 (PostFX) applies bloom and color grading post-processing effects.",
+    "file": "us-wsm-phase-9-postfx/manifest.json"
+  },
+  {
+    "id": "us-wsm-phase-10-lod-impostor",
+    "intent": "Validate Phase 10 (LOD Impostor) gates distant entities to impostor billboards for performance.",
+    "file": "us-wsm-phase-10-lod-impostor/manifest.json"
+  }
+]
