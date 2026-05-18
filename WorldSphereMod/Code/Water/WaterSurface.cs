@@ -16,6 +16,13 @@ namespace WorldSphereMod.Water
         Material? _instanceMaterial;   // per-renderer copy of _material; we own SetFloat on this
         float _waveTime;
 
+        // Reusable scratch buffers for RebuildMesh. Cleared instead of freshly allocated each
+        // rebuild — RebuildMesh runs on world load and on every tile change, so the dropped
+        // allocations add up across a long session.
+        readonly List<Vector3> _vertsScratch = new List<Vector3>();
+        readonly List<int> _trisScratch = new List<int>();
+        readonly Dictionary<long, int> _cornerIndexScratch = new Dictionary<long, int>();
+
         public static WaterSurface? Create(Transform parent)
         {
             if (Instance != null) Destroy();
@@ -73,14 +80,17 @@ namespace WorldSphereMod.Water
             int width = MapBox.width;
             int height = MapBox.height;
 
-            var vertices = new List<Vector3>(tileCount);
-            var triangles = new List<int>(tileCount * 6);
+            var vertices = _vertsScratch;
+            var triangles = _trisScratch;
+            var cornerIndex = _cornerIndexScratch;
+            vertices.Clear();
+            triangles.Clear();
+            cornerIndex.Clear();
             float sea = WaterMaskBuffer.SeaLevel;
 
             // Vertex dedup at grid corners. cx is modulo width so the cylindrical X-wrap seam
             // collapses to one vertex per shared corner — eliminates the lighting stripe that
             // RecalculateNormals would otherwise produce from split duplicate verts.
-            var cornerIndex = new Dictionary<long, int>(tileCount * 4);
 
             int GetCorner(int cx, int cy)
             {

@@ -12,26 +12,45 @@ namespace WorldSphereMod.API
     {
         // Upstream v1 surface (preserved verbatim for compatibility) ----------
 
+        /// <summary>True when the upstream 3D-camera + tile-height pipeline is active.</summary>
         public static bool IsWorld3D()
         {
             return Core.IsWorld3D;
         }
+        /// <summary>Mark an actor asset as non-billboarded (faces ground, doesn't rotate to camera).</summary>
+        /// <param name="ID">WorldBox actor asset id.</param>
         public static void MakeActorPerp(string ID)
         {
             Constants.PerpActors.Add(ID, true);
         }
+        /// <summary>Mark a building asset as non-billboarded (faces ground, doesn't rotate to camera).</summary>
+        /// <param name="ID">WorldBox building asset id.</param>
         public static void MakeBuildingPerp(string ID)
         {
             Constants.PerpBuildings.Add(ID, true);
         }
+        /// <summary>Mark a projectile asset as non-billboarded (faces ground, doesn't rotate to camera).</summary>
+        /// <param name="ID">WorldBox projectile asset id.</param>
         public static void MakeProjectilePerp(string ID)
         {
             Constants.PerpProjectiles.Add(ID, true);
         }
+        /// <summary>Register a per-effect render override (orientation, separation, height, ground-snap).</summary>
+        /// <param name="ID">WorldBox effect asset id.</param>
+        /// <param name="isUpright">If true, the effect renders upright and may rotate to face the camera.</param>
+        /// <param name="SeperateSprite">If true, the SpriteRenderer is fully separated so changes do not propagate back.</param>
+        /// <param name="ExtraHeight">Additional vertical offset, in world units.</param>
+        /// <param name="OnGround">If true, the base height is the tile's terrain height; otherwise 0.</param>
         public static void EditEffect(string ID, bool isUpright, bool SeperateSprite, float ExtraHeight, bool OnGround)
         {
             Constants.EffectDatas.Add(ID, new EffectData(isUpright, SeperateSprite, ExtraHeight, OnGround));
         }
+        /// <summary>
+        /// Reflectively read a public field on <see cref="SavedSettings"/> by name. Returns
+        /// <c>null</c> on missing field or any read failure (logged at <c>Debug.Log</c> level).
+        /// </summary>
+        /// <param name="Name">Field name on <see cref="SavedSettings"/>.</param>
+        /// <param name="Type">Expected field type — used only by the external <c>WorldSphereAPI</c> caller for typed coercion.</param>
         public static object GetSetting(string Name, Type Type)
         {
             try
@@ -75,8 +94,14 @@ namespace WorldSphereMod.API
             MeshOverrides[assetId] = new MeshOverride { Mesh = m, Albedo = albedo as Texture };
         }
 
-        /// <summary>Fired whenever the day/night driver advances. Argument: 0..1 (0=midnight, 0.5=noon).</summary>
+        /// <summary>
+        /// Fires once per <c>TimeOfDay</c> tick after the day/night driver advances.
+        /// Subscribers receive a normalized phase: 0=midnight, 0.25=dawn, 0.5=noon,
+        /// 0.75=dusk. No-op on v1 hosts (the event simply never fires). Subscribe
+        /// in your mod's <c>PostInit</c>; unsubscribe in your unload sink.
+        /// </summary>
         public static event Action<float>? OnTimeOfDayChanged;
+        /// <summary>Internal hook called by <c>TimeOfDay</c> to broadcast the current phase.</summary>
         internal static void RaiseTimeOfDay(float t) => OnTimeOfDayChanged?.Invoke(t);
 
         /// <summary>

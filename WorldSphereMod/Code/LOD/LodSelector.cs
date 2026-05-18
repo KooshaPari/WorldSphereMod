@@ -21,6 +21,18 @@ namespace WorldSphereMod.LOD
 
         static readonly Dictionary<int, LodHysteresis> _hyst = new Dictionary<int, LodHysteresis>();
 
+        // Cached squared-distance LOD thresholds; recomputed only when any of the inputs
+        // (camera FOV, LODScale, VoxelThreshold, ProxyThreshold) change. Saves an Mathf.Tan,
+        // two divides and two muls per actor per frame; per-actor cost collapses to a
+        // squared-distance compare.
+        static float _cachedFov = float.NaN;
+        static float _cachedLodScale = float.NaN;
+        static float _cachedVoxelThreshold = float.NaN;
+        static float _cachedProxyThreshold = float.NaN;
+        static float _voxelMaxDistSqr;
+        static float _proxyMaxDistSqr;
+        const float _entityHeight = 0.5f;
+
         public static LodTier Select(Vector3 worldPos, int instanceId)
         {
             if (ImpostorOnlyMode) return LodTier.Impostor;
@@ -28,14 +40,31 @@ namespace WorldSphereMod.LOD
             Camera cam = CameraManager.MainCamera;
             if (cam == null) return LodTier.Voxel;
 
-            float distance = Vector3.Distance(worldPos, cam.transform.position);
-            float tanHalfFov = Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
-            float entityHeight = 0.5f;
-            float screenFrac = entityHeight / Mathf.Max(0.01f, distance * tanHalfFov) * Core.savedSettings.LODScale;
+            float fov = cam.fieldOfView;
+            float lodScale = Core.savedSettings.LODScale;
+            if (fov != _cachedFov || lodScale != _cachedLodScale
+                || VoxelThreshold != _cachedVoxelThreshold || ProxyThreshold != _cachedProxyThreshold)
+            {
+                float tanHalfFov = Mathf.Max(0.0001f, Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad));
+                float voxelMaxDist = _entityHeight * lodScale / (VoxelThreshold * tanHalfFov);
+                float proxyMaxDist = _entityHeight * lodScale / (ProxyThreshold * tanHalfFov);
+                _voxelMaxDistSqr = voxelMaxDist * voxelMaxDist;
+                _proxyMaxDistSqr = proxyMaxDist * proxyMaxDist;
+                _cachedFov = fov;
+                _cachedLodScale = lodScale;
+                _cachedVoxelThreshold = VoxelThreshold;
+                _cachedProxyThreshold = ProxyThreshold;
+            }
+
+            Vector3 camPos = cam.transform.position;
+            float dx = worldPos.x - camPos.x;
+            float dy = worldPos.y - camPos.y;
+            float dz = worldPos.z - camPos.z;
+            float distSqr = dx * dx + dy * dy + dz * dz;
 
             LodTier proposed;
-            if (screenFrac > VoxelThreshold) proposed = LodTier.Voxel;
-            else if (screenFrac > ProxyThreshold) proposed = LodTier.Proxy;
+            if (distSqr < _voxelMaxDistSqr) proposed = LodTier.Voxel;
+            else if (distSqr < _proxyMaxDistSqr) proposed = LodTier.Proxy;
             else proposed = LodTier.Impostor;
 
             if (!_hyst.TryGetValue(instanceId, out LodHysteresis h))

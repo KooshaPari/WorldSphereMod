@@ -20,6 +20,8 @@ default-on, and ship a PR against `claude/research-ultraplan-fork-DdgI5`.
    2. [`HANDOFF`](/HANDOFF) — the live state of every phase, what's blocked.
    3. [`PLAN`](/PLAN) — the canonical phase-by-phase plan with file paths and verification steps.
 
+   ![docs/HANDOFF.md rendered in VS Code, scrolled to the phase status table and Recommended next steps section](./assets/contribute-a-phase/01-handoff.png)
+
 2. **Pick a phase.** Skim [`HANDOFF`](/HANDOFF) phase table. Phases marked
    `🔄 awaits smoke test` or `research` are the best candidates for new
    contributors; `landed` phases only accept refinements/bugfixes.
@@ -28,6 +30,8 @@ default-on, and ship a PR against `claude/research-ultraplan-fork-DdgI5`.
    architecture page (e.g. [phase 2](/phase2-architecture),
    [phase 5](/phase5-architecture), [phase 6](/phase6-architecture)). These
    are the spec; deviations need an ADR.
+
+   ![A docs/phaseN-architecture.md page rendered with the Verify / perf-budget section in view, acting as the phase contract](./assets/contribute-a-phase/02-architecture-doc.png)
 
 4. **Local build setup.**
    ```bash
@@ -63,8 +67,12 @@ default-on, and ship a PR against `claude/research-ultraplan-fork-DdgI5`.
    `main`. Use the [PR checklist](/PR_CHECKLIST). Mark as draft until
    in-game smoke test passes.
 
+   ![GitHub draft PR with the PR template rendered and several per-phase checkboxes ticked](./assets/contribute-a-phase/03-pr-checklist.png)
+
 10. **CodeRabbit + review.** CI builds only the API project — that must be
     green. The rest is human review.
+
+    ![GitHub PR Checks tab showing the WorldSphereAPI build job and CodeRabbit job as green checkmarks](./assets/contribute-a-phase/04-ci-green.png)
 
 11. **Ship gate.** Once a real human (or agent in a desktop session) has
     smoke-tested the in-game behavior, flip the flag to default-on

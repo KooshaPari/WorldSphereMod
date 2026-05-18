@@ -34,12 +34,16 @@ Get `WorldSphereMod3D` installed alongside (or instead of) upstream `WorldSphere
    On Linux/macOS, manually copy the `WorldSphereMod3D` folder to
    `~/.steam/steam/steamapps/common/worldbox/Mods/` (or your XDG path).
 
+   ![PowerShell output from Tools/install.ps1 showing the auto-detected Steam path, per-folder copy log, and 0-Error dotnet build summary](./assets/install-and-play/01-fresh-install.png)
+
 4. **Enable in NeoModLoader.** Launch WorldBox once with NeoModLoader installed;
    open the mod manager, enable `WorldSphereMod3D`. **Disable upstream
    `WorldSphereMod` if present** — they share Harmony patch surfaces and only
    one should patch the game at a time (the different `GUID`
    `worldsphere3d.fork` makes them *installable* side-by-side, not
    *runnable* side-by-side).
+
+   ![WorldBox start screen with NeoModLoader mod manager open and WorldSphereMod3D toggled on alongside the WSM3D icon](./assets/install-and-play/02-mod-loaded.png)
 
 5. **Launch the game.** A new world; sphere or flat shape is fine.
 
@@ -54,10 +58,16 @@ Get `WorldSphereMod3D` installed alongside (or instead of) upstream `WorldSphere
    (cost gate, lit-shader bake gate; see [phase 5 prep](/phase5-prep) and
    [phase 6 architecture](/phase6-architecture)).
 
+   ![Settings panel with the WorldSphere tab open, per-phase toggles list visible, the five default-on flags highlighted](./assets/install-and-play/03-settings-tab.png)
+
+   ![Animated capture of actors switching from sprite billboards to voxel meshes when VoxelActors is toggled on mid-game](./assets/install-and-play/04-voxel-on.gif)
+
 7. **Verify in-game.** Spawn a kingdom. Rotate the camera 360°. Voxel
    silhouettes should hold from any angle, with no z-fighting against the
    terrain. Sprite-billboard fallback is what you'll see on flags that are
    OFF.
+
+   ![Wide kingdom overview with voxel actors, mesh buildings, mesh water, and worldspace nameplates all visible on the spherical terrain](./assets/install-and-play/05-after-overview.png)
 
 ## Outcome
 

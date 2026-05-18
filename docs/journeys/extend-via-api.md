@@ -27,6 +27,8 @@ controls.
    </ItemGroup>
    ```
 
+   ![External mod .csproj open in editor with the WorldSphereAPI Reference and $(WorldBoxPath) HintPath highlighted](./assets/extend-via-api/01-api-link.png)
+
 2. **Connect at runtime.** The API is delegate-based and reflection-loaded
    so your mod doesn't hard-link against the host:
 
@@ -40,6 +42,8 @@ controls.
 
    `IsModel3D` is the fork-specific bit. Use it to gate v2 calls so your
    mod works against both upstream and the fork.
+
+   ![C# source snippet showing WorldSphereAPI.Connect with IsModel3D and IsWorld3D reads, IDE-highlighted](./assets/extend-via-api/02-connect-call.png)
 
 3. **Pick what to extend.**
 
@@ -78,6 +82,8 @@ controls.
    voxelization enabled and your `RegisterCustomMesh` call winning, you
    should see *your* mesh, not the voxel mesh that would otherwise be
    generated from the sprite.
+
+   ![In-game GIF: a custom-mesh actor (registered via RegisterCustomMesh) rendered with the author-supplied mesh, camera orbiting 360 degrees](./assets/extend-via-api/03-registered-mesh.gif)
 
 ## Outcome
 

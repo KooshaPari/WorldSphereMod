@@ -21,9 +21,13 @@ particles / LOD) is consuming the most frame time.
    [`PLAN.md` Phase 10](/PLAN#phase-10--performance-fallbacks-polish-3-5-days);
    it dumps a per-system breakdown of `Time.deltaTime` once per second.
 
+   ![Settings panel WorldSphere tab with the ProfilerDump=true toggle highlighted](./assets/diagnose-perf/01-profiler-flag.png)
+
 2. **Reproduce the slow scenario.** Load the save / generate the world
    that triggers the drop. Sit on the laggy view for 10–30 seconds so the
    profiler has time to log several samples.
+
+   ![In-game capture with the RuntimeStatsOverlay text rendered in the top-left corner — frame time, actor and building counts](./assets/diagnose-perf/02-stats-overlay.png)
 
 3. **Read `[WSM-PROF]` lines.** Open the WorldBox log:
    - Windows: `%APPDATA%/../LocalLow/Maxim Karpenko/WorldBox/Player.log`
@@ -38,6 +42,8 @@ particles / LOD) is consuming the most frame time.
 
    The largest bucket is your hot phase. `dt` in excess of ~16 ms means
    sub-60 fps.
+
+   ![Player.log tail-viewer filtered to [WSM-PROF] lines, with at least five frames of per-phase budget data visible](./assets/diagnose-perf/03-prof-line.png)
 
 4. **Cross-reference with the per-phase target.** Each architecture doc
    has a perf budget in its "Verify" section. Recap:
@@ -86,6 +92,8 @@ bug.
 - **`dt` is fine but the game feels stuttery** → GC spikes, not steady-
   state cost. Enable Unity's built-in profiler (deep profiling mode), look
   for allocation spikes in the WorldSphere modules.
+
+  ![Unity Profiler window attached to a running WorldBox process, CPU Usage track focused, allocation spikes visible in the WorldSphere modules](./assets/diagnose-perf/04-unity-profiler.png)
 - **Phase 5 (`HighShadows`) is the hot phase** → expected on lower-tier
   GPUs; drop shadow cascades from 4 to 2 in `ShadowCascadeConfig`, or turn
   off `HighShadows` (the mod still uses URP's default-quality shadows from

@@ -174,9 +174,6 @@ namespace WorldSphereMod.Voxel
             float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
             Vector3 origin = new Vector3(-pivot.x / ppu, -pivot.y / ppu, -(depth * 0.5f) / ppu);
             float cell = 1f / ppu;
-            float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
-            Vector3 origin = new Vector3(-pivot.x / ppu, -pivot.y / ppu, -(depth * 0.5f) / ppu);
-            float cell = 1f / ppu;
 
             var verts = new List<Vector3>();
             var cols  = new List<Color32>();

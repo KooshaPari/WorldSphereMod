@@ -142,6 +142,23 @@ namespace WorldSphereMod.UI
             });
             GenerateSlider("tile_length_multiplier", 1, 10, Core.savedSettings.TileHeight, (float x) => { Core.savedSettings.TileHeight = x; Core.SaveSettings(); }, "World Settings");
             CreateButton("Open Sprites", "WorldSphereMod/ModIcon", OpenSprites);
+
+            // Phase 10 / R&D QoL: ProfilerDump toggle (also drives the in-game
+            // RuntimeStatsOverlay since the overlay's OnGUI gates on the same
+            // flag) and a destructive Reset-to-defaults action.
+            CreateToggleButton("ProfileMode", "WorldSphereMod/ModIcon", "profile_mode", "profile_mode_description", ToggleProfileMode, Core.savedSettings.ProfilerDump);
+            CreateButton("Reset Defaults", "WorldSphereMod/ModIcon", ResetToDefaults);
+        }
+        static void ToggleProfileMode()
+        {
+            Core.savedSettings.ProfilerDump = !Core.savedSettings.ProfilerDump;
+            Core.SaveSettings();
+        }
+        static void ResetToDefaults()
+        {
+            Core.savedSettings = new SavedSettings();
+            Core.SaveSettings();
+            UnityEngine.Debug.Log("[WSM3D] SavedSettings reset to defaults. Restart recommended for full effect.");
         }
         static void OpenSprites()
         {
