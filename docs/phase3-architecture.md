@@ -3,6 +3,26 @@
 Source: design pass by `feature-dev:code-architect` (agent run 2026-05-17).
 Pre-implementation design doc; no code written yet.
 
+> **⚠ SCOPE REVISION REQUIRED — see `docs/phase3-decompile-findings.md`.**
+> The decompile-investigation pass revealed that trees / bushes / rocks
+> in WorldBox are NOT `TopTileType` — they are `BuildingAsset` instances
+> drawn through the already-patched `BuildingManager` path. The "patch
+> on `QuantumSpriteLibrary.drawTopTiles`" plan in section 3 below is
+> targeting a method that **does not exist**. Top tiles in WorldBox
+> only cover surface overlays (grass, biomass, walls). Phase 3 should
+> be re-scoped:
+>
+> - **Phase 3a:** route tree-tagged `BuildingAsset`s through a new
+>   `CrossedQuadMesher` by extending the existing Phase 2 procgen
+>   decision tree (add a `Shape` selector to `BuildingRules`).
+> - **Phase 3b:** patch `WorldTilemap.renderTile` for surface overlay
+>   3D (separate Unity Tilemap path).
+>
+> The `CrossedQuadMesher`, mesh cache, `WindSwayDriver`, and shader
+> contract sections below are reusable. Sections 3 (TopTile
+> Integration), 6 (Decision Tree), and 8 (Build Sequence commit 4)
+> need rewrite before implementation begins.
+
 ---
 
 ## 1. Module Layout
