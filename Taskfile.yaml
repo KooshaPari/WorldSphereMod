@@ -1,0 +1,147 @@
+# WorldSphereMod3D Task Runner
+# Phenotype-org-style task runners (see C:/Users/koosh/Dino/Taskfile.yaml).
+# Install go-task: https://taskfile.dev/installation/
+# Usage: task <task-name>  /  task --list
+
+version: '3'
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_NOLOGO: "true"
+
+tasks:
+  default:
+    desc: "Show task list"
+    cmds:
+      - task --list
+
+  # ── Build ──────────────────────────────────────────────────────────────────
+
+  build:
+    desc: "Build main mod (Release). Requires $WORLDBOX_PATH for WorldBox reference DLLs."
+    cmds:
+      - dotnet build WorldSphereMod.csproj -c Release
+
+  build:api:
+    desc: "Build WorldSphereAPI (Unity-free, netstandard2.0 — buildable everywhere)."
+    cmds:
+      - dotnet build WorldSphereAPI.csproj -c Release
+
+  build:tester:
+    desc: "Build WorldSphereTester project."
+    dir: WorldSphereTester
+    cmds:
+      - dotnet build -c Release
+
+  build:tests:
+    desc: "Build the unit test project (skipped if tests scaffold has not landed yet)."
+    cmds:
+      - |
+        if [ -d "tests/WorldSphereMod.Tests.Unit" ]; then
+          dotnet build tests/WorldSphereMod.Tests.Unit -c Release
+        else
+          echo "tests/WorldSphereMod.Tests.Unit not present yet — skipping."
+        fi
+
+  build:all:
+    desc: "Build every project: API + main + tester + tests."
+    cmds:
+      - task: build:api
+      - task: build
+      - task: build:tester
+      - task: build:tests
+
+  # ── Test ───────────────────────────────────────────────────────────────────
+
+  test:
+    desc: "Run unit tests."
+    cmds:
+      - |
+        if [ -d "tests/WorldSphereMod.Tests.Unit" ]; then
+          dotnet test tests/WorldSphereMod.Tests.Unit/
+        else
+          echo "tests/WorldSphereMod.Tests.Unit not present yet — skipping."
+        fi
+
+  test:integration:
+    desc: "Run integration tests."
+    cmds:
+      - |
+        if [ -d "tests/WorldSphereMod.Tests.Integration" ]; then
+          dotnet test tests/WorldSphereMod.Tests.Integration/
+        else
+          echo "tests/WorldSphereMod.Tests.Integration not present yet — skipping."
+        fi
+
+  test:e2e:
+    desc: "Run end-to-end tests."
+    cmds:
+      - |
+        if [ -d "tests/WorldSphereMod.Tests.E2E" ]; then
+          dotnet test tests/WorldSphereMod.Tests.E2E/
+        else
+          echo "tests/WorldSphereMod.Tests.E2E not present yet — skipping."
+        fi
+
+  test:all:
+    desc: "Run unit + integration + e2e suites."
+    cmds:
+      - task: test
+      - task: test:integration
+      - task: test:e2e
+
+  # ── Install / Uninstall ───────────────────────────────────────────────────
+
+  install:
+    desc: "Install mod into local WorldBox (PowerShell)."
+    cmds:
+      - pwsh Tools/install.ps1
+
+  uninstall:
+    desc: "Uninstall mod from local WorldBox (PowerShell)."
+    cmds:
+      - pwsh Tools/uninstall.ps1
+
+  # ── Docs (VitePress) ──────────────────────────────────────────────────────
+
+  docs:dev:
+    desc: "Run VitePress docs dev server."
+    cmds:
+      - npm run docs:dev
+
+  docs:build:
+    desc: "Build VitePress static site."
+    cmds:
+      - npm run docs:build
+
+  # ── Lint / Format ─────────────────────────────────────────────────────────
+
+  lint:
+    desc: "Verify code formatting (fails if files would change)."
+    cmds:
+      - dotnet format --verify-no-changes
+
+  lint:fix:
+    desc: "Auto-format C# code via dotnet format."
+    cmds:
+      - dotnet format
+
+  # ── Release gate ──────────────────────────────────────────────────────────
+
+  release:check:
+    desc: "Pre-release gate: build + tests + lint + docs build all green."
+    cmds:
+      - task: build:all
+      - task: test:all
+      - task: lint
+      - task: docs:build
+
+  # ── Clean ─────────────────────────────────────────────────────────────────
+
+  clean:
+    desc: "Remove every bin/ and obj/ directory in the repo."
+    cmds:
+      - |
+        find . -type d \( -name bin -o -name obj \) -not -path './.git/*' -prune -exec rm -rf {} + 2>/dev/null || true
+        echo "Cleaned bin/ and obj/."

@@ -1,0 +1,119 @@
+name: test-gate
+
+# Blocking quality gate: PRs must pass unit tests.
+# Mirrors DINOForge -gate.yml naming convention.
+#
+# NOTE: This workflow assumes a tests/ scaffold (WorldSphereMod.Tests.Unit,
+# .Integration, .E2E projects). If those paths haven't landed yet, the workflow
+# will run but skip the test step with a clear log message rather than fail.
+
+on:
+  pull_request:
+  push:
+    branches: [main, "claude/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  dotnet-test:
+    name: dotnet test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            5.0.x
+            8.0.x
+
+      # The WorldBox install is not available in CI. Tests that depend on the
+      # main mod project transitively need the same reference-DLL stubs the
+      # build workflow creates. Tests that only depend on WorldSphereAPI
+      # (netstandard2.0, Unity-free) don't need stubs.
+      - name: Stub WorldBox reference DLLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          STUB_ROOT="$RUNNER_TEMP/worldbox-stub"
+          MANAGED="$STUB_ROOT/worldbox_Data/Managed"
+          NML="$STUB_ROOT/worldbox_Data/StreamingAssets/mods/NML"
+          NMLA="$NML/Assemblies"
+          mkdir -p "$MANAGED" "$NML" "$NMLA"
+          for d in \
+            "$MANAGED/Assembly-CSharp-firstpass.dll" \
+            "$MANAGED/Newtonsoft.Json.dll" \
+            "$MANAGED/SleekRender.dll" \
+            "$MANAGED/UnityEngine.CoreModule.dll" \
+            "$MANAGED/UnityEngine.InputLegacyModule.dll" \
+            "$MANAGED/UnityEngine.ParticleSystemModule.dll" \
+            "$MANAGED/UnityEngine.PhysicsModule.dll" \
+            "$MANAGED/UnityEngine.TextRenderingModule.dll" \
+            "$MANAGED/UnityEngine.TilemapModule.dll" \
+            "$MANAGED/UnityEngine.UI.dll" \
+            "$NML/Assembly-CSharp-Publicized.dll" \
+            "$NML/NeoModLoader.dll" \
+            "$NMLA/0Harmony.dll" \
+            "$NMLA/Facepunch.Steamworks.Posix.dll" \
+            "$NMLA/Facepunch.Steamworks.Win64.dll" \
+            "$NMLA/Gameloop.Vdf.dll" \
+            "$NMLA/Microsoft.CodeAnalysis.dll" \
+            "$NMLA/Microsoft.CodeAnalysis.CSharp.dll" \
+            "$NMLA/Mono.Cecil.dll" \
+            "$NMLA/Mono.Cecil.Pdb.dll" \
+            "$NMLA/MonoMod.RuntimeDetour.dll" \
+            "$NMLA/MonoMod.Utils.dll" \
+            "$NMLA/System.Collections.Immutable.dll" \
+            "$NMLA/System.Reflection.Metadata.dll" \
+            "$NMLA/System.Runtime.CompilerServices.Unsafe.dll" \
+            "$NMLA/System.Text.Encoding.CodePages.dll" \
+            "$NMLA/YamlDotNet.dll"; do
+            : > "$d"
+          done
+          echo "WORLDBOX_PATH=$STUB_ROOT" >> "$GITHUB_ENV"
+
+      - name: Detect test projects
+        id: detect
+        shell: bash
+        run: |
+          if [ -d "tests" ] && find tests -maxdepth 3 -name '*.csproj' | grep -q .; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No test projects found under tests/ — workflow ready when paths land."
+          fi
+
+      - name: Run unit tests
+        if: steps.detect.outputs.found == 'true'
+        shell: bash
+        run: |
+          if [ -d "tests/WorldSphereMod.Tests.Unit" ]; then
+            dotnet test tests/WorldSphereMod.Tests.Unit/ \
+              --logger "trx;LogFileName=unit.trx" \
+              --logger "console;verbosity=normal" \
+              --results-directory ./test-results
+          else
+            echo "::notice::tests/WorldSphereMod.Tests.Unit not present — skipping."
+          fi
+
+      - name: Run integration tests
+        if: steps.detect.outputs.found == 'true'
+        shell: bash
+        run: |
+          if [ -d "tests/WorldSphereMod.Tests.Integration" ]; then
+            dotnet test tests/WorldSphereMod.Tests.Integration/ \
+              --logger "trx;LogFileName=integration.trx" \
+              --logger "console;verbosity=normal" \
+              --results-directory ./test-results
+          else
+            echo "::notice::tests/WorldSphereMod.Tests.Integration not present — skipping."
+          fi
+
+      - name: Upload test results
+        if: always() && steps.detect.outputs.found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ./test-results
+          if-no-files-found: ignore

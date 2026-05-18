@@ -1,0 +1,164 @@
+name: release
+
+# Manual-dispatch release pipeline: build + test + tag + upload
+# WorldSphereMod3D.dll to a GitHub release.
+#
+# TEMPLATE — secrets/permissions intentionally left as TODOs. Fill in before
+# enabling. Skipped on automatic pushes; only runs on workflow_dispatch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to create or build for (e.g. v0.3.0)"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark as pre-release"
+        required: false
+        type: boolean
+        default: false
+      draft:
+        description: "Create draft release (review before publish)"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  # TODO: this minimum lets the workflow create a release + upload assets.
+  # Tighten or expand per project policy.
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build, tag, release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            5.0.x
+            8.0.x
+
+      # TODO: For a real release, the main mod DLL needs to be compiled against
+      # actual WorldBox reference assemblies. Today's CI uses zero-byte stubs,
+      # which produce a non-functional binary. Options:
+      #   (a) Switch this workflow to a self-hosted runner with WorldBox installed.
+      #   (b) Use AsmResolver / GenerateStubs to synthesize compilable stubs.
+      #   (c) Run the dispatch on windows-latest with WorldBox restored from a
+      #       secret-protected artifact.
+      - name: Stub WorldBox reference DLLs (PLACEHOLDER — non-functional binary)
+        shell: bash
+        run: |
+          set -euo pipefail
+          STUB_ROOT="$RUNNER_TEMP/worldbox-stub"
+          MANAGED="$STUB_ROOT/worldbox_Data/Managed"
+          NML="$STUB_ROOT/worldbox_Data/StreamingAssets/mods/NML"
+          NMLA="$NML/Assemblies"
+          mkdir -p "$MANAGED" "$NML" "$NMLA"
+          for d in \
+            "$MANAGED/Assembly-CSharp-firstpass.dll" \
+            "$MANAGED/Newtonsoft.Json.dll" \
+            "$MANAGED/SleekRender.dll" \
+            "$MANAGED/UnityEngine.CoreModule.dll" \
+            "$MANAGED/UnityEngine.InputLegacyModule.dll" \
+            "$MANAGED/UnityEngine.ParticleSystemModule.dll" \
+            "$MANAGED/UnityEngine.PhysicsModule.dll" \
+            "$MANAGED/UnityEngine.TextRenderingModule.dll" \
+            "$MANAGED/UnityEngine.TilemapModule.dll" \
+            "$MANAGED/UnityEngine.UI.dll" \
+            "$NML/Assembly-CSharp-Publicized.dll" \
+            "$NML/NeoModLoader.dll" \
+            "$NMLA/0Harmony.dll" \
+            "$NMLA/Facepunch.Steamworks.Posix.dll" \
+            "$NMLA/Facepunch.Steamworks.Win64.dll" \
+            "$NMLA/Gameloop.Vdf.dll" \
+            "$NMLA/Microsoft.CodeAnalysis.dll" \
+            "$NMLA/Microsoft.CodeAnalysis.CSharp.dll" \
+            "$NMLA/Mono.Cecil.dll" \
+            "$NMLA/Mono.Cecil.Pdb.dll" \
+            "$NMLA/MonoMod.RuntimeDetour.dll" \
+            "$NMLA/MonoMod.Utils.dll" \
+            "$NMLA/System.Collections.Immutable.dll" \
+            "$NMLA/System.Reflection.Metadata.dll" \
+            "$NMLA/System.Runtime.CompilerServices.Unsafe.dll" \
+            "$NMLA/System.Text.Encoding.CodePages.dll" \
+            "$NMLA/YamlDotNet.dll"; do
+            : > "$d"
+          done
+          echo "WORLDBOX_PATH=$STUB_ROOT" >> "$GITHUB_ENV"
+
+      - name: Build WorldSphereAPI (always works — netstandard2.0)
+        run: dotnet build WorldSphereAPI.csproj -c Release
+
+      - name: Build WorldSphereMod (TODO — needs real WorldBox refs for shippable binary)
+        # TODO: remove continue-on-error once real refs are wired up.
+        continue-on-error: true
+        run: dotnet build WorldSphereMod.csproj -c Release
+
+      - name: Run tests
+        shell: bash
+        run: |
+          if [ -d "tests/WorldSphereMod.Tests.Unit" ]; then
+            dotnet test tests/WorldSphereMod.Tests.Unit/ -c Release
+          else
+            echo "::warning::tests/WorldSphereMod.Tests.Unit not present — release builds skipping tests."
+          fi
+
+      - name: Locate built DLL
+        id: locate
+        shell: bash
+        run: |
+          set -euo pipefail
+          DLL_PATH=$(find . -path './bin/*' -name 'WorldSphereMod3D.dll' -print -quit || true)
+          if [ -z "${DLL_PATH:-}" ]; then
+            DLL_PATH=$(find . -name 'WorldSphereMod3D.dll' -not -path '*/obj/*' -print -quit || true)
+          fi
+          if [ -z "${DLL_PATH:-}" ]; then
+            echo "::error::WorldSphereMod3D.dll not produced — release cannot upload artifact."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Found DLL at: $DLL_PATH"
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "path=$DLL_PATH" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create tag
+        # TODO: confirm tag-creation policy. If tags should be created manually
+        # before dispatch instead, remove this step and read inputs.tag directly.
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists — skipping create."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+          fi
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          # TODO: confirm release naming/changelog. `generate_release_notes`
+          # auto-generates from PRs; replace with body_path: docs/RELEASE.md
+          # if a curated changelog is preferred.
+          tag_name: ${{ inputs.tag }}
+          name: ${{ inputs.tag }}
+          draft: ${{ inputs.draft }}
+          prerelease: ${{ inputs.prerelease }}
+          generate_release_notes: true
+          files: |
+            ${{ steps.locate.outputs.path }}
+        env:
+          # softprops/action-gh-release uses GITHUB_TOKEN by default.
+          # TODO: if a fine-grained PAT is required (e.g. for cross-repo
+          # uploads), wire it up as a secret here.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

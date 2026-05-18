@@ -1,0 +1,81 @@
+name: lint-gate
+
+# Blocking quality gate: PRs must pass `dotnet format --verify-no-changes`.
+# Mirrors DINOForge -gate.yml naming convention.
+
+on:
+  pull_request:
+  push:
+    branches: [main, "claude/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  format-check:
+    name: dotnet format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            5.0.x
+            8.0.x
+
+      # WorldSphereAPI is netstandard2.0 and needs no stubs. The main mod needs
+      # WorldBox reference stubs for `dotnet format` to resolve types — without
+      # them format emits IDE/CS errors and the verify step false-fails.
+      - name: Stub WorldBox reference DLLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          STUB_ROOT="$RUNNER_TEMP/worldbox-stub"
+          MANAGED="$STUB_ROOT/worldbox_Data/Managed"
+          NML="$STUB_ROOT/worldbox_Data/StreamingAssets/mods/NML"
+          NMLA="$NML/Assemblies"
+          mkdir -p "$MANAGED" "$NML" "$NMLA"
+          for d in \
+            "$MANAGED/Assembly-CSharp-firstpass.dll" \
+            "$MANAGED/Newtonsoft.Json.dll" \
+            "$MANAGED/SleekRender.dll" \
+            "$MANAGED/UnityEngine.CoreModule.dll" \
+            "$MANAGED/UnityEngine.InputLegacyModule.dll" \
+            "$MANAGED/UnityEngine.ParticleSystemModule.dll" \
+            "$MANAGED/UnityEngine.PhysicsModule.dll" \
+            "$MANAGED/UnityEngine.TextRenderingModule.dll" \
+            "$MANAGED/UnityEngine.TilemapModule.dll" \
+            "$MANAGED/UnityEngine.UI.dll" \
+            "$NML/Assembly-CSharp-Publicized.dll" \
+            "$NML/NeoModLoader.dll" \
+            "$NMLA/0Harmony.dll" \
+            "$NMLA/Facepunch.Steamworks.Posix.dll" \
+            "$NMLA/Facepunch.Steamworks.Win64.dll" \
+            "$NMLA/Gameloop.Vdf.dll" \
+            "$NMLA/Microsoft.CodeAnalysis.dll" \
+            "$NMLA/Microsoft.CodeAnalysis.CSharp.dll" \
+            "$NMLA/Mono.Cecil.dll" \
+            "$NMLA/Mono.Cecil.Pdb.dll" \
+            "$NMLA/MonoMod.RuntimeDetour.dll" \
+            "$NMLA/MonoMod.Utils.dll" \
+            "$NMLA/System.Collections.Immutable.dll" \
+            "$NMLA/System.Reflection.Metadata.dll" \
+            "$NMLA/System.Runtime.CompilerServices.Unsafe.dll" \
+            "$NMLA/System.Text.Encoding.CodePages.dll" \
+            "$NMLA/YamlDotNet.dll"; do
+            : > "$d"
+          done
+          echo "WORLDBOX_PATH=$STUB_ROOT" >> "$GITHUB_ENV"
+
+      # Verify formatting on the netstandard2.0 API (always works in CI).
+      - name: Format check (WorldSphereAPI)
+        run: dotnet format WorldSphereAPI.csproj --verify-no-changes --verbosity diagnostic
+
+      # Main mod format-check is best-effort: zero-byte stub DLLs let the
+      # analyzer parse syntax but may emit false references. Allowed to fail
+      # until a real stub-DLL generator (e.g. AsmResolver) is wired up — same
+      # caveat as the existing build.yml.
+      - name: Format check (WorldSphereMod, best-effort)
+        continue-on-error: true
+        run: dotnet format WorldSphereMod.csproj --verify-no-changes --verbosity diagnostic
