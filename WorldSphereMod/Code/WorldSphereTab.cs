@@ -141,6 +141,26 @@ namespace WorldSphereMod.UI
                 new ButtonData("perlin_noise", "perlin_noise_description", "WorldSphereMod/PerlinNoise", Core.savedSettings.PerlinNoise, PerlinNoise)
             });
             GenerateSlider("tile_length_multiplier", 1, 10, Core.savedSettings.TileHeight, (float x) => { Core.savedSettings.TileHeight = x; Core.SaveSettings(); }, "World Settings");
+
+            // v2 fork: per-phase toggles. The default values come from
+            // SavedSettings; the toggle action flips + persists. Without
+            // surfacing these here the user has no way to turn Phase 1's
+            // voxel actors on, so sprites stay 2D and the fork looks like
+            // a no-op compared to upstream.
+            CreateWindowButton("3D Phases", "WorldSphereMod/ModIcon", "phases_window", new List<ButtonData>()
+            {
+                new ButtonData("voxel_entities",       "voxel_entities_description",       "WorldSphereMod/ModIcon", Core.savedSettings.VoxelEntities,       TogglePhase_VoxelEntities),
+                new ButtonData("procedural_buildings", "procedural_buildings_description", "WorldSphereMod/ModIcon", Core.savedSettings.ProceduralBuildings, TogglePhase_ProceduralBuildings),
+                new ButtonData("crossed_quad_foliage", "crossed_quad_foliage_description", "WorldSphereMod/ModIcon", Core.savedSettings.CrossedQuadFoliage, TogglePhase_CrossedQuadFoliage),
+                new ButtonData("mesh_water",           "mesh_water_description",           "WorldSphereMod/ModIcon", Core.savedSettings.MeshWater,           TogglePhase_MeshWater),
+                new ButtonData("high_shadows",         "high_shadows_description",         "WorldSphereMod/ModIcon", Core.savedSettings.HighShadows,         TogglePhase_HighShadows),
+                new ButtonData("skeletal_animation",   "skeletal_animation_description",   "WorldSphereMod/ModIcon", Core.savedSettings.SkeletalAnimation,   TogglePhase_SkeletalAnimation),
+                new ButtonData("worldspace_ui",        "worldspace_ui_description",        "WorldSphereMod/ModIcon", Core.savedSettings.WorldspaceUI,        TogglePhase_WorldspaceUI),
+                new ButtonData("day_night_cycle",      "day_night_cycle_description",      "WorldSphereMod/ModIcon", Core.savedSettings.DayNightCycle,       TogglePhase_DayNightCycle),
+                new ButtonData("post_fx",              "post_fx_description",              "WorldSphereMod/ModIcon", Core.savedSettings.PostFX,              TogglePhase_PostFX),
+                new ButtonData("particle_effects",     "particle_effects_description",     "WorldSphereMod/ModIcon", Core.savedSettings.ParticleEffects,     TogglePhase_ParticleEffects),
+            });
+
             CreateButton("Open Sprites", "WorldSphereMod/ModIcon", OpenSprites);
 
             // Phase 10 / R&D QoL: ProfilerDump toggle (also drives the in-game
@@ -149,6 +169,17 @@ namespace WorldSphereMod.UI
             CreateToggleButton("ProfileMode", "WorldSphereMod/ModIcon", "profile_mode", "profile_mode_description", ToggleProfileMode, Core.savedSettings.ProfilerDump);
             CreateButton("Reset Defaults", "WorldSphereMod/ModIcon", ResetToDefaults);
         }
+
+        static void TogglePhase_VoxelEntities(string _)       { Core.savedSettings.VoxelEntities       = !Core.savedSettings.VoxelEntities;       Core.SaveSettings(); }
+        static void TogglePhase_ProceduralBuildings(string _) { Core.savedSettings.ProceduralBuildings = !Core.savedSettings.ProceduralBuildings; Core.SaveSettings(); }
+        static void TogglePhase_CrossedQuadFoliage(string _)  { Core.savedSettings.CrossedQuadFoliage  = !Core.savedSettings.CrossedQuadFoliage;  Core.SaveSettings(); }
+        static void TogglePhase_MeshWater(string _)           { Core.savedSettings.MeshWater           = !Core.savedSettings.MeshWater;           Core.SaveSettings(); }
+        static void TogglePhase_HighShadows(string _)         { Core.savedSettings.HighShadows         = !Core.savedSettings.HighShadows;         Core.SaveSettings(); }
+        static void TogglePhase_SkeletalAnimation(string _)   { Core.savedSettings.SkeletalAnimation   = !Core.savedSettings.SkeletalAnimation;   Core.SaveSettings(); }
+        static void TogglePhase_WorldspaceUI(string _)        { Core.savedSettings.WorldspaceUI        = !Core.savedSettings.WorldspaceUI;        Core.SaveSettings(); }
+        static void TogglePhase_DayNightCycle(string _)       { Core.savedSettings.DayNightCycle       = !Core.savedSettings.DayNightCycle;       Core.SaveSettings(); }
+        static void TogglePhase_PostFX(string _)              { Core.savedSettings.PostFX              = !Core.savedSettings.PostFX;              Core.SaveSettings(); }
+        static void TogglePhase_ParticleEffects(string _)     { Core.savedSettings.ParticleEffects     = !Core.savedSettings.ParticleEffects;     Core.SaveSettings(); }
         static void ToggleProfileMode()
         {
             Core.savedSettings.ProfilerDump = !Core.savedSettings.ProfilerDump;

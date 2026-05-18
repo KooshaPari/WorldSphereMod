@@ -33,5 +33,35 @@
     "upside_down_movement": "Upside Down Movement",
     "upside_down_movement_description": "if the camera is upside down, controls will be inversed",
     "open_sprites": "Edit Mod Sprites",
-    "open_sprites_description":  "opens the folder containing mod assets, edit them and reboot the game to load"
+    "open_sprites_description":  "opens the folder containing mod assets, edit them and reboot the game to load",
+
+    "3D Phases": "3D Phases",
+    "phases_window": "Toggle each fork phase on/off. Reload the world for full effect.",
+
+    "voxel_entities": "Voxel Actors (Phase 1)",
+    "voxel_entities_description": "Replace billboarded actor / item / projectile sprites with batched voxel meshes.",
+    "procedural_buildings": "Mesh Buildings (Phase 2)",
+    "procedural_buildings_description": "Replace building sprites with procedural mesh + heuristic roof inference.",
+    "crossed_quad_foliage": "Crossed-Quad Foliage (Phase 3)",
+    "crossed_quad_foliage_description": "Trees / bushes / rocks render as crossed quads with wind sway instead of flat billboards.",
+    "mesh_water": "Mesh Water (Phase 4)",
+    "mesh_water_description": "Gerstner-wave water surface overlaid on terrain with depth tint + shoreline foam.",
+    "high_shadows": "Directional Sun + Shadows (Phase 5)",
+    "high_shadows_description": "Real directional sun light with cascaded URP shadow maps.",
+    "skeletal_animation": "Skeletal Animation (Phase 6)",
+    "skeletal_animation_description": "Auto-rigged voxel actors driven by WorldBox AnimationFrameData. Compute skinning when supported.",
+    "worldspace_ui": "Worldspace UI (Phase 7)",
+    "worldspace_ui_description": "Nameplates, HP bars, damage popups, and selection rings drawn in 3D world space.",
+    "day_night_cycle": "Day / Night + Sky (Phase 8)",
+    "day_night_cycle_description": "Procedural sky + autonomous time-of-day driver. Color-temperature shift across the day.",
+    "post_fx": "Post FX (Phase 9)",
+    "post_fx_description": "URP post-processing: bloom, color grading, vignette.",
+    "particle_effects": "Particles + Decals (Phase 9)",
+    "particle_effects_description": "Voxel-mesh particle bursts and pooled decal projectors (scorch / blood / footprints).",
+
+    "ProfileMode": "Profiler Dump",
+    "profile_mode": "Profiler Dump",
+    "profile_mode_description": "Dump per-system frame budget to console once per second and overlay live stats.",
+    "Reset Defaults": "Reset Defaults",
+    "Open Sprites": "Open Sprites"
 }

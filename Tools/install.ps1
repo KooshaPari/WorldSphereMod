@@ -77,11 +77,13 @@ foreach ($item in $items) {
     }
 }
 
-# Replace the legacy upstream-named CompoundSpheres.dll (shipped in source for
-# co-installability tests with upstream) with the freshly-built fork DLL.
-# Without this, NeoModLoader loads the stale assembly and skips the runtime
-# Roslyn pass over Code/, so source changes since the prior install silently
-# do not take effect.
+# Clear the source folder's shipped CompoundSpheres.dll (legacy upstream
+# pre-built). NML's runtime Roslyn pass compiles Code/*.cs against the right
+# Unity Mono BCL; shipping a pre-built assembly is OK in principle but ours
+# targets net5.0 (per Directory.Build.props / .csproj), which Mono rejects
+# with CS1705 ("System.Runtime 5.0 vs 4.1") and falls back to Roslyn anyway.
+# Shipping it wastes a load attempt and floods Player.log with 100+ errors.
+# Re-enable the DLL drop only after the csproj is retargeted to net48.
 $installedAssemblies = Join-Path $modDst "Assemblies"
 $stale = Join-Path $installedAssemblies "CompoundSpheres.dll"
 $stalePdb = Join-Path $installedAssemblies "CompoundSpheres.pdb"
@@ -89,15 +91,10 @@ if (Test-Path $stale)    { Remove-Item -Force $stale }
 if (Test-Path $stalePdb) { Remove-Item -Force $stalePdb }
 
 if (Test-Path $builtDll) {
-    Write-Host "[install]   $AssemblyName.dll (from $builtDll)" -ForegroundColor DarkCyan
-    Copy-Item -Force -Path $builtDll -Destination (Join-Path $installedAssemblies "$AssemblyName.dll")
-    $builtPdb = [System.IO.Path]::ChangeExtension($builtDll, ".pdb")
-    if (Test-Path $builtPdb) { Copy-Item -Force -Path $builtPdb -Destination (Join-Path $installedAssemblies "$AssemblyName.pdb") }
-} else {
-    Write-Host "[install] WARNING: built DLL not found at $builtDll — relying on NML runtime compile of Code/" -ForegroundColor Yellow
+    Write-Host "[install] skipping $AssemblyName.dll copy (net5.0 build is unloadable by Mono — NML will Roslyn-compile Code/)." -ForegroundColor DarkYellow
 }
 
 Write-Host ""
 Write-Host "[install] installed to $modDst" -ForegroundColor Green
-Write-Host "[install] launch WorldBox, NeoModLoader will load Assemblies/$AssemblyName.dll (or compile Code/*.cs as fallback)."
-Write-Host "[install] verify in-game: Settings tab -> WorldSphere section. The 'Voxel Entities' toggle gates Phase 1."
+Write-Host "[install] launch WorldBox; NeoModLoader will compile Code/*.cs on startup (~1s)."
+Write-Host "[install] verify in-game: WorldSphere tab -> '3D Phases' window. Phase 1 = 'Voxel Actors' toggle."
