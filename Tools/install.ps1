@@ -77,19 +77,17 @@ foreach ($item in $items) {
     }
 }
 
-# Clear the source folder's shipped CompoundSpheres.dll (legacy upstream
-# pre-built). NML's runtime Roslyn pass compiles Code/*.cs against the right
-# Unity Mono BCL; shipping a pre-built assembly is OK in principle but ours
-# targets net5.0 (per Directory.Build.props / .csproj), which Mono rejects
-# with CS1705 ("System.Runtime 5.0 vs 4.1") and falls back to Roslyn anyway.
-# Shipping it wastes a load attempt and floods Player.log with 100+ errors.
-# Re-enable the DLL drop only after the csproj is retargeted to net48.
+# Note: CompoundSpheres.dll IS a real runtime dependency, not just a legacy
+# upstream artifact. Our Code/ has `using CompoundSpheres;` and references
+# SphereTile / SphereManager / SphereManagerSettings / IBufferData /
+# IncompatibleHardwareException — all of which live in that DLL. Removing
+# it makes NML's Roslyn compile fail with ~60 CS0246 errors and the mod
+# silently never initializes. Leave it in place.
+#
+# The net5.0 fork DLL drop (commented out below) is the genuinely unloadable
+# one — Mono rejects with CS1705 "System.Runtime 5.0 vs 4.1". Re-enable
+# once the csproj is retargeted to net48.
 $installedAssemblies = Join-Path $modDst "Assemblies"
-$stale = Join-Path $installedAssemblies "CompoundSpheres.dll"
-$stalePdb = Join-Path $installedAssemblies "CompoundSpheres.pdb"
-if (Test-Path $stale)    { Remove-Item -Force $stale }
-if (Test-Path $stalePdb) { Remove-Item -Force $stalePdb }
-
 if (Test-Path $builtDll) {
     Write-Host "[install] skipping $AssemblyName.dll copy (net5.0 build is unloadable by Mono — NML will Roslyn-compile Code/)." -ForegroundColor DarkYellow
 }
