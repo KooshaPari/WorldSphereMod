@@ -21,7 +21,7 @@ namespace WorldSphereMod.LOD
         {
             if (_planes == null) return true;
             float d = radius * 2f;
-            Bounds bounds = new Bounds(worldPos, new Vector3(d, d, d));
+            UnityEngine.Bounds bounds = new UnityEngine.Bounds(worldPos, new Vector3(d, d, d));
             return GeometryUtility.TestPlanesAABB(_planes, bounds);
         }
     }

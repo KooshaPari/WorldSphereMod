@@ -1,6 +1,0 @@
-C:\Users\koosh\Dev\WorldSphereMod\WorldSphereTester\obj\Release\netstandard2.0\WorldSphereTester.csproj.AssemblyReference.cache
-C:\Users\koosh\Dev\WorldSphereMod\WorldSphereTester\obj\Release\netstandard2.0\WorldSphereTester.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\koosh\Dev\WorldSphereMod\WorldSphereTester\obj\Release\netstandard2.0\WorldSphereTester.AssemblyInfoInputs.cache
-C:\Users\koosh\Dev\WorldSphereMod\WorldSphereTester\obj\Release\netstandard2.0\WorldSphereTester.AssemblyInfo.cs
-C:\Users\koosh\Dev\WorldSphereMod\WorldSphereTester\obj\Release\netstandard2.0\WorldSphereTester.csproj.CoreCompileInputs.cache
-C:\Users\koosh\Dev\WorldSphereMod\WorldSphereTester\obj\Release\netstandard2.0\WorldSphereTester.sourcelink.json

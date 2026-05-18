@@ -1,5 +1,3 @@
 /.vs
-/obj
-/bin
-/WorldSphereTester/obj
-/WorldSphereTester/bin
+**/obj/
+**/bin/

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using WorldSphereMod.NewCamera;
 
 namespace WorldSphereMod.LOD
 {

@@ -42,6 +42,10 @@ using WorldSphereMod;
         {
             Object.AddComponent<WorldSphereMod.Perf.ProfilerFrameDriver>();
         }
+        if (Object != null && Object.GetComponent<WorldSphereMod.Foliage.WindSwayDriver>() == null)
+        {
+            Object.AddComponent<WorldSphereMod.Foliage.WindSwayDriver>();
+        }
         // Phase 7 Step 1: rig-tracker MonoBehaviour. EnsureCreated is idempotent
         // and gated on IsWorld3D && WorldspaceUI internally.
         WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated();

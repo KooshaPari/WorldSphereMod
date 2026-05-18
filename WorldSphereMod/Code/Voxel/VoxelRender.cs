@@ -113,6 +113,17 @@ namespace WorldSphereMod.Voxel
                     if (Constants.PerpActors.ContainsKey(a.asset.id)) continue;
                     if (!rd.has_normal_render[i]) continue;
 
+                    Vector3 cullPos = rd.positions[i];
+                    float radius = 0.5f;
+                    if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, radius))
+                    {
+                        rd.has_normal_render[i] = false;
+                        continue;
+                    }
+                    WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, a.GetHashCode());
+                    // Step 3: Voxel + Proxy + Impostor all route to the same Voxel path. Step 4 adds the
+                    // real impostor billboard. The hysteresis + cull is already a measurable win here.
+
                     Sprite sp = rd.main_sprites[i];
                     if (sp == null) continue;
                     Mesh m = VoxelMeshCache.Get(sp);
@@ -154,6 +165,17 @@ namespace WorldSphereMod.Voxel
                     if (b == null || b.asset == null) continue;
                     if (Constants.PerpBuildings.ContainsKey(b.asset.id)) continue;
 
+                    Vector3 cullPos = rd.positions[i];
+                    float radius = 0.5f;
+                    if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, radius))
+                    {
+                        rd.scales[i] = Vector3.zero;
+                        continue;
+                    }
+                    WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode());
+                    // Step 3: Voxel + Proxy + Impostor all route to the same Voxel path. Step 4 adds the
+                    // real impostor billboard. The hysteresis + cull is already a measurable win here.
+
                     Sprite sp = rd.main_sprites[i];
                     if (sp == null) continue;
                     Mesh m = VoxelMeshCache.Get(sp);
@@ -184,11 +206,15 @@ namespace WorldSphereMod.Voxel
     {
         void LateUpdate()
         {
+            WorldSphereMod.LOD.FrustumCuller.UpdatePlanes();
             VoxelRender.Flush();
             VoxelMeshCache.DrainPendingDestroy();
             WorldSphereMod.ProcGen.ProcGenCache.DrainPendingDestroy();
             WorldSphereMod.Water.WaterRender.UpdateLifecycle();
             WorldSphereMod.Lighting.SunDriver.Update();
+            WorldSphereMod.Foliage.CrossedQuadMeshCache.DrainPendingDestroy();
+            WorldSphereMod.Fx.DecalPool.Tick();
+            WorldSphereMod.Fx.PostFxController.ApplySetting(Core.savedSettings.PostFX);
         }
     }
 }

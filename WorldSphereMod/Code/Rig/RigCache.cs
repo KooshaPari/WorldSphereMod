@@ -45,18 +45,103 @@ namespace WorldSphereMod.Rig
                     return e.Mesh;
                 }
             }
-            var stub = new SkinnedVoxelMesh
+
+            SkinnedVoxelMesh built;
+            if (rigType == RigType.Humanoid)
             {
-                BaseMesh = new Mesh { name = $"rig:stub:{sprite.name}" },
-                BoneIndices = System.Array.Empty<byte>(),
-                RigType = RigType.None,
-            };
+                built = BuildHumanoid(sprite);
+            }
+            else
+            {
+                built = new SkinnedVoxelMesh
+                {
+                    BaseMesh = new Mesh { name = $"rig:stub:{sprite.name}" },
+                    BoneIndices = System.Array.Empty<byte>(),
+                    RigType = RigType.None,
+                };
+            }
+
             lock (_lock)
             {
-                _cache[key] = new Entry { Mesh = stub, LastFrame = _frame };
+                _cache[key] = new Entry { Mesh = built, LastFrame = _frame };
                 if (_cache.Count > Capacity) Evict();
             }
-            return stub;
+            return built;
+        }
+
+        // Step 2: build a placeholder cube mesh + segmentation BoneId[]. The real per-voxel
+        // skinned mesh (using the BoneId[] to drive vertex bone indices) is Step 3.
+        static SkinnedVoxelMesh BuildHumanoid(Sprite sprite)
+        {
+            // Run segmentation against the sprite pixels when readable. The BoneId[] is
+            // computed for its side-effect of validating the input pixel buffer; Step 3
+            // consumes it to populate per-vertex bone indices once SpriteVoxelizer is
+            // wired through this cache. For Step 2 the result is dropped after the call.
+            if (sprite.texture != null && sprite.texture.isReadable)
+            {
+                Rect r = sprite.textureRect;
+                int w = Mathf.Max(1, (int)r.width);
+                int h = Mathf.Max(1, (int)r.height);
+                int sx = (int)r.x;
+                int sy = (int)r.y;
+                Color32[] tex = sprite.texture.GetPixels32();
+                int texW = sprite.texture.width;
+
+                var sub = new Color32[w * h];
+                for (int y = 0; y < h; y++)
+                {
+                    int dstRow = y * w;
+                    int srcRow = (sy + y) * texW + sx;
+                    for (int x = 0; x < w; x++)
+                    {
+                        sub[dstRow + x] = tex[srcRow + x];
+                    }
+                }
+                _ = HumanoidRig.SegmentVoxels(w, h, sub);
+            }
+
+            var mesh = BuildPlaceholderCube($"rig:humanoid:{sprite.name}");
+            var boneIndices = new byte[mesh.vertexCount];
+            // All vertices placeholder-anchored to Root until Step 3 replaces with real per-voxel indices.
+            for (int i = 0; i < boneIndices.Length; i++) boneIndices[i] = (byte)BoneId.Root;
+
+            return new SkinnedVoxelMesh
+            {
+                BaseMesh = mesh,
+                BoneIndices = boneIndices,
+                RigType = RigType.Humanoid,
+            };
+        }
+
+        static Mesh BuildPlaceholderCube(string name)
+        {
+            // 8 unique verts, unit cube centered at origin. 12 triangles, 36 indices.
+            var verts = new Vector3[8]
+            {
+                new Vector3(-0.5f, -0.5f, -0.5f),
+                new Vector3( 0.5f, -0.5f, -0.5f),
+                new Vector3( 0.5f,  0.5f, -0.5f),
+                new Vector3(-0.5f,  0.5f, -0.5f),
+                new Vector3(-0.5f, -0.5f,  0.5f),
+                new Vector3( 0.5f, -0.5f,  0.5f),
+                new Vector3( 0.5f,  0.5f,  0.5f),
+                new Vector3(-0.5f,  0.5f,  0.5f),
+            };
+            var tris = new int[]
+            {
+                0, 2, 1,  0, 3, 2, // -Z
+                4, 5, 6,  4, 6, 7, // +Z
+                0, 1, 5,  0, 5, 4, // -Y
+                3, 7, 6,  3, 6, 2, // +Y
+                0, 4, 7,  0, 7, 3, // -X
+                1, 2, 6,  1, 6, 5, // +X
+            };
+            var mesh = new Mesh { name = name };
+            mesh.vertices = verts;
+            mesh.triangles = tris;
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
         }
 
         public static void Tick()

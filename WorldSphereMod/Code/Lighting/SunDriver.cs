@@ -31,10 +31,13 @@ namespace WorldSphereMod.Lighting
             Sun.shadows = LightShadows.Soft;
 
             LightingRoot.rotation = Quaternion.Euler(TimeOfDayToEuler(TimeOfDay), 30f, 0f);
+
+            ShadowCascadeConfig.Apply(Core.savedSettings.HighShadows);
         }
 
         public static void Teardown()
         {
+            ShadowCascadeConfig.Reset();
             if (LightingRoot != null)
             {
                 Object.Destroy(LightingRoot.gameObject);

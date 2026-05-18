@@ -39,6 +39,7 @@ namespace WorldSphereMod.Worldspace
         public static void OnWorldUnload()
         {
             if (Instance == null) return;
+            SelectionRing.Clear();
             foreach (var kv in Instance._rigs)
             {
                 if (kv.Value != null) Object.Destroy(kv.Value.gameObject);
@@ -111,6 +112,8 @@ namespace WorldSphereMod.Worldspace
             {
                 UnregisterActor(_scratchRemove[i]);
             }
+
+            SelectionRing.UpdateAll();
         }
 
         internal Transform RegisterActor(Actor a)
@@ -121,12 +124,14 @@ namespace WorldSphereMod.Worldspace
             Transform rig = go.transform;
             if (_root != null) rig.SetParent(_root, worldPositionStays: false);
             _rigs[a] = rig;
+            NameplateWorld.Attach(a, rig);
             return rig;
         }
 
         internal void UnregisterActor(Actor a)
         {
             if (!_rigs.TryGetValue(a, out Transform rig)) return;
+            NameplateWorld.Detach(a);
             if (rig != null) Object.Destroy(rig.gameObject);
             _rigs.Remove(a);
         }
