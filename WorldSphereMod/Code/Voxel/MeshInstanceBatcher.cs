@@ -68,9 +68,6 @@ namespace WorldSphereMod.Voxel
             FrameDrawCalls = 0;
             FrameInstances = 0;
 
-            var mats = new Matrix4x4[kBatch];
-            var cols = new Vector4[kBatch];
-
             foreach (var kv in _buckets)
             {
                 var bucket = kv.Value;
@@ -80,6 +77,8 @@ namespace WorldSphereMod.Voxel
                 while (offset < total)
                 {
                     int n = Mathf.Min(kBatch, total - offset);
+                    var mats = new Matrix4x4[n];
+                    var cols = new Vector4[n];
                     bucket.Matrices.CopyTo(offset, mats, 0, n);
                     bucket.Colors.CopyTo(offset, cols, 0, n);
                     bucket.Block.Clear();

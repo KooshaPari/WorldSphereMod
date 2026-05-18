@@ -24,6 +24,20 @@ namespace WorldSphereMod.Voxel
         static bool _materialAttempted;
 
         /// <summary>
+        /// Destroy the cached material and clear the resolve-attempted latch. Call when
+        /// the world reloads — static fields outlive Unity's scene teardown and the
+        /// underlying Material may have been invalidated.
+        /// TODO: wire from a world-reload Postfix once one exists in Core. Until then
+        /// only matters across multiple in-session world generations.
+        /// </summary>
+        public static void Reset()
+        {
+            if (_material != null) Object.Destroy(_material);
+            _material = null;
+            _materialAttempted = false;
+        }
+
+        /// <summary>
         /// Resolve a material capable of rendering the voxel mesh's per-vertex colors.
         /// Walks a fallback chain of Unity built-in shaders so we don't need to ship a
         /// new shader asset in Phase 1 (Phase 5 introduces VoxelLit.shader and a real
@@ -108,7 +122,8 @@ namespace WorldSphereMod.Voxel
                     Vector3 rot = rd.rotations[i];
                     Vector3 scl = rd.scales[i];
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
-                    Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(rot), scl);
+                    // Z/X axes encode sprite-billboard lean; on a 3D mesh they topple the body. Yaw only here; lean returns in Phase 6 as a spine-bone tilt.
+                    Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
                     Submit(m, trs, rd.colors[i]);
                     // Hide the sprite quad for this actor — we drew the 3D mesh instead.
                     rd.has_normal_render[i] = false;
@@ -133,6 +148,7 @@ namespace WorldSphereMod.Voxel
         void LateUpdate()
         {
             VoxelRender.Flush();
+            VoxelMeshCache.DrainPendingDestroy();
         }
     }
 }
