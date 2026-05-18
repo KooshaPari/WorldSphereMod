@@ -25,6 +25,7 @@ namespace WorldSphereMod.Voxel
             try { WorldSphereMod.LOD.ImpostorBillboard.Clear(); } catch (System.Exception e) { Debug.LogWarning("ImpostorBillboard.Clear: " + e.Message); }
             try { WorldSphereMod.LOD.LodSelector.ResetHysteresis(); } catch (System.Exception e) { Debug.LogWarning("LodSelector.ResetHysteresis: " + e.Message); }
             try { WorldSphereMod.Voxel.VoxelRender.Reset(); } catch (System.Exception e) { Debug.LogWarning("VoxelRender.Reset: " + e.Message); }
+            try { WorldSphereMod.Voxel.MeshInstanceBatcher.Reset(); } catch (System.Exception e) { Debug.LogWarning("MeshInstanceBatcher.Reset: " + e.Message); }
         }
     }
 }
