@@ -9,6 +9,8 @@ This branch's PR is [#1](https://github.com/KooshaPari/WorldSphereMod/pull/1).
 
 ## [Unreleased]
 
+## [2.0.0-alpha.1] - 2026-05-18
+
 ### Added — Tooling (commit 0e4008c)
 - **CLI + shell:** `Tools/wsm3d.ps1` (540 LOC, 13 subcommands: build, install, reload-nml, toggle-phase, screenshot, test, profile, etc.)
 - **MCP server:** `Tools/wsm3d-mcp/` Python FastMCP on port 8766; phase state, build logs, manifest queries
