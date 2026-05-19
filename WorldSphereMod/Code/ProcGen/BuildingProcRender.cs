@@ -7,6 +7,8 @@ namespace WorldSphereMod.ProcGen
 {
     public static class BuildingProcRender
     {
+        static bool _firstBuildingPosLogged;
+
         [Phase(nameof(SavedSettings.ProceduralBuildings))]
         [HarmonyPatch(typeof(BuildingManager), nameof(BuildingManager.precalculateRenderDataParallel))]
         public static class ProcMeshEmit
@@ -63,13 +65,11 @@ namespace WorldSphereMod.ProcGen
                     BuildingRules rules = BuildingRulesRegistry.Resolve(b.asset.id);
 
                     Vector3 pos = rd.positions[i];
-                    if (pos.z == 0f)
-                    {
-                        pos = pos.To3DTileHeight(false);
-                    }
+                    Vector3 rawPos = pos;
                     Vector3 rot = rd.rotations[i];
                     Vector3 scl = rd.scales[i];
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
+                    LogFirstBuildingPos(rawPos, pos, scl);
                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
 
                     if (rules.Shape == BuildingShape.CrossedQuad || rules.Shape == BuildingShape.Single)
@@ -103,6 +103,13 @@ namespace WorldSphereMod.ProcGen
                         rd.scales[i] = Vector3.zero;
                     }
                 }
+            }
+
+            static void LogFirstBuildingPos(Vector3 rawPos, Vector3 liftedPos, Vector3 scl)
+            {
+                if (_firstBuildingPosLogged) return;
+                _firstBuildingPosLogged = true;
+                Debug.Log($"[WSM3D] First-building pos: raw={rawPos}, lifted={liftedPos}, scl={scl}");
             }
         }
     }

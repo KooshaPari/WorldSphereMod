@@ -6,8 +6,14 @@ name: journeys-gate
 
 on:
   pull_request:
+    paths:
+      - ".github/workflows/journeys-gate.yml"
+      - "docs/journeys/**"
   push:
     branches: [main, "claude/**"]
+    paths:
+      - ".github/workflows/journeys-gate.yml"
+      - "docs/journeys/**"
   workflow_dispatch:
 
 permissions:
@@ -49,6 +55,66 @@ jobs:
           echo "Validating manifest JSON structure..."
           jq . docs/journeys/manifests/*/manifest.json > /dev/null
           echo "✓ All manifests are valid JSON"
+
+      - name: Check phase preview fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          fixtures=(
+            docs/journeys/phase-previews/phase-1-voxel-actors/before.png
+            docs/journeys/phase-previews/phase-1-voxel-actors/after.png
+            docs/journeys/phase-previews/phase-2-mesh-buildings/before.png
+            docs/journeys/phase-previews/phase-2-mesh-buildings/after.png
+            docs/journeys/phase-previews/phase-3-crossed-foliage/before.png
+            docs/journeys/phase-previews/phase-3-crossed-foliage/after.png
+            docs/journeys/phase-previews/phase-4-mesh-water/before.png
+            docs/journeys/phase-previews/phase-4-mesh-water/after.png
+            docs/journeys/phase-previews/phase-5-shadows/before.png
+            docs/journeys/phase-previews/phase-5-shadows/after.png
+            docs/journeys/phase-previews/phase-6-skeletal/before.png
+            docs/journeys/phase-previews/phase-6-skeletal/after.png
+            docs/journeys/phase-previews/phase-6-skeletal/after-idle.png
+            docs/journeys/phase-previews/phase-6-skeletal/after-walk-a.png
+            docs/journeys/phase-previews/phase-6-skeletal/after-walk-b.png
+            docs/journeys/phase-previews/phase-6-skeletal/after-death.png
+            docs/journeys/phase-previews/phase-7-worldspace-ui/before.png
+            docs/journeys/phase-previews/phase-7-worldspace-ui/after.png
+            docs/journeys/phase-previews/phase-8-day-night/before.png
+            docs/journeys/phase-previews/phase-8-day-night/after.png
+            docs/journeys/phase-previews/phase-8-day-night/after-0.png
+            docs/journeys/phase-previews/phase-8-day-night/after-1.png
+            docs/journeys/phase-previews/phase-8-day-night/after-2.png
+            docs/journeys/phase-previews/phase-8-day-night/after-3.png
+            docs/journeys/phase-previews/phase-9-particles/before.png
+            docs/journeys/phase-previews/phase-9-particles/after.png
+            docs/journeys/phase-previews/phase-10-lod/before.png
+            docs/journeys/phase-previews/phase-10-lod/after.png
+          )
+
+          echo "Checking ${#fixtures[@]} canonical phase preview PNGs..."
+
+          missing=0
+          for fixture in "${fixtures[@]}"; do
+            if [[ ! -s "$fixture" ]]; then
+              echo "::error file=$fixture::Missing or empty canonical phase preview PNG"
+              missing=1
+            fi
+          done
+
+          if [[ "$missing" -ne 0 ]]; then
+            exit 1
+          fi
+
+          distinct_count=$(sha256sum "${fixtures[@]}" | awk '{ print $1 }' | sort -u | wc -l | tr -d ' ')
+          echo "Distinct fixture hashes: $distinct_count"
+
+          if [[ "$distinct_count" -lt 8 ]]; then
+            echo "::error::Expected at least 8 distinct phase preview PNG hashes; got $distinct_count"
+            exit 1
+          fi
+
+          echo "✓ Phase preview fixtures exist and are sufficiently distinct"
 
       - name: Verify manifests in mock mode
         shell: bash

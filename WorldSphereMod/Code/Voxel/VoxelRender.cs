@@ -23,6 +23,7 @@ namespace WorldSphereMod.Voxel
     {
         static Material? _material;
         static bool _materialAttempted;
+        static bool _firstActorPosLogged;
         static bool _actorVoxelDiagnosticLogged;
         static bool _actorImpostorDiagnosticLogged;
         static bool _actorSkeletalDiagnosticLogged;
@@ -39,6 +40,7 @@ namespace WorldSphereMod.Voxel
             if (_material != null) Object.Destroy(_material);
             _material = null;
             _materialAttempted = false;
+            _firstActorPosLogged = false;
             _actorVoxelDiagnosticLogged = false;
             _actorImpostorDiagnosticLogged = false;
             _actorSkeletalDiagnosticLogged = false;
@@ -264,14 +266,11 @@ namespace WorldSphereMod.Voxel
 
                     Vector3 pos = rd.positions[i];
                     Vector3 posBeforeLift = pos;
-                    if (pos.z == 0f)
-                    {
-                        pos = pos.To3DTileHeight(false);
-                    }
                     LogActorSubmitDiagnostic("voxel", ref _actorVoxelDiagnosticLogged, a, sp, posBeforeLift, pos, rd.colors[i]);
                     Vector3 rot = rd.rotations[i];
                     Vector3 scl = rd.scales[i];
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
+                    LogFirstActorPos(posBeforeLift, pos, scl);
                     // Z/X axes encode sprite-billboard lean; on a 3D mesh they topple the body. Yaw only here; lean returns in Phase 6 as a spine-bone tilt.
                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
                     // Hide the sprite quad for this actor — we drew the 3D mesh instead.
@@ -297,6 +296,13 @@ namespace WorldSphereMod.Voxel
                 string assetId = actor != null && actor.asset != null ? actor.asset.id : "<null>";
                 string spriteName = sprite != null ? sprite.name : "<null>";
                 Debug.Log($"[WSM3D] Actor {path} submit sample asset={assetId} sprite={spriteName} posBeforeLift={beforeLift} posAfterLift={afterLift} color={tint} alpha={tint.a}");
+            }
+
+            static void LogFirstActorPos(Vector3 rawPos, Vector3 liftedPos, Vector3 scl)
+            {
+                if (_firstActorPosLogged) return;
+                _firstActorPosLogged = true;
+                Debug.Log($"[WSM3D] First-actor pos: raw={rawPos}, lifted={liftedPos}, scl={scl}");
             }
         }
 
@@ -375,10 +381,6 @@ namespace WorldSphereMod.Voxel
                     if (m == null) continue;
 
                     Vector3 pos = rd.positions[i];
-                    if (pos.z == 0f)
-                    {
-                        pos = pos.To3DTileHeight(false);
-                    }
                     Vector3 rot = rd.rotations[i];
                     Vector3 scl = rd.scales[i];
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
