@@ -32,6 +32,7 @@ namespace WorldSphereMod.Water
             }
         }
 
+        [Phase(nameof(SavedSettings.MeshWater))]
         [HarmonyPatch(typeof(Core.Sphere), nameof(Core.Sphere.Begin))]
         public static class BeginPostfix
         {
@@ -48,6 +49,7 @@ namespace WorldSphereMod.Water
             }
         }
 
+        [Phase(nameof(SavedSettings.MeshWater))]
         [HarmonyPatch(typeof(Core.Sphere), nameof(Core.Sphere.Finish))]
         public static class FinishPrefix
         {
@@ -60,6 +62,7 @@ namespace WorldSphereMod.Water
             }
         }
 
+        [Phase(nameof(SavedSettings.MeshWater))]
         [HarmonyPatch(typeof(CompoundSphereScripts), nameof(CompoundSphereScripts.SphereTileColor))]
         public static class ColorSuppression
         {
@@ -77,6 +80,7 @@ namespace WorldSphereMod.Water
 
         // Tile-change invalidation. Full mask rebuild + full mesh rebuild for now.
         // TODO Phase 4 polish: dirty-track per-tile, update only the changed cell.
+        [Phase(nameof(SavedSettings.MeshWater))]
         [HarmonyPatch(typeof(Core.Sphere), nameof(Core.Sphere.UpdateBaseLayer))]
         public static class UpdateBaseLayerPostfix
         {
@@ -89,6 +93,7 @@ namespace WorldSphereMod.Water
             }
         }
 
+        [Phase(nameof(SavedSettings.MeshWater))]
         [HarmonyPatch(typeof(Core.Sphere), nameof(Core.Sphere.UpdateScale))]
         public static class UpdateScalePostfix
         {

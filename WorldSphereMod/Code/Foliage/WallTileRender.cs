@@ -22,6 +22,7 @@ namespace WorldSphereMod.Foliage
     /// per-frame frame-pick that the cached mesh path can't trivially
     /// represent, so we fall through to vanilla for those.
     /// </summary>
+    [Phase(nameof(SavedSettings.CrossedQuadFoliage))]
     [HarmonyPatch(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.drawWallType))]
     public static class WallTileRender
     {

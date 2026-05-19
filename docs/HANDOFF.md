@@ -2,6 +2,8 @@
 
 Canonical "next session starts here" doc for WorldSphereMod3D.
 
+**Last updated:** 2026-05-18
+
 ## TL;DR
 
 Hard fork of `MelvinShwuaner/WorldSphereMod` that finishes the 3D conversion
@@ -46,13 +48,13 @@ Unity-free API project.
 | Phase | State | Notes |
 |---|---|---|
 | 0  Fork plumbing                       | ✅ | Build portability, GUID `worldsphere3d.fork`, settings v2, API v2 |
-| 1  Voxel actors + buildings            | 🔄 | Code-complete; all 5 review issues fixed; **awaits in-game smoke test**, flag still OFF |
+| 1  Voxel actors + buildings            | 🔄 | Code-complete; material now picks instancing-capable shader; cull-skip path no longer hides vanilla sprites; **awaits final in-game smoke after wave-3 fixes**, flag still OFF |
 | 2  Procedural building meshes          | 🔄 | Heuristic + roof inference shipped; **awaits smoke test**, flag still OFF |
 | 3a Crossed-quad foliage                | ✅ | Trees/bushes/rocks ship as crossed quads; flag default ON |
 | 3b Surface overlays + walls            | ✅ | `WorldTilemap.renderTile` Prefix + `drawWallType` Prefix wired |
 | 4  Mesh water                          | ✅ | Gerstner surface + mask buffer + lifecycle Postfix; flag default ON |
 | 5  Sun + cascaded shadows              | 🔄 | `SunDriver`/`SunRig`/`ShadowCascadeConfig` landed; **lit shader (`VoxelLit.shader`) requires Unity 2022.3 AssetBundle bake** — flag OFF |
-| 6  Skeletal animation                  | ✅ | Humanoid/quadruped rigs + `RigDriver` + GPU compute skin (`VoxelSkin.compute`) + CPU fallback; flag default OFF (cost gate) |
+| 6  Skeletal animation                  | ⚠️  | Humanoid/quadruped rigs + `RigDriver` + CPU fallback shipped; GPU compute (`VoxelSkin.compute`) **gated off** — ADR-0006 documents DrawProceduralIndirect rewrite path forward; flag default OFF |
 | 7  Worldspace UI                       | ✅ | Nameplate + HP bar + damage popups; selection ring stub awaits `SelectionManager` hook; flag default ON |
 | 8  Day/night + sky + fog               | 🔄 | Autonomous TOD driver + sun gradient + ProceduralSky landed; `MapBox.world_time` probe falls back gracefully; flag default OFF |
 | 9  Particles + decals + PostFX         | ✅ | 5 effect IDs bursted; 3-channel `DecalPool`; URP PostFX volume; particles ON, PostFX OFF |
@@ -106,50 +108,37 @@ Short form:
    if false-positive gables/hipped roofs appear.
 6. Capture before/after into `docs/screenshots/phase-{1,2,...}-*.png`.
 
-## What's left after this session
+## What's blocked
 
-### User-driven
+- **In-game smoke test of Phase 1** — needs NML reload in a running game instance + toggle VoxelEntities + verify no body topple, no tail batch color shift, no flicker at tile boundaries.
+- **Unity 2022.3 install** — required to bake `VoxelLit.shader`, `WaterGerstner.shader`, `ProceduralSky.shader` into AssetBundles for Phases 4, 5, 8.
+- **Anthropic API key** (optional) — for live-mode journey verification via `phenotype-journey verify ... --api-key`. Mock mode works without it.
 
-- Run the Phase 1 + Phase 2 smoke tests above. Flip the two flags to ON in
-  `SavedSettings.cs` once clean.
-- Capture screenshots into `docs/screenshots/` (placeholder folder exists).
+## Recommended next steps
 
-### Environment-driven
+1. Continue Phase 1 in-game validation: relaunch + reload world + toggle `VoxelEntities` + capture screenshots via `pwsh Tools/wsm3d.ps1 journey capture -Id us-wsm-phase-1-voxel-actors`.
+2. Implement ADR-0006 (Phase 6 Step 9 DrawProceduralIndirect skinning) — 2–3 day estimate.
+3. Install Unity 2022.3 + clone `Compound-Spheres-3D` submodule; bake the four shaders into platform AssetBundles under `WorldSphereMod/AssetBundles/{win,linux,osx}/worldsphere`.
+4. Conditional Harmony patch dispatch (if wave-5 lands the ADR-0007 work).
 
-- **Unity 2022.3 install** + clone `Compound-Spheres-3D` submodule into
-  `External/Compound-Spheres-3D/` per `docs/phase5-prep.md`. Required to
-  bake `Resources/Shaders/VoxelLit.shader`,
-  `Resources/Shaders/WaterGerstner.shader`,
-  `Resources/Shaders/FoliageWind.shader` and
-  `Resources/Shaders/ProceduralSky.shader` into the platform AssetBundles
-  under `WorldSphereMod/AssetBundles/{win,linux,osx}/worldsphere`. Until
-  baked, those phases run with placeholder unlit fallback materials.
-- A bake unlocks Phase 5 (`HighShadows`), the real Phase 4 water look, the
-  real Phase 8 sky look, and proper per-vertex normals on voxel meshes
-  (currently flat-shaded via the placeholder material).
+## Dev tooling
 
-### Code-driven (TODO list)
+- **CLI:** `pwsh Tools/wsm3d.ps1 help` — 13 subcommands (build, install, launch, relaunch, log, toggle, journey capture, etc.).
+- **Slash commands:** `/wsm-status`, `/wsm-validate-all`, `/wsm-build`, `/wsm-install`, `/wsm-relaunch`, `/wsm-log`, `/wsm-toggle`, `/wsm-screenshot`, `/wsm-journey-run`, `/wsm-doctor`.
+- **MCP:** `Tools/wsm3d-mcp/` — Python FastMCP with 18 tools, auto-registered via `.claude/mcp-servers.json`.
+- **Journey gate:** `.github/workflows/journeys-gate.yml` — OCR-assertion DSL; verify with `phenotype-journey verify <manifest> --mode mock`.
 
-- **Phase 7 selection ring** — `SelectionRing.cs` is in tree but no Harmony
-  Prefix hooks `SelectionManager`. Needs a decompile pass to find the right
-  call site, then a Prefix/Postfix to keep the world-space ring in sync.
-- **Phase 10 Proxy tier** — `LodSelector.Select` returns `LodTier.Proxy`
-  for the middle distance band, but no proxy mesh exists; `LodDispatch`
-  currently falls through to the Voxel path. Either kill the tier or ship
-  a 32-voxel-cap proxy mesh.
-- **Phase 1 review issue #5** (`VoxelRender` material leak across world
-  reload) — `VoxelRender.Reset()` exists *and* is now wired into
-  `WorldUnloadPatch` (Phase 10 step 5). Mark this closed.
-- **Per-instance color shader read** — `MeshInstanceBatcher` uploads
-  `_InstanceColor` to the property block, but the placeholder unlit
-  material doesn't sample it. The Phase 5 `VoxelLit.shader` must read it.
-- **External `RegisterBuildingRules` ergonomics** — API takes `object` at
-  the delegate boundary. Consider a `RegisterBuildingRules(string assetId,
-  string rulesJson)` overload so external mod authors don't have to
-  reference the internal `BuildingRules` struct.
-- **Skeletal cache key** — `RigCache` keys on
-  `(Sprite.GetInstanceID, RigType)`. Once per-creature rigs diverge add
-  `rigId` to the key.
+## Recent commits (7 most recent)
+
+```
+e1fdc45 docs(tooling): CLAUDE.md ref + CONTRIBUTING + journey-authoring + PS completions
+1402802 Fix release workflow: GitHub Actions heredoc delimiter
+d6f520f Fix release workflow: broken pipe in CHANGELOG extraction
+924fc3d feat(tooling,build): net48 retarget + watch + journey capture + tooling docs page + nightly/release CI
+8d42378 chore(deps,tooling): bump pkgs to latest CVE-free + Just/Task parity + ADR-0006 + watch + journeys CI
+0e4008c feat(tooling): full Phenotype-org dev stack — slash + skill + CLI + MCP + journeys + tests
+0e3e424 fix(phase-1): pick instancing-capable shader; guard DrawMeshInstanced
+```
 
 ## Important caveats / non-obvious gotchas
 

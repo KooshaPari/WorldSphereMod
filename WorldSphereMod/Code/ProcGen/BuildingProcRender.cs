@@ -7,6 +7,7 @@ namespace WorldSphereMod.ProcGen
 {
     public static class BuildingProcRender
     {
+        [Phase(nameof(SavedSettings.ProceduralBuildings))]
         [HarmonyPatch(typeof(BuildingManager), nameof(BuildingManager.precalculateRenderDataParallel))]
         public static class ProcMeshEmit
         {

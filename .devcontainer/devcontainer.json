@@ -1,25 +1,26 @@
 {
-  "name": "WorldSphereMod3D",
-  "image": "mcr.microsoft.com/devcontainers/dotnet:1-8.0-bookworm",
+  "name": "WorldSphereMod3D dev",
+  "dockerFile": "../Dockerfile",
+  "target": "dev",
   "features": {
-    "ghcr.io/devcontainers/features/dotnet:2": {
-      "version": "8.0",
-      "additionalVersions": []
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/rust:1": {
+      "version": "stable"
     },
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {
-      "version": "latest",
-      "moby": true
-    },
-    "ghcr.io/devcontainers/features/git:1": {}
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
+    }
   },
   "customizations": {
     "vscode": {
       "extensions": [
-        "ms-dotnettools.csdevkit",
         "ms-dotnettools.csharp",
-        "ms-azuretools.vscode-docker",
-        "editorconfig.editorconfig",
-        "redhat.vscode-yaml"
+        "ms-dotnettools.csdevkit",
+        "ms-vscode.powershell",
+        "vue.volar",
+        "redhat.vscode-yaml",
+        "tamasfe.even-better-toml",
+        "rust-lang.rust-analyzer"
       ],
       "settings": {
         "files.eol": "\n",
@@ -28,8 +29,31 @@
         "dotnet.defaultSolution": "WorldSphereMod.sln",
         "omnisharp.enableEditorConfigSupport": true,
         "omnisharp.enableRoslynAnalyzers": true,
-        "editor.formatOnSave": false
+        "editor.formatOnSave": false,
+        "dotnet.server.useOmnisharp": true,
+        "terminal.integrated.defaultProfile.linux": "pwsh",
+        "terminal.integrated.profiles.linux": {
+          "pwsh": {
+            "path": "/usr/bin/pwsh",
+            "icon": "terminal-powershell"
+          }
+        }
       }
+    }
+  },
+  "forwardPorts": [5173, 8765, 8766],
+  "portsAttributes": {
+    "5173": {
+      "label": "VitePress docs",
+      "onAutoForward": "notify"
+    },
+    "8765": {
+      "label": "DINOForge MCP",
+      "onAutoForward": "notify"
+    },
+    "8766": {
+      "label": "WorldSphereMod3D MCP",
+      "onAutoForward": "notify"
     }
   },
   "workspaceFolder": "/workspaces/WorldSphereMod",
@@ -40,8 +64,8 @@
     "DOTNET_SKIP_FIRST_TIME_EXPERIENCE": "1"
   },
   "containerEnv": {
-    "_NOTE": "WORLDBOX_PATH is intentionally NOT set. The full mod (WorldSphereMod.csproj) cannot be built inside a container because it references proprietary WorldBox DLLs that are not redistributable. Only WorldSphereAPI.csproj builds in this devcontainer. See CLAUDE.md and Directory.Build.props for the local-build contract."
+    "_NOTE": "WORLDBOX_PATH is intentionally NOT set in the container. The full mod (WorldSphereMod.csproj) requires proprietary WorldBox DLLs that are not redistributable. Only WorldSphereAPI.csproj builds in this devcontainer. See CLAUDE.md and Directory.Build.props for the local-build contract."
   },
-  "postCreateCommand": "dotnet restore WorldSphereAPI.csproj && dotnet build WorldSphereAPI.csproj -c Release",
+  "postCreateCommand": "pwsh -NoProfile -File Tools/wsm3d.ps1 doctor || true",
   "remoteUser": "vscode"
 }

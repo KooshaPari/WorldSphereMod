@@ -98,3 +98,17 @@ dotnet_naming_symbols.private_fields.required_modifiers          =
 
 dotnet_naming_style.underscore_camel_case.capitalization        = camel_case
 dotnet_naming_style.underscore_camel_case.required_prefix       = _
+
+# ---------------------------------------------------------------------------
+# Rust settings (phenotype-journey CLI, toolchain validation)
+# ---------------------------------------------------------------------------
+[*.rs]
+indent_size = 4
+indent_style = space
+
+# ---------------------------------------------------------------------------
+# TOML settings (Cargo.toml, Taskfile, config files)
+# ---------------------------------------------------------------------------
+[*.toml]
+indent_size = 2
+indent_style = space

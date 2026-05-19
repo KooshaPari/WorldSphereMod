@@ -1,39 +1,47 @@
 # =============================================================================
-# WorldSphereMod3D — CI / SBOM Dockerfile
+# WorldSphereMod3D — Dev & CI Dockerfile
 # =============================================================================
-# This image exists ONLY to give CI and SBOM tooling a reproducible build
-# surface for the parts of the repo that DON'T need WorldBox's reference DLLs.
+# Multi-stage image: builder for CI/SBOM, dev for devcontainer environments.
 #
-# What this builds:
-#   WorldSphereAPI.csproj — the public, Unity-free, netstandard2.0 API
-#   shim. This is the only project in the repo that builds without
-#   $(WorldBoxPath) and its private Managed/ + NML/Assemblies/ DLLs.
+# CI builds WorldSphereAPI.csproj (public, Unity-free); local development
+# builds WorldSphereMod.csproj with a local $(WorldBoxPath) env var.
+# See CLAUDE.md and Directory.Build.props for the build contract.
 #
-# What this does NOT build:
-#   WorldSphereMod.csproj (the actual Harmony mod) and WorldSphereTester.
-#   Both require proprietary WorldBox assemblies (`Assembly-CSharp*.dll`,
-#   `UnityEngine.*.dll`, `NeoModLoader.dll`, ...) that we cannot legally
-#   ship inside a public Docker image. The full mod is a *local-only*
-#   build — see CLAUDE.md and Directory.Build.props for the
-#   `WORLDBOX_PATH` contract.
-#
-# Why bother:
-#   - CI sanity check that the public API surface still compiles.
-#   - Reproducible SBOM / dependency graph for the API shim.
-#   - A baseline image other CI jobs can chain off of.
-#
-# Nobody is expected to `docker run` this for normal mod development.
+# Dev image includes: .NET 8 SDK, Python 3.11, Node 20, Rust, PowerShell 7+,
+# gh CLI, just, task, tesseract-ocr, and devcontainer base tooling.
 # =============================================================================
 
-# -----------------------------------------------------------------------------
-# Stage 1 — build the Unity-free API project with the .NET 8 SDK.
-# -----------------------------------------------------------------------------
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+# =============================================================================
+# Stage 1 — .NET 8 dev environment (base for all stages)
+# =============================================================================
+FROM mcr.microsoft.com/devcontainers/dotnet:8.0-bookworm AS builder
 
 WORKDIR /src
 
-# Copy just what the API project needs. Directory.Build.props is repo-wide
-# but harmless here — it only sets $(WorldBoxPath) which the API doesn't use.
+# Install system dependencies: Rust, just, task, tesseract-ocr, gh CLI.
+# Combine into single layer to minimize image bloat. Use --no-install-recommends.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    rustc \
+    cargo \
+    pkg-config \
+    libssl-dev \
+    tesseract-ocr \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install just (task runner)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh \
+    | bash -s -- --to /usr/local/bin
+
+# Install task (taskfile.dev)
+RUN sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+
+# Install gh CLI via official repo
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gh \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy build inputs
 COPY Directory.Build.props ./
 COPY WorldSphereAPI.csproj ./
 COPY WorldSphereAPI/        ./WorldSphereAPI/
@@ -42,11 +50,9 @@ RUN dotnet restore WorldSphereAPI.csproj
 RUN dotnet build   WorldSphereAPI.csproj -c Release --no-restore /p:ContinuousIntegrationBuild=true
 RUN dotnet publish WorldSphereAPI.csproj -c Release --no-build -o /out
 
-# -----------------------------------------------------------------------------
-# Stage 2 — minimal Alpine runtime stage. Mostly symbolic: the output is a
-# netstandard2.0 library, so there's no entrypoint to "run". Having a small
-# final image keeps the SBOM clean and the layer count low.
-# -----------------------------------------------------------------------------
+# =============================================================================
+# Stage 2 — Runtime image for CI/SBOM (netstandard2.0 library, no exec)
+# =============================================================================
 FROM mcr.microsoft.com/dotnet/runtime:8.0-alpine AS final
 
 LABEL org.opencontainers.image.title="WorldSphereMod3D API"
@@ -55,7 +61,18 @@ LABEL org.opencontainers.image.source="https://github.com/MelvinShwuaner/WorldSp
 LABEL org.opencontainers.image.licenses="See repository LICENSE"
 
 WORKDIR /app
-COPY --from=build /out/ ./
+COPY --from=builder /out/ ./
 
-# No ENTRYPOINT — this is a library. `docker run` will exit cleanly.
 CMD ["true"]
+
+# =============================================================================
+# Stage 3 — Dev container (devcontainer.json uses this as 'builder' target)
+# =============================================================================
+# Re-tag the builder stage so devcontainer can reference it explicitly.
+# All toolchain is already installed; just add workspace setup.
+FROM builder AS dev
+
+WORKDIR /workspaces/WorldSphereMod
+
+# Final sanity check: confirm all tools are available
+RUN pwsh -Command "Write-Host 'devcontainer ready'; dotnet --version; python3 --version; node --version; rustc --version; cargo --version; gh --version; just --version; task --version; tesseract --version"

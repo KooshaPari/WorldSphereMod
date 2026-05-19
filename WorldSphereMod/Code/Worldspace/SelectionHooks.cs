@@ -17,6 +17,7 @@ namespace WorldSphereMod.Worldspace
     /// are gone by the time a Postfix runs; we snapshot in a Prefix and hide them
     /// in the Postfix.
     /// </summary>
+    [Phase(nameof(SavedSettings.WorldspaceUI))]
     [HarmonyPatch(typeof(SelectedUnit))]
     public static class SelectionHooks
     {

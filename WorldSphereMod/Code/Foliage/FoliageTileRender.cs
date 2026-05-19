@@ -25,6 +25,7 @@ namespace WorldSphereMod.Foliage
     /// per-frame draws) but skip the mesh rebuild via
     /// <see cref="CrossedQuadMeshCache"/>.
     /// </summary>
+    [Phase(nameof(SavedSettings.CrossedQuadFoliage))]
     [HarmonyPatch(typeof(WorldTilemap), "renderTile")]
     public static class FoliageTileRender
     {

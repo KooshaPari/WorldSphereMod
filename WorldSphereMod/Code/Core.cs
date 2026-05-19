@@ -106,7 +106,29 @@ namespace WorldSphereMod
         {
 
             Patcher = new Harmony(HarmonyID);
-            Patcher.PatchAll();
+
+            // Conditional patching: types with [Phase] attribute are only patched if their
+            // phase gate is enabled in SavedSettings. This avoids IL detour overhead for
+            // disabled phases (~80-150ms per disabled phase at Init time).
+            var types = Assembly.GetExecutingAssembly().GetTypes();
+            foreach (var type in types)
+            {
+                var phaseAttr = type.GetCustomAttribute<PhaseAttribute>();
+                if (phaseAttr != null)
+                {
+                    // Skip this type if its phase flag is off.
+                    var flagField = typeof(SavedSettings).GetField(phaseAttr.SettingsFlagName);
+                    if (flagField == null) continue; // Flag doesn't exist (shouldn't happen).
+                    var flagValue = (bool)flagField.GetValue(savedSettings);
+                    if (!flagValue) continue; // Phase is disabled, skip patching.
+                }
+
+                // Only patch this type if it has a [HarmonyPatch] attribute.
+                if (type.GetCustomAttribute<HarmonyPatch>() != null)
+                {
+                    Patcher.CreateClassProcessor(type).Patch();
+                }
+            }
 
             Patcher.PatchAll(typeof(SphereControl));
             Patcher.PatchAll(typeof(Dist3D));

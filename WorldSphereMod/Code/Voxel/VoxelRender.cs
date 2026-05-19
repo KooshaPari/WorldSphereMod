@@ -105,6 +105,7 @@ namespace WorldSphereMod.Voxel
         // Harmony hooks. Registered automatically via Patcher.PatchAll on the
         // existing Core.Patch() pass because [HarmonyPatch] is declared here.
 
+        [Phase(nameof(SavedSettings.VoxelEntities))]
         [HarmonyPatch(typeof(ActorManager), nameof(ActorManager.precalculateRenderDataParallel))]
         public static class ActorVoxelEmit
         {
@@ -204,6 +205,7 @@ namespace WorldSphereMod.Voxel
         // this when SavedSettings.ProceduralBuildings flips on; until then, when the
         // player turns Voxel Entities on, voxelizing the building sprite is the best
         // we can do for 3D buildings without procgen.
+        [Phase(nameof(SavedSettings.VoxelEntities))]
         [HarmonyPatch(typeof(BuildingManager), nameof(BuildingManager.precalculateRenderDataParallel))]
         public static class BuildingVoxelEmit
         {
