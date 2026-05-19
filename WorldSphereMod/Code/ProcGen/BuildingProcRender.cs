@@ -77,8 +77,10 @@ namespace WorldSphereMod.ProcGen
                     {
                         Mesh m = ProcGenCache.GetOrGenerate(b.asset, rules);
                         if (m == null) continue;
-                        VoxelRender.Submit(m, trs, rd.colors[i]);
-                        submitted = true;
+                        if (VoxelRender.Submit(m, trs, rd.colors[i]))
+                        {
+                            submitted = true;
+                        }
                     }
                     if (submitted)
                     {

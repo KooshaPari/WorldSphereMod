@@ -142,10 +142,11 @@ namespace WorldSphereMod.Voxel
         }
 
         /// <summary>Per-frame submission. Matrix should already include scale.</summary>
-        public static void Submit(Mesh mesh, Matrix4x4 trs, Color tint)
+        public static bool Submit(Mesh mesh, Matrix4x4 trs, Color tint)
         {
-            if (_material == null && !EnsureMaterial()) return;
+            if (_material == null && !EnsureMaterial()) return false;
             MeshInstanceBatcher.Submit(mesh, _material!, trs, tint);
+            return true;
         }
 
         /// <summary>Issue all batched draw calls. Call once per frame after submissions.</summary>
@@ -207,9 +208,11 @@ namespace WorldSphereMod.Voxel
                             Vector3 skRot = rd.rotations[i];
                             Vector3 skScl = rd.scales[i];
                             if (rd.flip_x_states[i]) skScl.x = -skScl.x;
-                            WorldSphereMod.Rig.RigDriver.SubmitSkinnedActor(
-                                a, skPos, Quaternion.Euler(0f, skRot.y, 0f), skScl, rd.colors[i], rigType);
-                            rd.has_normal_render[i] = false;
+                            if (WorldSphereMod.Rig.RigDriver.SubmitSkinnedActor(
+                                    a, skPos, Quaternion.Euler(0f, skRot.y, 0f), skScl, rd.colors[i], rigType))
+                            {
+                                rd.has_normal_render[i] = false;
+                            }
                             continue;
                         }
                     }
@@ -219,6 +222,7 @@ namespace WorldSphereMod.Voxel
 
                     if (tier == WorldSphereMod.LOD.LodTier.Impostor)
                     {
+                        bool submitted = false;
                         Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
                         Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
                         if (im == null || imMat == null) continue;
@@ -228,7 +232,11 @@ namespace WorldSphereMod.Voxel
                         Quaternion br = Tools.RotateToCamera(ref imPos);
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
                         MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
-                        rd.has_normal_render[i] = false;
+                        submitted = true;
+                        if (submitted)
+                        {
+                            rd.has_normal_render[i] = false;
+                        }
                         continue;
                     }
 
@@ -241,9 +249,11 @@ namespace WorldSphereMod.Voxel
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
                     // Z/X axes encode sprite-billboard lean; on a 3D mesh they topple the body. Yaw only here; lean returns in Phase 6 as a spine-bone tilt.
                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
-                    Submit(m, trs, rd.colors[i]);
                     // Hide the sprite quad for this actor — we drew the 3D mesh instead.
-                    rd.has_normal_render[i] = false;
+                    if (Submit(m, trs, rd.colors[i]))
+                    {
+                        rd.has_normal_render[i] = false;
+                    }
                 }
             }
 
@@ -298,6 +308,7 @@ namespace WorldSphereMod.Voxel
 
                     if (tier == WorldSphereMod.LOD.LodTier.Impostor)
                     {
+                        bool submitted = false;
                         Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
                         Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
                         // Impostor mesh build failed: fall through to vanilla
@@ -311,7 +322,11 @@ namespace WorldSphereMod.Voxel
                         Quaternion br = Tools.RotateToCamera(ref imPos);
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
                         MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
-                        rd.scales[i] = Vector3.zero;
+                        submitted = true;
+                        if (submitted)
+                        {
+                            rd.scales[i] = Vector3.zero;
+                        }
                         continue;
                     }
 
@@ -323,12 +338,14 @@ namespace WorldSphereMod.Voxel
                     Vector3 scl = rd.scales[i];
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
-                    Submit(m, trs, rd.colors[i]);
                     // BuildingRenderData has no has_normal_render. Suppressing via scales[i]=0
                     // hides the sprite quad without nulling main_sprites (downstream
                     // calculateColoredSprite() chokes on null). Shadow sprite still draws as a
                     // ground decal under the 3D mesh — fine until Phase 5 ships real shadows.
-                    rd.scales[i] = Vector3.zero;
+                    if (Submit(m, trs, rd.colors[i]))
+                    {
+                        rd.scales[i] = Vector3.zero;
+                    }
                 }
             }
         }

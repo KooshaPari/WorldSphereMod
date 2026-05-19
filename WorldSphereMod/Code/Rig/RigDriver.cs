@@ -64,16 +64,16 @@ namespace WorldSphereMod.Rig
             _idsResolved = true;
         }
 
-        public static void SubmitSkinnedActor(
+        public static bool SubmitSkinnedActor(
             Actor a, Vector3 pos, Quaternion rot, Vector3 scl, Color tint,
             RigType rigType)
         {
-            if (a == null || a.asset == null) return;
+            if (a == null || a.asset == null) return false;
             Sprite? sp = a.calculateMainSprite();
-            if (sp == null) return;
+            if (sp == null) return false;
 
             SkinnedVoxelMesh svm = RigCache.GetOrBuild(sp, rigType);
-            if (svm.BaseMesh == null) return;
+            if (svm.BaseMesh == null) return false;
 
             EnsureGpu();
 
@@ -125,7 +125,7 @@ namespace WorldSphereMod.Rig
             }
 
             Matrix4x4 trs = Matrix4x4.TRS(pos, rot, scl);
-            VoxelRender.Submit(toSubmit, trs, tint);
+            return VoxelRender.Submit(toSubmit, trs, tint);
         }
 
         static Mesh DispatchSkin(long key, SkinnedVoxelMesh svm, AnimationFrameData? fd)
