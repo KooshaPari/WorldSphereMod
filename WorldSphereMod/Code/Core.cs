@@ -120,6 +120,7 @@ namespace WorldSphereMod
             foreach (var type in types)
             {
                 var phaseAttr = type.GetCustomAttribute<PhaseAttribute>();
+                var hasPatch = type.GetCustomAttribute<HarmonyPatch>() != null;
                 if (phaseAttr != null)
                 {
                     // Skip this type if its phase flag is off.
@@ -130,9 +131,13 @@ namespace WorldSphereMod
                 }
 
                 // Only patch this type if it has a [HarmonyPatch] attribute.
-                if (type.GetCustomAttribute<HarmonyPatch>() != null)
+                if (hasPatch)
                 {
                     Patcher.CreateClassProcessor(type).Patch();
+                    if (phaseAttr != null)
+                    {
+                        PhasePatchManager.MarkTypePatched(type);
+                    }
                 }
             }
 

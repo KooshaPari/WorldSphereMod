@@ -6,6 +6,7 @@ using UnityEngine.Events;
 using NCMS.Utils;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Reflection;
 namespace WorldSphereMod.UI
 {
     struct ButtonData
@@ -170,16 +171,16 @@ namespace WorldSphereMod.UI
             CreateButton("Reset Defaults", "WorldSphereMod/ModIcon", ResetToDefaults);
         }
 
-        static void TogglePhase_VoxelEntities(string _)       { Core.savedSettings.VoxelEntities       = !Core.savedSettings.VoxelEntities;       Core.SaveSettings(); }
-        static void TogglePhase_ProceduralBuildings(string _) { Core.savedSettings.ProceduralBuildings = !Core.savedSettings.ProceduralBuildings; Core.SaveSettings(); }
-        static void TogglePhase_CrossedQuadFoliage(string _)  { Core.savedSettings.CrossedQuadFoliage  = !Core.savedSettings.CrossedQuadFoliage;  Core.SaveSettings(); }
-        static void TogglePhase_MeshWater(string _)           { Core.savedSettings.MeshWater           = !Core.savedSettings.MeshWater;           Core.SaveSettings(); }
-        static void TogglePhase_HighShadows(string _)         { Core.savedSettings.HighShadows         = !Core.savedSettings.HighShadows;         Core.SaveSettings(); }
-        static void TogglePhase_SkeletalAnimation(string _)   { Core.savedSettings.SkeletalAnimation   = !Core.savedSettings.SkeletalAnimation;   Core.SaveSettings(); }
-        static void TogglePhase_WorldspaceUI(string _)        { Core.savedSettings.WorldspaceUI        = !Core.savedSettings.WorldspaceUI;        Core.SaveSettings(); }
-        static void TogglePhase_DayNightCycle(string _)       { Core.savedSettings.DayNightCycle       = !Core.savedSettings.DayNightCycle;       Core.SaveSettings(); }
-        static void TogglePhase_PostFX(string _)              { Core.savedSettings.PostFX              = !Core.savedSettings.PostFX;              Core.SaveSettings(); }
-        static void TogglePhase_ParticleEffects(string _)     { Core.savedSettings.ParticleEffects     = !Core.savedSettings.ParticleEffects;     Core.SaveSettings(); }
+        static void TogglePhase_VoxelEntities(string _)       { Core.savedSettings.VoxelEntities       = !Core.savedSettings.VoxelEntities;       Core.SaveSettings(); PhasePatchManager.ApplyPhaseToggle(nameof(SavedSettings.VoxelEntities), Core.savedSettings.VoxelEntities); }
+        static void TogglePhase_ProceduralBuildings(string _) { Core.savedSettings.ProceduralBuildings = !Core.savedSettings.ProceduralBuildings; Core.SaveSettings(); PhasePatchManager.ApplyPhaseToggle(nameof(SavedSettings.ProceduralBuildings), Core.savedSettings.ProceduralBuildings); }
+        static void TogglePhase_CrossedQuadFoliage(string _)  { Core.savedSettings.CrossedQuadFoliage  = !Core.savedSettings.CrossedQuadFoliage;  Core.SaveSettings(); PhasePatchManager.ApplyPhaseToggle(nameof(SavedSettings.CrossedQuadFoliage), Core.savedSettings.CrossedQuadFoliage); }
+        static void TogglePhase_MeshWater(string _)           { Core.savedSettings.MeshWater           = !Core.savedSettings.MeshWater;           Core.SaveSettings(); PhasePatchManager.ApplyPhaseToggle(nameof(SavedSettings.MeshWater), Core.savedSettings.MeshWater); }
+        static void TogglePhase_HighShadows(string _)         { Core.savedSettings.HighShadows         = !Core.savedSettings.HighShadows;         Core.SaveSettings(); PhasePatchManager.ApplyPhaseToggle(nameof(SavedSettings.HighShadows), Core.savedSettings.HighShadows); }
+        static void TogglePhase_SkeletalAnimation(string _)   { Core.savedSettings.SkeletalAnimation   = !Core.savedSettings.SkeletalAnimation;   Core.SaveSettings(); PhasePatchManager.ApplyPhaseToggle(nameof(SavedSettings.SkeletalAnimation), Core.savedSettings.SkeletalAnimation); }
+        static void TogglePhase_WorldspaceUI(string _)        { Core.savedSettings.WorldspaceUI        = !Core.savedSettings.WorldspaceUI;        Core.SaveSettings(); PhasePatchManager.ApplyPhaseToggle(nameof(SavedSettings.WorldspaceUI), Core.savedSettings.WorldspaceUI); }
+        static void TogglePhase_DayNightCycle(string _)       { Core.savedSettings.DayNightCycle       = !Core.savedSettings.DayNightCycle;       Core.SaveSettings(); PhasePatchManager.ApplyPhaseToggle(nameof(SavedSettings.DayNightCycle), Core.savedSettings.DayNightCycle); }
+        static void TogglePhase_PostFX(string _)              { Core.savedSettings.PostFX              = !Core.savedSettings.PostFX;              Core.SaveSettings(); PhasePatchManager.ApplyPhaseToggle(nameof(SavedSettings.PostFX), Core.savedSettings.PostFX); }
+        static void TogglePhase_ParticleEffects(string _)     { Core.savedSettings.ParticleEffects     = !Core.savedSettings.ParticleEffects;     Core.SaveSettings(); PhasePatchManager.ApplyPhaseToggle(nameof(SavedSettings.ParticleEffects), Core.savedSettings.ParticleEffects); }
         static void ToggleProfileMode()
         {
             Core.savedSettings.ProfilerDump = !Core.savedSettings.ProfilerDump;
@@ -189,6 +190,13 @@ namespace WorldSphereMod.UI
         {
             Core.savedSettings = new SavedSettings();
             Core.SaveSettings();
+            foreach (FieldInfo field in typeof(SavedSettings).GetFields(BindingFlags.Instance | BindingFlags.Public))
+            {
+                if (field.FieldType == typeof(bool))
+                {
+                    PhasePatchManager.ApplyPhaseToggle(field.Name, (bool)field.GetValue(Core.savedSettings));
+                }
+            }
             UnityEngine.Debug.Log("[WSM3D] SavedSettings reset to defaults. Restart recommended for full effect.");
         }
         static void OpenSprites()
