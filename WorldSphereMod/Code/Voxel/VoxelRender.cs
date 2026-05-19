@@ -98,6 +98,7 @@ namespace WorldSphereMod.Voxel
         static readonly int _smoothnessId = Shader.PropertyToID("_Smoothness");
         static readonly int _metallicId = Shader.PropertyToID("_Metallic");
         static readonly int _cubemapId = Shader.PropertyToID("_Cubemap");
+        static readonly int _cullId = Shader.PropertyToID("_Cull");
 
         /// <summary>
         /// Configure whichever URP path we selected for the current run:
@@ -109,6 +110,8 @@ namespace WorldSphereMod.Voxel
         /// </summary>
         static void ConfigureVoxelMaterial(Material material, string shaderName)
         {
+            material.SetInt(_cullId, 0);
+
             bool isLit = shaderName == "Universal Render Pipeline/Lit" || shaderName == "Universal Render Pipeline/Simple Lit";
             bool isUnlit = shaderName == "Universal Render Pipeline/Unlit" ||
                            shaderName == "Universal Render Pipeline/Particles/Unlit";
@@ -270,6 +273,7 @@ namespace WorldSphereMod.Voxel
                     Vector3 rot = rd.rotations[i];
                     Vector3 scl = rd.scales[i];
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
+                    scl.z = scl.x;
                     LogFirstActorPos(posBeforeLift, pos, scl);
                     // Z/X axes encode sprite-billboard lean; on a 3D mesh they topple the body. Yaw only here; lean returns in Phase 6 as a spine-bone tilt.
                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
@@ -384,6 +388,7 @@ namespace WorldSphereMod.Voxel
                     Vector3 rot = rd.rotations[i];
                     Vector3 scl = rd.scales[i];
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
+                    scl.z = scl.x;
                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
                     // BuildingRenderData has no has_normal_render. Suppressing via scales[i]=0
                     // hides the sprite quad without nulling main_sprites (downstream
