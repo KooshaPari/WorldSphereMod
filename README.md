@@ -100,6 +100,7 @@ still does *something* useful on incompatible GPUs.
 | Component | Purpose | Invocation |
 |---|---|---|
 | **wsm3d.ps1** | 540-LOC CLI: build, install, reload, toggle phases, screenshot, profiler | `./Tools/wsm3d.ps1 build` / `install` / `reload-nml` / `toggle-phase` / etc. (13 subcommands) |
+| **wsm3d tab-completion** | PowerShell argument completer for all CLI subcommands | See "Enable tab-completion" below |
 | **MCP server** | Python FastMCP on port 8766; exposes phase state, build logs, manifest queries | `python Tools/wsm3d-mcp/main.py` (auto-launched by Claude commands) |
 | **/wsm-* slash commands** | 10 Claude Code shortcuts: build, install, reload, phases, tests, profile | `/wsm-build`, `/wsm-install`, `/wsm-reload`, `/wsm-toggle-phase`, etc. |
 | **wsm3d skill** | Auto-routed `.claude/skills/wsm3d/SKILL.md` for guided dev tasks | Invoked via Claude Code agent dispatch |
@@ -141,6 +142,24 @@ git add -A && git commit -m "Phase 1: ..."
 | `/wsm-test-e2e` | Run e2e tests only |
 | `/wsm-profile` | Start frame profiler, collect 60s, export CSV |
 | `/wsm-manifest-query` | Search phase manifests by keyword (e.g., "water", "shadow") |
+
+### Enable tab-completion (PowerShell)
+
+The `wsm3d.ps1` CLI ships with a PowerShell argument completer. To enable it,
+add this line to your PowerShell `$PROFILE`:
+
+```powershell
+. "$env:USERPROFILE\Dev\WorldSphereMod\Tools\wsm3d.completion.ps1"
+```
+
+Or run this one-liner from the repo root:
+
+```powershell
+Add-Content $PROFILE "`n. `"$pwd\Tools\wsm3d.completion.ps1`""
+```
+
+Then reload your shell. Type `wsm3d.ps1 <TAB>` to see completions for all
+subcommands, phase toggles, and journey IDs.
 
 ## Backend
 

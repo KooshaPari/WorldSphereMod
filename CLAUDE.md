@@ -33,6 +33,7 @@ day/night, post-FX, and an LOD/impostor fallback.
   capture a non-obvious *why* (invariant, workaround, hidden constraint).
 - **External assemblies** are referenced via `$(WorldBoxPath)` from
   `Directory.Build.props`; never hard-code Steam paths in a `.csproj`.
+- **Tooling first**: prefer `pwsh Tools/wsm3d.ps1` and `/wsm-*` slash commands over raw `dotnet` / file operations. See the Dev tooling section.
 
 ## Build
 
@@ -49,6 +50,38 @@ dotnet build WorldSphereMod.csproj -c Release
 CI in `.github/workflows/build.yml` builds only `WorldSphereAPI.csproj`
 (it's Unity-free, targets netstandard2.0). The main mod can't be built in
 CI because it needs WorldBox's reference DLLs — that's local-only.
+
+## Dev tooling (use these instead of raw commands)
+
+The repo ships a full dev toolchain. Prefer it over raw `dotnet` / `pwsh`
+invocations:
+
+- **CLI**: `pwsh Tools/wsm3d.ps1 <cmd>` — 13 subcommands: build, install,
+  launch, kill, relaunch, log, screenshot, settings get/set, toggle,
+  phases list, status [-Json], journey list/run/verify/capture.
+  Run `pwsh Tools/wsm3d.ps1 help` for the surface.
+- **MCP server**: `Tools/wsm3d-mcp/` — Python FastMCP exposing 18 tools
+  for the whole dev loop (game_launch, log_grep, settings_toggle,
+  journey_run, etc). Auto-registered via `.claude/mcp-servers.json` on
+  stdio + HTTP :8766. Install once with `pip install -e Tools/wsm3d-mcp`.
+- **Slash commands**: `.claude/commands/wsm-*.md` — 10 in-Claude
+  shortcuts: /wsm-status, /wsm-build, /wsm-install, /wsm-relaunch,
+  /wsm-log, /wsm-toggle, /wsm-screenshot, /wsm-journey-run,
+  /wsm-validate-all, /wsm-doctor.
+- **Skill**: `.claude/skills/wsm3d/SKILL.md` — auto-invoked when the
+  task description matches dev-loop work; encodes the seven pitfalls
+  we've actually hit (CompoundSpheres dep, net48 retarget, instancing
+  silent-fail, etc).
+- **Phenotype journeys**: `docs/journeys/manifests/us-wsm-phase-{1..10}-*/`
+  with OCR-assertion DSL. Capture: `pwsh Tools/wsm3d.ps1 journey capture
+  -Id <id>`. Verify: `phenotype-journey verify <manifest> --mode mock`.
+
+Critical paths a session must know:
+- Player.log: `$env:USERPROFILE/AppData/LocalLow/mkarpenko/WorldBox/Player.log`
+- SavedSettings: `$env:USERPROFILE/AppData/LocalLow/mkarpenko/WorldBox/mods_config/WorldSphereMod.json` (snake_case folder)
+- Game install: `C:/Program Files (x86)/Steam/steamapps/common/worldbox`
+- Mod dest: `<install>/Mods/WorldSphereMod3D`
+- Built DLL: `bin/Release/net48/WorldSphereMod3D.dll` (net48 — Mono-loadable)
 
 ## Where to make changes
 
@@ -96,6 +129,8 @@ those files; changes can cascade.
 - **AssetBundle paths.** Bundles live in `WorldSphereMod/AssetBundles/{win,
   linux,osx}/worldsphere`. The platform-specific files are binary blobs
   rebuilt from Unity 2022.3 — not editable by hand.
+- **SavedSettings folder is snake_case.** NML's `Paths.ModsConfigPath` resolves to `mods_config/` on Windows (lowercase + underscore), NOT `ModsConfig/`. The CLI hardcodes the right path; the MCP server auto-discovers via glob.
+- **CompoundSpheres.dll is a runtime dep, not stale.** `WorldSphereMod/Assemblies/CompoundSpheres.dll` (23KB) must stay shipped — `Mod.cs`, `Tools.cs`, `Core.cs`, `WaterRender.cs`, `TileMapToSphere.cs`, `CompoundSphereScripts.cs` all `using CompoundSpheres;`. Without it, NML's Roslyn compile fails with ~60 CS0246 errors.
 
 ## When you're done with a phase
 
