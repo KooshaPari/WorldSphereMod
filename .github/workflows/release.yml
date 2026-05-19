@@ -97,7 +97,9 @@ jobs:
           # Extract the [Unreleased] section from CHANGELOG.md
           if [ -f CHANGELOG.md ]; then
             # Use awk to extract text between [Unreleased] and the next version header
-            NOTES=$(awk '/^## \[Unreleased\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md | sed -e '/^$/d' | head -c 5000)
+            NOTES=$(awk '/^## \[Unreleased\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md | sed -e '/^$/d')
+            # Limit to 5000 chars after extraction to avoid broken pipe
+            NOTES="${NOTES:0:5000}"
             # If empty, use a default message
             if [ -z "$NOTES" ]; then
               NOTES="Alpha release — see CHANGELOG.md for details."
