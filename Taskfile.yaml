@@ -249,3 +249,10 @@ tasks:
     desc: "Print machine-readable diagnostic status (JSON)."
     cmds:
       - pwsh Tools/wsm3d.ps1 status -Json
+
+  # ── Git Hooks ─────────────────────────────────────────────────────────────
+
+  hooks-install:
+    desc: "Install git pre-commit hooks (run once after clone)."
+    cmds:
+      - pwsh Tools/wsm3d.ps1 hooks install

@@ -144,6 +144,10 @@ journeys:
     echo ""
     echo "All manifests verified."
 
+# Build journey-records crate.
+journey-records-build:
+    cargo build --manifest-path tools/journey-records/Cargo.toml --release
+
 # Capture screenshots for journey assertions. Use /wsm-screenshot or Tools/wsm3d.ps1.
 journeys-capture:
     #!/bin/bash
@@ -203,3 +207,9 @@ watch:
 # Print machine-readable diagnostic status (JSON).
 doctor:
     pwsh Tools/wsm3d.ps1 status -Json
+
+# ── Git Hooks ─────────────────────────────────────────────────────────────
+
+# Install git pre-commit hooks (run once after clone).
+hooks-install:
+    pwsh Tools/wsm3d.ps1 hooks install

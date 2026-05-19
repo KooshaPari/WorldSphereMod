@@ -624,6 +624,46 @@ function Invoke-Watch {
     }
 }
 
+function Invoke-HooksInstall {
+    Write-Info "Installing git pre-commit hook..."
+
+    try {
+        Push-Location $script:RepoRoot
+
+        # Set the hooksPath
+        & git config core.hooksPath .githooks
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to set git core.hooksPath"
+        }
+
+        # Check if .githooks/pre-commit exists
+        $preCommitPath = Join-Path $script:RepoRoot ".githooks/pre-commit"
+        if (-not (Test-Path $preCommitPath)) {
+            throw ".githooks/pre-commit not found. Repository may be missing git hooks."
+        }
+
+        # Make it executable (git update-index on Windows is more reliable)
+        & git update-index --chmod=+x .githooks/pre-commit
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warn "Warning: Could not update executable bit on .githooks/pre-commit"
+        }
+
+        Write-Success "Hooks installed successfully."
+        Write-Info ""
+        Write-Info "Test the hook with:"
+        Write-Host "  `$null = New-Item -ItemType File -Force tmp_test.txt -Value 'x'" -ForegroundColor Gray
+        Write-Host "  git add tmp_test.txt" -ForegroundColor Gray
+        Write-Host "  & .\.githooks\pre-commit.ps1" -ForegroundColor Gray
+        Write-Host "  git reset HEAD tmp_test.txt" -ForegroundColor Gray
+        Write-Host "  Remove-Item tmp_test.txt" -ForegroundColor Gray
+
+    } catch {
+        throw "Failed to install hooks: $($_.Exception.Message)"
+    } finally {
+        Pop-Location
+    }
+}
+
 function Show-Help {
     Write-Host @"
 WorldSphereMod3D CLI — Command Surface
@@ -681,6 +721,10 @@ Commands:
       (debounced 1500ms), run install. Optional -Launch starts the game once at
       startup if not already running. -Filter allows narrower watch (e.g., *.shader).
       Press Ctrl+C to exit.
+
+  hooks install
+      Install the repo-tracked git pre-commit hooks. Sets git config core.hooksPath .githooks.
+      Run once after clone.
 
   help
       Show this help text.
@@ -889,6 +933,28 @@ try {
                 $params["Filter"] = $commandArgs[$commandArgs.IndexOf("-Filter") + 1]
             }
             Invoke-Watch @params
+        }
+
+        "hooks" {
+            if ($commandArgs.Count -eq 0) {
+                Write-Error-Custom "hooks requires 'install' subcommand"
+                Show-Help
+                exit 1
+            }
+            $subCmd = $commandArgs[0]
+            $subArgs = @(if ($commandArgs.Count -gt 1) { $commandArgs[1..($commandArgs.Count - 1)] })
+
+            switch -Exact ($subCmd) {
+                "install" {
+                    Invoke-HooksInstall
+                }
+
+                default {
+                    Write-Error-Custom "Unknown hooks subcommand: $subCmd"
+                    Show-Help
+                    exit 1
+                }
+            }
         }
 
         "help" {
