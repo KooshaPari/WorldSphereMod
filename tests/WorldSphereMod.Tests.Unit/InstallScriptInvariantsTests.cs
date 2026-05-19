@@ -42,18 +42,23 @@ public class InstallScriptInvariantsTests
     }
 
     [Fact]
-    public void Install_script_skips_copying_net5_0_DLL()
+    public void Install_script_targets_net48_and_copies_built_DLL()
     {
         var script = ReadInstallScript();
 
-        // The net5.0 DLL is unloadable by Mono (System.Runtime 5.0 vs 4.1 conflict).
-        // The install script must skip copying it and log the skipping message.
-        var skippingPattern = @"skipping.*unloadable";
-        var match = Regex.Match(script, skippingPattern, RegexOptions.IgnoreCase);
+        // Post-retarget (commit 924fc3d): csproj targets net48 (Mono-loadable
+        // via Compat.cs polyfills) and install.ps1 actively copies
+        // bin/Release/net48/WorldSphereMod3D.dll into the installed
+        // Assemblies/ folder. The earlier invariant was "skip copy because
+        // net5.0 is unloadable" — that's inverted now.
+        var tfmDefault = Regex.Match(script, @"\$Tfm\s*=\s*""net48""");
+        var copyBlock = Regex.Match(script, @"Copy-Item.*\$builtDll", RegexOptions.IgnoreCase);
 
-        match.Success.Should().BeTrue(
-            "install.ps1 must explicitly skip copying the net5.0 DLL because Mono rejects it with CS1705. " +
-            "If missing, the installer will attempt to copy an unloadable assembly.");
+        tfmDefault.Success.Should().BeTrue(
+            "install.ps1 must default $Tfm to net48 — that's the TFM whose DLL is Mono-loadable.");
+        copyBlock.Success.Should().BeTrue(
+            "install.ps1 must copy the built DLL ($builtDll) into the installed Assemblies/. " +
+            "If missing, NML falls back to runtime Roslyn-compile which costs ~1s per launch.");
     }
 
     [Fact]
