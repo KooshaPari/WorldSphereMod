@@ -48,7 +48,7 @@ Unity-free API project.
 | Phase | State | Notes |
 |---|---|---|
 | 0  Fork plumbing                       | ✅ | Build portability, GUID `worldsphere3d.fork`, settings v2, API v2 |
-| 1  Voxel actors + buildings            | 🔄 | Code-complete; material now picks instancing-capable shader; cull-skip path no longer hides vanilla sprites; **awaits final in-game smoke after wave-3 fixes**, flag still OFF |
+| 1  Voxel actors + buildings            | ✅ | Visibly rendering as of 2026-05-19 (commit `94030fb`); `VoxelScaleMultiplier=8.0f` resolves sub-pixel issue (sprite voxel meshes are 11×5×1 local-space × 0.1 sprite-scale → ~1.1×0.5×0.1 world-units = sub-pixel at default zoom). See [ADR-0011](adr/0011-phase-1-visibility-postmortem.md). |
 | 2  Procedural building meshes          | 🔄 | Heuristic + roof inference shipped; **awaits smoke test**, flag still OFF |
 | 3a Crossed-quad foliage                | ✅ | Trees/bushes/rocks ship as crossed quads; flag default ON |
 | 3b Surface overlays + walls            | ✅ | `WorldTilemap.renderTile` Prefix + `drawWallType` Prefix wired |
