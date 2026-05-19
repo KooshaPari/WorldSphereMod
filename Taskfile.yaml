@@ -52,6 +52,11 @@ tasks:
       - task: build-tester
       - task: build-tests
 
+  wsm-log-parse-build:
+    desc: "Build wsm-log-parser tool in Release mode."
+    cmds:
+      - cargo build --manifest-path Tools/wsm-log-parser/Cargo.toml --release
+
   # ── Test ───────────────────────────────────────────────────────────────────
 
   test:
@@ -180,6 +185,12 @@ tasks:
         done
         echo ""
         echo "All manifests verified."
+
+  # Build journey-records crate.
+  journey-records-build:
+    desc: "Build journey-records rust scaffold."
+    cmds:
+      - cargo build --manifest-path tools/journey-records/Cargo.toml --release
 
   journeys-capture:
     desc: "Capture screenshots for journey assertions. Use /wsm-screenshot or Tools/wsm3d.ps1."

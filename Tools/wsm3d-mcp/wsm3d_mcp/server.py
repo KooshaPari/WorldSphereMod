@@ -29,7 +29,7 @@ from starlette.responses import JSONResponse
 from starlette.requests import Request
 
 from wsm3d_mcp.paths import validate_paths
-from wsm3d_mcp.tools import game, log, settings, build, journey
+from wsm3d_mcp.tools import build, codex, game, journey, log, settings
 
 load_dotenv()
 logging.basicConfig(
@@ -42,17 +42,18 @@ logger = logging.getLogger("wsm3d_mcp")
 # FastMCP Server
 # ============================================================================
 
-mcp = FastMCP(
-    "wsm3d",
-    instructions=(
-        "WorldSphereMod3D unified MCP server. "
-        "game_* tools: game process management and screenshots. "
-        "log_* tools: Player.log analysis (tail, grep, clear). "
-        "settings_* tools: SavedSettings.json I/O. "
-        "build_*: mod compilation and deployment (wraps wsm3d.ps1). "
-        "journey_*: phenotype-journey integration."
-    ),
-)
+    mcp = FastMCP(
+        "wsm3d",
+        instructions=(
+            "WorldSphereMod3D unified MCP server. "
+            "game_* tools: game process management and screenshots. "
+            "log_* tools: Player.log analysis (tail, grep, clear). "
+            "settings_* tools: SavedSettings.json I/O. "
+            "build_*: mod compilation and deployment (wraps wsm3d.ps1). "
+            "journey_*: phenotype-journey integration. "
+            "codex_*: codex CLI helpers."
+        ),
+    )
 
 # ============================================================================
 # GAME CONTROL TOOLS
@@ -228,6 +229,47 @@ async def journey_verify(ctx: Context, journey_id: str) -> dict:
     Returns {ok: bool, score: float, violations: list[str]}.
     """
     return await journey.journey_verify(journey_id)
+
+
+# ============================================================================
+# CODEX TOOLS
+# ============================================================================
+
+
+@mcp.tool()
+async def codex_exec(
+    ctx: Context,
+    prompt: str,
+    model: str = "gpt-5.3-codex-spark",
+    reasoning: str = "medium",
+    workdir: str | None = None,
+    extra_dirs: list[str] = [],
+    timeout_s: int = 300,
+) -> dict:
+    """
+    Run a codex prompt.
+    Returns {ok, stdout, stderr, exit_code, tokens_used}.
+    """
+    return await codex.codex_exec(
+        prompt,
+        model=model,
+        reasoning=reasoning,
+        workdir=workdir,
+        extra_dirs=extra_dirs,
+        timeout_s=timeout_s,
+    )
+
+
+@mcp.tool()
+async def codex_doctor(ctx: Context) -> dict:
+    """Run `codex doctor`. Returns {ok, stdout, stderr, exit_code, tokens_used}."""
+    return await codex.codex_doctor()
+
+
+@mcp.tool()
+async def codex_models(ctx: Context) -> list[str]:
+    """Return hardcoded Codex model whitelist."""
+    return codex.codex_models()
 
 
 # ============================================================================

@@ -5,12 +5,13 @@
 
 .DESCRIPTION
   One-file command dispatcher for WSM3D development. Routes to subcommands:
-    build, install, launch, kill, relaunch, log, screenshot, settings, toggle, status, journey, watch, help.
+    build, install, launch, kill, relaunch, log, profile, screenshot, settings, toggle, status, journey, watch, help.
 
 .EXAMPLE
   ./wsm3d.ps1 build
   ./wsm3d.ps1 install -Launch
   ./wsm3d.ps1 log -Follow
+  ./wsm3d.ps1 profile -DryRun
   ./wsm3d.ps1 settings get -Key VoxelEntities
   ./wsm3d.ps1 settings set -Key VoxelEntities -Value true
   ./wsm3d.ps1 toggle -Phase VoxelEntities
@@ -203,6 +204,113 @@ function Invoke-Log {
             }
         }
     }
+}
+
+function Invoke-Profile {
+    param(
+        [switch]$DryRun,
+        [switch]$Json
+    )
+
+    if (-not $DryRun) {
+        $wasRunning = Get-Process worldbox -ErrorAction SilentlyContinue
+        if (-not $wasRunning) {
+            Invoke-Launch
+            Write-Info "Waiting 90s for init completion..."
+            Start-Sleep -Seconds 90
+            Invoke-Kill
+        } else {
+            Write-Info "WorldBox already running. Waiting 90s before parsing logs..."
+            Start-Sleep -Seconds 90
+        }
+    }
+
+    $logDir = Split-Path -Parent $PlayerLogPath
+    $latestLog = Get-ChildItem -Path $logDir -Filter "Player.log*" -File -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if (-not $latestLog) {
+        throw "Player.log not found under $logDir"
+    }
+
+    $logPath = $latestLog.FullName
+    $initLines = Select-String -Path $logPath -Pattern "\[WSM3D\].*InitProfiler" | Select-Object -ExpandProperty Line
+
+    $bucketMap = @{}
+    $entryRows = @()
+    $totalDuration = 0.0
+
+    foreach ($line in $initLines) {
+        $nameMatch = [regex]::Match($line, "name\s*=\s*(?<name>[^\s,;\]]+)")
+        $durMatch = [regex]::Match($line, "duration_s\s*=\s*(?<duration>[+-]?(?:\d+(?:\.\d+)?|\.\d+))")
+        if (-not $nameMatch.Success -or -not $durMatch.Success) {
+            continue
+        }
+
+        $name = $nameMatch.Groups["name"].Value
+        $duration = [double]$durMatch.Groups["duration"].Value
+        $entryRows += [PSCustomObject]@{
+            name = $name
+            duration_s = $duration
+        }
+
+        if (-not $bucketMap.ContainsKey($name)) {
+            $bucketMap[$name] = @{
+                count = 0
+                sum_s = 0.0
+            }
+        }
+        $bucket = $bucketMap[$name]
+        $bucket.count += 1
+        $bucket.sum_s += $duration
+        $bucketMap[$name] = $bucket
+        $totalDuration += $duration
+    }
+
+    $bucketRows = $bucketMap.GetEnumerator() | ForEach-Object {
+        [PSCustomObject]@{
+            Name = $_.Name
+            Count = $_.Value.count
+            Sum_s = $_.Value.sum_s
+            Avg_s = if ($_.Value.count -gt 0) { $_.Value.sum_s / $_.Value.count } else { 0.0 }
+        }
+    } | Sort-Object -Property Sum_s -Descending
+
+    if ($Json) {
+        $jsonOut = [ordered]@{
+            total_s = $totalDuration
+            buckets = $bucketRows | ForEach-Object {
+                [ordered]@{
+                    name = $_.Name
+                    count = $_.Count
+                    sum_s = $_.Sum_s
+                    avg_s = $_.Avg_s
+                }
+            }
+            entries = $entryRows
+        }
+        Write-Host ($jsonOut | ConvertTo-Json -Depth 10)
+        return
+    }
+
+    if ($bucketRows.Count -eq 0) {
+        Write-Warn "No [WSM3D] InitProfiler lines found in $logPath"
+        return
+    }
+
+    Write-Host ""
+    Write-Host "InitProfiler (bucketed, slowest first)" -ForegroundColor Cyan
+    $bucketRows | ForEach-Object {
+        $_.Sum_s = [Math]::Round($_.Sum_s, 6)
+        $_.Avg_s = [Math]::Round($_.Avg_s, 6)
+    }
+    $bucketRows | Format-Table @{Label="Name"; Expression="Name"; Width=35},
+        @{Label="Count"; Expression="Count"; Width=8; Alignment="Right"},
+        @{Label="Sum_s"; Expression="Sum_s"; Width=14; Alignment="Right"; FormatString="F6"},
+        @{Label="Avg_s"; Expression="Avg_s"; Width=14; Alignment="Right"; FormatString="F6"}
+
+    Write-Host ""
+    Write-Host ("Overall total: " + [Math]::Round($totalDuration, 6) + " s")
 }
 
 function Invoke-Screenshot {
@@ -689,6 +797,11 @@ Commands:
   log [-Tail N] [-Follow] [-Grep <pattern>]
       Read Player.log. Default tail=50. Use -Follow to stream. -Grep filters lines.
 
+  profile [-DryRun] [-Json]
+      Start WorldBox if needed, wait 90s for InitProfiler, then kill and parse the latest Player.log
+      for [WSM3D] InitProfiler name=duration_s pairs. Prints bucketed totals, sorted slowest first.
+      -DryRun parses the latest log without launching/killing WorldBox.
+
   screenshot [-Path <file>] [-WindowOnly]
       Capture full screen to PNG. Use -Path to specify output. -WindowOnly not yet implemented.
 
@@ -796,6 +909,14 @@ try {
             }
 
             Invoke-Log @params
+        }
+
+        "profile" {
+            $params = @{
+                DryRun = $commandArgs -contains "-DryRun"
+                Json = $commandArgs -contains "-Json"
+            }
+            Invoke-Profile @params
         }
 
         "screenshot" {

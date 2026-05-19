@@ -1,38 +1,30 @@
-# ADR 0009 — Voxel lit material chain for phase-1/5 crossover
+# ADR 0009 — Voxel lit material chain for voxels
 
 **Status:** Proposed
-
 **Date:** 2026-05-18
 
 ## Context
-
-Voxel entities now resolve a placeholder material at runtime and submit per-instance color via `MaterialPropertyBlock` (`_InstanceColor`).
-
-Current URP-lit choices are constrained to built-in engine shaders and must avoid shipping a custom shader yet.
+Voxel entities currently render with placeholder runtime materials and per-instance `_InstanceColor` supplied via `MaterialPropertyBlock`.
+Phase 1 still avoids shipping a custom lit shader.
 
 ## Decision
+1) Prefer `Universal Render Pipeline/Simple Lit` first.
+2) Fallback to `Universal Render Pipeline/Lit` when Simple Lit lacks instancing.
+3) Then fallback `Universal Render Pipeline/Unlit`, then `Universal Render Pipeline/Particles/Unlit`.
 
-1. Prefer `Universal Render Pipeline/Simple Lit` when available.
-2. Fall back to `Universal Render Pipeline/Lit` only if Simple Lit does not expose instancing.
-3. Fallback to `Universal Render Pipeline/Unlit` then `Universal Render Pipeline/Particles/Unlit`.
-
-## Material rules
-
-- Simple Lit or Lit: `_BaseColor = white`, `_Smoothness = 0.2f`, `_Metallic = 0.0f`.
-- Lit/Simple Lit: attempt `RenderSettings.skybox.mainTexture as Cubemap` and write to `_Cubemap`.
-- Unlit/Particles: only `_BaseColor = white`; no cubemap assignment.
-- Keep `Graphics.DrawMeshInstanced` shadows as `ShadowCastingMode.On` and `receiveShadows: true`.
+## Material behavior
+- Simple Lit/Lit: `_BaseColor = white`, `_Smoothness = 0.2f`, `_Metallic = 0.0f`.
+- Lit/Simple Lit: if `RenderSettings.skybox.mainTexture is Cubemap`, write `_Cubemap`.
+- Unlit/Particles: keep `_BaseColor = white` only; no cubemap.
+- Shadows remain `ShadowCastingMode.On` with receive true on instanced draw.
 
 ## Vertex-color rationale
-
-URP Lit can ignore the mesh color stream in several built-in variants.
-Simple Lit is expected to preserve vertex color flow better with minimal shader work.
-Particles/Unlit is a deterministic fallback when Lit paths reject instancing or scene constraints block Lit variants.
+URP Lit may not consistently carry sprite-derived vertex colors in all variants.
+Simple Lit is the best low-risk built-in path for tint correctness now.
+Particles/Unlit is the deterministic fallback if Lit variants fail capability checks.
 
 ## Phase 5 follow-up
-
-Phase 5 should introduce `VoxelLit.shader` in the asset bundle:
-- explicit vertex-color multiplication with `_InstanceColor` and fallback `_BaseColor`.
-- explicit reflection-probe input wiring for stable static and realtime cubemap behavior.
-- tuned BRDF branch with configurable gloss/metal controls and optional ambient fallback.
-- keep shader-feature gate behind saved settings ship-gates until smoke-tested in-game.
+Add real `VoxelLit.shader` in AssetBundle with explicit vertex-color and `_InstanceColor` multiply.
+Add explicit reflection probe/cubemap sampling in that shader (not skybox-mainTexture cast only).
+Add configurable BRDF controls for smoothness/metalness and fallback ambient behavior.
+Gate new shader behind SavedSettings ship flag after smoke-test.

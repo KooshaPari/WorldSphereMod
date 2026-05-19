@@ -143,33 +143,99 @@ namespace WorldSphereMod.Water
             if (_materialAttempted) return false;
             _materialAttempted = true;
 
-            // Prefer the WaterGerstner shader shipped under Resources/Shaders/. When the
-            // AssetBundle ships the lit/baked version (Phase 5b), this Resources path still
-            // works as a fallback because the shader source file resolves the same name.
+            Color waterTint = new Color(0.15f, 0.40f, 0.55f, 0.6f);
+            int surfaceTypeId = Shader.PropertyToID("_Surface");
+            int alphaClipId = Shader.PropertyToID("_AlphaClip");
+            int baseColorId = Shader.PropertyToID("_BaseColor");
+            int colorId = Shader.PropertyToID("_Color");
+            int smoothnessId = Shader.PropertyToID("_Smoothness");
+            int metallicId = Shader.PropertyToID("_Metallic");
+            bool isLit = false;
+
             Shader? s = Resources.Load<Shader>("Shaders/WaterGerstner");
-            if (s == null)
+            if (s != null)
             {
-                string[] candidates =
+                Material m = new Material(s) { name = "WSM3D.Water" };
+                m.enableInstancing = true;
+                if (m.enableInstancing)
                 {
-                    "Universal Render Pipeline/Particles/Unlit",
-                    "Particles/Standard Unlit",
-                    "Sprites/Default",
-                    "Hidden/Internal-Colored",
-                };
-                foreach (var name in candidates)
-                {
-                    s = Shader.Find(name);
-                    if (s != null) break;
+                    ConfigureWaterMaterial(m, waterTint, baseColorId, colorId, smoothnessId, metallicId, surfaceTypeId, alphaClipId);
+                    _material = m;
+                    Debug.Log($"[WSM3D] Water material resolved via '{s.name}' (transparent blue)");
+                    return true;
                 }
+                Object.Destroy(m);
             }
-            if (s == null)
+
+            string[] candidates =
+            {
+                "Universal Render Pipeline/Lit",
+                "Standard",
+                "Universal Render Pipeline/Unlit",
+            };
+            foreach (var name in candidates)
+            {
+                s = Shader.Find(name);
+                if (s == null) continue;
+                Material m = new Material(s) { name = "WSM3D.Water" };
+                m.enableInstancing = true;
+                if (!m.enableInstancing)
+                {
+                    Object.Destroy(m);
+                    continue;
+                }
+                isLit = name == "Universal Render Pipeline/Lit";
+                ConfigureWaterMaterial(m, waterTint, baseColorId, colorId, smoothnessId, metallicId, surfaceTypeId, alphaClipId, isLit);
+                _material = m;
+                Debug.Log($"[WSM3D] Water material resolved via '{name}' (transparent blue)");
+                return true;
+            }
+            if (_material == null)
             {
                 Debug.LogWarning("[WSM3D] No water shader found; water disabled.");
                 return false;
             }
-            _material = new Material(s) { name = "WSM3D.Water" };
-            _material.color = Color.white;
             return true;
+        }
+
+        static void ConfigureWaterMaterial(Material material, Color waterTint,
+            int baseColorId, int colorId, int smoothnessId, int metallicId, int surfaceTypeId, int alphaClipId, bool isUrpLit = false)
+        {
+            if (material.HasProperty(baseColorId))
+            {
+                material.SetColor(baseColorId, waterTint);
+            }
+            else if (material.HasProperty(colorId))
+            {
+                material.SetColor(colorId, waterTint);
+            }
+            else
+            {
+                material.color = waterTint;
+            }
+
+            if (material.HasProperty(metallicId))
+            {
+                material.SetFloat(metallicId, 0.0f);
+            }
+
+            if (isUrpLit)
+            {
+                if (material.HasProperty(smoothnessId))
+                {
+                    material.SetFloat(smoothnessId, 0.85f);
+                }
+                if (material.HasProperty(surfaceTypeId))
+                {
+                    material.SetFloat(surfaceTypeId, 1f);
+                }
+                if (material.HasProperty(alphaClipId))
+                {
+                    material.SetFloat(alphaClipId, 0f);
+                }
+            }
+
+            material.renderQueue = 3000;
         }
     }
 }

@@ -95,6 +95,12 @@ The config at `.claude/mcp-servers.json` has two entries:
 - `journey_run(id)` → {ok, manifest_path, recording_path, verified_path}
 - `journey_verify(id)` → {ok, score, violations: list[str]}
 
+### Codex integration
+
+- `codex_exec(prompt, model='gpt-5.3-codex-spark', reasoning='medium', workdir=None, extra_dirs=[], timeout_s=300)` → {ok, stdout, stderr, exit_code, tokens_used}
+- `codex_doctor()` → {ok, stdout, stderr, exit_code, tokens_used}
+- `codex_models()` → ['gpt-5.3-codex-spark', 'gpt-5.4-mini', 'gpt-5.4-mini-codex', 'o3']
+
 ### System
 
 - `status()` → {build_state, install_state, game_state, log_state, last_commit_sha}
@@ -123,6 +129,7 @@ WSM3D_MCP_DEBUG=1 python -m wsm3d_mcp.server --http
 - `tools/settings.py` — SavedSettings.json I/O
 - `tools/build.py` — Build/install (wraps wsm3d.ps1)
 - `tools/journey.py` — phenotype-journey wrapper
+- `tools/codex.py` — Codex CLI bridge tools
 - `server.py` — FastMCP server entrypoint
 
 All shell-outs via `subprocess.run(["pwsh", ...])` for consistency with legacy CLI.

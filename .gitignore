@@ -1,6 +1,9 @@
-/.vs
+.vs
 **/obj/
 **/bin/
+tmp_*
+*.tmp
+**/screenshots/
 
 # VitePress
 docs/.vitepress/dist/
@@ -14,3 +17,6 @@ docs/.vitepress/cache/
 
 # tools cache (phenotype-journeys build, etc.)
 tools/.cache/
+tools/journey-records/target/
+tools/wsm-log-parser/target/
+Tools/wsm-log-parser/target/

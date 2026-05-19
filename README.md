@@ -99,7 +99,8 @@ still does *something* useful on incompatible GPUs.
 
 | Component | Purpose | Invocation |
 |---|---|---|
-| **wsm3d.ps1** | 540-LOC CLI: build, install, reload, toggle phases, screenshot, profiler | `./Tools/wsm3d.ps1 build` / `install` / `reload-nml` / `toggle-phase` / etc. (13 subcommands) |
+| **wsm3d.ps1** | 540-LOC CLI: build, install, reload, toggle phases, screenshot, profiler, startup profile parse | `./Tools/wsm3d.ps1 build` / `install` / `reload-nml` / `toggle-phase` / `profile` / etc. (14 subcommands) |
+| **wsm3d profile** | Parse `[WSM3D] InitProfiler` startup buckets from latest `Player.log`, sort by slowest, and show per-bucket totals | `./Tools/wsm3d.ps1 profile` / `./Tools/wsm3d.ps1 profile -DryRun` / `/wsm-profile` |
 | **wsm3d-stats.ps1** | Auto-generates stats dashboard (tests, LOC, patches, journeys, git, CI) to `docs/dashboard.md` | `pwsh Tools/wsm3d-stats.ps1` (runs nightly + on-demand) |
 | **wsm3d tab-completion** | PowerShell argument completer for all CLI subcommands | See "Enable tab-completion" below |
 | **MCP server** | Python FastMCP on port 8766; exposes phase state, build logs, manifest queries | `python Tools/wsm3d-mcp/main.py` (auto-launched by Claude commands) |

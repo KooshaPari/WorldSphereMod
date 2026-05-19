@@ -1,0 +1,4 @@
+set shell := ["powershell", "-NoProfile", "-Command"]
+
+wsm-log-parse-build:
+    cargo build --release
