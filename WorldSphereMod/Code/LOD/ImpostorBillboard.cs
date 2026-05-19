@@ -7,14 +7,41 @@ namespace WorldSphereMod.LOD
     {
         static readonly Dictionary<int, Mesh> _atlas = new Dictionary<int, Mesh>();
         static Material? _material;
+        static bool _materialAttempted;
 
         public static Material? GetMaterial()
         {
             if (_material != null) return _material;
-            Shader? s = Shader.Find("Sprites/Default");
-            if (s == null) return null;
-            _material = new Material(s) { name = "WSM3D.Impostor" };
-            return _material;
+            if (_materialAttempted) return null;
+            _materialAttempted = true;
+
+            string[] candidates =
+            {
+                "Universal Render Pipeline/Unlit",
+                "Universal Render Pipeline/Lit",
+                "Universal Render Pipeline/Particles/Unlit",
+                "Standard",
+                "Sprites/Default",
+            };
+
+            foreach (var shaderName in candidates)
+            {
+                Shader? s = Shader.Find(shaderName);
+                if (s == null) continue;
+                var mat = new Material(s) { name = "WSM3D.Impostor" };
+                mat.enableInstancing = true;
+                if (!mat.enableInstancing)
+                {
+                    Object.Destroy(mat);
+                    continue;
+                }
+
+                _material = mat;
+                return _material;
+            }
+
+            Debug.LogWarning("[WSM3D] ImpostorBillboard material resolution failed; impostor rendering will stay sprite-only.");
+            return null;
         }
 
         public static Mesh? GetOrCreate(Sprite sprite)
@@ -33,6 +60,13 @@ namespace WorldSphereMod.LOD
         {
             foreach (var m in _atlas.Values) if (m != null) Object.Destroy(m);
             _atlas.Clear();
+        }
+
+        public static void Reset()
+        {
+            if (_material != null) Object.Destroy(_material);
+            _material = null;
+            _materialAttempted = false;
         }
 
         static Mesh BuildQuad(Sprite sprite)

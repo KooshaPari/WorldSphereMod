@@ -1,7 +1,9 @@
 using HarmonyLib;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Linq;
 using UnityEngine;
 
 namespace WorldSphereMod
@@ -18,12 +20,8 @@ namespace WorldSphereMod
                 return;
             }
 
-            var phaseTypes = new List<Type>();
-
-            foreach (var type in GetPhaseTypes(flagName))
-            {
-                phaseTypes.Add(type);
-            }
+            var phaseTypes = GetPhaseTypes(flagName).ToList();
+            int affected = 0;
 
             if (newValue)
             {
@@ -32,6 +30,7 @@ namespace WorldSphereMod
                     if (PatchedTypes.Add(type))
                     {
                         Core.Patcher.CreateClassProcessor(type).Patch();
+                        affected++;
                     }
                 }
             }
@@ -39,18 +38,38 @@ namespace WorldSphereMod
             {
                 foreach (var type in phaseTypes)
                 {
-                    PatchedTypes.Remove(type);
-                }
-
-                Core.Patcher.UnpatchSelf();
-
-                foreach (var type in PatchedTypes)
+                if (PatchedTypes.Remove(type))
                 {
-                    Core.Patcher.CreateClassProcessor(type).Patch();
+                    UnpatchClass(type);
+                    affected++;
                 }
             }
+            }
 
-            Debug.Log($"[WSM3D] PhasePatchManager: {flagName} -> {newValue}, currently-patched count = {PatchedTypes.Count}");
+            Debug.Log($"[WSM3D] PhasePatchManager: {flagName} -> {newValue} ({affected} types affected)");
+        }
+
+        private static void UnpatchClass(Type type)
+        {
+            var processor = Core.Patcher.CreateClassProcessor(type);
+            var getBulkMethods = processor
+                .GetType()
+                .GetMethod("GetBulkMethods", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            if (getBulkMethods == null) return;
+
+            if (getBulkMethods.Invoke(processor, new object[] { }) is IEnumerable patchMethods)
+            {
+                foreach (var patchMethod in patchMethods)
+                {
+                    if (patchMethod is not MethodBase method)
+                    {
+                        continue;
+                    }
+
+                    Core.Patcher.Unpatch(method, HarmonyPatchType.All, Core.Patcher.Id);
+                }
+            }
         }
 
         public static void MarkTypePatched(Type type)

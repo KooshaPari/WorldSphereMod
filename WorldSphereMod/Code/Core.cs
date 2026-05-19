@@ -77,6 +77,12 @@ namespace WorldSphereMod
             });
             DoSomeOtherStuff();
         }
+
+        public static void ApplyPhaseToggle(string flagName, bool newValue)
+        {
+            PhasePatchManager.ApplyPhaseToggle(flagName, newValue);
+        }
+
         static void DoSomeOtherStuff()
         {
             Constants.PerpBuildings.Add("stockpile_acidproof", true);
