@@ -1,6 +1,6 @@
 use std::fmt::{self, Display};
 use std::fs::File;
-use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom};
+use std::io::{self, BufRead, BufReader, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::Duration;
@@ -167,7 +167,7 @@ fn command_phase_toggles(log: &Path) -> Result<()> {
 
     process_file_lines(log, |line| {
         if line.contains("[WSM3D]") && line.contains("Voxel material resolved") {
-            voxel_material.push(line);
+            voxel_material.push(line.clone());
         }
         if line.contains("[WSM3D]") && line.contains("Phase tagging output") {
             phase_tagging.push(line);
