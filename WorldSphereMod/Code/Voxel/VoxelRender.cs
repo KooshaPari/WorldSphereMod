@@ -59,8 +59,10 @@ namespace WorldSphereMod.Voxel
             // are removed: both fail this check on URP at runtime.
             string[] candidates =
             {
-                "Universal Render Pipeline/Lit",
+                // Prefer Simple Lit first: it keeps per-vertex color routes active for
+                // tinting while still staying in a URP-lit pipeline.
                 "Universal Render Pipeline/Simple Lit",
+                "Universal Render Pipeline/Lit",
                 "Universal Render Pipeline/Unlit",
                 "Universal Render Pipeline/Particles/Unlit",
                 "Standard",
@@ -77,6 +79,7 @@ namespace WorldSphereMod.Voxel
                     Object.Destroy(m);
                     continue;
                 }
+                ConfigureVoxelMaterial(m, name);
                 _material = m;
                 Debug.Log($"[WSM3D] Voxel material resolved via '{name}'.");
                 return true;
@@ -84,6 +87,58 @@ namespace WorldSphereMod.Voxel
             Debug.LogWarning("[WSM3D] No instancing-capable shader found; voxel renderer disabled. " +
                              "Phase 1 will be a no-op until a real lit instancing-capable shader ships in Phase 5.");
             return false;
+        }
+
+        static readonly int _baseColorId = Shader.PropertyToID("_BaseColor");
+        static readonly int _smoothnessId = Shader.PropertyToID("_Smoothness");
+        static readonly int _metallicId = Shader.PropertyToID("_Metallic");
+        static readonly int _cubemapId = Shader.PropertyToID("_Cubemap");
+
+        /// <summary>
+        /// Configure whichever URP path we selected for the current run:
+        ///  - URP Simple Lit: supports per-vertex color tint path better than full Lit.
+        ///  - URP Lit: keep this as fallback for stronger BRDF, but also set tint/roughness
+        ///    and probe inputs where supported.
+        ///  - URP Unlit/Particles: keep a pure unlit pipeline and only set base tint so
+        ///    per-instance color multiplies as expected.
+        /// </summary>
+        static void ConfigureVoxelMaterial(Material material, string shaderName)
+        {
+            bool isLit = shaderName == "Universal Render Pipeline/Lit" || shaderName == "Universal Render Pipeline/Simple Lit";
+            bool isUnlit = shaderName == "Universal Render Pipeline/Unlit" ||
+                           shaderName == "Universal Render Pipeline/Particles/Unlit";
+
+            if (isLit)
+            {
+                material.SetColor(_baseColorId, Color.white);
+                material.SetFloat(_smoothnessId, 0.2f);
+                material.SetFloat(_metallicId, 0.0f);
+
+                // Cubemap probe hookup is best-effort: set only when the active
+                // scene skybox provides a true Cubemap texture directly.
+                if (RenderSettings.skybox != null && RenderSettings.skybox.mainTexture is Cubemap skyCubemap)
+                {
+                    material.SetTexture(_cubemapId, skyCubemap);
+                    Debug.Log("[WSM3D] Voxel material configured with skybox cubemap reflection probe.");
+                }
+                else
+                {
+                    Debug.Log("[WSM3D] Voxel material resolved without cubemap probe; using fallback ambient diffuse.");
+                }
+                return;
+            }
+
+            if (isUnlit)
+            {
+                // Unlit variants do not use metallic/smoothness in this phase; keep
+                // base color at white so <see cref=\"_InstanceColor\"/> remains the
+                // effective tint multiplier.
+                material.SetColor(_baseColorId, Color.white);
+                return;
+            }
+
+            // Keep non-URP fallbacks clean and deterministic: don't assume URP-lit property names.
+            material.color = Color.white;
         }
 
         /// <summary>Per-frame submission. Matrix should already include scale.</summary>

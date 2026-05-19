@@ -31,25 +31,25 @@ namespace WorldSphereMod.ProcGen
                     float radius = 0.5f;
                     if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, radius))
                     {
-                        rd.scales[i] = Vector3.zero;
                         continue;
                     }
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode());
+                    bool submitted = false;
 
                     if (tier == WorldSphereMod.LOD.LodTier.Impostor)
                     {
                         Sprite? impSp = rd.main_sprites[i];
-                        if (impSp == null) { rd.scales[i] = Vector3.zero; continue; }
+                        if (impSp == null) continue;
                         Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(impSp);
                         Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
-                        if (im == null || imMat == null) { rd.scales[i] = Vector3.zero; continue; }
+                        if (im == null || imMat == null) continue;
                         Vector3 imPos = rd.positions[i];
                         Vector3 imScl = rd.scales[i];
                         if (rd.flip_x_states[i]) imScl.x = -imScl.x;
                         Quaternion br = Tools.RotateToCamera(ref imPos);
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
                         MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
-                        rd.scales[i] = Vector3.zero;
+                        submitted = true;
                         continue;
                     }
 
@@ -71,16 +71,21 @@ namespace WorldSphereMod.ProcGen
                         Material? mat = FoliageMaterial.Get();
                         if (mat == null) continue;
                         MeshInstanceBatcher.Submit(fm, mat, trs, rd.colors[i]);
+                        submitted = true;
                     }
                     else
                     {
                         Mesh m = ProcGenCache.GetOrGenerate(b.asset, rules);
                         if (m == null) continue;
                         VoxelRender.Submit(m, trs, rd.colors[i]);
+                        submitted = true;
                     }
-                    // BuildingRenderData has no has_normal_render; zeroing scales hides the
-                    // sprite quad without nulling main_sprites (downstream chokes on null).
-                    rd.scales[i] = Vector3.zero;
+                    if (submitted)
+                    {
+                        // BuildingRenderData has no has_normal_render; zeroing scales hides the
+                        // sprite quad without nulling main_sprites (downstream chokes on null).
+                        rd.scales[i] = Vector3.zero;
+                    }
                 }
             }
         }

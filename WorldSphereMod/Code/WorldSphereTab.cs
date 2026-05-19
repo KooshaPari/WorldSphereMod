@@ -149,16 +149,16 @@ namespace WorldSphereMod.UI
             // a no-op compared to upstream.
             CreateWindowButton("3D Phases", "WorldSphereMod/ModIcon", "phases_window", new List<ButtonData>()
             {
-                new ButtonData("voxel_entities",       "voxel_entities_description",       "WorldSphereMod/ModIcon", Core.savedSettings.VoxelEntities,       TogglePhase_VoxelEntities),
-                new ButtonData("procedural_buildings", "procedural_buildings_description", "WorldSphereMod/ModIcon", Core.savedSettings.ProceduralBuildings, TogglePhase_ProceduralBuildings),
-                new ButtonData("crossed_quad_foliage", "crossed_quad_foliage_description", "WorldSphereMod/ModIcon", Core.savedSettings.CrossedQuadFoliage, TogglePhase_CrossedQuadFoliage),
-                new ButtonData("mesh_water",           "mesh_water_description",           "WorldSphereMod/ModIcon", Core.savedSettings.MeshWater,           TogglePhase_MeshWater),
-                new ButtonData("high_shadows",         "high_shadows_description",         "WorldSphereMod/ModIcon", Core.savedSettings.HighShadows,         TogglePhase_HighShadows),
-                new ButtonData("skeletal_animation",   "skeletal_animation_description",   "WorldSphereMod/ModIcon", Core.savedSettings.SkeletalAnimation,   TogglePhase_SkeletalAnimation),
-                new ButtonData("worldspace_ui",        "worldspace_ui_description",        "WorldSphereMod/ModIcon", Core.savedSettings.WorldspaceUI,        TogglePhase_WorldspaceUI),
-                new ButtonData("day_night_cycle",      "day_night_cycle_description",      "WorldSphereMod/ModIcon", Core.savedSettings.DayNightCycle,       TogglePhase_DayNightCycle),
-                new ButtonData("post_fx",              "post_fx_description",              "WorldSphereMod/ModIcon", Core.savedSettings.PostFX,              TogglePhase_PostFX),
-                new ButtonData("particle_effects",     "particle_effects_description",     "WorldSphereMod/ModIcon", Core.savedSettings.ParticleEffects,     TogglePhase_ParticleEffects),
+                new ButtonData("voxel_entities",       "voxel_entities_description",       "WorldSphereMod/Round",        Core.savedSettings.VoxelEntities,       TogglePhase_VoxelEntities),
+                new ButtonData("procedural_buildings", "procedural_buildings_description", "WorldSphereMod/World",         Core.savedSettings.ProceduralBuildings, TogglePhase_ProceduralBuildings),
+                new ButtonData("crossed_quad_foliage", "crossed_quad_foliage_description", "WorldSphereMod/Flat",          Core.savedSettings.CrossedQuadFoliage, TogglePhase_CrossedQuadFoliage),
+                new ButtonData("mesh_water",           "mesh_water_description",           "WorldSphereMod/PerlinNoise",   Core.savedSettings.MeshWater,           TogglePhase_MeshWater),
+                new ButtonData("high_shadows",         "high_shadows_description",         "WorldSphereMod/SkyBox",        Core.savedSettings.HighShadows,         TogglePhase_HighShadows),
+                new ButtonData("skeletal_animation",   "skeletal_animation_description",   "WorldSphereMod/Rotate",        Core.savedSettings.SkeletalAnimation,   TogglePhase_SkeletalAnimation),
+                new ButtonData("worldspace_ui",        "worldspace_ui_description",        "WorldSphereMod/Camera",        Core.savedSettings.WorldspaceUI,        TogglePhase_WorldspaceUI),
+                new ButtonData("day_night_cycle",      "day_night_cycle_description",      "WorldSphereMod/SkyBox",        Core.savedSettings.DayNightCycle,       TogglePhase_DayNightCycle),
+                new ButtonData("post_fx",              "post_fx_description",              "WorldSphereMod/ModIcon",       Core.savedSettings.PostFX,              TogglePhase_PostFX),
+                new ButtonData("particle_effects",     "particle_effects_description",     "WorldSphereMod/Logo",          Core.savedSettings.ParticleEffects,     TogglePhase_ParticleEffects),
             });
 
             CreateButton("Open Sprites", "WorldSphereMod/ModIcon", OpenSprites);
@@ -393,6 +393,10 @@ namespace WorldSphereMod.UI
                 );
                 PlayerConfig.dict[data.Name].boolVal = data.IsActive;
                 activeButton.gameObject.GetComponent<RectTransform>().sizeDelta = new Vector2(64, 64);
+                if (ID == "phases_window")
+                {
+                    WorldSphereTab.addText(ID, LM.Get(data.Name), activeButton.gameObject, 10, new Vector3(0, -40, 0), new Vector2(28, 24));
+                }
             }
             PowerButtonSelector.instance.checkToggleIcons();
         }
