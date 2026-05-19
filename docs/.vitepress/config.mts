@@ -67,7 +67,6 @@ export default defineConfig({
           { text: 'Extend via the API', link: '/journeys/extend-via-api' },
           { text: 'Diagnose performance', link: '/journeys/diagnose-perf' },
           { text: 'Upgrade from upstream', link: '/journeys/upgrade-from-upstream' },
-          { text: 'Voxel previews', link: '/journeys/voxel-previews/' },
         ],
       },
       {
