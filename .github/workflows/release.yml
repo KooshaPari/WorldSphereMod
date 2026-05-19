@@ -108,9 +108,9 @@ jobs:
             NOTES="Alpha release"
           fi
 
-          # Safely output to GitHub output
+          # Safely output to GitHub output using EOF delimiter
           {
-            echo "body<<'EOF'"
+            echo "body<<EOF"
             echo "$NOTES"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
