@@ -48,8 +48,11 @@ namespace WorldSphereMod.ProcGen
                         if (rd.flip_x_states[i]) imScl.x = -imScl.x;
                         Quaternion br = Tools.RotateToCamera(ref imPos);
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
-                        MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
-                        submitted = true;
+                        if (!MeshInstanceBatcher.InstancingBroken)
+                        {
+                            MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
+                            submitted = true;
+                        }
                         continue;
                     }
 
@@ -70,8 +73,11 @@ namespace WorldSphereMod.ProcGen
                         if (fm == null) continue;
                         Material? mat = FoliageMaterial.Get();
                         if (mat == null) continue;
-                        MeshInstanceBatcher.Submit(fm, mat, trs, rd.colors[i]);
-                        submitted = true;
+                        if (!MeshInstanceBatcher.InstancingBroken)
+                        {
+                            MeshInstanceBatcher.Submit(fm, mat, trs, rd.colors[i]);
+                            submitted = true;
+                        }
                     }
                     else
                     {

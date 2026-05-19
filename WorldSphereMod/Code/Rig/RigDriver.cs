@@ -71,6 +71,7 @@ namespace WorldSphereMod.Rig
             if (a == null || a.asset == null) return false;
             Sprite? sp = a.calculateMainSprite();
             if (sp == null) return false;
+            if (MeshInstanceBatcher.InstancingBroken) return false;
 
             SkinnedVoxelMesh svm = RigCache.GetOrBuild(sp, rigType);
             if (svm.BaseMesh == null) return false;

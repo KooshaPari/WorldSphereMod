@@ -31,6 +31,8 @@ namespace WorldSphereMod.UI
     {
         public static PowersTab Tab;
         public static Sprite ModIcon;
+        const string FallbackIconPath = "WorldSphereMod/ModIcon";
+        static readonly Dictionary<string, Sprite?> IconCache = new Dictionary<string, Sprite?>();
         static GameObject Space;
         static GameObject Line;
         static void CreateTabTools()
@@ -58,12 +60,22 @@ namespace WorldSphereMod.UI
         }
         public static Sprite SafeLoadSprite(string path)
         {
-            var sprite = Resources.Load<Sprite>(path);
+            if (IconCache.TryGetValue(path, out var cachedSprite))
+            {
+                return cachedSprite;
+            }
+
+            Sprite? sprite = Resources.Load<Sprite>(path);
             if (sprite == null)
             {
                 UnityEngine.Debug.LogWarning($"[WSM3D] Sprite resource not found: {path} - falling back to ModIcon");
-                sprite = Resources.Load<Sprite>("WorldSphereMod/ModIcon");
+                if (!IconCache.TryGetValue(FallbackIconPath, out sprite))
+                {
+                    sprite = Resources.Load<Sprite>(FallbackIconPath);
+                    IconCache[FallbackIconPath] = sprite;
+                }
             }
+            IconCache[path] = sprite;
             return sprite;
         }
 

@@ -49,6 +49,7 @@ namespace WorldSphereMod.Voxel
         public static long FrameDrawCalls;
         public static long FrameInstances;
         public static bool UseFallbackPath => _useFallbackPath;
+        public static bool InstancingBroken => _instancingErrorLogged;
 
         static bool _instancingErrorLogged;
         static bool _useFallbackPath;

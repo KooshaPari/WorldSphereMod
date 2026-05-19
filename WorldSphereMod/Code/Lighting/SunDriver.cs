@@ -7,6 +7,9 @@ namespace WorldSphereMod.Lighting
     {
         public static Light? Sun { get; private set; }
         public static Transform? LightingRoot { get; private set; }
+        static Camera? _trackingCamera;
+        static float _nextCameraRefresh;
+        const float kCameraRefreshInterval = 0.05f;
 
         public static float TimeOfDay = 11.0f;
 
@@ -33,6 +36,7 @@ namespace WorldSphereMod.Lighting
             LightingRoot.rotation = Quaternion.Euler(TimeOfDayToEuler(TimeOfDay), 30f, 0f);
 
             SunRig.Bind(Sun);
+            BindMainCamera(CameraManager.MainCamera);
 
             ShadowCascadeConfig.Apply(Core.savedSettings.HighShadows);
         }
@@ -48,12 +52,24 @@ namespace WorldSphereMod.Lighting
             Sun = null;
         }
 
+        public static void BindMainCamera(Camera? camera)
+        {
+            _trackingCamera = camera;
+            _nextCameraRefresh = 0f;
+        }
+
         public static void Update()
         {
             if (Sun == null) return;
-            if (LightingRoot != null && CameraManager.MainCamera != null)
+            if (Time.time >= _nextCameraRefresh)
             {
-                LightingRoot.position = CameraManager.MainCamera.transform.position;
+                _trackingCamera = CameraManager.MainCamera;
+                _nextCameraRefresh = Time.time + kCameraRefreshInterval;
+            }
+
+            if (LightingRoot != null && _trackingCamera != null)
+            {
+                LightingRoot.position = _trackingCamera.transform.position;
             }
             if (LightingRoot != null)
             {
