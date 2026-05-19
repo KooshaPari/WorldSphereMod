@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 from pathlib import Path
 
 logger = logging.getLogger("wsm3d_mcp")
@@ -10,15 +11,18 @@ logger = logging.getLogger("wsm3d_mcp")
 _HERE = Path(__file__).resolve().parent.parent.parent
 REPO_ROOT = _HERE.resolve()
 
-# Game install
-GAME_DIR = Path(r"C:/Program Files (x86)/Steam/steamapps/common/worldbox")
+# Game install — uses WORLDBOX_PATH env var or default Steam path
+_DEFAULT_GAME_DIR = Path(
+    "C:/Program Files (x86)/Steam/steamapps/common/worldbox"
+    if os.name == "nt"
+    else Path.home() / ".steam/steam/steamapps/common/worldbox"
+)
+GAME_DIR = Path(os.environ.get("WORLDBOX_PATH", str(_DEFAULT_GAME_DIR)))
 GAME_EXE = GAME_DIR / "worldbox.exe"
 MOD_INSTALL_DIR = GAME_DIR / "Mods/WorldSphereMod3D"
 
-# Player log
-PLAYER_LOG = Path(
-    r"C:/Users/koosh/AppData/LocalLow/mkarpenko/WorldBox/Player.log"
-)
+# Player log — discovers via home directory (cross-platform)
+PLAYER_LOG = Path.home() / "AppData/LocalLow/mkarpenko/WorldBox/Player.log"
 
 # Save settings JSON (cached after first discovery)
 _SAVED_SETTINGS_PATH: Path | None = None

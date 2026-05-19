@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -10,6 +11,38 @@ from pydantic import BaseModel
 from wsm3d_mcp.paths import GAME_EXE, PLAYER_LOG
 
 logger = logging.getLogger("wsm3d_mcp")
+
+
+def _validate_key(key: str) -> None:
+    """
+    Validate keyboard input to prevent command injection.
+    Allows alphanumeric, space, underscore, plus, caret, percent, tilde,
+    and curly braces for special keys like {F5}, {ENTER}.
+    Raises ValueError if the key contains suspicious characters.
+    """
+    if not re.match(r"^[a-zA-Z0-9{}\s_+^%~]+$", key):
+        raise ValueError(
+            f"Invalid key: '{key}'. Only alphanumeric, spaces, and "
+            f"special characters {{{{, }}}}, +, ^, %, ~ are allowed."
+        )
+
+
+def _validate_path_safe(path: str) -> None:
+    """
+    Validate screenshot output path to prevent directory traversal.
+    Ensures the path is under a safe temporary directory.
+    Raises ValueError if the path attempts to escape.
+    """
+    safe_root = Path(os.getenv("TEMP", "/tmp")) / "wsm3d-mcp"
+    try:
+        resolved = Path(path).resolve()
+        safe_root_resolved = safe_root.resolve()
+        # Ensure the path is under the safe root
+        resolved.relative_to(safe_root_resolved)
+    except ValueError:
+        raise ValueError(
+            f"Path traversal detected: '{path}' is not under {safe_root}"
+        )
 
 
 class GameStatusResponse(BaseModel):
@@ -122,6 +155,14 @@ async def game_screenshot(out_path: str | None = None) -> GameScreenshotResponse
         temp_dir = Path(os.getenv("TEMP", "/tmp")) / "wsm3d-mcp"
         temp_dir.mkdir(parents=True, exist_ok=True)
         out_path = str(temp_dir / "screenshot.png")
+    else:
+        try:
+            _validate_path_safe(out_path)
+        except ValueError as e:
+            return GameScreenshotResponse(ok=False, error=str(e))
+
+    # Escape the path for PowerShell (double backslashes, single quotes)
+    escaped_path = out_path.replace("\\", "\\\\").replace("'", "''")
 
     script = f"""
 Add-Type -AssemblyName System.Drawing
@@ -129,7 +170,7 @@ $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
 $bitmap = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
 $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
 $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
-$bitmap.Save('{out_path}')
+$bitmap.Save('{escaped_path}')
 $graphics.Dispose()
 $bitmap.Dispose()
 Write-Output "$($bounds.Width)x$($bounds.Height)"
@@ -159,9 +200,14 @@ async def game_send_key(key: str, repeat: int = 1) -> dict:
     Send keyboard input via PowerShell SendKeys.
     Returns {ok: bool} or {ok: False, error: str}
     """
+    try:
+        _validate_key(key)
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
+
     script = f"""
 Add-Type -AssemblyName System.Windows.Forms
-[System.Windows.Forms.SendKeys]::SendWait('{{{key}}}' * {repeat})
+[System.Windows.Forms.SendKeys]::SendWait(('{{{key}}}' * {repeat}))
 Write-Output 'ok'
 """
     try:

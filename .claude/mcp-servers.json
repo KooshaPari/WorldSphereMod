@@ -5,12 +5,28 @@
       "args": ["-m", "wsm3d_mcp.server"],
       "cwd": "${workspaceFolder}/Tools/wsm3d-mcp",
       "disabled": false,
-      "alwaysAllow": ["*"]
+      "alwaysAllow": [
+        "log_tail",
+        "log_grep",
+        "settings_get",
+        "phase_check",
+        "journey_list",
+        "game_status",
+        "status"
+      ]
     },
     "wsm3d-http": {
       "url": "http://127.0.0.1:8766",
       "disabled": false,
-      "alwaysAllow": ["*"]
+      "alwaysAllow": [
+        "log_tail",
+        "log_grep",
+        "settings_get",
+        "phase_check",
+        "journey_list",
+        "game_status",
+        "status"
+      ]
     }
   }
 }
