@@ -158,6 +158,11 @@ namespace WorldSphereMod.Voxel
             return true;
         }
 
+        public static Material? GetResolvedMaterial()
+        {
+            return EnsureMaterial() ? _material : null;
+        }
+
         /// <summary>Issue all batched draw calls. Call once per frame after submissions.</summary>
         public static void Flush()
         {
@@ -433,6 +438,11 @@ namespace WorldSphereMod.Voxel
             {
                 VoxelRender.Flush();
                 VoxelMeshCache.DrainPendingDestroy();
+            }
+
+            if (Core.savedSettings.DebugSanityCube)
+            {
+                SanityTestCube.Draw();
             }
 
             if (Core.savedSettings.ProceduralBuildings)

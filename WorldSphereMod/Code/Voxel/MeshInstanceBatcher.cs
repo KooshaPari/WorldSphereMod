@@ -46,6 +46,7 @@ namespace WorldSphereMod.Voxel
         static readonly int _baseColorProp = Shader.PropertyToID("_BaseColor");
         static readonly int _colorPropUnlit = Shader.PropertyToID("_Color");
         const int kBatch = 1023;
+        const float kDebugCubeSize = 0.5f;
 
         public static long FrameDrawCalls;
         public static long FrameInstances;
@@ -55,6 +56,7 @@ namespace WorldSphereMod.Voxel
         static bool _instancingErrorLogged;
         static bool _useFallbackPath;
         static bool _renderTargetLogged;
+        static Mesh? _debugCubeMesh;
 
         public static void Submit(Mesh mesh, Material mat, Matrix4x4 matrix, Color tint)
         {
@@ -156,7 +158,67 @@ namespace WorldSphereMod.Voxel
                     null,
                     LightProbeUsage.Off);
                 FrameDrawCalls++;
+
+                if (Core.savedSettings.DebugVoxelOutline)
+                {
+                    Vector4 p = bucket.Matrices[i].GetColumn(3);
+                    Matrix4x4 debugTrs = Matrix4x4.TRS(
+                        new Vector3(p.x, p.y, p.z),
+                        Quaternion.identity,
+                        Vector3.one * kDebugCubeSize);
+                    Color debugTint = tint.w > 0f
+                        ? new Color(tint.x, tint.y, tint.z, tint.w)
+                        : new Color(1f, 0f, 1f, 1f);
+                    bucket.Block.Clear();
+                    bucket.Block.SetVector(_colorProp, debugTint);
+                    bucket.Block.SetColor(_baseColorProp, debugTint);
+                    bucket.Block.SetColor(_colorPropUnlit, debugTint);
+                    Graphics.DrawMesh(
+                        GetDebugCubeMesh(),
+                        debugTrs,
+                        key.Material,
+                        layer,
+                        renderCamera,
+                        0,
+                        bucket.Block,
+                        shadows,
+                        receive,
+                        null,
+                        LightProbeUsage.Off);
+                    FrameDrawCalls++;
+                }
             }
+        }
+
+        static Mesh GetDebugCubeMesh()
+        {
+            if (_debugCubeMesh != null) return _debugCubeMesh;
+
+            var mesh = new Mesh { name = "WSM3D.DebugVoxelCube" };
+            mesh.vertices = new[]
+            {
+                new Vector3(-0.5f, -0.5f, -0.5f),
+                new Vector3( 0.5f, -0.5f, -0.5f),
+                new Vector3( 0.5f,  0.5f, -0.5f),
+                new Vector3(-0.5f,  0.5f, -0.5f),
+                new Vector3(-0.5f, -0.5f,  0.5f),
+                new Vector3( 0.5f, -0.5f,  0.5f),
+                new Vector3( 0.5f,  0.5f,  0.5f),
+                new Vector3(-0.5f,  0.5f,  0.5f),
+            };
+            mesh.triangles = new[]
+            {
+                0, 2, 1, 0, 3, 2,
+                4, 5, 6, 4, 6, 7,
+                0, 1, 5, 0, 5, 4,
+                2, 3, 7, 2, 7, 6,
+                1, 2, 6, 1, 6, 5,
+                3, 0, 4, 3, 4, 7,
+            };
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            _debugCubeMesh = mesh;
+            return _debugCubeMesh;
         }
 
         static Camera ResolveRenderCamera()
