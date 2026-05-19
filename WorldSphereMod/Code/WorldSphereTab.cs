@@ -53,8 +53,53 @@ namespace WorldSphereMod.UI
 
         static void CreateTab()
         {
-            ModIcon = Resources.Load<Sprite>("WorldSphereMod/ModIcon");
+            ModIcon = SafeLoadSprite("WorldSphereMod/ModIcon");
             Tab = TabManager.CreateTab("WorldSphereMod", "world_sphere_tab", "world_sphere_tab_desc", ModIcon, "world_sphere_tab_author");
+        }
+        public static Sprite SafeLoadSprite(string path)
+        {
+            var sprite = Resources.Load<Sprite>(path);
+            if (sprite == null)
+            {
+                UnityEngine.Debug.LogWarning($"[WSM3D] Sprite resource not found: {path} - falling back to ModIcon");
+                sprite = Resources.Load<Sprite>("WorldSphereMod/ModIcon");
+            }
+            return sprite;
+        }
+
+        public static void SetGodPowerSprite(ref GodPower power, string iconPath)
+        {
+            var sprite = SafeLoadSprite(iconPath);
+            if (sprite == null)
+            {
+                return;
+            }
+
+            var powerType = typeof(GodPower);
+            const BindingFlags Binding = BindingFlags.Public | BindingFlags.Instance;
+            var iconField = powerType.GetField("icon", Binding);
+            if (iconField != null && iconField.FieldType == typeof(Sprite))
+            {
+                iconField.SetValue(power, sprite);
+                return;
+            }
+            var spriteField = powerType.GetField("sprite", Binding);
+            if (spriteField != null && spriteField.FieldType == typeof(Sprite))
+            {
+                spriteField.SetValue(power, sprite);
+                return;
+            }
+            var iconProperty = powerType.GetProperty("icon", Binding);
+            if (iconProperty != null && iconProperty.CanWrite && iconProperty.PropertyType == typeof(Sprite))
+            {
+                iconProperty.SetValue(power, sprite, null);
+                return;
+            }
+            var spriteProperty = powerType.GetProperty("sprite", Binding);
+            if (spriteProperty != null && spriteProperty.CanWrite && spriteProperty.PropertyType == typeof(Sprite))
+            {
+                spriteProperty.SetValue(power, sprite, null);
+            }
         }
         public static Text addText(string window, string textString, GameObject parent, int sizeFont, Vector3 pos, Vector2 addSize = default(Vector2))
         {
@@ -282,12 +327,12 @@ namespace WorldSphereMod.UI
         }
         static void CreateButton(string ID, string IconPath, UnityAction Action)
         {
-            PowerButton button = PowerButtonCreator.CreateSimpleButton(ID, Action, Resources.Load<Sprite>(IconPath));
+            PowerButton button = PowerButtonCreator.CreateSimpleButton(ID, Action, SafeLoadSprite(IconPath));
             PowerButtonCreator.AddButtonToTab(button, Tab);
         }
         static void CreateToggleButton(string ID, string IconPath, string name, string Description, UnityAction toggleAction, bool Enabled)
         {
-            GodPower power = AssetManager.powers.add(new GodPower()
+            GodPower power = new GodPower()
             {
                 id = ID,
                 name = name,
@@ -298,11 +343,13 @@ namespace WorldSphereMod.UI
                     PlayerConfig.dict[ID].boolVal = !PlayerConfig.dict[ID].boolVal;
                     PowerButtonSelector.instance.checkToggleIcons();
                 }
-            });
+            };
+            SetGodPowerSprite(ref power, IconPath);
+            AssetManager.powers.add(power);
             PlayerConfig.dict.Add(ID, new PlayerOptionData(ID));
             var Button = PowerButtonCreator.CreateToggleButton(
                 ID,
-                Resources.Load<Sprite>(IconPath),
+                SafeLoadSprite(IconPath),
                 null,
                 default,
                 true
@@ -331,12 +378,15 @@ namespace WorldSphereMod.UI
 
             GameObject scrollView = GameObject.Find($"/Canvas Container Main/Canvas - Windows/windows/{window.name}/Background/Scroll View");
             content = GameObject.Find($"/Canvas Container Main/Canvas - Windows/windows/{window.name}/Background/Scroll View/Viewport/Content");
-            if (content != null)
+            if (scrollView == null || content == null)
             {
-                windows.Add(id, scrollView.AddComponent<PowerWindow>());
-                scrollView.GetComponent<PowerWindow>().init(id, content, Buttons);
-                scrollView.gameObject.SetActive(true);
+                UnityEngine.Debug.LogWarning($"[WSM3D] WindowManager: failed to create window {id}; scroll/content path missing");
+                return;
             }
+            var powerWindow = scrollView.AddComponent<PowerWindow>();
+            windows.Add(id, powerWindow);
+            powerWindow.init(id, content, Buttons);
+            scrollView.gameObject.SetActive(true);
         }
         public static void OpenWindow(string ID)
         {
@@ -392,25 +442,30 @@ namespace WorldSphereMod.UI
             Object.GetComponent<RectTransform>().sizeDelta += new Vector2(0, Buttons.Count * 125);
             foreach (var data in Buttons)
             {
-                GodPower power = AssetManager.powers.add(new GodPower()
+                GodPower power = new GodPower()
                 {
                     id = data.Name,
                     name = data.Name,
                     toggle_name = data.Name,
                     toggle_action = data.Action
-                });
+                };
+                WorldSphereTab.SetGodPowerSprite(ref power, data.IconPath);
+                AssetManager.powers.add(power);
                 if (!data.CanBeFalse)
                 {
                     power.toggle_action = (PowerToggleAction)System.Delegate.Combine(power.toggle_action, new PowerToggleAction(toggleOption));
                 }
-                PlayerConfig.dict.Add(data.Name, new PlayerOptionData(data.Name));
+                if (!PlayerConfig.dict.ContainsKey(data.Name))
+                {
+                    PlayerConfig.dict.Add(data.Name, new PlayerOptionData(data.Name));
+                }
                 AssetManager.options_library.add(new OptionAsset()
                 {
                     id = data.Name
                 });
                 PowerButton activeButton = PowerButtonCreator.CreateToggleButton(
                     $"{data.Name}",
-                    Resources.Load<Sprite>(data.IconPath),
+                    WorldSphereTab.SafeLoadSprite(data.IconPath),
                     Object.transform,
                     default,
                     !data.CanBeFalse
