@@ -5,13 +5,14 @@
 
 .DESCRIPTION
   One-file command dispatcher for WSM3D development. Routes to subcommands:
-    build, install, launch, kill, relaunch, log, profile, screenshot, settings, toggle, status, journey, watch, help.
+    build, install, launch, kill, relaunch, log, profile, render-budget, screenshot, settings, toggle, status, journey, watch, help.
 
 .EXAMPLE
   ./wsm3d.ps1 build
   ./wsm3d.ps1 install -Launch
   ./wsm3d.ps1 log -Follow
   ./wsm3d.ps1 profile -DryRun
+  ./wsm3d.ps1 render-budget -DryRun
   ./wsm3d.ps1 settings get -Key VoxelEntities
   ./wsm3d.ps1 settings set -Key VoxelEntities -Value true
   ./wsm3d.ps1 toggle -Phase VoxelEntities
@@ -105,6 +106,103 @@ function Set-SettingsJson {
         New-Item -ItemType Directory -Force -Path $ModSettingsDir | Out-Null
     }
     $SettingsObj | ConvertTo-Json -Depth 10 | Set-Content -Path $ModSettingsFile -Encoding UTF8
+}
+
+function Get-LatestPlayerLog {
+    $logDir = Split-Path -Parent $PlayerLogPath
+    $latestLog = Get-ChildItem -Path $logDir -Filter "Player.log*" -File -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if (-not $latestLog) {
+        throw "Player.log not found under $logDir"
+    }
+
+    return $latestLog
+}
+
+function Convert-DurationToMilliseconds {
+    param(
+        [double]$Value,
+        [string]$Unit
+    )
+
+    $normalized = if ($Unit) { $Unit.ToLowerInvariant() } else { "ms" }
+    switch ($normalized) {
+        "s" { return $Value * 1000.0 }
+        "ms" { return $Value }
+        "us" { return $Value / 1000.0 }
+        "ns" { return $Value / 1000000.0 }
+        default { return $Value }
+    }
+}
+
+function Get-InitProfilerRows {
+    param([string]$LogPath)
+
+    $lines = Select-String -Path $LogPath -Pattern "\[WSM3D\].*InitProfiler" -ErrorAction SilentlyContinue
+    $rows = @()
+
+    foreach ($match in $lines) {
+        $line = $match.Line
+        $nameDurationMatch = [regex]::Match(
+            $line,
+            "name\s*=\s*(?<name>[^,;\]]+).*duration_(?<unit>s|ms)\s*=\s*(?<duration>[+-]?(?:\d+(?:\.\d+)?|\.\d+))"
+        )
+        if ($nameDurationMatch.Success) {
+            $rows += [PSCustomObject]@{
+                Operation = $nameDurationMatch.Groups["name"].Value.Trim()
+                DurationMs = Convert-DurationToMilliseconds `
+                    -Value ([double]$nameDurationMatch.Groups["duration"].Value) `
+                    -Unit $nameDurationMatch.Groups["unit"].Value
+                LineNumber = $match.LineNumber
+            }
+            continue
+        }
+
+        $labelDurationMatch = [regex]::Match(
+            $line,
+            "InitProfiler\s+(?<name>.+?)\s*=\s*(?<duration>[+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*(?<unit>s|ms|us|ns)?"
+        )
+        if ($labelDurationMatch.Success) {
+            $unit = $labelDurationMatch.Groups["unit"].Value
+            if (-not $unit) { $unit = "ms" }
+            $rows += [PSCustomObject]@{
+                Operation = $labelDurationMatch.Groups["name"].Value.Trim()
+                DurationMs = Convert-DurationToMilliseconds `
+                    -Value ([double]$labelDurationMatch.Groups["duration"].Value) `
+                    -Unit $unit
+                LineNumber = $match.LineNumber
+            }
+        }
+    }
+
+    return @($rows)
+}
+
+function Get-FrameDrawCallRows {
+    param([string]$LogPath)
+
+    $lines = Select-String -Path $LogPath -Pattern "RuntimeStatsOverlay|FrameDrawCalls|DrawCalls" -ErrorAction SilentlyContinue
+    $rows = @()
+
+    foreach ($match in $lines) {
+        $line = $match.Line
+        $drawMatch = [regex]::Match($line, "(?:FrameDrawCalls|DrawCalls)\s*=\s*(?<draws>\d+)")
+        if (-not $drawMatch.Success) {
+            continue
+        }
+
+        $frameMsMatch = [regex]::Match($line, "FrameMs\s*=\s*(?<frameMs>[+-]?(?:\d+(?:\.\d+)?|\.\d+))")
+        $instancesMatch = [regex]::Match($line, "Instances\s*=\s*(?<instances>\d+)")
+        $rows += [PSCustomObject]@{
+            LineNumber = $match.LineNumber
+            FrameDrawCalls = [long]$drawMatch.Groups["draws"].Value
+            FrameMs = if ($frameMsMatch.Success) { [double]$frameMsMatch.Groups["frameMs"].Value } else { $null }
+            Instances = if ($instancesMatch.Success) { [long]$instancesMatch.Groups["instances"].Value } else { $null }
+        }
+    }
+
+    return @($rows)
 }
 
 # === Commands ===
@@ -314,6 +412,119 @@ function Invoke-Profile {
 
     Write-Host ""
     Write-Host ("Overall total: " + [Math]::Round($totalDuration, 6) + " s")
+}
+
+function Invoke-RenderBudget {
+    param(
+        [switch]$DryRun,
+        [switch]$Json
+    )
+
+    if (-not $DryRun) {
+        $wasRunning = Get-Process worldbox -ErrorAction SilentlyContinue
+        if (-not $wasRunning) {
+            Invoke-Launch
+            Write-Info "Waiting 90s for render-budget samples..."
+            Start-Sleep -Seconds 90
+            Invoke-Kill
+        } else {
+            Write-Info "WorldBox already running. Waiting 90s before parsing logs..."
+            Start-Sleep -Seconds 90
+        }
+    }
+
+    $latestLog = Get-LatestPlayerLog
+    $logPath = $latestLog.FullName
+    $initRows = @(Get-InitProfilerRows -LogPath $logPath | Sort-Object -Property DurationMs -Descending)
+    $totalMs = ($initRows | Measure-Object -Property DurationMs -Sum).Sum
+    if ($null -eq $totalMs) { $totalMs = 0.0 }
+
+    $cumulative = 0.0
+    $operationRows = @()
+    foreach ($row in $initRows) {
+        $pct = if ($totalMs -gt 0) { ($row.DurationMs / $totalMs) * 100.0 } else { 0.0 }
+        $cumulative += $pct
+        $operationRows += [PSCustomObject]@{
+            Operation = $row.Operation
+            TimeMs = $row.DurationMs
+            InitPct = $pct
+            CumulativePct = $cumulative
+        }
+    }
+
+    $drawRows = @(Get-FrameDrawCallRows -LogPath $logPath)
+    $drawSummary = $null
+    if ($drawRows.Count -gt 0) {
+        $drawStats = $drawRows | Measure-Object -Property FrameDrawCalls -Minimum -Maximum -Average
+        $drawSummary = [ordered]@{
+            samples = $drawRows.Count
+            latest = $drawRows[-1].FrameDrawCalls
+            min = [long]$drawStats.Minimum
+            max = [long]$drawStats.Maximum
+            avg = [Math]::Round($drawStats.Average, 2)
+        }
+    }
+
+    if ($Json) {
+        $jsonOut = [ordered]@{
+            log_path = $logPath
+            init_total_ms = $totalMs
+            operations = @($operationRows | ForEach-Object {
+                [ordered]@{
+                    operation = $_.Operation
+                    time_ms = $_.TimeMs
+                    init_pct = $_.InitPct
+                    cumulative_pct = $_.CumulativePct
+                }
+            })
+            frame_draw_calls = [ordered]@{
+                summary = $drawSummary
+                history = @($drawRows | ForEach-Object {
+                    [ordered]@{
+                        line_number = $_.LineNumber
+                        frame_draw_calls = $_.FrameDrawCalls
+                        frame_ms = $_.FrameMs
+                        instances = $_.Instances
+                    }
+                })
+            }
+        }
+        Write-Host ($jsonOut | ConvertTo-Json -Depth 10)
+        return
+    }
+
+    if ($operationRows.Count -eq 0) {
+        Write-Warn "No [WSM3D] InitProfiler lines found in $logPath"
+    } else {
+        Write-Host ""
+        Write-Host "Render budget (slowest first)" -ForegroundColor Cyan
+        $displayRows = $operationRows | ForEach-Object {
+            [PSCustomObject]@{
+                Operation = $_.Operation
+                TimeMs = [Math]::Round($_.TimeMs, 3)
+                InitPct = [Math]::Round($_.InitPct, 2)
+                CumulativePct = [Math]::Round($_.CumulativePct, 2)
+            }
+        }
+        $displayRows | Format-Table @{Label="Operation"; Expression="Operation"; Width=42},
+            @{Label="TimeMs"; Expression="TimeMs"; Width=12; Alignment="Right"; FormatString="F3"},
+            @{Label="InitPct"; Expression="InitPct"; Width=10; Alignment="Right"; FormatString="F2"},
+            @{Label="CumPct"; Expression="CumulativePct"; Width=10; Alignment="Right"; FormatString="F2"}
+
+        Write-Host ("Init total: " + [Math]::Round($totalMs, 3) + " ms")
+    }
+
+    Write-Host ""
+    if ($drawSummary) {
+        Write-Host "FrameDrawCalls history" -ForegroundColor Cyan
+        [PSCustomObject]$drawSummary | Format-Table @{Label="Samples"; Expression="samples"; Width=10; Alignment="Right"},
+            @{Label="Latest"; Expression="latest"; Width=10; Alignment="Right"},
+            @{Label="Min"; Expression="min"; Width=10; Alignment="Right"},
+            @{Label="Max"; Expression="max"; Width=10; Alignment="Right"},
+            @{Label="Avg"; Expression="avg"; Width=10; Alignment="Right"; FormatString="F2"}
+    } else {
+        Write-Warn "No FrameDrawCalls/DrawCalls samples found in RuntimeStatsOverlay logs."
+    }
 }
 
 function Invoke-Screenshot {
@@ -805,6 +1016,11 @@ Commands:
       for [WSM3D] InitProfiler name=duration_s pairs. Prints bucketed totals, sorted slowest first.
       -DryRun parses the latest log without launching/killing WorldBox.
 
+  render-budget [-DryRun] [-Json]
+      Parse the latest Player.log for [WSM3D] InitProfiler lines and RuntimeStatsOverlay
+      FrameDrawCalls/DrawCalls history. Prints operation time, Init percent, cumulative percent,
+      and sorts slowest first. -DryRun parses without launching. -Json emits machine-readable data.
+
   screenshot [-Path <file>] [-WindowOnly]
       Capture full screen to PNG. Use -Path to specify output. -WindowOnly not yet implemented.
 
@@ -854,6 +1070,8 @@ Examples:
   wsm3d install -Launch
   wsm3d relaunch
   wsm3d log -Follow -Grep "VoxelEntities"
+  wsm3d render-budget -DryRun
+  wsm3d render-budget -DryRun -Json
   wsm3d settings get
   wsm3d settings set -Key VoxelEntities -Value true
   wsm3d toggle -Phase voxel_entities
@@ -920,6 +1138,14 @@ try {
                 Json = $commandArgs -contains "-Json"
             }
             Invoke-Profile @params
+        }
+
+        "render-budget" {
+            $params = @{
+                DryRun = $commandArgs -contains "-DryRun"
+                Json = $commandArgs -contains "-Json"
+            }
+            Invoke-RenderBudget @params
         }
 
         "screenshot" {

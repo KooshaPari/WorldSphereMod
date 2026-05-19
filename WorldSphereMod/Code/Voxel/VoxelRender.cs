@@ -23,6 +23,9 @@ namespace WorldSphereMod.Voxel
     {
         static Material? _material;
         static bool _materialAttempted;
+        static bool _actorVoxelDiagnosticLogged;
+        static bool _actorImpostorDiagnosticLogged;
+        static bool _actorSkeletalDiagnosticLogged;
 
         /// <summary>
         /// Destroy the cached material and clear the resolve-attempted latch. Call when
@@ -36,6 +39,9 @@ namespace WorldSphereMod.Voxel
             if (_material != null) Object.Destroy(_material);
             _material = null;
             _materialAttempted = false;
+            _actorVoxelDiagnosticLogged = false;
+            _actorImpostorDiagnosticLogged = false;
+            _actorSkeletalDiagnosticLogged = false;
         }
 
         /// <summary>
@@ -203,6 +209,7 @@ namespace WorldSphereMod.Voxel
                         if (rigType != WorldSphereMod.Rig.RigType.None)
                         {
                             Vector3 skPos = rd.positions[i];
+                            Vector3 skPosBeforeLift = skPos;
                             Vector3 skRot = rd.rotations[i];
                             Vector3 skScl = rd.scales[i];
                             if (rd.flip_x_states[i]) skScl.x = -skScl.x;
@@ -210,6 +217,7 @@ namespace WorldSphereMod.Voxel
                             {
                                 skPos = skPos.To3DTileHeight(false);
                             }
+                            LogActorSubmitDiagnostic("skeletal", ref _actorSkeletalDiagnosticLogged, a, rd.main_sprites[i], skPosBeforeLift, skPos, rd.colors[i]);
                             if (WorldSphereMod.Rig.RigDriver.SubmitSkinnedActor(
                                     a, skPos, Quaternion.Euler(0f, skRot.y, 0f), skScl, rd.colors[i], rigType))
                             {
@@ -229,12 +237,14 @@ namespace WorldSphereMod.Voxel
                         Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
                         if (im == null || imMat == null) continue;
                         Vector3 imPos = rd.positions[i];
+                        Vector3 imPosBeforeLift = imPos;
                         Vector3 imScl = rd.scales[i];
                         if (rd.flip_x_states[i]) imScl.x = -imScl.x;
                         if (imPos.z == 0f)
                         {
                             imPos = imPos.To3DTileHeight(false);
                         }
+                        LogActorSubmitDiagnostic("impostor", ref _actorImpostorDiagnosticLogged, a, sp, imPosBeforeLift, imPos, rd.colors[i]);
                         Quaternion br = Tools.RotateToCamera(ref imPos);
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
                         if (!MeshInstanceBatcher.InstancingBroken)
@@ -253,10 +263,12 @@ namespace WorldSphereMod.Voxel
                     if (m == null) continue;
 
                     Vector3 pos = rd.positions[i];
+                    Vector3 posBeforeLift = pos;
                     if (pos.z == 0f)
                     {
                         pos = pos.To3DTileHeight(false);
                     }
+                    LogActorSubmitDiagnostic("voxel", ref _actorVoxelDiagnosticLogged, a, sp, posBeforeLift, pos, rd.colors[i]);
                     Vector3 rot = rd.rotations[i];
                     Vector3 scl = rd.scales[i];
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
@@ -276,6 +288,15 @@ namespace WorldSphereMod.Voxel
             static WorldSphereMod.Rig.RigType ResolveRigType(string assetId)
             {
                 return WorldSphereMod.Rig.RigType.Humanoid;
+            }
+
+            static void LogActorSubmitDiagnostic(string path, ref bool logged, Actor actor, Sprite? sprite, Vector3 beforeLift, Vector3 afterLift, Color tint)
+            {
+                if (logged) return;
+                logged = true;
+                string assetId = actor != null && actor.asset != null ? actor.asset.id : "<null>";
+                string spriteName = sprite != null ? sprite.name : "<null>";
+                Debug.Log($"[WSM3D] Actor {path} submit sample asset={assetId} sprite={spriteName} posBeforeLift={beforeLift} posAfterLift={afterLift} color={tint} alpha={tint.a}");
             }
         }
 

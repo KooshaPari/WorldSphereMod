@@ -7,6 +7,26 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 This branch's PR is [#1](https://github.com/KooshaPari/WorldSphereMod/pull/1).
 
+## [2.0.0-alpha.2] - 2026-05-19
+
+### Fixed
+- Added a `Graphics.DrawMesh` fallback for shader-instancing-missing builds.
+- Applied `Tools.To3DTileHeight` position-lift across all five `Submit` branches.
+- Added the `PostFxController` `_postFxUnavailable` latch to stop the runtime freeze.
+- Memoized `WorldSphereTab` `IconCache` lookups to stop the preload hang.
+- Cached the active camera in `SunDriver`.
+- Hardened `ImpostorBillboard` cache integrity.
+- Fixed `Tools/install.ps1` double-load behavior.
+
+### Changed
+- Improved `RuntimeStatsOverlay` with labeled columns.
+- Added dynamic `Patch`/`Unpatch` behavior on phase toggles.
+- Added `AGENT_INBOX.md` for cross-session coordination.
+
+### Added
+- Added the `wsm3d-preview` Rust tool with 10-phase before/after PNG generation.
+- Added ADR-0007, ADR-0008, ADR-0009, and ADR-0010.
+
 ## [Unreleased]
 
 ## [2.0.0-alpha.1] - 2026-05-18

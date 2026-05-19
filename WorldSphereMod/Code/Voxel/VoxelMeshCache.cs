@@ -23,6 +23,7 @@ namespace WorldSphereMod.Voxel
 
         static readonly object _lock = new object();
         static readonly Dictionary<int, Entry> _cache = new Dictionary<int, Entry>(1024);
+        static readonly HashSet<int> _diagnosedSprites = new HashSet<int>();
         // Evict() can't Destroy a mesh that may still be queued in the batcher for this frame;
         // queue it here and let VoxelFrameDriver drain after MeshInstanceBatcher.Flush().
         static readonly Queue<Mesh> _pendingDestroy = new Queue<Mesh>();
@@ -51,6 +52,7 @@ namespace WorldSphereMod.Voxel
             // Build outside the lock — Mesh construction touches Unity APIs that
             // shouldn't be held under a lock, and Get() always runs on the main thread.
             Mesh m = SpriteVoxelizer.Build(sprite, depth);
+            LogVoxelizedSprite(sprite, m);
             lock (_lock)
             {
                 _cache[key] = new Entry { Mesh = m, LastFrame = _frame };
@@ -75,6 +77,7 @@ namespace WorldSphereMod.Voxel
                     if (e.Mesh != null) Object.Destroy(e.Mesh);
                 }
                 _cache.Clear();
+                _diagnosedSprites.Clear();
                 _pendingDestroy.Clear();
             }
         }
@@ -114,6 +117,19 @@ namespace WorldSphereMod.Voxel
                 if (_cache[key].Mesh != null) _pendingDestroy.Enqueue(_cache[key].Mesh);
                 _cache.Remove(key);
             }
+        }
+
+        static void LogVoxelizedSprite(Sprite sprite, Mesh mesh)
+        {
+            if (sprite == null || mesh == null) return;
+            int key = sprite.GetInstanceID();
+            lock (_lock)
+            {
+                if (!_diagnosedSprites.Add(key)) return;
+            }
+
+            int triCount = mesh.subMeshCount > 0 ? (int)(mesh.GetIndexCount(0) / 3) : 0;
+            Debug.Log($"[WSM3D] Voxelized sprite \"{sprite.name}\" -> {mesh.vertexCount} verts, {triCount} tris, bounds={mesh.bounds}");
         }
     }
 }

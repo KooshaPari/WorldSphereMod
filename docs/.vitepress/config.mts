@@ -92,6 +92,7 @@ export default defineConfig({
       {
         text: 'Reference',
         items: [
+          { text: 'Releases', link: '/RELEASES' },
           { text: 'render_data field map', link: '/render-data-fields' },
           { text: 'Performance budgets', link: '/performance' },
           { text: 'Stats dashboard', link: '/dashboard' },

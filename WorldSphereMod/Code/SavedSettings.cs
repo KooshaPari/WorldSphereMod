@@ -25,6 +25,9 @@ namespace WorldSphereMod
         // the supplied placeholder material is unlit; Phase 5 ships the real
         // lit + shadow-casting shader.
         public bool VoxelEntities = false;
+        // ADR-0008: optional post-mesh Laplacian smoothing for voxel output.
+        public bool VoxelMeshSmoothing = false;
+        public int SmoothingIterations = 1;
         // Phase 2: Procedural building meshes (vs. billboarded building sprites).
         public bool ProceduralBuildings = false;
         // Phase 3: Crossed-quad foliage (vs. billboarded sprite top tiles).

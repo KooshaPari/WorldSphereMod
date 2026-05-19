@@ -127,6 +127,14 @@ enum PhaseCommand {
         #[arg(long, default_value_t = 384)]
         side: u32,
     },
+
+    #[command(name = "composite")]
+    Composite {
+        #[arg(short, long, default_value = "docs/journeys/phase-previews")]
+        input: PathBuf,
+        #[arg(short, long, default_value = "docs/journeys/phase-previews/composite.png")]
+        out: PathBuf,
+    },
 }
 
 fn main() -> Result<()> {
@@ -149,6 +157,7 @@ fn main() -> Result<()> {
         PhaseCommand::Particles { out, side } => phases::run_phase9(out, side, debug_log),
         PhaseCommand::Lod { input, out, side } => phases::run_phase10(input, out, side, debug_log),
         PhaseCommand::All { out, side } => phases::run_all(&out, side, debug_log),
+        PhaseCommand::Composite { input, out } => phases::run_composite(&input, &out),
         PhaseCommand::DebugTri => phases::run_debug_tri(debug_log),
     }
 }

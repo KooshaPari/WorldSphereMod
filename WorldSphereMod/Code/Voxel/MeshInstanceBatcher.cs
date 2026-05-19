@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
+using WorldSphereMod.NewCamera;
 
 namespace WorldSphereMod.Voxel
 {
@@ -53,6 +54,7 @@ namespace WorldSphereMod.Voxel
 
         static bool _instancingErrorLogged;
         static bool _useFallbackPath;
+        static bool _renderTargetLogged;
 
         public static void Submit(Mesh mesh, Material mat, Matrix4x4 matrix, Color tint)
         {
@@ -69,7 +71,9 @@ namespace WorldSphereMod.Voxel
 
         public static void Flush(int layer = 0, ShadowCastingMode shadows = ShadowCastingMode.On, bool receive = true)
         {
-            int resolvedLayer = ResolveRenderLayer(layer);
+            Camera renderCamera = ResolveRenderCamera();
+            int resolvedLayer = ResolveRenderLayer(layer, renderCamera);
+            LogRenderTarget(renderCamera, layer, resolvedLayer, shadows, receive);
 
             FrameDrawCalls = 0;
             FrameInstances = 0;
@@ -81,7 +85,7 @@ namespace WorldSphereMod.Voxel
                 FrameInstances += total;
                 if (_useFallbackPath)
                 {
-                    DrawFallbackPath(kv.Key, bucket, total, resolvedLayer);
+                    DrawFallbackPath(kv.Key, bucket, total, resolvedLayer, renderCamera, shadows, receive);
                     bucket.Matrices.Clear();
                     bucket.Colors.Clear();
                     continue;
@@ -105,7 +109,7 @@ namespace WorldSphereMod.Voxel
                             Graphics.DrawMeshInstanced(
                             kv.Key.Mesh, 0, kv.Key.Material,
                             bucket.MatScratch, n, bucket.Block,
-                            shadows, receive, resolvedLayer);
+                            shadows, receive, resolvedLayer, renderCamera, LightProbeUsage.Off);
                         FrameDrawCalls++;
                         offset += n;
                     }
@@ -119,7 +123,7 @@ namespace WorldSphereMod.Voxel
                         }
 
                         _useFallbackPath = true;
-                            DrawFallbackPath(kv.Key, bucket, total, resolvedLayer, offset);
+                            DrawFallbackPath(kv.Key, bucket, total, resolvedLayer, renderCamera, shadows, receive, offset);
                             break;
                         }
                     }
@@ -129,7 +133,7 @@ namespace WorldSphereMod.Voxel
             }
         }
 
-        static void DrawFallbackPath(Key key, Bucket bucket, int total, int layer, int start = 0)
+        static void DrawFallbackPath(Key key, Bucket bucket, int total, int layer, Camera renderCamera, ShadowCastingMode shadows, bool receive, int start = 0)
         {
             int end = Mathf.Min(bucket.Matrices.Count, start + total);
             for (int i = start; i < end; i++)
@@ -139,16 +143,36 @@ namespace WorldSphereMod.Voxel
                 bucket.Block.SetVector(_colorProp, tint);
                 bucket.Block.SetColor(_baseColorProp, tint);
                 bucket.Block.SetColor(_colorPropUnlit, tint);
-                Graphics.DrawMesh(key.Mesh, bucket.Matrices[i], key.Material, layer, null, 0, bucket.Block);
+                Graphics.DrawMesh(
+                    key.Mesh,
+                    bucket.Matrices[i],
+                    key.Material,
+                    layer,
+                    renderCamera,
+                    0,
+                    bucket.Block,
+                    shadows,
+                    receive,
+                    null,
+                    LightProbeUsage.Off);
                 FrameDrawCalls++;
             }
         }
 
-        static int ResolveRenderLayer(int layer)
+        static Camera ResolveRenderCamera()
+        {
+            if (CameraManager.MainCamera != null && CameraManager.MainCamera.enabled)
+            {
+                return CameraManager.MainCamera;
+            }
+
+            return Camera.main;
+        }
+
+        static int ResolveRenderLayer(int layer, Camera cam)
         {
             if (layer != 0) return layer;
 
-            Camera cam = Camera.main;
             if (cam == null) return 0;
 
             int mask = cam.cullingMask;
@@ -163,11 +187,22 @@ namespace WorldSphereMod.Voxel
             return resolved;
         }
 
+        static void LogRenderTarget(Camera cam, int requestedLayer, int resolvedLayer, ShadowCastingMode shadows, bool receive)
+        {
+            if (_renderTargetLogged) return;
+            _renderTargetLogged = true;
+            string camName = cam != null ? cam.name : "<null>";
+            int camLayer = cam != null ? cam.gameObject.layer : -1;
+            int mask = cam != null ? cam.cullingMask : 0;
+            Debug.Log($"[WSM3D] MeshInstanceBatcher render target camera={camName} cameraLayer={camLayer} cullingMask=0x{mask:X8} requestedLayer={requestedLayer} resolvedLayer={resolvedLayer} lightProbes=Off shadows={shadows} receiveShadows={receive}");
+        }
+
         public static void Reset()
         {
             _buckets.Clear();
             _useFallbackPath = false;
             _instancingErrorLogged = false;
+            _renderTargetLogged = false;
             FrameDrawCalls = 0;
             FrameInstances = 0;
         }

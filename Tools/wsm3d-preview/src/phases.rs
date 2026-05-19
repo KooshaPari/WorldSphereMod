@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use image::{imageops::FilterType, Rgba, RgbaImage};
+use image::{imageops::FilterType, GenericImage, Rgba, RgbaImage};
 use nalgebra::Vector3;
 use rayon::prelude::*;
 use std::fs;
@@ -13,6 +13,44 @@ fn ensure_dir(path: &Path) -> Result<()> {
 
 fn write_image(path: &Path, image: &RgbaImage) -> Result<()> {
     image.save(path).with_context(|| format!("failed to write image: {}", path.display()))
+}
+
+fn resolve_existing_relative_path(path: &Path) -> Result<PathBuf> {
+    if path.exists() || path.is_absolute() {
+        return Ok(path.to_path_buf());
+    }
+
+    let cwd = std::env::current_dir().context("failed to read current directory")?;
+    for ancestor in cwd.ancestors() {
+        let candidate = ancestor.join(path);
+        if candidate.exists() {
+            return Ok(candidate);
+        }
+    }
+
+    Ok(path.to_path_buf())
+}
+
+fn resolve_output_path(path: &Path) -> Result<PathBuf> {
+    if path.is_absolute() {
+        return Ok(path.to_path_buf());
+    }
+
+    if let Some(parent) = path.parent() {
+        if parent.exists() {
+            return Ok(path.to_path_buf());
+        }
+
+        let cwd = std::env::current_dir().context("failed to read current directory")?;
+        for ancestor in cwd.ancestors() {
+            let candidate_parent = ancestor.join(parent);
+            if candidate_parent.exists() {
+                return Ok(ancestor.join(path));
+            }
+        }
+    }
+
+    Ok(path.to_path_buf())
 }
 
 fn fallback_image(path: Option<&Path>, fallback: impl Fn() -> RgbaImage) -> RgbaImage {
@@ -456,6 +494,72 @@ pub fn run_all(out: &Path, side: u32, debug_log: bool) -> Result<()> {
         return Err(anyhow!("all failed: {}", failures.join(", ")));
     }
     Ok(())
+}
+
+pub fn run_composite(input: &Path, out: &Path) -> Result<()> {
+    let input = resolve_existing_relative_path(input)?;
+    let out = resolve_output_path(out)?;
+    let phase_dirs = [
+        "phase-1-voxel-actors",
+        "phase-2-mesh-buildings",
+        "phase-3-crossed-foliage",
+        "phase-4-mesh-water",
+        "phase-5-shadows",
+        "phase-6-skeletal",
+        "phase-7-worldspace-ui",
+        "phase-8-day-night",
+        "phase-9-particles",
+        "phase-10-lod",
+    ];
+
+    let mut pairs = Vec::with_capacity(phase_dirs.len());
+    for phase_dir in phase_dirs {
+        let dir = input.join(phase_dir);
+        let before_path = dir.join("before.png");
+        let after_path = dir.join("after.png");
+        let mut before = image::open(&before_path)
+            .with_context(|| format!("failed to read image: {}", before_path.display()))?
+            .to_rgba8();
+        let after = image::open(&after_path)
+            .with_context(|| format!("failed to read image: {}", after_path.display()))?
+            .to_rgba8();
+        if before.dimensions() != after.dimensions() {
+            before = image::imageops::resize(&before, after.width(), after.height(), FilterType::Nearest);
+        }
+        pairs.push((before, after));
+    }
+
+    let (tile_width, tile_height) = pairs
+        .first()
+        .map(|(before, _)| before.dimensions())
+        .ok_or_else(|| anyhow!("no phase previews found in {}", input.display()))?;
+    for (index, (before, after)) in pairs.iter().enumerate() {
+        if before.dimensions() != (tile_width, tile_height) || after.dimensions() != (tile_width, tile_height) {
+            return Err(anyhow!(
+                "phase {} dimensions differ from first tile: expected {}x{}",
+                index + 1,
+                tile_width,
+                tile_height
+            ));
+        }
+    }
+
+    let rows = u32::try_from(pairs.len()).context("too many phase previews")?;
+    let mut composite = RgbaImage::from_pixel(tile_width * 2, tile_height * rows, Rgba([0, 0, 0, 0]));
+    for (row, (before, after)) in pairs.iter().enumerate() {
+        let y = u32::try_from(row).context("phase row overflow")? * tile_height;
+        composite
+            .copy_from(before, 0, y)
+            .with_context(|| format!("failed to copy before tile for phase {}", row + 1))?;
+        composite
+            .copy_from(after, tile_width, y)
+            .with_context(|| format!("failed to copy after tile for phase {}", row + 1))?;
+    }
+
+    if let Some(parent) = out.parent() {
+        ensure_dir(parent)?;
+    }
+    write_image(&out, &composite)
 }
 
 pub fn run_debug_tri(debug_log: bool) -> Result<()> {
