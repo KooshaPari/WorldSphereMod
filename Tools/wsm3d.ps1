@@ -137,10 +137,13 @@ function Invoke-Install {
     )
 
     Write-Info "Installing WorldSphereMod3D..."
-    $args = @()
-    if ($NoBuild) { $args += "-SkipBuild" }
+    # $args is a PowerShell auto-variable; using it as a local clashed and
+    # caused the splatted args to bind into install.ps1's first positional
+    # ($WorldBoxPath). Use a distinct name + explicit splat.
+    $installArgs = @()
+    if ($NoBuild) { $installArgs += "-SkipBuild" }
 
-    & (Join-Path $ToolsDir "install.ps1") @args
+    & (Join-Path $ToolsDir "install.ps1") @installArgs
     Write-Success "Installation complete."
 
     if ($Launch) {
