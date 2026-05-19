@@ -70,11 +70,11 @@ namespace WorldSphereMod.ProcGen
                     Vector3 scl = rd.scales[i];
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
                     scl.z = scl.x;
-                    LogFirstBuildingPos(rawPos, pos, scl);
-                    Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
 
                     if (rules.Shape == BuildingShape.CrossedQuad || rules.Shape == BuildingShape.Single)
                     {
+                        LogFirstBuildingPos(rawPos, pos, scl);
+                        Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
                         if (!FoliageMaterial.EnsureMaterial()) continue;
                         Sprite? sp = rd.main_sprites[i];
                         if (sp == null) continue;
@@ -90,6 +90,9 @@ namespace WorldSphereMod.ProcGen
                     }
                     else
                     {
+                        scl *= Core.savedSettings.VoxelScaleMultiplier;
+                        LogFirstBuildingPos(rawPos, pos, scl);
+                        Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
                         Mesh m = ProcGenCache.GetOrGenerate(b.asset, rules);
                         if (m == null) continue;
                         if (VoxelRender.Submit(m, trs, rd.colors[i]))

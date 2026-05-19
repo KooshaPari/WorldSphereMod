@@ -1,0 +1,19 @@
+WorldSphereMod phase 1 screenshot diff: pre-fix vs post-cullfix
+
+Pre-fix:  C:/Users/koosh/Dev/WorldSphereMod/docs/journeys/scratch/auto-verify-phase1-20260519-154057.png
+Post-fix: C:/Users/koosh/Dev/WorldSphereMod/docs/journeys/scratch/auto-verify-phase1-postcullfix-155212.png
+Compared: full resolution, no crop/downscale
+Resolution: 2560x1440
+
+Per-pixel absolute RGB difference sum: 521678010
+Pixels with RGB absolute diff sum > 30: 2803695 / 3686400
+Meaningfully changed pixels: 76.055094%
+
+Top 5 differing regions by simple grid bucket (20x12 buckets, sorted by changed pixel count):
+  1. bucket=14,6; bbox=(1792,720)-(1919,839); changed_pixels=15360; avg_rgb_abs_diff_sum=200.84
+  2. bucket=6,3; bbox=(768,360)-(895,479); changed_pixels=15360; avg_rgb_abs_diff_sum=273.70
+  3. bucket=12,3; bbox=(1536,360)-(1663,479); changed_pixels=15360; avg_rgb_abs_diff_sum=236.27
+  4. bucket=14,8; bbox=(1792,960)-(1919,1079); changed_pixels=15360; avg_rgb_abs_diff_sum=188.98
+  5. bucket=9,3; bbox=(1152,360)-(1279,479); changed_pixels=15360; avg_rgb_abs_diff_sum=215.60
+
+Verdict: LIKELY VISIBLE DIFFERENCE - voxels probably rendering now.

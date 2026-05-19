@@ -274,6 +274,7 @@ namespace WorldSphereMod.Voxel
                     Vector3 scl = rd.scales[i];
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
                     scl.z = scl.x;
+                    scl *= Core.savedSettings.VoxelScaleMultiplier;
                     LogFirstActorPos(posBeforeLift, pos, scl);
                     // Z/X axes encode sprite-billboard lean; on a 3D mesh they topple the body. Yaw only here; lean returns in Phase 6 as a spine-bone tilt.
                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);

@@ -28,6 +28,8 @@ namespace WorldSphereMod
         // ADR-0008: optional post-mesh Laplacian smoothing for voxel output.
         public bool VoxelMeshSmoothing = false;
         public int SmoothingIterations = 1;
+        public float VoxelScaleMultiplier = 8.0f;
+        public bool DebugVoxelOutline = true;
         // Phase 2: Procedural building meshes (vs. billboarded building sprites).
         public bool ProceduralBuildings = false;
         // Phase 3: Crossed-quad foliage (vs. billboarded sprite top tiles).
