@@ -42,23 +42,26 @@ public class InstallScriptInvariantsTests
     }
 
     [Fact]
-    public void Install_script_targets_net48_and_copies_built_DLL()
+    public void Install_script_targets_net48_but_skips_DLL_copy_to_avoid_NML_double_load()
     {
         var script = ReadInstallScript();
 
-        // Post-retarget (commit 924fc3d): csproj targets net48 (Mono-loadable
-        // via Compat.cs polyfills) and install.ps1 actively copies
-        // bin/Release/net48/WorldSphereMod3D.dll into the installed
-        // Assemblies/ folder. The earlier invariant was "skip copy because
-        // net5.0 is unloadable" — that's inverted now.
+        // Live-game-verified invariant (2026-05-19): shipping
+        // bin/Release/net48/WorldSphereMod3D.dll into Mods/.../Assemblies/
+        // alongside the Code/ source folder causes NML to BOTH load the DLL
+        // as a reference AND Roslyn-compile Code/ from scratch, producing
+        // ~30 CS0121 "type defined twice" errors on every Tools.* call.
+        // Until we figure out how to make NML treat the precompiled
+        // assembly as "the mod" instead of just a reference, install.ps1
+        // must SKIP the DLL copy. $Tfm still defaults to net48 because
+        // that's what dotnet build produces.
         var tfmDefault = Regex.Match(script, @"\$Tfm\s*=\s*""net48""");
-        var copyBlock = Regex.Match(script, @"Copy-Item.*\$builtDll", RegexOptions.IgnoreCase);
+        var skipsCopy  = Regex.Match(script, @"skipping.*AssemblyName.*\.dll copy", RegexOptions.IgnoreCase);
+        var staleCleanup = Regex.Match(script, @"Remove-Item.*staleSelfDll", RegexOptions.IgnoreCase);
 
-        tfmDefault.Success.Should().BeTrue(
-            "install.ps1 must default $Tfm to net48 — that's the TFM whose DLL is Mono-loadable.");
-        copyBlock.Success.Should().BeTrue(
-            "install.ps1 must copy the built DLL ($builtDll) into the installed Assemblies/. " +
-            "If missing, NML falls back to runtime Roslyn-compile which costs ~1s per launch.");
+        tfmDefault.Success.Should().BeTrue("install.ps1 must default $Tfm to net48 — that's what the csproj builds.");
+        skipsCopy.Success.Should().BeTrue("install.ps1 must explicitly skip the WSM3D DLL copy to prevent NML CS0121 double-load.");
+        staleCleanup.Success.Should().BeTrue("install.ps1 must also remove any stale WSM3D DLL from a prior install — otherwise the regression persists silently.");
     }
 
     [Fact]

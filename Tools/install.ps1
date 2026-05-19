@@ -82,21 +82,28 @@ foreach ($item in $items) {
 # IncompatibleHardwareException). Removing it makes NML's Roslyn compile
 # fail with ~60 CS0246 errors. Leave it in place.
 #
-# Now that the csproj targets net48 (with Math.Clamp / Dictionary.TryAdd
-# polyfills in Compat.cs), the built DLL is Mono-loadable. NML will prefer
-# the precompiled assembly over runtime-compiling Code/, saving ~1s at
-# startup AND making the load deterministic across machines.
+# DO NOT ship bin/Release/net48/WorldSphereMod3D.dll alongside Code/.
+# Observed failure: NML loads the DLL as a reference AND Roslyn-compiles
+# Code/, which produces duplicate-type CS0121 errors on every Tools.* call
+# ("ambiguous between WorldSphereMod.Tools.X and WorldSphereMod.Tools.X").
+# Code/ is the source of truth; NML's Roslyn pass owns the compile. Costs
+# ~1s extra startup but works. Re-enable the DLL copy only after a future
+# investigation figures out how to make NML treat the DLL as "the mod"
+# instead of just another reference.
 $installedAssemblies = Join-Path $modDst "Assemblies"
 if (Test-Path $builtDll) {
-    Write-Host "[install]   $AssemblyName.dll (from $builtDll)" -ForegroundColor DarkCyan
-    Copy-Item -Force -Path $builtDll -Destination (Join-Path $installedAssemblies "$AssemblyName.dll")
-    $builtPdb = [System.IO.Path]::ChangeExtension($builtDll, ".pdb")
-    if (Test-Path $builtPdb) { Copy-Item -Force -Path $builtPdb -Destination (Join-Path $installedAssemblies "$AssemblyName.pdb") }
-} else {
-    Write-Host "[install] WARNING: built DLL not found at $builtDll — NML will fall back to Roslyn-compiling Code/." -ForegroundColor Yellow
+    Write-Host "[install] skipping $AssemblyName.dll copy (NML double-loads it + Code/ → CS0121). See install.ps1 comment." -ForegroundColor DarkYellow
 }
+
+# Defensive: remove any stale WSM3D DLL that a prior install left in the
+# game folder. Without this, a stale net48 DLL would keep colliding even
+# after the install.ps1 change is in effect.
+$staleSelfDll = Join-Path $installedAssemblies "$AssemblyName.dll"
+$staleSelfPdb = Join-Path $installedAssemblies "$AssemblyName.pdb"
+if (Test-Path $staleSelfDll) { Remove-Item -Force $staleSelfDll }
+if (Test-Path $staleSelfPdb) { Remove-Item -Force $staleSelfPdb }
 
 Write-Host ""
 Write-Host "[install] installed to $modDst" -ForegroundColor Green
-Write-Host "[install] launch WorldBox; NML loads Assemblies/$AssemblyName.dll (precompiled net48)."
+Write-Host "[install] launch WorldBox; NeoModLoader will Roslyn-compile Code/*.cs on startup (~1s)."
 Write-Host "[install] verify in-game: WorldSphere tab -> '3D Phases' window. Phase 1 = 'Voxel Actors' toggle."

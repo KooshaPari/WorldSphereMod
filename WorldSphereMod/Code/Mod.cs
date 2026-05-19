@@ -35,28 +35,49 @@ using WorldSphereMod;
 
     public void Init()
     {
-        Core.Init();
+        InitProfiler.Measure("Core.Init", () => Core.Init());
         // Phase 1: per-frame flush driver for batched voxel mesh draw calls.
         // No-op when SavedSettings.VoxelEntities is false (Flush early-returns
         // until a material is resolved on first Submit).
         if (Object != null && Object.GetComponent<WorldSphereMod.Voxel.VoxelFrameDriver>() == null)
         {
-            Object.AddComponent<WorldSphereMod.Voxel.VoxelFrameDriver>();
+            InitProfiler.Measure("AddComponent: VoxelFrameDriver", () =>
+            {
+                Object.AddComponent<WorldSphereMod.Voxel.VoxelFrameDriver>();
+            });
         }
         if (Object != null && Object.GetComponent<WorldSphereMod.Perf.ProfilerFrameDriver>() == null)
         {
-            Object.AddComponent<WorldSphereMod.Perf.ProfilerFrameDriver>();
+            InitProfiler.Measure("AddComponent: ProfilerFrameDriver", () =>
+            {
+                Object.AddComponent<WorldSphereMod.Perf.ProfilerFrameDriver>();
+            });
         }
         if (Object != null && Object.GetComponent<WorldSphereMod.Foliage.WindSwayDriver>() == null)
         {
-            Object.AddComponent<WorldSphereMod.Foliage.WindSwayDriver>();
+            InitProfiler.Measure("AddComponent: WindSwayDriver", () =>
+            {
+                Object.AddComponent<WorldSphereMod.Foliage.WindSwayDriver>();
+            });
         }
         // Phase 7 Step 1: rig-tracker MonoBehaviour. EnsureCreated is idempotent
         // and gated on IsWorld3D && WorldspaceUI internally.
-        WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated();
-        WorldSphereMod.Worldspace.RuntimeStatsOverlay.EnsureCreated();
-        WorldSphereMod.Lighting.TimeOfDay.EnsureCreated();
-        WorldSphereMod.Lighting.ProceduralSky.EnsureCreated();
+        InitProfiler.Measure("EnsureCreated: WorldUIRenderer", () =>
+        {
+            WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated();
+        });
+        InitProfiler.Measure("EnsureCreated: RuntimeStatsOverlay", () =>
+        {
+            WorldSphereMod.Worldspace.RuntimeStatsOverlay.EnsureCreated();
+        });
+        InitProfiler.Measure("EnsureCreated: TimeOfDay", () =>
+        {
+            WorldSphereMod.Lighting.TimeOfDay.EnsureCreated();
+        });
+        InitProfiler.Measure("EnsureCreated: ProceduralSky", () =>
+        {
+            WorldSphereMod.Lighting.ProceduralSky.EnsureCreated();
+        });
     }
 
     public void PostInit()

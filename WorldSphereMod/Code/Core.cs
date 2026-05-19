@@ -64,11 +64,17 @@ namespace WorldSphereMod
         // go go gadget un-box my worldbox
         public static void Init()
         {
-            LoadSettings();
-            WorldSphereTab.Begin();
-            DimensionConverter.Prepare();
-            Patch();
-            if (Core.IsWorld3D) WorldSphereMod.Lighting.SunDriver.Init();
+            InitProfiler.Measure("LoadSettings", () => LoadSettings());
+            InitProfiler.Measure("WorldSphereTab.Begin", () => WorldSphereTab.Begin());
+            InitProfiler.Measure("DimensionConverter.Prepare", () => DimensionConverter.Prepare());
+            InitProfiler.Measure("Patch", () => Patch());
+            InitProfiler.Measure("Lighting.SunDriver.Init", () =>
+            {
+                if (Core.IsWorld3D)
+                {
+                    WorldSphereMod.Lighting.SunDriver.Init();
+                }
+            });
             DoSomeOtherStuff();
         }
         static void DoSomeOtherStuff()
