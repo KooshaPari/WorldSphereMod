@@ -27,6 +27,7 @@ using WorldSphereMod;
             Debug.LogWarning("[WSM3D] Compute/IndirectArgs not supported; impostor-only mode.");
             WorldSphereMod.LOD.LodSelector.ImpostorOnlyMode = true;
         }
+        IsAutoTest = System.Environment.GetEnvironmentVariable("WSM3D_AUTOTEST") == "1";
     }
     public string GetUrl()
     {
@@ -83,6 +84,7 @@ using WorldSphereMod;
     public void PostInit()
     {
         Core.PostInit();
+        if (IsAutoTest && Object != null && Object.GetComponent<AutoTestDriver>() == null) Object.AddComponent<AutoTestDriver>();
     }
 
     public string GetLocaleFilesDirectory(ModDeclare pModDeclare)
@@ -98,5 +100,6 @@ using WorldSphereMod;
     }
 
     public static GameObject Object;
+    public static bool IsAutoTest;
     static ModDeclare declare;
 }
