@@ -69,6 +69,8 @@ namespace WorldSphereMod.Voxel
 
         public static void Flush(int layer = 0, ShadowCastingMode shadows = ShadowCastingMode.On, bool receive = true)
         {
+            int resolvedLayer = ResolveRenderLayer(layer);
+
             FrameDrawCalls = 0;
             FrameInstances = 0;
 
@@ -79,7 +81,7 @@ namespace WorldSphereMod.Voxel
                 FrameInstances += total;
                 if (_useFallbackPath)
                 {
-                    DrawFallbackPath(kv.Key, bucket, total, layer);
+                    DrawFallbackPath(kv.Key, bucket, total, resolvedLayer);
                     bucket.Matrices.Clear();
                     bucket.Colors.Clear();
                     continue;
@@ -100,10 +102,10 @@ namespace WorldSphereMod.Voxel
                     bucket.Block.SetVectorArray(_colorProp, bucket.ColScratch);
                     try
                     {
-                        Graphics.DrawMeshInstanced(
+                            Graphics.DrawMeshInstanced(
                             kv.Key.Mesh, 0, kv.Key.Material,
                             bucket.MatScratch, n, bucket.Block,
-                            shadows, receive, layer);
+                            shadows, receive, resolvedLayer);
                         FrameDrawCalls++;
                         offset += n;
                     }
@@ -117,10 +119,10 @@ namespace WorldSphereMod.Voxel
                         }
 
                         _useFallbackPath = true;
-                        DrawFallbackPath(kv.Key, bucket, total, layer, offset);
-                        break;
+                            DrawFallbackPath(kv.Key, bucket, total, resolvedLayer, offset);
+                            break;
+                        }
                     }
-                }
 
                 bucket.Matrices.Clear();
                 bucket.Colors.Clear();
@@ -140,6 +142,25 @@ namespace WorldSphereMod.Voxel
                 Graphics.DrawMesh(key.Mesh, bucket.Matrices[i], key.Material, layer, null, 0, bucket.Block);
                 FrameDrawCalls++;
             }
+        }
+
+        static int ResolveRenderLayer(int layer)
+        {
+            if (layer != 0) return layer;
+
+            Camera cam = Camera.main;
+            if (cam == null) return 0;
+
+            int mask = cam.cullingMask;
+            if (mask == 0) return 0;
+
+            int resolved = 0;
+            while (((mask >> resolved) & 1) == 0 && resolved < 31)
+            {
+                resolved++;
+            }
+
+            return resolved;
         }
 
         public static void Reset()

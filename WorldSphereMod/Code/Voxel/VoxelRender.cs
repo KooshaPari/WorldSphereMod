@@ -46,15 +46,14 @@ namespace WorldSphereMod.Voxel
         /// </summary>
         public static bool EnsureMaterial()
         {
-            if (_material != null)
+            if (_materialAttempted || _material != null)
             {
-                if (MeshInstanceBatcher.UseFallbackPath && _material.enableInstancing)
+                if (MeshInstanceBatcher.UseFallbackPath && _material != null && _material.enableInstancing)
                 {
                     _material.enableInstancing = false;
                 }
-                return true;
+                return _material != null;
             }
-            if (_materialAttempted) return false;
             _materialAttempted = true;
 
             string[] candidates =

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using WorldSphereMod.Voxel;
 
 namespace WorldSphereMod.LOD
 {
@@ -11,7 +12,15 @@ namespace WorldSphereMod.LOD
 
         public static Material? GetMaterial()
         {
-            if (_material != null) return _material;
+            if (_material != null)
+            {
+                // Keep the same material instance for all impostors.
+                if (MeshInstanceBatcher.UseFallbackPath && _material.enableInstancing)
+                {
+                    _material.enableInstancing = false;
+                }
+                return _material;
+            }
             if (_materialAttempted) return null;
             _materialAttempted = true;
 
@@ -48,8 +57,9 @@ namespace WorldSphereMod.LOD
         {
             if (sprite == null) return null;
             int key = sprite.GetInstanceID();
-            if (_atlas.TryGetValue(key, out var m)) return m;
+            if (_atlas.TryGetValue(key, out var m) && m != null) return m;
             m = BuildQuad(sprite);
+            m.RecalculateBounds();
             _atlas[key] = m;
             return m;
         }

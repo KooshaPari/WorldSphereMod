@@ -101,13 +101,13 @@ namespace WorldSphereMod.Worldspace
             long draws = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameDrawCalls;
             long instances = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameInstances;
 
-            // LOD V/P/I distribution intentionally omitted: would require
-            // per-actor tier tagging in LodSelector across frames, which we
-            // don't currently retain. Re-add once that tracker lands.
+            // LOD V/P/I distribution intentionally omitted: would require per-actor
+            // tier tagging in LodSelector across frames, which we don't currently
+            // retain. Re-add once that tracker lands.
             _label.text =
-                $"[WSM3D] Voxel meshes: {voxel} / Procgen: {procgen} / Foliage: {foliage} / Impostor: {impostor}\n" +
-                $"[WSM3D] Draw calls last frame: {draws} / Instances: {instances}\n" +
-                $"[WSM3D] Frame time: {_smoothedFrameMs:F2} ms";
+                $"[WSM3D] DrawCalls={draws} Instances={instances} ImpostorCount={impostor} " +
+                $"VoxelMeshes={voxel} ProcGenMeshes={procgen} FoliageCount={foliage} " +
+                $"FrameMs={_smoothedFrameMs:F2}";
         }
 
         static int SafeCount(System.Func<int> read)
