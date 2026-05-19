@@ -62,10 +62,12 @@ export default defineConfig({
         collapsed: false,
         items: [
           { text: 'Install & play', link: '/journeys/install-and-play' },
+          { text: 'Phase previews', link: '/journeys/phase-previews/' },
           { text: 'Contribute a phase', link: '/journeys/contribute-a-phase' },
           { text: 'Extend via the API', link: '/journeys/extend-via-api' },
           { text: 'Diagnose performance', link: '/journeys/diagnose-perf' },
           { text: 'Upgrade from upstream', link: '/journeys/upgrade-from-upstream' },
+          { text: 'Voxel previews', link: '/journeys/voxel-previews/' },
         ],
       },
       {
