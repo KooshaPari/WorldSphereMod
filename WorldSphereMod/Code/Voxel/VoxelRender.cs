@@ -1,5 +1,6 @@
 using HarmonyLib;
 using UnityEngine;
+using WorldSphereMod.NewCamera;
 
 namespace WorldSphereMod.Voxel
 {
@@ -45,18 +46,17 @@ namespace WorldSphereMod.Voxel
         /// </summary>
         public static bool EnsureMaterial()
         {
-            if (_material != null) return true;
+            if (_material != null)
+            {
+                if (MeshInstanceBatcher.UseFallbackPath && _material.enableInstancing)
+                {
+                    _material.enableInstancing = false;
+                }
+                return true;
+            }
             if (_materialAttempted) return false;
             _materialAttempted = true;
 
-            // DrawMeshInstanced throws InvalidOperationException ("Material needs
-            // to enable instancing for use with DrawMeshInstanced") when the
-            // shader's instancing variant wasn't compiled into the build.
-            // Material.enableInstancing reflects actual shader capability after
-            // the set — if the shader doesn't support instancing, the property
-            // stays false. Walk the fallback list and accept only one that
-            // actually supports it. Sprites/Default + Hidden/Internal-Colored
-            // are removed: both fail this check on URP at runtime.
             string[] candidates =
             {
                 // Prefer Simple Lit first: it keeps per-vertex color routes active for
@@ -74,18 +74,16 @@ namespace WorldSphereMod.Voxel
                 if (s == null) continue;
                 Material m = new Material(s) { name = "WSM3D.Voxel.Placeholder" };
                 m.enableInstancing = true;
-                if (!m.enableInstancing)
+                if (MeshInstanceBatcher.UseFallbackPath)
                 {
-                    Object.Destroy(m);
-                    continue;
+                    m.enableInstancing = false;
                 }
                 ConfigureVoxelMaterial(m, name);
                 _material = m;
                 Debug.Log($"[WSM3D] Voxel material resolved via '{name}'.");
                 return true;
             }
-            Debug.LogWarning("[WSM3D] No instancing-capable shader found; voxel renderer disabled. " +
-                             "Phase 1 will be a no-op until a real lit instancing-capable shader ships in Phase 5.");
+            Debug.LogWarning("[WSM3D] No usable shader found; voxel renderer disabled.");
             return false;
         }
 
@@ -144,6 +142,7 @@ namespace WorldSphereMod.Voxel
         /// <summary>Per-frame submission. Matrix should already include scale.</summary>
         public static bool Submit(Mesh mesh, Matrix4x4 trs, Color tint)
         {
+            if (MeshInstanceBatcher.InstancingBroken) return false;
             if (_material == null && !EnsureMaterial()) return false;
             MeshInstanceBatcher.Submit(mesh, _material!, trs, tint);
             return true;
@@ -231,8 +230,11 @@ namespace WorldSphereMod.Voxel
                         if (rd.flip_x_states[i]) imScl.x = -imScl.x;
                         Quaternion br = Tools.RotateToCamera(ref imPos);
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
-                        MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
-                        submitted = true;
+                        if (!MeshInstanceBatcher.InstancingBroken)
+                        {
+                            MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
+                            submitted = true;
+                        }
                         if (submitted)
                         {
                             rd.has_normal_render[i] = false;
@@ -321,8 +323,11 @@ namespace WorldSphereMod.Voxel
                         if (rd.flip_x_states[i]) imScl.x = -imScl.x;
                         Quaternion br = Tools.RotateToCamera(ref imPos);
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
-                        MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
-                        submitted = true;
+                        if (!MeshInstanceBatcher.InstancingBroken)
+                        {
+                            MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
+                            submitted = true;
+                        }
                         if (submitted)
                         {
                             rd.scales[i] = Vector3.zero;
@@ -358,16 +363,55 @@ namespace WorldSphereMod.Voxel
     /// </summary>
     public sealed class VoxelFrameDriver : MonoBehaviour
     {
+        const float kCameraLookupInterval = 0.05f;
+        float _nextCameraLookup = 0f;
+
+        void OnEnable()
+        {
+            WorldSphereMod.Lighting.SunDriver.BindMainCamera(CameraManager.MainCamera);
+        }
+
         void LateUpdate()
         {
-            WorldSphereMod.LOD.FrustumCuller.UpdatePlanes();
-            VoxelRender.Flush();
-            VoxelMeshCache.DrainPendingDestroy();
-            WorldSphereMod.ProcGen.ProcGenCache.DrainPendingDestroy();
-            WorldSphereMod.Water.WaterRender.UpdateLifecycle();
+            if (!Core.IsWorld3D) return;
+
+            bool hasRenderWork = Core.savedSettings.VoxelEntities || Core.savedSettings.ProceduralBuildings || Core.savedSettings.CrossedQuadFoliage;
+            if (hasRenderWork)
+            {
+                WorldSphereMod.LOD.FrustumCuller.UpdatePlanes();
+            }
+
+            if (Core.savedSettings.VoxelEntities || Core.savedSettings.ProceduralBuildings)
+            {
+                VoxelRender.Flush();
+                VoxelMeshCache.DrainPendingDestroy();
+            }
+
+            if (Core.savedSettings.ProceduralBuildings)
+            {
+                WorldSphereMod.ProcGen.ProcGenCache.DrainPendingDestroy();
+            }
+
+            if (Core.savedSettings.CrossedQuadFoliage)
+            {
+                WorldSphereMod.Foliage.CrossedQuadMeshCache.DrainPendingDestroy();
+            }
+
+            if (Core.savedSettings.MeshWater)
+            {
+                WorldSphereMod.Water.WaterRender.UpdateLifecycle();
+            }
+
+            if (Time.time >= _nextCameraLookup)
+            {
+                WorldSphereMod.Lighting.SunDriver.BindMainCamera(CameraManager.MainCamera);
+                _nextCameraLookup = Time.time + kCameraLookupInterval;
+            }
+
             WorldSphereMod.Lighting.SunDriver.Update();
-            WorldSphereMod.Foliage.CrossedQuadMeshCache.DrainPendingDestroy();
+
             WorldSphereMod.Fx.DecalPool.Tick();
+
             WorldSphereMod.Fx.PostFxController.ApplySetting(Core.savedSettings.PostFX);
         }
     }
