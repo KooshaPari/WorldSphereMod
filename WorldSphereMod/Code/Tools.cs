@@ -194,7 +194,7 @@ namespace WorldSphereMod
         }
         public static Vector2Int AsIntClamped(this Vector2 Vector)
         {
-            return new Vector2Int(Math.Clamp((int)Vector.x, 0, Core.Sphere.Width - 1), Math.Clamp((int)Vector.y, 0, Core.Sphere.Height - 1));
+            return new Vector2Int(WSMath.Clamp((int)Vector.x, 0, Core.Sphere.Width - 1), WSMath.Clamp((int)Vector.y, 0, Core.Sphere.Height - 1));
         }
         public static bool IntersectMesh(Ray ray, out Vector2 pVector)
         {
@@ -451,7 +451,7 @@ namespace WorldSphereMod
         }
         public static Vector2Int AsIntClamped(this Vector3 Vector)
         {
-            return new Vector2Int(Math.Clamp((int)Vector.x, 0, Core.Sphere.Width-1), Math.Clamp((int)Vector.y, 0, Core.Sphere.Height-1));
+            return new Vector2Int(WSMath.Clamp((int)Vector.x, 0, Core.Sphere.Width-1), WSMath.Clamp((int)Vector.y, 0, Core.Sphere.Height-1));
         }
         public static Quaternion GetUprightRotation(Vector2Int Pos)
         {

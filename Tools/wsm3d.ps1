@@ -32,7 +32,7 @@ $script:PlayerLogPath = Join-Path $env:USERPROFILE "AppData/LocalLow/mkarpenko/W
 # -Filter WorldSphereMod.json under $env:USERPROFILE/AppData.
 $script:ModSettingsDir = Join-Path $env:USERPROFILE "AppData/LocalLow/mkarpenko/WorldBox/mods_config"
 $script:ModSettingsFile = Join-Path $ModSettingsDir "WorldSphereMod.json"
-$script:BuiltDll = Join-Path $RepoRoot "bin/Release/net5.0/WorldSphereMod3D.dll"
+$script:BuiltDll = Join-Path $RepoRoot "bin/Release/net48/WorldSphereMod3D.dll"
 
 # Phase slug to camelCase mapping
 $script:PhaseMap = @{
@@ -308,6 +308,53 @@ function Invoke-Toggle {
     Write-Success "Toggled $phaseName = $($settings.$phaseName)"
 }
 
+function Invoke-PhasesList {
+    param([switch]$Json)
+
+    $settings = Get-SettingsJson
+
+    # Hardcoded defaults from SavedSettings.cs
+    $defaults = @{
+        "VoxelEntities"      = $false
+        "ProceduralBuildings" = $false
+        "CrossedQuadFoliage"  = $true
+        "MeshWater"          = $false
+        "HighShadows"        = $false
+        "SkeletalAnimation"  = $false
+        "WorldspaceUI"       = $true
+        "DayNightCycle"      = $false
+        "PostFX"             = $false
+        "ParticleEffects"    = $true
+    }
+
+    if ($Json) {
+        $phases = @()
+        foreach ($phaseName in $defaults.Keys) {
+            $phases += @{
+                "name"    = $phaseName
+                "current" = [bool]$settings.$phaseName
+                "default" = $defaults[$phaseName]
+            }
+        }
+        $output = @{
+            "phases" = $phases
+        }
+        Write-Host ($output | ConvertTo-Json)
+    } else {
+        Write-Host ""
+        Write-Host "Phase Status" -ForegroundColor Cyan
+        Write-Host ("Phase" + (" " * 20) + "Current   Default") -ForegroundColor Cyan
+        Write-Host ("-" * 53) -ForegroundColor Cyan
+        foreach ($phaseName in $defaults.Keys) {
+            $current = $settings.$phaseName
+            $default = $defaults[$phaseName]
+            $pad = 25 - $phaseName.Length
+            Write-Host "$phaseName$(' ' * $pad)$current$(' ' * 5)$default"
+        }
+        Write-Host ""
+    }
+}
+
 function Invoke-Status {
     param([switch]$Json)
 
@@ -408,6 +455,86 @@ function Invoke-JourneyVerify {
         throw "phenotype-journey not on PATH. See docs/journeys/README.md for setup."
     }
     & phenotype-journey verify -id $Id
+}
+
+function Invoke-JourneyCapture {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Id,
+        [switch]$NonInteractive
+    )
+
+    $manifestDir = Join-Path $RepoRoot "docs/journeys/manifests/$Id"
+    $manifestFile = Join-Path $manifestDir "manifest.json"
+    $indexFile = Join-Path $RepoRoot "docs/journeys/manifests/index.json"
+
+    # Validate manifest exists
+    if (-not (Test-Path $manifestFile)) {
+        Write-Error-Custom "Manifest not found at $manifestFile"
+
+        # List available IDs
+        if (Test-Path $indexFile) {
+            $index = Get-Content $indexFile -Raw | ConvertFrom-Json
+            $availableIds = $index | ForEach-Object { $_.id }
+            Write-Host ""
+            Write-Host "Available journey IDs:" -ForegroundColor Yellow
+            $availableIds | ForEach-Object { Write-Host "  - $_" }
+        }
+        exit 2
+    }
+
+    # Parse manifest
+    $manifest = Get-Content $manifestFile -Raw | ConvertFrom-Json
+    $steps = $manifest.steps
+    $keyframeCount = $manifest.keyframe_count
+
+    # Warn if step count mismatch
+    if ($steps.Count -ne $keyframeCount) {
+        Write-Warn "Manifest has keyframe_count=$keyframeCount but steps array has $($steps.Count) entries. Continuing anyway."
+    }
+
+    Write-Info "Capturing journey $Id ($($steps.Count) steps)..."
+    Write-Host ""
+
+    # Iterate through steps
+    $steps | ForEach-Object {
+        $step = $_
+        $stepIndex = $step.index
+        $slug = $step.slug
+        $intent = $step.intent
+        $screenshotPath = $step.screenshot_path
+
+        # Print step info
+        Write-Host "Step $stepIndex : $slug" -ForegroundColor Cyan
+        Write-Host "  Intent: $intent" -ForegroundColor Gray
+
+        # Wait for user or sleep
+        if ($NonInteractive) {
+            Write-Info "Sleeping 3s (non-interactive mode)..."
+            Start-Sleep -Seconds 3
+        } else {
+            Write-Host "  Press Enter to capture..." -NoNewline
+            Read-Host | Out-Null
+        }
+
+        # Capture screenshot
+        $framePath = Join-Path $manifestDir $screenshotPath
+        Invoke-Screenshot -Path $framePath | Out-Null
+
+        # Confirm and show file size
+        if (Test-Path $framePath) {
+            $fileSize = (Get-Item $framePath).Length
+            Write-Success "  Saved $screenshotPath ($fileSize bytes)"
+        } else {
+            Write-Error-Custom "  Failed to save $screenshotPath"
+            exit 1
+        }
+
+        Write-Host ""
+    }
+
+    # Summary
+    Write-Success "Journey $Id captured. Run 'wsm3d journey verify -Id $Id' to validate."
 }
 
 function Invoke-Watch {
@@ -537,6 +664,9 @@ Commands:
   status [-Json]
       Print build state, game running, log mtime. Use -Json for machine-readable output.
 
+  phases list [-Json]
+      List all 10 phase flags with current and default values. Use -Json for machine-readable output.
+
   journey list
       List available journeys (delegates to phenotype-journey CLI).
 
@@ -575,7 +705,7 @@ Examples:
 
 # === Dispatcher ===
 $command = if ($args.Count -gt 0) { $args[0] } else { "" }
-$commandArgs = if ($args.Count -gt 1) { $args[1..($args.Count - 1)] } else { @() }
+$commandArgs = @(if ($args.Count -gt 1) { $args[1..($args.Count - 1)] })
 
 try {
     switch -Exact ($command) {
@@ -642,7 +772,7 @@ try {
                 exit 1
             }
             $subCmd = $commandArgs[0]
-            $subArgs = if ($commandArgs.Count -gt 1) { $commandArgs[1..($commandArgs.Count - 1)] } else { @() }
+            $subArgs = @(if ($commandArgs.Count -gt 1) { $commandArgs[1..($commandArgs.Count - 1)] })
 
             switch -Exact ($subCmd) {
                 "get" {
@@ -687,6 +817,31 @@ try {
             Invoke-Status @params
         }
 
+        "phases" {
+            if ($commandArgs.Count -eq 0) {
+                Write-Error-Custom "phases requires 'list' subcommand"
+                Show-Help
+                exit 1
+            }
+            $subCmd = $commandArgs[0]
+            $subArgs = @(if ($commandArgs.Count -gt 1) { $commandArgs[1..($commandArgs.Count - 1)] })
+
+            switch -Exact ($subCmd) {
+                "list" {
+                    $params = @{
+                        Json = $subArgs -contains "-Json"
+                    }
+                    Invoke-PhasesList @params
+                }
+
+                default {
+                    Write-Error-Custom "Unknown phases subcommand: $subCmd"
+                    Show-Help
+                    exit 1
+                }
+            }
+        }
+
         "journey" {
             if ($commandArgs.Count -eq 0) {
                 Write-Error-Custom "journey requires 'list', 'run', or 'verify' subcommand"
@@ -694,7 +849,7 @@ try {
                 exit 1
             }
             $subCmd = $commandArgs[0]
-            $subArgs = if ($commandArgs.Count -gt 1) { $commandArgs[1..($commandArgs.Count - 1)] } else { @() }
+            $subArgs = @(if ($commandArgs.Count -gt 1) { $commandArgs[1..($commandArgs.Count - 1)] })
 
             switch -Exact ($subCmd) {
                 "list" {

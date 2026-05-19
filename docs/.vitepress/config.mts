@@ -20,6 +20,7 @@ export default defineConfig({
       { text: 'Guide', link: '/CONTRIBUTING' },
       { text: 'Architecture', link: '/phase2-architecture' },
       { text: 'Journeys', link: '/journeys/install-and-play' },
+      { text: 'Tooling', link: '/tooling' },
       { text: 'ADRs', link: '/adr/' },
       { text: 'Reference', link: '/render-data-fields' },
       { text: 'GitHub', link: 'https://github.com/KooshaPari/WorldSphereMod' },
@@ -65,6 +66,13 @@ export default defineConfig({
           { text: 'Extend via the API', link: '/journeys/extend-via-api' },
           { text: 'Diagnose performance', link: '/journeys/diagnose-perf' },
           { text: 'Upgrade from upstream', link: '/journeys/upgrade-from-upstream' },
+        ],
+      },
+      {
+        text: 'Tooling',
+        collapsed: false,
+        items: [
+          { text: 'Tooling reference', link: '/tooling' },
         ],
       },
       {

@@ -1,49 +1,39 @@
 name: release
 
-# Manual-dispatch release pipeline: build + test + tag + upload
-# WorldSphereMod3D.dll to a GitHub release.
+# Alpha tag release pipeline: build WorldSphereAPI, extract changelog from CHANGELOG.md,
+# and publish a pre-release GitHub Release with artifacts.
 #
-# TEMPLATE — secrets/permissions intentionally left as TODOs. Fill in before
-# enabling. Skipped on automatic pushes; only runs on workflow_dispatch.
+# Triggers:
+# 1. push: tags: ['v*']           — automatically on tag push (e.g., git push origin v2.0.0-alpha.0)
+# 2. workflow_dispatch: inputs.version — manual dispatch with a custom version string
 
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Tag to create or build for (e.g. v0.3.0)"
+      version:
+        description: "Version to release (e.g., v2.0.0-alpha.0)"
         required: true
         type: string
-      prerelease:
-        description: "Mark as pre-release"
-        required: false
-        type: boolean
-        default: false
-      draft:
-        description: "Create draft release (review before publish)"
-        required: false
-        type: boolean
-        default: true
 
 permissions:
-  # TODO: this minimum lets the workflow create a release + upload assets.
-  # Tighten or expand per project policy.
   contents: write
 
 jobs:
-  build-and-release:
-    name: Build, tag, release
+  release:
+    name: Build & Release
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: |
-            5.0.x
-            8.0.x
+          dotnet-version: "8.0.x"
 
       # TODO: For a real release, the main mod DLL needs to be compiled against
       # actual WorldBox reference assemblies. Today's CI uses zero-byte stubs,
@@ -97,68 +87,54 @@ jobs:
         run: dotnet build WorldSphereAPI.csproj -c Release
 
       - name: Build WorldSphereMod (TODO — needs real WorldBox refs for shippable binary)
-        # TODO: remove continue-on-error once real refs are wired up.
         continue-on-error: true
         run: dotnet build WorldSphereMod.csproj -c Release
 
-      - name: Run tests
+      - name: Extract release notes from CHANGELOG.md
+        id: changelog
         shell: bash
         run: |
-          if [ -d "tests/WorldSphereMod.Tests.Unit" ]; then
-            dotnet test tests/WorldSphereMod.Tests.Unit/ -c Release
+          # Extract the [Unreleased] section from CHANGELOG.md
+          if [ -f CHANGELOG.md ]; then
+            # Use awk to extract text between [Unreleased] and the next version header
+            NOTES=$(awk '/^## \[Unreleased\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md | sed -e '/^$/d' | head -c 5000)
+            # If empty, use a default message
+            if [ -z "$NOTES" ]; then
+              NOTES="Alpha release — see CHANGELOG.md for details."
+            fi
           else
-            echo "::warning::tests/WorldSphereMod.Tests.Unit not present — release builds skipping tests."
+            NOTES="Alpha release"
           fi
 
-      - name: Locate built DLL
-        id: locate
-        shell: bash
-        run: |
-          set -euo pipefail
-          DLL_PATH=$(find . -path './bin/*' -name 'WorldSphereMod3D.dll' -print -quit || true)
-          if [ -z "${DLL_PATH:-}" ]; then
-            DLL_PATH=$(find . -name 'WorldSphereMod3D.dll' -not -path '*/obj/*' -print -quit || true)
-          fi
-          if [ -z "${DLL_PATH:-}" ]; then
-            echo "::error::WorldSphereMod3D.dll not produced — release cannot upload artifact."
-            echo "found=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "Found DLL at: $DLL_PATH"
-            echo "found=true" >> "$GITHUB_OUTPUT"
-            echo "path=$DLL_PATH" >> "$GITHUB_OUTPUT"
-          fi
+          # Safely output to GitHub output
+          {
+            echo "body<<'EOF'"
+            echo "$NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Create tag
-        # TODO: confirm tag-creation policy. If tags should be created manually
-        # before dispatch instead, remove this step and read inputs.tag directly.
+      - name: Determine release tag
+        id: tag
         shell: bash
         run: |
-          set -euo pipefail
-          TAG="${{ inputs.tag }}"
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists — skipping create."
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag -a "$TAG" -m "Release $TAG"
-            git push origin "$TAG"
+          TAG="${{ github.ref_name }}"
+          if [ -z "$TAG" ] || [ "$TAG" = "HEAD" ]; then
+            TAG="${{ inputs.version }}"
           fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          # TODO: confirm release naming/changelog. `generate_release_notes`
-          # auto-generates from PRs; replace with body_path: docs/RELEASE.md
-          # if a curated changelog is preferred.
-          tag_name: ${{ inputs.tag }}
-          name: ${{ inputs.tag }}
-          draft: ${{ inputs.draft }}
-          prerelease: ${{ inputs.prerelease }}
-          generate_release_notes: true
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "WorldSphereMod3D ${{ steps.tag.outputs.tag }}"
+          body: ${{ steps.changelog.outputs.body }}
+          prerelease: true
+          generate_release_notes: false
           files: |
-            ${{ steps.locate.outputs.path }}
+            bin/Release/netstandard2.0/WorldSphereAPI.dll
+            WorldSphereMod/mod.json
+            README.md
+            CHANGELOG.md
         env:
-          # softprops/action-gh-release uses GITHUB_TOKEN by default.
-          # TODO: if a fine-grained PAT is required (e.g. for cross-repo
-          # uploads), wire it up as a secret here.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -48,6 +48,7 @@ Start with one of these:
 - **Just want to play?** → [Install & play journey](/journeys/install-and-play)
 - **Contributing code?** → [Contribute a phase](/journeys/contribute-a-phase) and the [PR checklist](/PR_CHECKLIST)
 - **Writing a downstream mod?** → [Extend via the API](/journeys/extend-via-api)
+- **Power user?** → [Tooling reference](/tooling) — CLI, MCP, slash commands for automation
 - **Cold-starting a new agent session?** → [`HANDOFF`](/HANDOFF) and [`CLAUDE.md`](https://github.com/KooshaPari/WorldSphereMod/blob/main/CLAUDE.md) at the repo root
 - **Need the full plan?** → [`PLAN.md`](/PLAN) — every phase, every file, every verification step
 

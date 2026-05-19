@@ -30,7 +30,7 @@ param(
     [string]$WorldBoxPath = $(if ($env:WORLDBOX_PATH) { $env:WORLDBOX_PATH } else { "C:/Program Files (x86)/Steam/steamapps/common/Worldbox" }),
     [string]$InstallFolderName = "WorldSphereMod3D",
     [string]$Configuration = "Release",
-    [string]$Tfm = "net5.0",
+    [string]$Tfm = "net48",
     [string]$AssemblyName = "WorldSphereMod3D",
     [switch]$SkipBuild
 )
@@ -77,22 +77,26 @@ foreach ($item in $items) {
     }
 }
 
-# Note: CompoundSpheres.dll IS a real runtime dependency, not just a legacy
-# upstream artifact. Our Code/ has `using CompoundSpheres;` and references
-# SphereTile / SphereManager / SphereManagerSettings / IBufferData /
-# IncompatibleHardwareException — all of which live in that DLL. Removing
-# it makes NML's Roslyn compile fail with ~60 CS0246 errors and the mod
-# silently never initializes. Leave it in place.
+# CompoundSpheres.dll IS a real runtime dependency (Code/ references its
+# types: SphereTile / SphereManager / SphereManagerSettings / IBufferData /
+# IncompatibleHardwareException). Removing it makes NML's Roslyn compile
+# fail with ~60 CS0246 errors. Leave it in place.
 #
-# The net5.0 fork DLL drop (commented out below) is the genuinely unloadable
-# one — Mono rejects with CS1705 "System.Runtime 5.0 vs 4.1". Re-enable
-# once the csproj is retargeted to net48.
+# Now that the csproj targets net48 (with Math.Clamp / Dictionary.TryAdd
+# polyfills in Compat.cs), the built DLL is Mono-loadable. NML will prefer
+# the precompiled assembly over runtime-compiling Code/, saving ~1s at
+# startup AND making the load deterministic across machines.
 $installedAssemblies = Join-Path $modDst "Assemblies"
 if (Test-Path $builtDll) {
-    Write-Host "[install] skipping $AssemblyName.dll copy (net5.0 build is unloadable by Mono — NML will Roslyn-compile Code/)." -ForegroundColor DarkYellow
+    Write-Host "[install]   $AssemblyName.dll (from $builtDll)" -ForegroundColor DarkCyan
+    Copy-Item -Force -Path $builtDll -Destination (Join-Path $installedAssemblies "$AssemblyName.dll")
+    $builtPdb = [System.IO.Path]::ChangeExtension($builtDll, ".pdb")
+    if (Test-Path $builtPdb) { Copy-Item -Force -Path $builtPdb -Destination (Join-Path $installedAssemblies "$AssemblyName.pdb") }
+} else {
+    Write-Host "[install] WARNING: built DLL not found at $builtDll — NML will fall back to Roslyn-compiling Code/." -ForegroundColor Yellow
 }
 
 Write-Host ""
 Write-Host "[install] installed to $modDst" -ForegroundColor Green
-Write-Host "[install] launch WorldBox; NeoModLoader will compile Code/*.cs on startup (~1s)."
+Write-Host "[install] launch WorldBox; NML loads Assemblies/$AssemblyName.dll (precompiled net48)."
 Write-Host "[install] verify in-game: WorldSphere tab -> '3D Phases' window. Phase 1 = 'Voxel Actors' toggle."
