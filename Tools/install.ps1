@@ -90,6 +90,7 @@ foreach ($item in $items) {
 # ~1s extra startup but works. Re-enable the DLL copy only after a future
 # investigation figures out how to make NML treat the DLL as "the mod"
 # instead of just another reference.
+# See docs/adr/ADR-0007-nml-precompiled-detection.md before changing DLL shipping behavior.
 $installedAssemblies = Join-Path $modDst "Assemblies"
 if (Test-Path $builtDll) {
     Write-Host "[install] skipping $AssemblyName.dll copy (NML double-loads it + Code/ → CS0121). See install.ps1 comment." -ForegroundColor DarkYellow
