@@ -2,15 +2,16 @@
 
 Canonical "next session starts here" doc for WorldSphereMod3D.
 
-**Last updated:** 2026-05-18
+**Last updated:** 2026-05-19
 
 ## TL;DR
 
 Hard fork of `MelvinShwuaner/WorldSphereMod` that finishes the 3D conversion
 of WorldBox: actors, buildings, foliage, water, lighting, animation, UI, sky,
 particles and LOD now have real 3D code paths sitting behind per-phase flags
-in `SavedSettings`. All 10 phases are code-complete; **Phases 1, 2 and 5
-still need an in-game smoke test** before their flags flip to default-on.
+in `SavedSettings`. All 10 phases are code-complete; **Phase 1 is visibly
+working in-game** after the `VoxelScaleMultiplier=8.0f` fix. Phases 2 and 5
+still need in-game smoke tests before their flags flip to default-on.
 Build is local-only (needs WorldBox reference DLLs); CI builds only the
 Unity-free API project.
 
@@ -69,7 +70,7 @@ Unity-free API project.
 
 ## Default-off flags (opt-in)
 
-- `VoxelEntities` — Phase 1 (blocked on smoke test)
+- `VoxelEntities` — Phase 1 (visible in-game; flag remains opt-in until ship gate)
 - `ProceduralBuildings` — Phase 2 (blocked on smoke test)
 - `HighShadows` — Phase 5 (needs lit shader from Unity bake)
 - `SkeletalAnimation` — Phase 6 (cost gate)
@@ -91,7 +92,7 @@ NeoModLoader compiles `Code/*.cs` at runtime, so install copies sources plus
 `Locales/`, `mod.json`. CI cannot build the mod itself (needs WorldBox refs);
 it only builds `WorldSphereAPI.csproj`.
 
-## In-game smoke test (gates Phases 1, 2, 5, 8)
+## In-game smoke test (gates Phases 2, 5, 8)
 
 The user-driven gate. See `docs/smoke-test-phase1.md` for the full checklist.
 Short form:
@@ -110,13 +111,13 @@ Short form:
 
 ## What's blocked
 
-- **In-game smoke test of Phase 1** — needs NML reload in a running game instance + toggle VoxelEntities + verify no body topple, no tail batch color shift, no flicker at tile boundaries.
+- **Phase 2 procedural buildings smoke test** — use the same toggle + screenshot + diff-vs-canonical flow that proved Phase 1 visibility.
 - **Unity 2022.3 install** — required to bake `VoxelLit.shader`, `WaterGerstner.shader`, `ProceduralSky.shader` into AssetBundles for Phases 4, 5, 8.
 - **Anthropic API key** (optional) — for live-mode journey verification via `phenotype-journey verify ... --api-key`. Mock mode works without it.
 
 ## Recommended next steps
 
-1. Continue Phase 1 in-game validation: relaunch + reload world + toggle `VoxelEntities` + capture screenshots via `pwsh Tools/wsm3d.ps1 journey capture -Id us-wsm-phase-1-voxel-actors`.
+1. Smoke-test Phase 2 procedural buildings the same way Phase 1 was proven: toggle `ProceduralBuildings`, capture screenshots, and diff against canonical output.
 2. Implement ADR-0006 (Phase 6 Step 9 DrawProceduralIndirect skinning) — 2–3 day estimate.
 3. Install Unity 2022.3 + clone `Compound-Spheres-3D` submodule; bake the four shaders into platform AssetBundles under `WorldSphereMod/AssetBundles/{win,linux,osx}/worldsphere`.
 4. Conditional Harmony patch dispatch (if wave-5 lands the ADR-0007 work).
