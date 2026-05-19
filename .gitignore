@@ -20,3 +20,6 @@ tools/.cache/
 tools/journey-records/target/
 tools/wsm-log-parser/target/
 Tools/wsm-log-parser/target/
+
+# Rust build artifacts
+Tools/**/target/
