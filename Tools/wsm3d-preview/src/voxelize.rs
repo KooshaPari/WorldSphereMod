@@ -274,7 +274,7 @@ pub fn build_cube(center: Vector3<f32>, size: f32, color: image::Rgba<u8>) -> Me
         center + Vector3::new(-h, h, h),
     ];
     let mut idx = Vec::new();
-    let mut cols = Vec::new();
+    let mut cols = vec![color; 8];
 
     let faces: [[usize; 4]; 6] = [
         [0, 1, 2, 3],
@@ -302,4 +302,3 @@ pub fn build_cube(center: Vector3<f32>, size: f32, color: image::Rgba<u8>) -> Me
         indices: idx,
     }
 }
-

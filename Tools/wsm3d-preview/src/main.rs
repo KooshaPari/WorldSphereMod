@@ -10,6 +10,9 @@ mod voxelize;
 #[derive(Parser)]
 #[command(name = "wsm3d-preview", version, about = "Generate preview renders for 10 WSM3D phases without WorldBox.")]
 struct Cli {
+    #[arg(short, long)]
+    quiet: bool,
+
     #[command(subcommand)]
     phase: PhaseCommand,
 }
@@ -96,6 +99,9 @@ enum PhaseCommand {
         side: u32,
     },
 
+    #[command(name = "debug-tri")]
+    DebugTri,
+
     #[command(name = "particles")]
     Particles {
         #[arg(short, long)]
@@ -125,23 +131,24 @@ enum PhaseCommand {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    let debug_log = !cli.quiet;
     match cli.phase {
-        PhaseCommand::VoxelActors { input, out, side, depth } => phases::run_phase1(input, out, side, depth),
+        PhaseCommand::VoxelActors { input, out, side, depth } => phases::run_phase1(input, out, side, depth, debug_log),
         PhaseCommand::MeshBuildings {
             footprint,
             stories,
             out,
             side,
-        } => phases::run_phase2(footprint, stories, out, side),
-        PhaseCommand::CrossedFoliage { sprite, out, side } => phases::run_phase3(sprite, out, side),
-        PhaseCommand::MeshWater { out, side } => phases::run_phase4(out, side),
-        PhaseCommand::Shadows { input, out, side } => phases::run_phase5(input, out, side),
-        PhaseCommand::Skeletal { input, out, side } => phases::run_phase6(input, out, side),
-        PhaseCommand::WorldspaceUi { input, out, side } => phases::run_phase7(input, out, side),
-        PhaseCommand::DayNight { out, side } => phases::run_phase8(out, side),
-        PhaseCommand::Particles { out, side } => phases::run_phase9(out, side),
-        PhaseCommand::Lod { input, out, side } => phases::run_phase10(input, out, side),
-        PhaseCommand::All { out, side } => phases::run_all(&out, side),
+        } => phases::run_phase2(footprint, stories, out, side, debug_log),
+        PhaseCommand::CrossedFoliage { sprite, out, side } => phases::run_phase3(sprite, out, side, debug_log),
+        PhaseCommand::MeshWater { out, side } => phases::run_phase4(out, side, debug_log),
+        PhaseCommand::Shadows { input, out, side } => phases::run_phase5(input, out, side, debug_log),
+        PhaseCommand::Skeletal { input, out, side } => phases::run_phase6(input, out, side, debug_log),
+        PhaseCommand::WorldspaceUi { input, out, side } => phases::run_phase7(input, out, side, debug_log),
+        PhaseCommand::DayNight { out, side } => phases::run_phase8(out, side, debug_log),
+        PhaseCommand::Particles { out, side } => phases::run_phase9(out, side, debug_log),
+        PhaseCommand::Lod { input, out, side } => phases::run_phase10(input, out, side, debug_log),
+        PhaseCommand::All { out, side } => phases::run_all(&out, side, debug_log),
+        PhaseCommand::DebugTri => phases::run_debug_tri(debug_log),
     }
 }
-

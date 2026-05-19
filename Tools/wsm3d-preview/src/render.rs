@@ -40,11 +40,11 @@ pub fn make_before(input: &image::RgbaImage, side: u32) -> RgbaImage {
     image::imageops::resize(input, side, side, FilterType::Nearest)
 }
 
-pub fn render_from_mesh(mesh: &Mesh, side: u32, camera: &Camera, light: &Light) -> RgbaImage {
-    render_from_meshes(&[mesh], side, camera, light)
+pub fn render_from_mesh(mesh: &Mesh, side: u32, camera: &Camera, light: &Light, debug_log: bool) -> RgbaImage {
+    render_from_meshes(&[mesh], side, camera, light, debug_log)
 }
 
-pub fn render_from_meshes(meshes: &[&Mesh], side: u32, camera: &Camera, light: &Light) -> RgbaImage {
+pub fn render_from_meshes(meshes: &[&Mesh], side: u32, camera: &Camera, light: &Light, debug_log: bool) -> RgbaImage {
     if meshes.is_empty() {
         return RgbaImage::from_pixel(side, side, Rgba([0, 0, 0, 0]));
     }
@@ -67,7 +67,7 @@ pub fn render_from_meshes(meshes: &[&Mesh], side: u32, camera: &Camera, light: &
             let px = rel.dot(&right);
             let py = rel.dot(&up);
             let pz = rel.dot(&forward);
-            projected.push(ProjVertex { sx: px, sy: py, sz: pz, color: mesh.colors[0] });
+            projected.push(ProjVertex { sx: px, sy: py, sz: pz });
             minx = minx.min(px);
             maxx = maxx.max(px);
             miny = miny.min(py);
@@ -85,6 +85,7 @@ pub fn render_from_meshes(meshes: &[&Mesh], side: u32, camera: &Camera, light: &
     let ox = side as f32 * 0.5;
     let oy = side as f32 * 0.5;
 
+    let mut tri_idx = 0usize;
     for (mesh_index, mesh) in meshes.iter().enumerate() {
         let projected = &projected_meshes[mesh_index];
         if projected.is_empty() {
@@ -99,17 +100,13 @@ pub fn render_from_meshes(meshes: &[&Mesh], side: u32, camera: &Camera, light: &
             let i0 = tri[0] as usize;
             let i1 = tri[1] as usize;
             let i2 = tri[2] as usize;
-            if i0 >= projected.len() || i1 >= projected.len() || i2 >= projected.len() {
-                continue;
-            }
+            debug_assert!(mesh.colors.len() == mesh.positions.len(), "mesh colors and positions are out of sync");
+            debug_assert!(i0 < mesh.colors.len(), "triangle index {i0} out of range for mesh.colors");
+            debug_assert!(i1 < mesh.colors.len(), "triangle index {i1} out of range for mesh.colors");
+            debug_assert!(i2 < mesh.colors.len(), "triangle index {i2} out of range for mesh.colors");
             let v0 = &projected[i0];
             let v1 = &projected[i1];
             let v2 = &projected[i2];
-
-            let min_tx = v0.sx.min(v1.sx).min(v2.sx);
-            let max_tx = v0.sx.max(v1.sx).max(v2.sx);
-            let min_ty = v0.sy.min(v1.sy).min(v2.sy);
-            let max_ty = v0.sy.max(v1.sy).max(v2.sy);
 
             let p0 = Vector3::new(v0.sx - cx, v0.sy - cy, v0.sz);
             let p1 = Vector3::new(v1.sx - cx, v1.sy - cy, v1.sz);
@@ -120,17 +117,22 @@ pub fn render_from_meshes(meshes: &[&Mesh], side: u32, camera: &Camera, light: &
             }
             let light_factor = normal.normalize().dot(&light_dir).max(0.0) * light.intensity + light.ambient;
 
-            // Defensive: a few phase-mesh builders emit indices that overshoot
-            // the colors/positions arrays by 1-8 (off-by-one in index rebase
-            // when combining sub-meshes). Skip those triangles rather than
-            // panic the entire render.
-            if i0 >= mesh.colors.len() || i1 >= mesh.colors.len() || i2 >= mesh.colors.len() {
-                continue;
-            }
             let c0 = mesh.colors[i0].0;
             let c1 = mesh.colors[i1].0;
             let c2 = mesh.colors[i2].0;
-            let area2 = edge2(v0.sx, v0.sy, v1.sx, v1.sy, v2.sx, v2.sy);
+            let sx0 = (v0.sx - minx) * scale + ox;
+            let sy0 = (v0.sy - miny) * scale + oy;
+            let sx1 = (v1.sx - minx) * scale + ox;
+            let sy1 = (v1.sy - miny) * scale + oy;
+            let sx2 = (v2.sx - minx) * scale + ox;
+            let sy2 = (v2.sy - miny) * scale + oy;
+
+            let x0 = sx0.min(sx1).min(sx2);
+            let x1 = sx0.max(sx1).max(sx2);
+            let y0 = sy0.min(sy1).min(sy2);
+            let y1 = sy0.max(sy1).max(sy2);
+
+            let area2 = edge2(sx0, sy0, sx1, sy1, sx2, sy2);
             if area2.abs() < 1e-7 {
                 continue;
             }
@@ -140,30 +142,31 @@ pub fn render_from_meshes(meshes: &[&Mesh], side: u32, camera: &Camera, light: &
             } else {
                 |w0: f32, w1: f32, w2: f32| -> bool { w0 <= 0.0 && w1 <= 0.0 && w2 <= 0.0 }
             };
-
-            let x0 = (min_tx - minx) * scale + ox;
-            let x1 = (max_tx - minx) * scale + ox;
-            let y0 = (min_ty - miny) * scale + oy;
-            let y1 = (max_ty - miny) * scale + oy;
             let start_x = x0.max(0.0).floor() as i32;
             let end_x = x1.min(side as f32 - 1.0).floor() as i32;
             let start_y = y0.max(0.0).floor() as i32;
             let end_y = y1.min(side as f32 - 1.0).floor() as i32;
+            if debug_log {
+                eprintln!(
+                    "rasterizing tri {tri_idx} bounds {start_x}..{end_x},{start_y}..{end_y}"
+                );
+            }
+            tri_idx += 1;
 
             for py in start_y..=end_y {
                 for px in start_x..=end_x {
                     let sx = px as f32 + 0.5;
                     let sy = py as f32 + 0.5;
-                    let w0 = edge2(v1.sx, v1.sy, v2.sx, v2.sy, sx, sy);
-                    let w1 = edge2(v2.sx, v2.sy, v0.sx, v0.sy, sx, sy);
-                    let w2 = edge2(v0.sx, v0.sy, v1.sx, v1.sy, sx, sy);
+                    let w0 = edge2(sx1, sy1, sx2, sy2, sx, sy);
+                    let w1 = edge2(sx2, sy2, sx0, sy0, sx, sy);
+                    let w2 = edge2(sx0, sy0, sx1, sy1, sx, sy);
                     if !inside(w0, w1, w2) {
                         continue;
                     }
                     let mut u = w0 * inv_area;
                     let mut v = w1 * inv_area;
                     let mut w = w2 * inv_area;
-                    let d = (u + v + w).abs();
+                    let d = u + v + w;
                     if d > 1e-7 {
                         u /= d;
                         v /= d;
@@ -250,7 +253,6 @@ struct ProjVertex {
     sx: f32,
     sy: f32,
     sz: f32,
-    color: Rgba<u8>,
 }
 
 fn edge2(ax: f32, ay: f32, bx: f32, by: f32, cx: f32, cy: f32) -> f32 {
@@ -313,4 +315,3 @@ pub fn rotated_y_copy(mesh: &Mesh, angle: f32) -> Mesh {
     }
     out
 }
-

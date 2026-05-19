@@ -162,40 +162,40 @@ fn light_default() -> render::Light {
     }
 }
 
-pub fn run_phase1(input: Option<PathBuf>, out: PathBuf, side: u32, depth: usize) -> Result<()> {
+pub fn run_phase1(input: Option<PathBuf>, out: PathBuf, side: u32, depth: usize, debug_log: bool) -> Result<()> {
     ensure_dir(&out)?;
     let source = fallback_image(input.as_deref(), fixtures::voxel_actor_sprite);
     let before = resized(&source, side);
     let mesh = voxelize::build_mesh_from_image(&source, depth.max(1), 16);
-    let after = render::render_from_mesh(&mesh, side, &render::iso_camera(), &light_default());
+    let after = render::render_from_mesh(&mesh, side, &render::iso_camera(), &light_default(), debug_log);
     write_image(&out.join("before.png"), &before)?;
     write_image(&out.join("after.png"), &after)?;
     Ok(())
 }
 
-pub fn run_phase2(footprint: Option<PathBuf>, stories: u32, out: PathBuf, side: u32) -> Result<()> {
+pub fn run_phase2(footprint: Option<PathBuf>, stories: u32, out: PathBuf, side: u32, debug_log: bool) -> Result<()> {
     ensure_dir(&out)?;
     let footprint_img = fallback_image(footprint.as_deref(), fixtures::building_footprint);
     let before = resized(&footprint_img, side);
     let mesh = build_building_mesh(&footprint_img, stories.max(1));
-    let after = render::render_from_mesh(&mesh, side, &camera_default(), &light_default());
+    let after = render::render_from_mesh(&mesh, side, &camera_default(), &light_default(), debug_log);
     write_image(&out.join("before.png"), &before)?;
     write_image(&out.join("after.png"), &after)?;
     Ok(())
 }
 
-pub fn run_phase3(sprite: Option<PathBuf>, out: PathBuf, side: u32) -> Result<()> {
+pub fn run_phase3(sprite: Option<PathBuf>, out: PathBuf, side: u32, debug_log: bool) -> Result<()> {
     ensure_dir(&out)?;
     let source = fallback_image(sprite.as_deref(), fixtures::foliage_sprite);
     let before = resized(&source, side);
     let mesh = build_crossed_foliage_mesh(&source);
-    let after = render::render_from_mesh(&mesh, side, &render::iso_camera(), &light_default());
+    let after = render::render_from_mesh(&mesh, side, &render::iso_camera(), &light_default(), debug_log);
     write_image(&out.join("before.png"), &before)?;
     write_image(&out.join("after.png"), &after)?;
     Ok(())
 }
 
-pub fn run_phase4(out: PathBuf, side: u32) -> Result<()> {
+pub fn run_phase4(out: PathBuf, side: u32, debug_log: bool) -> Result<()> {
     ensure_dir(&out)?;
     let (before, mesh) = build_water_mesh(32);
     let after = render::render_from_mesh(
@@ -213,13 +213,14 @@ pub fn run_phase4(out: PathBuf, side: u32) -> Result<()> {
             intensity: 1.0,
             ambient: 0.3,
         },
+        debug_log,
     );
     write_image(&out.join("before.png"), &before)?;
     write_image(&out.join("after.png"), &after)?;
     Ok(())
 }
 
-pub fn run_phase5(input: Option<PathBuf>, out: PathBuf, side: u32) -> Result<()> {
+pub fn run_phase5(input: Option<PathBuf>, out: PathBuf, side: u32, debug_log: bool) -> Result<()> {
     ensure_dir(&out)?;
     let source = fallback_image(input.as_deref(), fixtures::voxel_actor_sprite);
     let before = resized(&source, side);
@@ -246,13 +247,13 @@ pub fn run_phase5(input: Option<PathBuf>, out: PathBuf, side: u32) -> Result<()>
         color: Vector3::new(1.0, 1.0, 0.95),
         intensity: 1.05,
         ambient: 0.22,
-    });
+    }, debug_log);
     write_image(&out.join("before.png"), &before)?;
     write_image(&out.join("after.png"), &after)?;
     Ok(())
 }
 
-pub fn run_phase6(input: Option<PathBuf>, out: PathBuf, side: u32) -> Result<()> {
+pub fn run_phase6(input: Option<PathBuf>, out: PathBuf, side: u32, debug_log: bool) -> Result<()> {
     ensure_dir(&out)?;
     let source = fallback_image(input.as_deref(), fixtures::humanoid_sprite);
     let before = resized(&source, side);
@@ -280,7 +281,7 @@ pub fn run_phase6(input: Option<PathBuf>, out: PathBuf, side: u32) -> Result<()>
             color: Vector3::new(1.0, 1.0, 1.0),
             intensity: 1.1,
             ambient: 0.2,
-        });
+        }, debug_log);
         write_image(&out.join(format!("after-{name}.png")), &img)?;
         pose_frames.push(img);
     }
@@ -291,12 +292,12 @@ pub fn run_phase6(input: Option<PathBuf>, out: PathBuf, side: u32) -> Result<()>
     Ok(())
 }
 
-pub fn run_phase7(input: Option<PathBuf>, out: PathBuf, side: u32) -> Result<()> {
+pub fn run_phase7(input: Option<PathBuf>, out: PathBuf, side: u32, debug_log: bool) -> Result<()> {
     ensure_dir(&out)?;
     let source = fallback_image(input.as_deref(), fixtures::voxel_actor_sprite);
     let before = resized(&source, side);
     let mesh = voxelize::build_mesh_from_image(&source, 1, 16);
-    let mut after = render::render_from_mesh(&mesh, side, &render::iso_camera(), &light_default());
+    let mut after = render::render_from_mesh(&mesh, side, &render::iso_camera(), &light_default(), debug_log);
 
     let w = side as i32;
     let h = side as i32;
@@ -312,7 +313,7 @@ pub fn run_phase7(input: Option<PathBuf>, out: PathBuf, side: u32) -> Result<()>
     Ok(())
 }
 
-pub fn run_phase8(out: PathBuf, side: u32) -> Result<()> {
+pub fn run_phase8(out: PathBuf, side: u32, debug_log: bool) -> Result<()> {
     ensure_dir(&out)?;
     let terrain = build_terrain_horizon_mesh();
 
@@ -332,6 +333,7 @@ pub fn run_phase8(out: PathBuf, side: u32) -> Result<()> {
                 scale: 0.52,
             },
             &light_for_time(*time),
+            debug_log,
         );
         render::composite(&mut backdrop, &terrain_img, 0, 0)?;
         let name = format!("after-{idx}.png");
@@ -346,7 +348,7 @@ pub fn run_phase8(out: PathBuf, side: u32) -> Result<()> {
     Ok(())
 }
 
-pub fn run_phase9(out: PathBuf, side: u32) -> Result<()> {
+pub fn run_phase9(out: PathBuf, side: u32, debug_log: bool) -> Result<()> {
     ensure_dir(&out)?;
     let before = make_flat(side, Rgba([10, 12, 22, 0]));
     let mut cubes = Vec::new();
@@ -375,13 +377,13 @@ pub fn run_phase9(out: PathBuf, side: u32) -> Result<()> {
         color: Vector3::new(0.8, 0.9, 1.0),
         intensity: 1.15,
         ambient: 0.2,
-    });
+    }, debug_log);
     write_image(&out.join("before.png"), &before)?;
     write_image(&out.join("after.png"), &after)?;
     Ok(())
 }
 
-pub fn run_phase10(input: Option<PathBuf>, out: PathBuf, side: u32) -> Result<()> {
+pub fn run_phase10(input: Option<PathBuf>, out: PathBuf, side: u32, debug_log: bool) -> Result<()> {
     ensure_dir(&out)?;
     let source = fallback_image(input.as_deref(), fixtures::voxel_actor_sprite);
     let before = resized(&source, side);
@@ -409,14 +411,14 @@ pub fn run_phase10(input: Option<PathBuf>, out: PathBuf, side: u32) -> Result<()
         color: Vector3::new(1.0, 0.95, 0.9),
         intensity: 1.1,
         ambient: 0.28,
-    });
+    }, debug_log);
 
     write_image(&out.join("before.png"), &before)?;
     write_image(&out.join("after.png"), &after)?;
     Ok(())
 }
 
-pub fn run_all(out: &Path, side: u32) -> Result<()> {
+pub fn run_all(out: &Path, side: u32, debug_log: bool) -> Result<()> {
     let roots = [
         out.join("phase-1-voxel-actors"),
         out.join("phase-2-mesh-buildings"),
@@ -434,16 +436,16 @@ pub fn run_all(out: &Path, side: u32) -> Result<()> {
         .par_iter()
         .map(|dir| -> Result<()> {
             match dir.file_name().and_then(|f| f.to_str()).unwrap_or("") {
-                "phase-1-voxel-actors" => run_phase1(None, dir.clone(), side, 2),
-                "phase-2-mesh-buildings" => run_phase2(None, 3, dir.clone(), side),
-                "phase-3-crossed-foliage" => run_phase3(None, dir.clone(), side),
-                "phase-4-mesh-water" => run_phase4(dir.clone(), side),
-                "phase-5-shadows" => run_phase5(None, dir.clone(), side),
-                "phase-6-skeletal" => run_phase6(None, dir.clone(), side),
-                "phase-7-worldspace-ui" => run_phase7(None, dir.clone(), side),
-                "phase-8-day-night" => run_phase8(dir.clone(), side),
-                "phase-9-particles" => run_phase9(dir.clone(), side),
-                "phase-10-lod" => run_phase10(None, dir.clone(), side),
+                "phase-1-voxel-actors" => run_phase1(None, dir.clone(), side, 2, debug_log),
+                "phase-2-mesh-buildings" => run_phase2(None, 3, dir.clone(), side, debug_log),
+                "phase-3-crossed-foliage" => run_phase3(None, dir.clone(), side, debug_log),
+                "phase-4-mesh-water" => run_phase4(dir.clone(), side, debug_log),
+                "phase-5-shadows" => run_phase5(None, dir.clone(), side, debug_log),
+                "phase-6-skeletal" => run_phase6(None, dir.clone(), side, debug_log),
+                "phase-7-worldspace-ui" => run_phase7(None, dir.clone(), side, debug_log),
+                "phase-8-day-night" => run_phase8(dir.clone(), side, debug_log),
+                "phase-9-particles" => run_phase9(dir.clone(), side, debug_log),
+                "phase-10-lod" => run_phase10(None, dir.clone(), side, debug_log),
                 _ => Ok(()),
             }
         })
@@ -453,6 +455,32 @@ pub fn run_all(out: &Path, side: u32) -> Result<()> {
     if !failures.is_empty() {
         return Err(anyhow!("all failed: {}", failures.join(", ")));
     }
+    Ok(())
+}
+
+pub fn run_debug_tri(debug_log: bool) -> Result<()> {
+    let mesh = render::Mesh {
+        positions: vec![
+            Vector3::new(-0.5, -0.5, 0.0),
+            Vector3::new(0.5, -0.5, 0.0),
+            Vector3::new(0.0, 0.5, 0.0),
+        ],
+        colors: vec![
+            Rgba([255, 0, 0, 255]),
+            Rgba([0, 255, 0, 255]),
+            Rgba([0, 0, 255, 255]),
+        ],
+        indices: vec![0, 1, 2],
+    };
+
+    let after = render::render_from_mesh(
+        &mesh,
+        256,
+        &render::iso_camera(),
+        &render::Light::default(),
+        debug_log,
+    );
+    write_image(Path::new("debug-tri.png"), &after)?;
     Ok(())
 }
 
@@ -622,16 +650,23 @@ fn build_water_mesh(size: usize) -> (RgbaImage, render::Mesh) {
     let mut before = RgbaImage::from_pixel(side, side, Rgba([18, 40, 75, 255]));
     let mut min = f32::INFINITY;
     let mut max = -f32::INFINITY;
-    let mut heights = vec![0.0f32; (size + 1) * (size + 1)];
+    let size = u64::try_from(size).expect("water mesh size too large");
+    let stride = size
+        .checked_add(1)
+        .and_then(|s| s.checked_mul(s))
+        .and_then(|v| v.try_into().ok())
+        .expect("water mesh size overflow");
+    let mut heights = vec![0.0f32; stride];
+    let size_f = size as f32;
     for z in 0..=size {
         for x in 0..=size {
-            let fx = x as f32 / size as f32 * std::f32::consts::TAU;
-            let fz = z as f32 / size as f32 * std::f32::consts::TAU;
+            let fx = x as f32 / size_f * std::f32::consts::TAU;
+            let fz = z as f32 / size_f * std::f32::consts::TAU;
             let h = 0.32 * fx.sin()
                 + 0.23 * (fz * 1.4).sin()
                 + 0.17 * ((fx + fz) * 0.6).sin()
                 + 0.12 * ((fx * 0.7 - fz * 0.2).sin());
-            heights[z * (size + 1) + x] = h;
+            heights[(z * (size + 1) + x) as usize] = h;
             min = min.min(h);
             max = max.max(h);
         }
@@ -639,25 +674,31 @@ fn build_water_mesh(size: usize) -> (RgbaImage, render::Mesh) {
 
     let mut verts = Vec::new();
     let mut cols = Vec::new();
+    let row_stride = size
+        .checked_add(1)
+        .expect("water mesh size overflow");
     for z in 0..=size {
         for x in 0..=size {
-            let h = heights[z * (size + 1) + x];
-            let shade = ((h - min) / (max - min + 1e-5) * 170.0) as u8;
+            let h = heights[(z * (size + 1) + x) as usize];
+            let shade = ((h - min) / (max - min + 1e-5) * 170.0).clamp(0.0, 170.0) as u16;
             let xx = x as f32 / size as f32 * 4.0;
             let zz = z as f32 / size as f32 * 4.0;
             verts.push(Vector3::new(xx - 2.0, h * 0.7, zz - 2.0));
-            cols.push(Rgba([20 + shade / 3, 80 + shade / 4, 170 + shade, 255]));
-            before.put_pixel((x as u32) % side, (z as u32) % side, Rgba([10 + shade / 5, 60 + shade / 4, 120 + shade / 3, 255]));
+            cols.push(Rgba([((20 + shade / 3).min(255)) as u8, ((80 + shade / 4).min(255)) as u8, ((170 + shade).min(255)) as u8, 255]));
+            before.put_pixel((x as u32) % side, (z as u32) % side, Rgba([((10 + shade / 5).min(255)) as u8, ((60 + shade / 4).min(255)) as u8, ((120 + shade / 3).min(255)) as u8, 255]));
         }
     }
     let mut tris = Vec::new();
     for z in 0..size {
         for x in 0..size {
-            let i = z * (size + 1) + x;
-            let i0 = i as u32;
-            let i1 = (i + 1) as u32;
-            let i2 = (i + size + 1) as u32;
-            let i3 = (i + size + 2) as u32;
+            let i = z
+                .checked_mul(row_stride)
+                .and_then(|v| v.checked_add(x))
+                .expect("water mesh index overflow");
+            let i0 = u32::try_from(i).expect("water mesh index overflow");
+            let i1 = u32::try_from(i + 1).expect("water mesh index overflow");
+            let i2 = u32::try_from(i + row_stride).expect("water mesh index overflow");
+            let i3 = u32::try_from(i + row_stride + 1).expect("water mesh index overflow");
             tris.extend_from_slice(&[i0, i1, i3, i0, i3, i2]);
         }
     }
@@ -896,3 +937,259 @@ fn build_impostor_mesh(source: &RgbaImage) -> render::Mesh {
     voxelize::build_cube(Vector3::new(0.0, 0.35, 0.0), 1.45, Rgba([color[0], color[1], color[2], 220]))
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{fixtures, render, voxelize};
+    use image::Rgba;
+    use nalgebra::Vector3;
+
+    fn assert_mesh_indices(mesh: &render::Mesh, label: &str) {
+        let max_index = mesh.indices.iter().copied().max().unwrap_or(0) as usize;
+        let attr_len = mesh.positions.len().min(mesh.colors.len());
+        assert!(
+            attr_len > max_index || mesh.indices.is_empty(),
+            "{label}: mesh index {max_index} is out of range (positions={}, colors={})",
+            mesh.positions.len(),
+            mesh.colors.len()
+        );
+    }
+
+    #[test]
+    fn phase1_mesh_indices_are_valid() {
+        let source = fixtures::voxel_actor_sprite();
+        let mesh = voxelize::build_mesh_from_image(&source, 1, 16);
+        let non_degenerate = mesh.indices
+            .chunks(3)
+            .filter(|tri| tri.len() == 3)
+            .filter(|tri| {
+                let i0 = tri[0] as usize;
+                let i1 = tri[1] as usize;
+                let i2 = tri[2] as usize;
+                let p0 = mesh.positions[i0];
+                let p1 = mesh.positions[i1];
+                let p2 = mesh.positions[i2];
+                let area_x2 = ((p1.x - p0.x) * (p2.z - p0.z) - (p2.x - p0.x) * (p1.z - p0.z))
+                    .abs();
+                area_x2 > 0.0
+            })
+            .count();
+        println!(
+            "phase1: positions={} colors={} indices={} non_degenerate_triangles={}",
+            mesh.positions.len(),
+            mesh.colors.len(),
+            mesh.indices.len() / 3,
+            non_degenerate
+        );
+        assert_mesh_indices(&mesh, "phase-1-voxel-actors");
+    }
+
+    #[test]
+    fn phase2_mesh_indices_are_valid() {
+        let footprint = fixtures::building_footprint();
+        let mesh = build_building_mesh(&footprint, 3);
+        assert_mesh_indices(&mesh, "phase-2-mesh-buildings");
+    }
+
+    #[test]
+    fn phase3_mesh_indices_are_valid() {
+        let source = fixtures::foliage_sprite();
+        let mesh = build_crossed_foliage_mesh(&source);
+        assert_mesh_indices(&mesh, "phase-3-crossed-foliage");
+    }
+
+    #[test]
+    fn phase4_mesh_indices_are_valid() {
+        let (_, mesh) = build_water_mesh(32);
+        assert_mesh_indices(&mesh, "phase-4-mesh-water");
+    }
+
+    #[test]
+    fn phase5_mesh_indices_are_valid() {
+        let source = fixtures::voxel_actor_sprite();
+        let actor = voxelize::build_mesh_from_image(&source, 2, 16);
+        let shadow = build_shadow_mesh(
+            &actor,
+            &render::Light {
+                direction: Vector3::new(-0.5, 1.0, 0.2).normalize(),
+                color: Vector3::new(0.5, 0.5, 0.5),
+                intensity: 1.0,
+                ambient: 0.2,
+            },
+        );
+        let shifted_actor = render::translated_copy(&actor, Vector3::new(-0.1, 0.1, 0.0));
+        let ground = render::Mesh {
+            positions: vec![
+                Vector3::new(-2.0, -0.5, -2.0),
+                Vector3::new(2.0, -0.5, -2.0),
+                Vector3::new(2.0, -0.5, 2.0),
+                Vector3::new(-2.0, -0.5, 2.0),
+            ],
+            colors: vec![Rgba([70, 68, 68, 255]); 4],
+            indices: vec![0, 1, 2, 0, 2, 3],
+        };
+
+        let merged = merge_meshes(&[ground, shadow, shifted_actor]);
+        assert_mesh_indices(&merged, "phase-5-shadows");
+    }
+
+    #[test]
+    fn phase6_mesh_indices_are_valid() {
+        let source = fixtures::humanoid_sprite();
+        let base = voxelize::build_mesh_from_image(&source, 2, 16);
+        let bones = assign_bones(&base);
+        let pose_data = build_pose_offsets();
+
+        for (index, pose) in pose_data.iter().enumerate() {
+            let mesh = apply_pose(&base, &bones, pose);
+            assert_mesh_indices(&mesh, &format!("phase-6-skeletal-pose-{index}"));
+        }
+    }
+
+    #[test]
+    fn phase7_mesh_indices_are_valid() {
+        let source = fixtures::voxel_actor_sprite();
+        let mesh = voxelize::build_mesh_from_image(&source, 1, 16);
+        assert_mesh_indices(&mesh, "phase-7-worldspace-ui");
+    }
+
+    #[test]
+    fn phase8_mesh_indices_are_valid() {
+        let mesh = build_terrain_horizon_mesh();
+        assert_mesh_indices(&mesh, "phase-8-day-night");
+    }
+
+    #[test]
+    fn phase9_mesh_indices_are_valid() {
+        let mut cubes = Vec::new();
+        for i in 0..30usize {
+            let t = i as f32 / 29.0;
+            let angle = t * std::f32::consts::PI * 1.1;
+            let r = 0.2 + 1.4 * t;
+            let y = (0.6 - t * 0.55) * if i % 2 == 0 { 1.0 } else { -1.0 };
+            let pos = Vector3::new(r * angle.cos(), y, r * angle.sin());
+            let col = Rgba([
+                (120.0 + t * 120.0) as u8,
+                (170.0 - t * 110.0) as u8,
+                255,
+                (180.0 * (1.0 - t * 0.5)) as u8,
+            ]);
+            cubes.push(voxelize::build_cube(pos, 0.22, col));
+        }
+        let merged = merge_meshes(&cubes);
+        assert_mesh_indices(&merged, "phase-9-particles");
+    }
+
+    #[test]
+    fn phase10_mesh_indices_are_valid() {
+        let source = fixtures::voxel_actor_sprite();
+        let full = voxelize::build_mesh_from_image(&source, 2, 16);
+        let proxy_source = downsample(&source);
+        let proxy = voxelize::build_mesh_from_image(&proxy_source, 2, 16);
+        let impostor = build_impostor_mesh(&source);
+        let merged = merge_meshes(&[full, proxy, impostor]);
+        assert_mesh_indices(&merged, "phase-10-lod");
+    }
+}
+
+#[cfg(test)]
+mod render_smoke_tests {
+    use super::*;
+
+    fn count_nonzero_alpha(mesh: &render::Mesh, camera: &render::Camera, light: &render::Light) -> usize {
+        let img = render::render_from_mesh(mesh, 384, camera, light);
+        img.pixels().filter(|p| p[3] > 0).count()
+    }
+
+    fn assert_phase_render_has_pixels(name: &str, mesh: &render::Mesh, camera: &render::Camera, light: &render::Light) {
+        let count = count_nonzero_alpha(mesh, camera, light);
+        println!("{name}: alpha={count}");
+        assert!(count > 0, "{name} produced no pixels");
+    }
+
+    #[test]
+    fn render_smoke_phase1_has_pixels() {
+        let source = fixtures::voxel_actor_sprite();
+        let mesh = voxelize::build_mesh_from_image(&source, 1, 16);
+        assert_phase_render_has_pixels(
+            "phase1",
+            &mesh,
+            &render::iso_camera(),
+            &light_default(),
+        );
+    }
+
+    #[test]
+    fn render_smoke_phase2_has_pixels() {
+        let footprint = fixtures::building_footprint();
+        let mesh = build_building_mesh(&footprint, 3);
+        assert_phase_render_has_pixels(
+            "phase2",
+            &mesh,
+            &camera_default(),
+            &light_default(),
+        );
+    }
+
+    #[test]
+    fn render_smoke_phase3_has_pixels() {
+        let source = fixtures::foliage_sprite();
+        let mesh = build_crossed_foliage_mesh(&source);
+        assert_phase_render_has_pixels(
+            "phase3",
+            &mesh,
+            &render::iso_camera(),
+            &light_default(),
+        );
+    }
+
+    #[test]
+    fn render_smoke_phase4_has_pixels() {
+        let (_, mesh) = build_water_mesh(32);
+        assert_phase_render_has_pixels(
+            "phase4",
+            &mesh,
+            &render::Camera {
+                eye: Vector3::new(2.0, 1.4, 2.0),
+                target: Vector3::new(0.0, -0.1, 0.0),
+                up_hint: Vector3::new(0.0, 1.0, 0.0),
+                scale: 0.58,
+            },
+            &render::Light {
+                direction: Vector3::new(0.1, 1.0, 0.2).normalize(),
+                color: Vector3::new(0.35, 0.7, 1.0),
+                intensity: 1.0,
+                ambient: 0.3,
+            },
+        );
+    }
+
+    #[test]
+    fn render_smoke_phase10_has_pixels() {
+        let source = fixtures::voxel_actor_sprite();
+        let full = voxelize::build_mesh_from_image(&source, 2, 16);
+        let proxy_source = downsample(&source);
+        let proxy = voxelize::build_mesh_from_image(&proxy_source, 2, 16);
+        let impostor = build_impostor_mesh(&source);
+        let full = render::translated_copy(&full, Vector3::new(-1.2, 0.0, 0.0));
+        let proxy = render::translated_copy(&proxy, Vector3::new(0.0, 0.0, 0.0));
+        let impostor = render::translated_copy(&impostor, Vector3::new(1.2, 0.0, 0.0));
+        let mesh = merge_meshes(&[full, proxy, impostor]);
+        assert_phase_render_has_pixels(
+            "phase10",
+            &mesh,
+            &render::Camera {
+                eye: Vector3::new(0.6, 1.6, 2.0),
+                target: Vector3::new(0.0, 0.3, 0.0),
+                up_hint: Vector3::new(0.0, 1.0, 0.0),
+                scale: 0.68,
+            },
+            &render::Light {
+                direction: Vector3::new(-0.15, 1.0, 0.4).normalize(),
+                color: Vector3::new(1.0, 0.95, 0.9),
+                intensity: 1.1,
+                ambient: 0.28,
+            },
+        );
+    }
+}

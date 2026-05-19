@@ -19,6 +19,7 @@ namespace WorldSphereMod.Fx
     {
         static GameObject? _volumeGO;
         static ScriptableObject? _profile;
+        static bool _postFxUnavailable;
 
         const string VolumeTypeName = "UnityEngine.Rendering.Volume";
         const string VolumeProfileTypeName = "UnityEngine.Rendering.VolumeProfile";
@@ -146,6 +147,7 @@ namespace WorldSphereMod.Fx
                 || bloomType == null || colorAdjustmentsType == null || vignetteType == null)
             {
                 Debug.LogWarning("[WSM3D] PostFxController: URP types not present at runtime — post-FX disabled.");
+                _postFxUnavailable = true;
                 return;
             }
 
@@ -280,6 +282,8 @@ namespace WorldSphereMod.Fx
 
         public static void ApplySetting(bool enabled)
         {
+            if (_postFxUnavailable)
+                return;
             if (enabled && _volumeGO == null) Create();
             else if (!enabled && _volumeGO != null) Destroy();
         }
