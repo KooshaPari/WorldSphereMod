@@ -5,17 +5,10 @@ using UnityEngine.Rendering;
 namespace WorldSphereMod.Voxel
 {
     /// <summary>
-    /// GPU-instanced renderer for voxel/procgen meshes. Buckets submissions by
-    /// (mesh, material) and flushes them via <see cref="Graphics.DrawMeshInstanced"/> —
-    /// 1023 instances per call. The mod's compute-shader/instancing gate in
-    /// <c>Mod.OnLoad</c> guarantees the GPU supports this path.
-    ///
-    /// Usage:
-    /// <code>
-    ///   MeshInstanceBatcher.Submit(mesh, material, matrix, color);
-    ///   ...
-    ///   MeshInstanceBatcher.Flush();   // call once per frame after render data is built
-    /// </code>
+    /// GPU renderer for voxel/procgen meshes. Buckets submissions by
+    /// (mesh, material) and flushes them via <see cref="Graphics.DrawMeshInstanced"/> by default,
+    /// with automatic fallback to per-instance <see cref="Graphics.DrawMesh"/> if
+    /// the build does not expose instancing shader variants.
     /// </summary>
     public static class MeshInstanceBatcher
     {
@@ -39,20 +32,26 @@ namespace WorldSphereMod.Voxel
         class Bucket
         {
             public readonly List<Matrix4x4> Matrices = new List<Matrix4x4>(1024);
-            public readonly List<Vector4>   Colors   = new List<Vector4>(1024);
-            public MaterialPropertyBlock    Block    = new MaterialPropertyBlock();
+            public readonly List<Vector4>   Colors = new List<Vector4>(1024);
+            public MaterialPropertyBlock Block = new MaterialPropertyBlock();
             // Scratch buffers reused across frames; grown (never shrunk) to current batch
-            // size so DrawMeshInstanced gets a tight-fitting array without per-frame allocation.
+            // size for DrawMeshInstanced fast-path arrays.
             public Matrix4x4[] MatScratch = new Matrix4x4[kBatch];
-            public Vector4[]   ColScratch = new Vector4[kBatch];
+            public Vector4[] ColScratch = new Vector4[kBatch];
         }
 
         static readonly Dictionary<Key, Bucket> _buckets = new Dictionary<Key, Bucket>(128);
         static readonly int _colorProp = Shader.PropertyToID("_InstanceColor");
+        static readonly int _baseColorProp = Shader.PropertyToID("_BaseColor");
+        static readonly int _colorPropUnlit = Shader.PropertyToID("_Color");
         const int kBatch = 1023;
 
         public static long FrameDrawCalls;
         public static long FrameInstances;
+        public static bool UseFallbackPath => _useFallbackPath;
+
+        static bool _instancingErrorLogged;
+        static bool _useFallbackPath;
 
         public static void Submit(Mesh mesh, Material mat, Matrix4x4 matrix, Color tint)
         {
@@ -67,8 +66,6 @@ namespace WorldSphereMod.Voxel
             b.Colors.Add(tint);
         }
 
-        static bool _instancingErrorLogged;
-
         public static void Flush(int layer = 0, ShadowCastingMode shadows = ShadowCastingMode.On, bool receive = true)
         {
             FrameDrawCalls = 0;
@@ -79,6 +76,14 @@ namespace WorldSphereMod.Voxel
                 var bucket = kv.Value;
                 int total = bucket.Matrices.Count;
                 FrameInstances += total;
+                if (_useFallbackPath)
+                {
+                    DrawFallbackPath(kv.Key, bucket, total, layer);
+                    bucket.Matrices.Clear();
+                    bucket.Colors.Clear();
+                    continue;
+                }
+
                 int offset = 0;
                 while (offset < total)
                 {
@@ -99,32 +104,48 @@ namespace WorldSphereMod.Voxel
                             bucket.MatScratch, n, bucket.Block,
                             shadows, receive, layer);
                         FrameDrawCalls++;
+                        offset += n;
                     }
-                    catch (System.InvalidOperationException ex)
+                    catch (System.InvalidOperationException)
                     {
-                        // Material instancing capability changed mid-flight, or VoxelRender
-                        // resolved a material whose shader's instancing variant isn't in this
-                        // build. Log once + bail on this bucket so we don't spam the same
-                        // exception per-frame per-instance. Without this guard, a single bad
-                        // material crashes the entire frame's voxel render pass.
                         if (!_instancingErrorLogged)
                         {
                             _instancingErrorLogged = true;
                             string matName = kv.Key.Material != null ? kv.Key.Material.shader.name : "<null>";
-                            Debug.LogError($"[WSM3D] DrawMeshInstanced rejected material (shader='{matName}'): {ex.Message}");
+                            Debug.LogError($"[WSM3D] DrawMeshInstanced rejected material; falling back to per-instance Graphics.DrawMesh. Voxel render perf is degraded but visible.");
                         }
+
+                        _useFallbackPath = true;
+                        DrawFallbackPath(kv.Key, bucket, total, layer, offset);
                         break;
                     }
-                    offset += n;
                 }
+
                 bucket.Matrices.Clear();
                 bucket.Colors.Clear();
+            }
+        }
+
+        static void DrawFallbackPath(Key key, Bucket bucket, int total, int layer, int start = 0)
+        {
+            int end = Mathf.Min(bucket.Matrices.Count, start + total);
+            for (int i = start; i < end; i++)
+            {
+                bucket.Block.Clear();
+                Vector4 tint = bucket.Colors[i];
+                bucket.Block.SetVector(_colorProp, tint);
+                bucket.Block.SetColor(_baseColorProp, tint);
+                bucket.Block.SetColor(_colorPropUnlit, tint);
+                Graphics.DrawMesh(key.Mesh, bucket.Matrices[i], key.Material, layer, null, 0, bucket.Block);
+                FrameDrawCalls++;
             }
         }
 
         public static void Reset()
         {
             _buckets.Clear();
+            _useFallbackPath = false;
+            _instancingErrorLogged = false;
             FrameDrawCalls = 0;
             FrameInstances = 0;
         }
