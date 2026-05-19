@@ -206,6 +206,10 @@ namespace WorldSphereMod.Voxel
                             Vector3 skRot = rd.rotations[i];
                             Vector3 skScl = rd.scales[i];
                             if (rd.flip_x_states[i]) skScl.x = -skScl.x;
+                            if (skPos.z == 0f)
+                            {
+                                skPos = skPos.To3DTileHeight(false);
+                            }
                             if (WorldSphereMod.Rig.RigDriver.SubmitSkinnedActor(
                                     a, skPos, Quaternion.Euler(0f, skRot.y, 0f), skScl, rd.colors[i], rigType))
                             {
@@ -227,6 +231,10 @@ namespace WorldSphereMod.Voxel
                         Vector3 imPos = rd.positions[i];
                         Vector3 imScl = rd.scales[i];
                         if (rd.flip_x_states[i]) imScl.x = -imScl.x;
+                        if (imPos.z == 0f)
+                        {
+                            imPos = imPos.To3DTileHeight(false);
+                        }
                         Quaternion br = Tools.RotateToCamera(ref imPos);
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
                         if (!MeshInstanceBatcher.InstancingBroken)
@@ -324,6 +332,10 @@ namespace WorldSphereMod.Voxel
                         Vector3 imPos = rd.positions[i];
                         Vector3 imScl = rd.scales[i];
                         if (rd.flip_x_states[i]) imScl.x = -imScl.x;
+                        if (imPos.z == 0f)
+                        {
+                            imPos = imPos.To3DTileHeight(false);
+                        }
                         Quaternion br = Tools.RotateToCamera(ref imPos);
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
                         if (!MeshInstanceBatcher.InstancingBroken)
@@ -342,6 +354,10 @@ namespace WorldSphereMod.Voxel
                     if (m == null) continue;
 
                     Vector3 pos = rd.positions[i];
+                    if (pos.z == 0f)
+                    {
+                        pos = pos.To3DTileHeight(false);
+                    }
                     Vector3 rot = rd.rotations[i];
                     Vector3 scl = rd.scales[i];
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
