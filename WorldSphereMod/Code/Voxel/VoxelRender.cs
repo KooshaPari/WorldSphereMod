@@ -541,6 +541,7 @@ namespace WorldSphereMod.Voxel
 
         void OnEnable()
         {
+            MeshInstanceBatcher.SetMainThread();
             WorldSphereMod.Lighting.SunDriver.BindMainCamera(CameraManager.MainCamera);
         }
 

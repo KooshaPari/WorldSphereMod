@@ -74,7 +74,7 @@ namespace WorldSphereMod.Voxel
 
         public static bool HasPendingSubmissions
         {
-            get { return Volatile.Read(ref _pendingSubmissionCount) > 0; }
+            get { return Volatile.Read(ref _pendingSubmissionCount) > 0 || _buckets.Count > 0; }
         }
 
         static int _pendingSubmissionCount;
@@ -82,11 +82,24 @@ namespace WorldSphereMod.Voxel
         static bool _useFallbackPath;
         static bool _renderTargetLogged;
         static bool _allCamerasLogged;
+        static int _mainThreadId;
         static Mesh? _debugCubeMesh;
+
+        public static void SetMainThread()
+        {
+            _mainThreadId = Thread.CurrentThread.ManagedThreadId;
+        }
 
         public static void Submit(Mesh mesh, Material mat, Matrix4x4 matrix, Color tint)
         {
             if (mesh == null || mat == null) return;
+
+            if (_mainThreadId != 0 && Thread.CurrentThread.ManagedThreadId == _mainThreadId)
+            {
+                AddToBucket(mesh, mat, matrix, tint);
+                return;
+            }
+
             _pendingSubmissions.Enqueue(new SubmitRecord(mesh, mat, matrix, tint));
             Interlocked.Increment(ref _pendingSubmissionCount);
         }
