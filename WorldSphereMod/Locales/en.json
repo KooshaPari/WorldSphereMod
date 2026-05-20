@@ -58,6 +58,8 @@
     "post_fx_description": "URP post-processing: bloom, color grading, vignette.",
     "particle_effects": "Particles + Decals (Phase 9)",
     "particle_effects_description": "Voxel-mesh particle bursts and pooled decal projectors (scorch / blood / footprints).",
+    "sanity_cube": "Sanity Cube (debug)",
+    "sanity_cube_description": "Spawn a magenta unlit cube at world center to verify the WSM3D voxel material + draw pipeline.",
 
     "ProfileMode": "Profiler Dump",
     "profile_mode": "Profiler Dump",

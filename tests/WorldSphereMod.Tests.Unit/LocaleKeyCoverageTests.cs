@@ -105,7 +105,7 @@ public class LocaleKeyCoverageTests
     }
 
     [Fact]
-    public void Extracted_phase_toggles_from_code_match_expected_ten_phases()
+    public void Extracted_phase_toggles_from_code_match_expected_eleven_phases()
     {
         var tabSource = ReadSourceFile("WorldSphereMod/Code/WorldSphereTab.cs");
 
@@ -119,8 +119,8 @@ public class LocaleKeyCoverageTests
         var buttonDataPattern = @"new\s+ButtonData\(\s*""([a-z_]+)""";
         var buttonMatches = Regex.Matches(phasesWindowBlock, buttonDataPattern);
 
-        buttonMatches.Should().HaveCount(10,
-            "WorldSphereTab 3D Phases window must define exactly 10 phase toggles");
+        buttonMatches.Should().HaveCount(11,
+            "WorldSphereTab 3D Phases window defines 10 phase toggles + sanity_cube debug toggle");
 
         var expectedPhases = new[]
         {
@@ -133,7 +133,8 @@ public class LocaleKeyCoverageTests
             "worldspace_ui",
             "day_night_cycle",
             "post_fx",
-            "particle_effects"
+            "particle_effects",
+            "sanity_cube"
         };
 
         var extractedPhases = new List<string>();
@@ -186,7 +187,8 @@ public class LocaleKeyCoverageTests
             "worldspace_ui",
             "day_night_cycle",
             "post_fx",
-            "particle_effects"
+            "particle_effects",
+            "sanity_cube"
         };
 
         // Just verify that every expected key is in en.json (already done above, but document it here).
