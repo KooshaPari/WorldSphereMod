@@ -507,6 +507,10 @@ namespace WorldSphereMod.Voxel
                     if (m == null || m.vertexCount == 0) continue;
 
                     Vector3 pos = rd.positions[i];
+                    if (pos.z < Constants.ZDisplacement * 0.5f)
+                    {
+                        pos = pos.To3DTileHeight(false);
+                    }
                     Vector3 rot = rd.rotations[i];
                     Vector3 scl = rd.scales[i];
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
