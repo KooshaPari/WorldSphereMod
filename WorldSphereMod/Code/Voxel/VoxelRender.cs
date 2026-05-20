@@ -347,9 +347,7 @@ namespace WorldSphereMod.Voxel
                             if (WorldSphereMod.Rig.RigDriver.SubmitSkinnedActor(
                                     a, skPos, Quaternion.Euler(0f, skRot.y, 0f), skScl, rd.colors[i], rigType))
                             {
-                                // DIAG: disabled — keeps the 2D actor sprite visible so we can see if the voxel mesh
-                                // is the only thing failing to render. Restore when voxel-actor visibility confirmed.
-                                // rd.has_normal_render[i] = false;
+                                rd.has_normal_render[i] = false;
                             }
                             continue;
                         }
@@ -379,9 +377,7 @@ namespace WorldSphereMod.Voxel
                         submitted = true;
                         if (submitted)
                         {
-                            // DIAG: disabled — keeps the 2D actor sprite visible so we can see if the voxel mesh
-                            // is the only thing failing to render. Restore when voxel-actor visibility confirmed.
-                            // rd.has_normal_render[i] = false;
+                            rd.has_normal_render[i] = false;
                         }
                         continue;
                     }
@@ -409,9 +405,7 @@ namespace WorldSphereMod.Voxel
                     // Hide the sprite quad for this actor — we drew the 3D mesh instead.
                     if (Submit(m, trs, rd.colors[i]))
                     {
-                        // DIAG: disabled — keeps the 2D actor sprite visible so we can see if the voxel mesh
-                        // is the only thing failing to render. Restore when voxel-actor visibility confirmed.
-                        // rd.has_normal_render[i] = false;
+                        rd.has_normal_render[i] = false;
                     }
                 }
             }
