@@ -3,6 +3,7 @@ using System.Diagnostics;
 using HarmonyLib;
 using UnityEngine;
 using WorldSphereMod.NewCamera;
+using Debug = UnityEngine.Debug;
 
 namespace WorldSphereMod.Voxel
 {
@@ -186,8 +187,7 @@ namespace WorldSphereMod.Voxel
             for (int pass = 0; pass < material.passCount; pass++)
             {
                 string passName = material.GetPassName(pass);
-                int nativeIndex = material.GetPassNativeIndex(pass);
-                Debug.Log($"[WSM3D][MATERIAL] VOXEL pass[{pass}] name='{passName}' nativeIndex={nativeIndex}");
+                Debug.Log($"[WSM3D][MATERIAL] VOXEL pass[{pass}] name='{passName}'");
             }
         }
 

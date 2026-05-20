@@ -3,6 +3,7 @@ using HarmonyLib;
 using UnityEngine;
 using WorldSphereMod.Foliage;
 using WorldSphereMod.Voxel;
+using Debug = UnityEngine.Debug;
 
 namespace WorldSphereMod.ProcGen
 {

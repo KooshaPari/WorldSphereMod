@@ -16,4 +16,4 @@ Top 5 differing regions by simple grid bucket (20x12 buckets, sorted by changed 
   4. bucket=14,8; bbox=(1792,960)-(1919,1079); changed_pixels=15360; avg_rgb_abs_diff_sum=188.98
   5. bucket=9,3; bbox=(1152,360)-(1279,479); changed_pixels=15360; avg_rgb_abs_diff_sum=215.60
 
-Verdict: LIKELY VISIBLE DIFFERENCE - voxels probably rendering now.
+Verdict: LIKELY VISIBLE DIFFERENCE — voxels probably rendering now.
