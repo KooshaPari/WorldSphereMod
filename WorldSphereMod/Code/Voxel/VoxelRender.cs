@@ -563,6 +563,8 @@ namespace WorldSphereMod.Voxel
                 VoxelMeshCache.DrainPendingDestroy();
             }
 
+            VoxelMeshCache.DrainWarmCacheTick();
+
             if (Core.savedSettings.DebugSanityCube)
             {
                 SanityTestCube.Draw();

@@ -1,5 +1,8 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using UnityEngine;
+using WorldSphereMod;
+using Debug = UnityEngine.Debug;
 
 namespace WorldSphereMod.Voxel
 {
@@ -24,10 +27,13 @@ namespace WorldSphereMod.Voxel
         static readonly object _lock = new object();
         static readonly Dictionary<int, Entry> _cache = new Dictionary<int, Entry>(1024);
         static readonly HashSet<int> _diagnosedSprites = new HashSet<int>();
+        static readonly Queue<Sprite> _warmQueue = new Queue<Sprite>();
+        static readonly HashSet<int> _warmQueuedSprites = new HashSet<int>();
         // Evict() can't Destroy a mesh that may still be queued in the batcher for this frame;
         // queue it here and let VoxelFrameDriver drain after MeshInstanceBatcher.Flush().
         static readonly Queue<Mesh> _pendingDestroy = new Queue<Mesh>();
         static ulong _frame;
+        static int _warmBudgetMsPerFrame = 5;
         static long _hits;
         static long _misses;
 
@@ -79,10 +85,98 @@ namespace WorldSphereMod.Voxel
             return m;
         }
 
+        /// <summary>
+        /// Queue sprites for budgeted voxel-mesh warmup. Work is drained from
+        /// <see cref="VoxelFrameDriver.LateUpdate"/> via <see cref="DrainWarmCacheTick"/>.
+        /// </summary>
+        public static void WarmCacheAsync(IEnumerable<Sprite> sprites, int msBudgetPerFrame = 5)
+        {
+            if (sprites == null) return;
+
+            lock (_lock)
+            {
+                _warmBudgetMsPerFrame = msBudgetPerFrame > 0 ? msBudgetPerFrame : 1;
+
+                foreach (var sprite in sprites)
+                {
+                    if (!ShouldWarmSprite(sprite)) continue;
+
+                    int key = sprite.GetInstanceID();
+                    if (_cache.ContainsKey(key) || _warmQueuedSprites.Contains(key)) continue;
+
+                    _warmQueue.Enqueue(sprite);
+                    _warmQueuedSprites.Add(key);
+                }
+            }
+        }
+
         /// <summary>Advance the frame counter; call once per render frame.</summary>
         public static void Tick()
         {
             lock (_lock) _frame++;
+        }
+
+        /// <summary>
+        /// Drain queued warm-cache work for a bounded amount of time. Call once per
+        /// frame from <see cref="VoxelFrameDriver.LateUpdate"/>.
+        /// </summary>
+        public static void DrainWarmCacheTick()
+        {
+            int budgetMs;
+            lock (_lock)
+            {
+                budgetMs = _warmBudgetMsPerFrame;
+            }
+
+            if (budgetMs <= 0) return;
+
+            Stopwatch sw = Stopwatch.StartNew();
+            while (sw.ElapsedMilliseconds < budgetMs)
+            {
+                Sprite sprite = null;
+
+                lock (_lock)
+                {
+                    while (_warmQueue.Count > 0)
+                    {
+                        sprite = _warmQueue.Dequeue();
+                        if (sprite == null) continue;
+
+                        int key = sprite.GetInstanceID();
+                        _warmQueuedSprites.Remove(key);
+
+                        if (sprite.texture == null) { sprite = null; continue; }
+                        if (IsPerpSprite(sprite)) { sprite = null; continue; }
+                        if (_cache.ContainsKey(key)) { sprite = null; continue; }
+                        break;
+                    }
+
+                    if (sprite == null)
+                    {
+                        return;
+                    }
+                }
+
+                Mesh mesh = SpriteVoxelizer.Build(sprite);
+                LogVoxelizedSprite(sprite, mesh);
+                if (mesh == null || mesh.vertexCount == 0)
+                {
+                    continue;
+                }
+
+                int warmKey = sprite.GetInstanceID();
+                lock (_lock)
+                {
+                    if (_cache.ContainsKey(warmKey))
+                    {
+                        _pendingDestroy.Enqueue(mesh);
+                        continue;
+                    }
+
+                    _cache[warmKey] = new Entry { Mesh = mesh, LastFrame = _frame };
+                    if (_cache.Count > Capacity) Evict();
+                }
+            }
         }
 
         /// <summary>Wipe everything. Call when the world reloads.</summary>
@@ -97,6 +191,8 @@ namespace WorldSphereMod.Voxel
                 _cache.Clear();
                 _diagnosedSprites.Clear();
                 _pendingDestroy.Clear();
+                _warmQueue.Clear();
+                _warmQueuedSprites.Clear();
             }
             System.Threading.Interlocked.Exchange(ref _hits, 0);
             System.Threading.Interlocked.Exchange(ref _misses, 0);
@@ -150,6 +246,19 @@ namespace WorldSphereMod.Voxel
 
             int triCount = mesh.subMeshCount > 0 ? (int)(mesh.GetIndexCount(0) / 3) : 0;
             Debug.Log($"[WSM3D] Voxelized sprite \"{sprite.name}\" -> {mesh.vertexCount} verts, {triCount} tris, bounds={mesh.bounds}");
+        }
+
+        static bool IsPerpSprite(Sprite sprite)
+        {
+            if (sprite == null) return false;
+
+            string name = sprite.name;
+            return (!string.IsNullOrEmpty(name) && (Constants.PerpActors.ContainsKey(name) || Constants.PerpBuildings.ContainsKey(name)));
+        }
+
+        static bool ShouldWarmSprite(Sprite sprite)
+        {
+            return sprite != null && sprite.texture != null && !IsPerpSprite(sprite);
         }
     }
 }
