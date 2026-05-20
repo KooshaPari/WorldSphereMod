@@ -50,7 +50,7 @@ namespace WorldSphereMod.ProcGen
                         Vector3 imPos = rd.positions[i];
                         Vector3 imScl = rd.scales[i];
                         if (rd.flip_x_states[i]) imScl.x = -imScl.x;
-                        if (imPos.z == 0f)
+                        if (imPos.z < Constants.ZDisplacement * 0.5f)
                         {
                             imPos = imPos.To3DTileHeight(false);
                         }

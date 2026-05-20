@@ -221,7 +221,7 @@ namespace WorldSphereMod.Voxel
                             Vector3 skRot = rd.rotations[i];
                             Vector3 skScl = rd.scales[i];
                             if (rd.flip_x_states[i]) skScl.x = -skScl.x;
-                            if (skPos.z == 0f)
+                            if (skPos.z < Constants.ZDisplacement * 0.5f)
                             {
                                 skPos = skPos.To3DTileHeight(false);
                             }
@@ -248,7 +248,7 @@ namespace WorldSphereMod.Voxel
                         Vector3 imPosBeforeLift = imPos;
                         Vector3 imScl = rd.scales[i];
                         if (rd.flip_x_states[i]) imScl.x = -imScl.x;
-                        if (imPos.z == 0f)
+                        if (imPos.z < Constants.ZDisplacement * 0.5f)
                         {
                             imPos = imPos.To3DTileHeight(false);
                         }
@@ -366,7 +366,7 @@ namespace WorldSphereMod.Voxel
                         Vector3 imPos = rd.positions[i];
                         Vector3 imScl = rd.scales[i];
                         if (rd.flip_x_states[i]) imScl.x = -imScl.x;
-                        if (imPos.z == 0f)
+                        if (imPos.z < Constants.ZDisplacement * 0.5f)
                         {
                             imPos = imPos.To3DTileHeight(false);
                         }
