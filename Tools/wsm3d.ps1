@@ -587,13 +587,22 @@ function Invoke-SettingsSet {
         [string]$Key,
 
         [Parameter(Mandatory=$true)]
-        $Value
+        $Value,
+
+        [switch]$Force
     )
 
     $settings = Get-SettingsJson
 
     if (-not ($settings | Get-Member -Name $Key)) {
         throw "Key '$Key' not found in settings."
+    }
+
+    if (Get-Process worldbox -ErrorAction SilentlyContinue) {
+        if (-not $Force) {
+            Write-Warn "WorldBox is running. Refusing to write settings because the game may overwrite this change on the next save."
+            throw "Re-run with -Force if you intentionally want to patch settings while WorldBox is running."
+        }
     }
 
     # Coerce value to match the original type
@@ -1029,6 +1038,7 @@ Commands:
 
   settings set -Key <field> -Value <bool|number>
       Patch one setting. Value is parsed to match the field type.
+      Refuses to write while WorldBox is running unless -Force is supplied.
 
   toggle -Phase <name>
       Flip a phase flag on/off. Name can be camelCase (VoxelEntities) or snake_case (voxel_entities).
@@ -1074,6 +1084,7 @@ Examples:
   wsm3d render-budget -DryRun -Json
   wsm3d settings get
   wsm3d settings set -Key VoxelEntities -Value true
+  wsm3d settings set -Key VoxelEntities -Value true -Force
   wsm3d toggle -Phase voxel_entities
   wsm3d status -Json
   wsm3d journey list
@@ -1184,6 +1195,9 @@ try {
                     }
                     if ($subArgs -contains "-Value") {
                         $params["Value"] = $subArgs[$subArgs.IndexOf("-Value") + 1]
+                    }
+                    if ($subArgs -contains "-Force") {
+                        $params["Force"] = $true
                     }
                     Invoke-SettingsSet @params
                 }
