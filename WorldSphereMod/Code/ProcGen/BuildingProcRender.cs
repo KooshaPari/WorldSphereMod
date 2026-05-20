@@ -48,7 +48,11 @@ namespace WorldSphereMod.ProcGen
                     if (Constants.PerpBuildings.ContainsKey(b.asset.id)) { _diagFiltPerp++; continue; }
 
                     Vector3 cullPos = rd.positions[i];
-                    float radius = 0.5f;
+                    if (cullPos.z == 0f)
+                    {
+                        cullPos = cullPos.To3DTileHeight(false);
+                    }
+                    float radius = 2f;
                     if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, radius))
                     {
                         _diagFiltCull++;
