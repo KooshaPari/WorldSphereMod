@@ -100,6 +100,12 @@ namespace WorldSphereMod.Worldspace
             int impostor = SafeCount(() => WorldSphereMod.LOD.ImpostorBillboard.Count);
             long draws = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameDrawCalls;
             long instances = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameInstances;
+            long vHits = SafeLong(() => WorldSphereMod.Voxel.VoxelMeshCache.HitCount);
+            long vMisses = SafeLong(() => WorldSphereMod.Voxel.VoxelMeshCache.MissCount);
+            long iHits = SafeLong(() => WorldSphereMod.LOD.ImpostorBillboard.HitCount);
+            long iMisses = SafeLong(() => WorldSphereMod.LOD.ImpostorBillboard.MissCount);
+            float vRate = (vHits + vMisses) > 0 ? (float)vHits / (vHits + vMisses) * 100f : 0f;
+            float iRate = (iHits + iMisses) > 0 ? (float)iHits / (iHits + iMisses) * 100f : 0f;
 
             // LOD V/P/I distribution intentionally omitted: would require per-actor
             // tier tagging in LodSelector across frames, which we don't currently
@@ -107,6 +113,7 @@ namespace WorldSphereMod.Worldspace
             _label.text =
                 $"[WSM3D] DrawCalls={draws} Instances={instances} ImpostorCount={impostor} " +
                 $"VoxelMeshes={voxel} ProcGenMeshes={procgen} FoliageCount={foliage} " +
+                $"VoxCacheHit={vRate:F1}% ImpCacheHit={iRate:F1}% " +
                 $"FrameMs={_smoothedFrameMs:F2}";
         }
 
@@ -114,6 +121,12 @@ namespace WorldSphereMod.Worldspace
         {
             try { return read(); }
             catch { return 0; }
+        }
+
+        static long SafeLong(System.Func<long> read)
+        {
+            try { return read(); }
+            catch { return 0L; }
         }
     }
 }

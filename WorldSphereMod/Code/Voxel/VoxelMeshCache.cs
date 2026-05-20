@@ -13,7 +13,7 @@ namespace WorldSphereMod.Voxel
     /// </summary>
     public static class VoxelMeshCache
     {
-        public static int Capacity = 4096;
+        public static int Capacity = 8192;
 
         struct Entry
         {
