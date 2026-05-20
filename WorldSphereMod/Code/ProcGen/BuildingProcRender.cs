@@ -8,15 +8,6 @@ namespace WorldSphereMod.ProcGen
     public static class BuildingProcRender
     {
         static bool _firstBuildingPosLogged;
-        static int _diagEntryCount;
-        static int _diagSkipNotWorld3D;
-        static int _diagSkipFlagOff;
-        static int _diagLastReportEntry;
-        static int _diagSeenAtFlagOn;
-        static int _diagFiltPerp;
-        static int _diagFiltCull;
-        static int _diagSubmitted;
-        static int _diagSamplesLogged;
 
         [Phase(nameof(SavedSettings.ProceduralBuildings))]
         [HarmonyPatch(typeof(BuildingManager), nameof(BuildingManager.precalculateRenderDataParallel))]
@@ -25,18 +16,7 @@ namespace WorldSphereMod.ProcGen
             [HarmonyPostfix]
             public static void EmitMeshes(BuildingManager __instance)
             {
-                _diagEntryCount++;
-                if (_diagEntryCount - _diagLastReportEntry >= 15)
-                {
-                    _diagLastReportEntry = _diagEntryCount;
-                    int n0 = __instance != null ? __instance._visible_buildings_count : -1;
-                    Debug.Log($"[WSM3D] ProcMeshEmit diag entries={_diagEntryCount} seenAtFlagOn={_diagSeenAtFlagOn} skipFlagOff={_diagSkipFlagOff} filtPerp={_diagFiltPerp} filtCull={_diagFiltCull} submitted={_diagSubmitted} flag={Core.savedSettings.ProceduralBuildings} visBuildings={n0}");
-                }
-
-                if (!Core.IsWorld3D) { _diagSkipNotWorld3D++; return; }
-                if (!Core.savedSettings.ProceduralBuildings) { _diagSkipFlagOff++; return; }
-                _diagSeenAtFlagOn++;
-                // Reuse the Phase 1 voxel material until Phase 5 ships VoxelLit.shader.
+                if (!Core.IsWorld3D || !Core.savedSettings.ProceduralBuildings) return;
                 if (!VoxelRender.EnsureMaterial()) return;
 
                 var rd = __instance.render_data;
@@ -46,24 +26,15 @@ namespace WorldSphereMod.ProcGen
                 {
                     Building b = arr[i];
                     if (b == null || b.asset == null) continue;
-                    if (Constants.PerpBuildings.ContainsKey(b.asset.id)) { _diagFiltPerp++; continue; }
+                    if (Constants.PerpBuildings.ContainsKey(b.asset.id)) continue;
 
-                    Vector3 rawCullPos = rd.positions[i];
-                    Vector3 cullPos = rawCullPos;
-                    // 3D-lift any position that isn't already in 3D space (ZDisplacement sentinel = 100).
+                    Vector3 cullPos = rd.positions[i];
                     if (cullPos.z < Constants.ZDisplacement * 0.5f)
                     {
                         cullPos = cullPos.To3DTileHeight(false);
                     }
-                    if (_diagSamplesLogged < 10)
+                    if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, 2f))
                     {
-                        _diagSamplesLogged++;
-                        Debug.Log($"[WSM3D] ProcMeshEmit cullPos sample raw={rawCullPos} lifted={cullPos} cam={(Camera.main != null ? Camera.main.transform.position.ToString() : "<null>")}");
-                    }
-                    float radius = 50f;
-                    if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, radius))
-                    {
-                        _diagFiltCull++;
                         continue;
                     }
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode());
@@ -89,7 +60,6 @@ namespace WorldSphereMod.ProcGen
                         {
                             MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
                             submitted = true;
-                            _diagSubmitted++;
                         }
                         continue;
                     }
@@ -134,9 +104,6 @@ namespace WorldSphereMod.ProcGen
                     }
                     if (submitted)
                     {
-                        _diagSubmitted++;
-                        // BuildingRenderData has no has_normal_render; zeroing scales hides the
-                        // sprite quad without nulling main_sprites (downstream chokes on null).
                         rd.scales[i] = Vector3.zero;
                     }
                 }
