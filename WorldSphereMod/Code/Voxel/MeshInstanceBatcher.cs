@@ -70,6 +70,12 @@ namespace WorldSphereMod.Voxel
         public static long FrameDrawCalls;
         public static long FrameInstances;
         public static bool UseFallbackPath => _useFallbackPath;
+
+        /// <summary>Force the per-instance Graphics.DrawMesh fallback path on. Use to
+        /// diagnose 'instancing reported OK but actors invisible' — bypasses
+        /// DrawMeshInstanced entirely so the same draw goes through the
+        /// known-good per-instance path. Set once at startup or after Reset.</summary>
+        public static void ForceFallbackPath() { _useFallbackPath = true; }
         public static bool InstancingBroken => _instancingErrorLogged;
 
         public static bool HasPendingSubmissions
