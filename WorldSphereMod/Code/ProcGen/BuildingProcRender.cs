@@ -47,12 +47,18 @@ namespace WorldSphereMod.ProcGen
                     if (b == null || b.asset == null) continue;
                     if (Constants.PerpBuildings.ContainsKey(b.asset.id)) { _diagFiltPerp++; continue; }
 
-                    Vector3 cullPos = rd.positions[i];
+                    Vector3 rawCullPos = rd.positions[i];
+                    Vector3 cullPos = rawCullPos;
                     if (cullPos.z == 0f)
                     {
                         cullPos = cullPos.To3DTileHeight(false);
                     }
-                    float radius = 2f;
+                    // Diag: log first cull-pos pair so we know what z we actually test
+                    if (_diagFiltCull == 0 && _diagSubmitted == 0)
+                    {
+                        Debug.Log($"[WSM3D] ProcMeshEmit cullPos sample raw={rawCullPos} lifted={cullPos} cam={(Camera.main != null ? Camera.main.transform.position.ToString() : "<null>")}");
+                    }
+                    float radius = 50f;
                     if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, radius))
                     {
                         _diagFiltCull++;
