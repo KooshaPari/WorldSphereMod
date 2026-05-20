@@ -62,9 +62,40 @@ AutoTest cycles each phase ON for 3 seconds. At ~20-60 Postfix entries/s, that's
 2. The same instrumentation pattern applies to any future phase-postfix that submits 0 with no obvious error. Phases 5 (HighShadows), 8 (DayNightCycle) are the next candidates needing this pattern.
 3. Granular counters add a few cycles per render frame; remove them once the bug is named (or move behind a `Core.savedSettings.DebugVerbosePhase2` flag).
 
-## Followup
+## Outcome (17:30 capture)
 
-Outcome of the 17:30 capture will be appended here. If `filtPerp` is the chokepoint, retire or relax `Constants.PerpBuildings`. If `filtCull` is the chokepoint, examine `FrustumCuller` for incorrect bounds.
+```
+entries=15 seenAtFlagOn=14 filtPerp=728 filtCull=603260 submitted=0 flag=True visBuildings=43142
+entries=30 seenAtFlagOn=27 filtPerp=1404 filtCull=1163430 submitted=0 flag=False ...
+```
+
+Identified the chokepoint at the first dump. In 14 Postfix iterations
+with the flag on (~604k building checks), `FrustumCuller` rejected
+603,260 — **>99.8%**. The other 728 hit the `PerpBuildings` filter
+upstream of the cull test.
+
+**Root cause:** `rd.positions[i]` returns the raw 2D tile-space position
+(`z == 0`). The camera frustum is in 3D world space. A `Bounds(pos,
+(1,1,1))` AABB at `z=0` against a frustum looking at the lifted
+`z ≈ 100` ground plane fails for every building. The lift via
+`To3DTileHeight(false)` happened inside the per-tier (`Impostor` /
+voxel / procedural) branches — **after** the cull check.
+
+**Fix** (commit `fa4f130`):
+
+```csharp
+Vector3 cullPos = rd.positions[i];
+if (cullPos.z == 0f)
+{
+    cullPos = cullPos.To3DTileHeight(false);
+}
+float radius = 2f; // was 0.5f — too small for multi-tile buildings
+if (!FrustumCuller.IsVisible(cullPos, radius)) { ... continue; }
+```
+
+Same lift logic that the impostor branch already applied, just hoisted
+above the cull test. Bumped `radius` to 2.0 — a 1×1×1 box was too small
+to be meaningful for buildings spanning multiple tiles.
 
 ## Linked
 
