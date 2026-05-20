@@ -6,7 +6,16 @@ namespace WorldSphereMod.LOD
 {
     public static class ImpostorBillboard
     {
-        static readonly Dictionary<int, Mesh> _atlas = new Dictionary<int, Mesh>();
+        public static int Capacity = 8192;
+
+        struct Entry
+        {
+            public Mesh Mesh;
+            public ulong LastFrame;
+        }
+
+        static readonly Dictionary<int, Entry> _atlas = new Dictionary<int, Entry>();
+        static ulong _frame;
         static long _hits;
         static long _misses;
 
@@ -92,23 +101,31 @@ namespace WorldSphereMod.LOD
         {
             if (sprite == null) return null;
             int key = sprite.GetInstanceID();
-            if (_atlas.TryGetValue(key, out var m) && m != null)
+            if (_atlas.TryGetValue(key, out var entry) && entry.Mesh != null)
             {
+                entry.LastFrame = _frame;
+                _atlas[key] = entry;
                 System.Threading.Interlocked.Increment(ref _hits);
-                return m;
+                return entry.Mesh;
             }
             System.Threading.Interlocked.Increment(ref _misses);
-            m = BuildQuad(sprite);
+            Mesh m = BuildQuad(sprite);
             m.RecalculateBounds();
-            _atlas[key] = m;
+            _atlas[key] = new Entry { Mesh = m, LastFrame = _frame };
+            if (_atlas.Count > Capacity) Evict();
             return m;
         }
 
         public static int Count => _atlas.Count;
 
+        public static void Tick()
+        {
+            _frame++;
+        }
+
         public static void Clear()
         {
-            foreach (var m in _atlas.Values) if (m != null) Object.Destroy(m);
+            foreach (var e in _atlas.Values) if (e.Mesh != null) Object.Destroy(e.Mesh);
             _atlas.Clear();
             System.Threading.Interlocked.Exchange(ref _hits, 0);
             System.Threading.Interlocked.Exchange(ref _misses, 0);
@@ -144,6 +161,28 @@ namespace WorldSphereMod.LOD
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             return mesh;
+        }
+
+        static void Evict()
+        {
+            if (_atlas.Count == 0) return;
+
+            var keys = new List<int>(_atlas.Keys);
+            keys.Sort((a, b) => _atlas[a].LastFrame.CompareTo(_atlas[b].LastFrame));
+
+            int removeCount = keys.Count / 10;
+            if (removeCount <= 0) removeCount = 1;
+            if (removeCount > keys.Count) removeCount = keys.Count;
+
+            for (int i = 0; i < removeCount; i++)
+            {
+                int key = keys[i];
+                if (_atlas.TryGetValue(key, out var entry) && entry.Mesh != null)
+                {
+                    Object.Destroy(entry.Mesh);
+                }
+                _atlas.Remove(key);
+            }
         }
     }
 }
