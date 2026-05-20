@@ -2,7 +2,7 @@ using System;
 using System.Reflection;
 delegate bool IsWorld3D();
 delegate void MakePerp(string ID);
-delegate object GetSetting(string Name, Type Type);
+delegate object GetSetting(string Name);
 delegate void EditEffect(string ID, bool IsUpright, bool SeperateSprite, float ExtraHeight, bool OnGround);
 delegate bool IsModel3D();
 // Unity types are passed as object so this assembly stays free of any
@@ -92,7 +92,7 @@ public class WorldSphereAPI
     /// <returns></returns>
     public T GetSetting<T>(string Name)
     {
-        return (T)getSetting(Name, typeof(T));
+        return (T)getSetting(Name);
     }
     /// <summary>
     /// Makes a actor with asset <paramref name="ID"/> non upright, it will face towards the ground and not rotate to the camera

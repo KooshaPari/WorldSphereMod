@@ -1,4 +1,4 @@
-﻿using NeoModLoader.General;
+﻿
 using System;
 using System.Collections.Concurrent;
 using System.Reflection;
@@ -48,19 +48,20 @@ namespace WorldSphereMod.API
         /// <summary>
         /// Reflectively read a public field on <see cref="SavedSettings"/> by name. Returns
         /// <c>null</c> on missing field or any read failure (logged at <c>Debug.Log</c> level).
+        /// External caller-side typed coercion is the caller's responsibility; this method
+        /// returns the boxed field value as <c>object</c>.
         /// </summary>
         /// <param name="Name">Field name on <see cref="SavedSettings"/>.</param>
-        /// <param name="Type">Expected field type — used only by the external <c>WorldSphereAPI</c> caller for typed coercion.</param>
-        public static object GetSetting(string Name, Type Type)
+        public static object GetSetting(string Name)
         {
             try
             {
-                FieldInfo field = typeof(SavedSettings).GetField(Name);
+                FieldInfo field = typeof(SavedSettings).GetField(Name, BindingFlags.Instance | BindingFlags.Public);
                 return field.GetValue(Core.savedSettings);
             }
             catch (Exception ex)
             {
-                Debug.Log($"[WSM3D] Setting of Name {Name} and Type {Type} Not Found! ({ex.Message})");
+                Debug.Log($"[WSM3D] Setting of Name {Name} Not Found! ({ex.Message})");
                 return null;
             }
         }
