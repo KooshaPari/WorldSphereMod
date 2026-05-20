@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using HarmonyLib;
 using UnityEngine;
 using WorldSphereMod.Foliage;
@@ -22,6 +23,15 @@ namespace WorldSphereMod.ProcGen
                 var rd = __instance.render_data;
                 var arr = __instance._array_visible_buildings;
                 int n = __instance._visible_buildings_count;
+                bool profile = Core.savedSettings.ProfilerDump;
+                Stopwatch totalSw = new Stopwatch();
+                Stopwatch impostorSw = new Stopwatch();
+                Stopwatch regularSw = new Stopwatch();
+                int impostorCount = 0;
+                int regularCount = 0;
+
+                if (profile) totalSw.Start();
+
                 for (int i = 0; i < n; i++)
                 {
                     Building b = arr[i];
@@ -42,29 +52,44 @@ namespace WorldSphereMod.ProcGen
 
                     if (tier == WorldSphereMod.LOD.LodTier.Impostor)
                     {
-                        Sprite? impSp = rd.main_sprites[i];
-                        if (impSp == null) continue;
-                        Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(impSp);
-                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
-                        if (im == null || imMat == null) continue;
-                        Vector3 imPos = rd.positions[i];
-                        Vector3 imScl = rd.scales[i];
-                        if (rd.flip_x_states[i]) imScl.x = -imScl.x;
-                        if (imPos.z < Constants.ZDisplacement * 0.5f)
+                        if (profile) impostorSw.Start();
+                        try
                         {
-                            imPos = imPos.To3DTileHeight(false);
+                            Sprite? impSp = rd.main_sprites[i];
+                            if (impSp == null) continue;
+                            Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(impSp);
+                            Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
+                            if (im == null || imMat == null) continue;
+                            Vector3 imPos = rd.positions[i];
+                            Vector3 imScl = rd.scales[i];
+                            if (rd.flip_x_states[i]) imScl.x = -imScl.x;
+                            if (imPos.z < Constants.ZDisplacement * 0.5f)
+                            {
+                                imPos = imPos.To3DTileHeight(false);
+                            }
+                            Quaternion br = Tools.RotateToCamera(ref imPos);
+                            Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
+                            if (!MeshInstanceBatcher.InstancingBroken)
+                            {
+                                MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
+                                submitted = true;
+                            }
+                            continue;
                         }
-                        Quaternion br = Tools.RotateToCamera(ref imPos);
-                        Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
-                        if (!MeshInstanceBatcher.InstancingBroken)
+                        finally
                         {
-                            MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
-                            submitted = true;
+                            if (profile)
+                            {
+                                impostorSw.Stop();
+                                impostorCount++;
+                            }
                         }
-                        continue;
                     }
 
-                    BuildingRules rules = BuildingRulesRegistry.Resolve(b.asset.id);
+                    if (profile) regularSw.Start();
+                    try
+                    {
+                        BuildingRules rules = BuildingRulesRegistry.Resolve(b.asset.id);
 
                     Vector3 pos = rd.positions[i];
                     Vector3 rawPos = pos;
@@ -102,10 +127,27 @@ namespace WorldSphereMod.ProcGen
                             submitted = true;
                         }
                     }
-                    if (submitted)
-                    {
-                        rd.scales[i] = Vector3.zero;
+                        if (submitted)
+                        {
+                            rd.scales[i] = Vector3.zero;
+                        }
                     }
+                    finally
+                    {
+                        if (profile)
+                        {
+                            regularSw.Stop();
+                            regularCount++;
+                        }
+                    }
+                }
+
+                if (profile)
+                {
+                    totalSw.Stop();
+                    Debug.Log($"[WSM3D][PERF] BuildingProcRender.EmitMeshes total={totalSw.Elapsed.TotalMilliseconds:F3}ms");
+                    Debug.Log($"[WSM3D][PERF] BuildingProcRender.EmitMeshes.Impostor={impostorSw.Elapsed.TotalMilliseconds:F3}ms count={impostorCount}");
+                    Debug.Log($"[WSM3D][PERF] BuildingProcRender.EmitMeshes.Regular={regularSw.Elapsed.TotalMilliseconds:F3}ms count={regularCount}");
                 }
             }
 
