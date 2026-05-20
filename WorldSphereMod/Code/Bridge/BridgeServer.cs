@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Drawing;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -156,12 +157,35 @@ namespace WorldSphereMod.Bridge
                     if (string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase)) { WriteJson(context.Response, InvokeOnMainThread(BuildHealthPayload)); return; }
                     if (string.Equals(path, "/telemetry", StringComparison.OrdinalIgnoreCase)) { WriteJson(context.Response, InvokeOnMainThread(BuildTelemetryPayload)); return; }
                     if (string.Equals(path, "/settings", StringComparison.OrdinalIgnoreCase)) { WriteRawJson(context.Response, InvokeOnMainThread(BuildSettingsJson)); return; }
+                    if (path.StartsWith("/phase/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string phaseName = Uri.UnescapeDataString(path.Substring("/phase/".Length));
+                        WriteJson(context.Response, InvokeOnMainThread(() => BuildPhasePayload(phaseName)));
+                        return;
+                    }
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && path.StartsWith("/settings/", StringComparison.OrdinalIgnoreCase))
                 {
                     string key = path.Substring("/settings/".Length);
                     string rawValue = context.Request.QueryString["value"] ?? string.Empty;
                     WriteJson(context.Response, InvokeOnMainThread(() => UpdateSetting(key, rawValue)));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/load_save", StringComparison.OrdinalIgnoreCase))
+                {
+                    string slotText = context.Request.QueryString["slot"] ?? string.Empty;
+                    WriteJson(context.Response, InvokeOnMainThread(() => LoadSave(slotText)));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/screenshot", StringComparison.OrdinalIgnoreCase))
+                {
+                    string outputPath = context.Request.QueryString["path"] ?? string.Empty;
+                    WriteJson(context.Response, InvokeOnMainThread(() => CaptureScreenshot(outputPath)));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/diag/dump_now", StringComparison.OrdinalIgnoreCase))
+                {
+                    WriteJson(context.Response, InvokeOnMainThread(ForceDiagDumpNow));
                     return;
                 }
 
@@ -203,6 +227,171 @@ namespace WorldSphereMod.Bridge
             Core.SaveSettings();
             if (field.FieldType == typeof(bool)) Core.ApplyPhaseToggle(field.Name, (bool)parsed);
             return new { ok = true, key = field.Name, value = parsed };
+        }
+
+        object LoadSave(string slotText)
+        {
+            if (!int.TryParse(slotText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int slot) || slot < 0)
+            {
+                return new { ok = false, error = "invalid_slot", slot = slotText };
+            }
+
+            string path = FindSavePath(slot);
+            if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
+            {
+                return new { ok = false, error = "missing_save", slot, path };
+            }
+
+            if (World.world == null || World.world.save_manager == null)
+            {
+                return new { ok = false, error = "world_not_ready", slot, path };
+            }
+
+            SaveManager.setCurrentPathAndId(path, slot);
+            World.world.save_manager.prepareLoading();
+            World.world.save_manager.loadWorld(path);
+            return new { ok = true, slot, path };
+        }
+
+        object CaptureScreenshot(string outputPath)
+        {
+            if (string.IsNullOrWhiteSpace(outputPath))
+            {
+                return new { ok = false, error = "missing_path" };
+            }
+
+            try
+            {
+                string fullPath = Path.GetFullPath(outputPath);
+                string? directory = Path.GetDirectoryName(fullPath);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                int width = UnityEngine.Screen.width;
+                int height = UnityEngine.Screen.height;
+                if (width <= 0 || height <= 0)
+                {
+                    return new { ok = false, error = "invalid_screen_size", width, height, path = fullPath };
+                }
+
+                using (var bitmap = new Bitmap(width, height))
+                using (System.Drawing.Graphics graphics = System.Drawing.Graphics.FromImage(bitmap))
+                {
+                    graphics.CopyFromScreen(0, 0, 0, 0, new Size(width, height));
+                    bitmap.Save(fullPath, System.Drawing.Imaging.ImageFormat.Png);
+                }
+
+                return new { ok = true, path = fullPath, width, height };
+            }
+            catch (Exception ex)
+            {
+                return new { ok = false, error = ex.Message, path = outputPath };
+            }
+        }
+
+        object BuildPhasePayload(string phaseName)
+        {
+            FieldInfo? field = ResolvePhaseField(phaseName);
+            if (field == null || field.FieldType != typeof(bool) || !IsPhaseFlag(field.Name))
+            {
+                return new { ok = false, error = "unknown_phase", phase = phaseName };
+            }
+
+            bool enabled = Core.savedSettings != null && (bool)field.GetValue(Core.savedSettings);
+            int phaseTypes = CountPhaseTypes(field.Name);
+            return new
+            {
+                ok = true,
+                phase = field.Name,
+                status = enabled ? "enabled" : "disabled",
+                enabled,
+                patchedTypes = phaseTypes
+            };
+        }
+
+        object ForceDiagDumpNow()
+        {
+            WorldSphereMod.Voxel.MeshInstanceBatcher.ArmFallbackDiagOnce();
+            return new { ok = true, status = "armed" };
+        }
+
+        static string FindSavePath(int slot)
+        {
+            string root = SaveManager.persistentDataPath;
+            if (string.IsNullOrEmpty(root))
+            {
+                root = Application.persistentDataPath;
+            }
+
+            return Path.Combine(root, "saves", "save" + slot.ToString(CultureInfo.InvariantCulture));
+        }
+
+        static FieldInfo? ResolvePhaseField(string phaseName)
+        {
+            if (string.IsNullOrWhiteSpace(phaseName)) return null;
+
+            FieldInfo? direct = typeof(SavedSettings).GetField(phaseName, SettingFlags);
+            if (direct != null) return direct;
+
+            string normalized = NormalizePhaseName(phaseName);
+            foreach (FieldInfo field in typeof(SavedSettings).GetFields(SettingFlags))
+            {
+                if (string.Equals(NormalizePhaseName(field.Name), normalized, StringComparison.OrdinalIgnoreCase))
+                {
+                    return field;
+                }
+            }
+
+            return null;
+        }
+
+        static bool IsPhaseFlag(string flagName)
+        {
+            foreach (FieldInfo field in typeof(SavedSettings).GetFields(SettingFlags))
+            {
+                if (!string.Equals(field.Name, flagName, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                return HasPhaseTypes(flagName);
+            }
+
+            return false;
+        }
+
+        static bool HasPhaseTypes(string flagName) => CountPhaseTypes(flagName) > 0;
+
+        static int CountPhaseTypes(string flagName)
+        {
+            int count = 0;
+            Type[] types = typeof(PhaseAttribute).Assembly.GetTypes();
+            for (int i = 0; i < types.Length; i++)
+            {
+                PhaseAttribute? attr = types[i].GetCustomAttribute<PhaseAttribute>();
+                if (attr == null) continue;
+                if (!string.Equals(attr.SettingsFlagName, flagName, StringComparison.Ordinal)) continue;
+                count++;
+            }
+
+            return count;
+        }
+
+        static string NormalizePhaseName(string value)
+        {
+            StringBuilder builder = new StringBuilder(value.Length);
+            for (int i = 0; i < value.Length; i++)
+            {
+                char c = value[i];
+                if (char.IsLetterOrDigit(c))
+                {
+                    builder.Append(char.ToLowerInvariant(c));
+                }
+            }
+
+            return builder.ToString();
         }
 
         static bool TryParseSettingValue(Type fieldType, string rawValue, out object? parsed, out string error)
