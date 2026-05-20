@@ -72,6 +72,18 @@ namespace WorldSphereMod.Voxel
             // shouldn't be held under a lock, and Get() always runs on the main thread.
             System.Threading.Interlocked.Increment(ref _misses);
             Mesh m = SpriteVoxelizer.Build(sprite, depth);
+            if (m != null && Core.savedSettings.VoxelMeshSmoothing)
+            {
+                // ADR-0008: Laplacian smoothing converts blocky voxel stair-steps
+                // into a rounded 'blob' silhouette. Smooth returns a copy via
+                // Object.Instantiate; destroy the raw mesh so we don't leak it.
+                Mesh smoothed = MeshSmoother.Smooth(m, Core.savedSettings.SmoothingIterations);
+                if (smoothed != null && !ReferenceEquals(smoothed, m))
+                {
+                    Object.Destroy(m);
+                    m = smoothed;
+                }
+            }
             LogVoxelizedSprite(sprite, m);
             if (m == null || m.vertexCount == 0)
             {
