@@ -200,11 +200,11 @@ namespace WorldSphereMod.Voxel
                     if (!rd.has_normal_render[i]) continue;
 
                     Vector3 cullPos = rd.positions[i];
-                    if (cullPos.z == 0f)
+                    if (cullPos.z < Constants.ZDisplacement * 0.5f)
                     {
                         cullPos = cullPos.To3DTileHeight(false);
                     }
-                    float radius = 1f;
+                    float radius = 2f;
                     if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, radius))
                     {
                         continue;
@@ -339,11 +339,11 @@ namespace WorldSphereMod.Voxel
                     if (Constants.PerpBuildings.ContainsKey(b.asset.id)) continue;
 
                     Vector3 cullPos = rd.positions[i];
-                    if (cullPos.z == 0f)
+                    if (cullPos.z < Constants.ZDisplacement * 0.5f)
                     {
                         cullPos = cullPos.To3DTileHeight(false);
                     }
-                    float radius = 2f;
+                    float radius = 3f;
                     if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, radius))
                     {
                         continue;

@@ -49,12 +49,12 @@ namespace WorldSphereMod.ProcGen
 
                     Vector3 rawCullPos = rd.positions[i];
                     Vector3 cullPos = rawCullPos;
-                    if (cullPos.z == 0f)
+                    // 3D-lift any position that isn't already in 3D space (ZDisplacement sentinel = 100).
+                    if (cullPos.z < Constants.ZDisplacement * 0.5f)
                     {
                         cullPos = cullPos.To3DTileHeight(false);
                     }
-                    // Diag: log first cull-pos pair so we know what z we actually test
-                    if (_diagFiltCull == 0 && _diagSubmitted == 0)
+                    if (_diagSubmitted == 0 && _diagSeenAtFlagOn < 20)
                     {
                         Debug.Log($"[WSM3D] ProcMeshEmit cullPos sample raw={rawCullPos} lifted={cullPos} cam={(Camera.main != null ? Camera.main.transform.position.ToString() : "<null>")}");
                     }
