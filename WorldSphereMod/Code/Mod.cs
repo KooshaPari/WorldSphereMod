@@ -27,7 +27,9 @@ using WorldSphereMod;
             Debug.LogWarning("[WSM3D] Compute/IndirectArgs not supported; impostor-only mode.");
             WorldSphereMod.LOD.LodSelector.ImpostorOnlyMode = true;
         }
-        WorldSphereMod.Bridge.BridgeServer.EnsureCreated();
+        // DISABLED: HttpListener on :8766 may need netsh http add urlacl for non-admin
+        // bindings on Windows. Investigating; re-enable once binding error handling is graceful.
+        // WorldSphereMod.Bridge.BridgeServer.EnsureCreated();
         IsAutoTest = System.Environment.GetEnvironmentVariable("WSM3D_AUTOTEST") == "1"
                     || (Core.savedSettings != null && Core.savedSettings.AutoTest);
     }
