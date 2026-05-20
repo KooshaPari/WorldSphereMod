@@ -31,7 +31,13 @@ namespace WorldSphereMod.LOD
         static float _cachedProxyThreshold = float.NaN;
         static float _voxelMaxDistSqr;
         static float _proxyMaxDistSqr;
-        const float _entityHeight = 0.5f;
+        // Entity height is the assumed world-units height used to compute the LOD
+        // screen-projected size threshold. Phase 1 ships with VoxelScaleMultiplier=8
+        // (see project_wsm3d_phase1_visible — meshes are 8x oversize so they're visible
+        // at vanilla strategy-view altitude). Pre-multiplying entityHeight here keeps
+        // the LOD math in sync with the actual rendered size without forcing the user
+        // to set LODScale=8 manually.
+        const float _entityHeight = 0.5f * 8.0f;
 
         public static LodTier Select(Vector3 worldPos, int instanceId)
         {
