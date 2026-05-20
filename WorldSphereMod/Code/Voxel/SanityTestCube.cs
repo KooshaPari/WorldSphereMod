@@ -95,26 +95,46 @@ namespace WorldSphereMod.Voxel
                 new Vector3(-h, h, -h), new Vector3(h, h, -h), new Vector3(h, h, h), new Vector3(-h, h, h),
                 new Vector3(-h, -h, -h), new Vector3(h, -h, -h), new Vector3(h, -h, h), new Vector3(-h, -h, h),
             };
+            // All 6 faces wound CCW from OUTSIDE the cube (Unity left-handed). Previous
+            // listing had 3 faces CW + 3 CCW, so RecalculateNormals derived inward
+            // normals for half the cube — looked black under the sun light because
+            // light hit the back of those normals from the viewer's side. Set normals
+            // explicitly per face so winding-vs-normal can't drift.
             int[] triangles =
             {
-                0, 2, 1, 0, 3, 2,
-                4, 5, 6, 4, 6, 7,
-                8, 10, 9, 8, 11, 10,
-                12, 13, 14, 12, 14, 15,
-                16, 18, 17, 16, 19, 18,
-                20, 21, 22, 20, 22, 23,
+                // back   (z=-h): outside-normal -Z
+                0, 1, 2,  0, 2, 3,
+                // front  (z=+h): outside-normal +Z
+                4, 6, 5,  4, 7, 6,
+                // left   (x=-h): outside-normal -X
+                8, 9, 10, 8, 10, 11,
+                // right  (x=+h): outside-normal +X
+                12, 14, 13, 12, 15, 14,
+                // top    (y=+h): outside-normal +Y
+                16, 17, 18, 16, 18, 19,
+                // bottom (y=-h): outside-normal -Y
+                20, 22, 21, 20, 23, 22,
+            };
+            Vector3[] normals =
+            {
+                new Vector3( 0,  0, -1), new Vector3( 0,  0, -1), new Vector3( 0,  0, -1), new Vector3( 0,  0, -1),
+                new Vector3( 0,  0,  1), new Vector3( 0,  0,  1), new Vector3( 0,  0,  1), new Vector3( 0,  0,  1),
+                new Vector3(-1,  0,  0), new Vector3(-1,  0,  0), new Vector3(-1,  0,  0), new Vector3(-1,  0,  0),
+                new Vector3( 1,  0,  0), new Vector3( 1,  0,  0), new Vector3( 1,  0,  0), new Vector3( 1,  0,  0),
+                new Vector3( 0,  1,  0), new Vector3( 0,  1,  0), new Vector3( 0,  1,  0), new Vector3( 0,  1,  0),
+                new Vector3( 0, -1,  0), new Vector3( 0, -1,  0), new Vector3( 0, -1,  0), new Vector3( 0, -1,  0),
             };
             Color[] colors = new Color[vertices.Length];
             for (int i = 0; i < colors.Length; i++)
             {
-                colors[i] = Color.white;
+                colors[i] = Color.magenta;
             }
 
             _mesh = new Mesh { name = "WSM3D.SanityTestCube" };
             _mesh.vertices = vertices;
             _mesh.triangles = triangles;
+            _mesh.normals = normals;
             _mesh.colors = colors;
-            _mesh.RecalculateNormals();
             _mesh.RecalculateBounds();
             return _mesh;
         }
