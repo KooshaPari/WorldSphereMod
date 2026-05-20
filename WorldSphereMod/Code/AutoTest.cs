@@ -47,6 +47,12 @@ namespace WorldSphereMod
                 SetPhase(field, flagName, true);
                 // Give the new phase a frame to register patches, then settle.
                 yield return null;
+                // Tile-driven phases (foliage, walls) only Submit when
+                // WorldTilemap.renderTile fires. On a settled world that
+                // happens only when a tile is dirty — so trigger a refresh
+                // before measuring to give the Postfix a chance to fire.
+                ForceTilemapRefresh();
+                yield return null;
                 long peakDrawCalls = 0;
                 long peakInstances = 0;
                 for (int tick = 0; tick < 180; tick++)
@@ -69,7 +75,10 @@ namespace WorldSphereMod
         static void SetPhase(FieldInfo field, string flagName, bool value)
         {
             field.SetValue(Core.savedSettings, value);
-            Core.SaveSettings();
+            // Do NOT persist AutoTest's mutations to disk — they leave the
+            // user's default-on flags (CrossedQuadFoliage, MeshWater, etc.)
+            // toggled OFF after every cycle, breaking subsequent normal runs.
+            // Core.SaveSettings();
             Core.ApplyPhaseToggle(flagName, value);
         }
 
@@ -153,6 +162,27 @@ namespace WorldSphereMod
             }
 
             return 0;
+        }
+
+        static void ForceTilemapRefresh()
+        {
+            try
+            {
+                WorldTilemap? wt = World.world?.tilemap as WorldTilemap;
+                if (wt == null) wt = UnityEngine.Object.FindObjectOfType<WorldTilemap>();
+                if (wt == null) return;
+                MethodInfo m = typeof(WorldTilemap).GetMethod("rerenderEverything", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (m == null) m = typeof(WorldTilemap).GetMethod("refreshAll", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (m == null) m = typeof(WorldTilemap).GetMethod("clearAndRedraw", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (m != null && m.GetParameters().Length == 0)
+                {
+                    m.Invoke(wt, null);
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[WSM3D] AutoTest: ForceTilemapRefresh failed: " + e.GetType().Name);
+            }
         }
 
         static string GetFirstActorPos()
