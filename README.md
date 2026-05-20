@@ -17,14 +17,14 @@ This fork lands a real 3D pipeline on top of that foundation:
 | Phase | Status | What changes |
 |---|---|---|
 | 0  | landed       | Fork metadata, build portability (`WORLDBOX_PATH`), CI, settings/API v2 |
-| 1  | landed       | Voxelized actors + buildings (with greedy meshing); visibly rendering after Wave-14 root-cause resolution (v2.0.0-alpha.7, 2026-05-19) |
-| 2  | landed       | Procedural building meshes (heuristic landed); visibly rendering in-game after `cullPos.To3DTileHeight` lift before FrustumCuller (2026-05-19, commit `3448c1f`, v2.0.0-alpha.5) — AutoTest telemetry: drawCalls=377 instances=37760 on save2 |
+| 1  | code-complete (opt-in) | Voxelized actors + buildings (with greedy meshing); visibly rendering after Wave-14 root-cause resolution (v2.0.0-alpha.7, 2026-05-19) |
+| 2  | code-complete (opt-in) | Procedural building meshes (heuristic landed); visibly rendering in-game after `cullPos.To3DTileHeight` lift before FrustumCuller (2026-05-19, commit `3448c1f`, v2.0.0-alpha.5) — AutoTest telemetry: drawCalls=377 instances=37760 on save2 |
 | 3  | code-complete | 3a trees/bushes/rocks crossed-quads + 3b surface overlays + walls as 3D prisms |
-| 4  | code-complete (lite) | Mesh water — WaterGerstner shader source landed; AssetBundle bake deferred to Phase 5b |
-| 5  | code-complete (SSAO pending) | Sun driver + shadow cascade config + procedural sky landed (full 360° cycle as of v2.0.0-alpha.6); SSAO not yet implemented. |
+| 4  | code-complete (opt-in, lite) | Mesh water — WaterGerstner shader source landed; AssetBundle bake deferred to Phase 5b |
+| 5  | code-complete (opt-in, SSAO pending) | Sun driver + shadow cascade config + procedural sky landed (full 360° cycle as of v2.0.0-alpha.6); SSAO not yet implemented. |
 | 6  | in-progress  | Skeletal pipeline scaffold (rig cache + segmented CPU fallback + driver hooks) wired but GPU skinning path intentionally bypassed per ADR-0006; flag default OFF. |
 | 7  | code-complete | Worldspace UI: nameplate, HP bar, damage popups, selection ring all landed; SelectionHooks wired via `SelectedUnit`. |
-| 8  | code-complete (autonomous) | TimeOfDay autonomous driver + SunRig color gradient; ProceduralSky shader source landed; MapBox.world_time probe falls back since field absent. |
+| 8  | code-complete (opt-in, autonomous) | TimeOfDay autonomous driver + SunRig color gradient; ProceduralSky shader source landed; MapBox.world_time probe falls back since field absent. |
 | 9  | partial      | Particle bursts on 5 effect IDs ✅ + URP PostFX volume ✅; `DecalPool` is initialized + ticked + cleared but no `Emit()` call site exists in code → decals are effectively absent (task #143). |
 | 10 | code-complete (no proxy) | FrustumCuller + LodSelector + ImpostorBillboard + softened hardware gate; Proxy tier still routes to Voxel. |
 

@@ -9,9 +9,9 @@ Canonical "next session starts here" doc for WorldSphereMod3D.
 Hard fork of `MelvinShwuaner/WorldSphereMod` that finishes the 3D conversion
 of WorldBox: actors, buildings, foliage, water, lighting, animation, UI, sky,
 particles and LOD now have real 3D code paths sitting behind per-phase flags
-in `SavedSettings`. All 10 phases are code-complete; **Phase 1 is visibly
-working in-game** after the `VoxelScaleMultiplier=8.0f` fix. Phases 2 and 5
-still need in-game smoke tests before their flags flip to default-on.
+in `SavedSettings`. All 10 phases have code paths in place; **Phase 1 is
+visibly working in-game** after the `VoxelScaleMultiplier=8.0f` fix. Phases 1,
+2, 4, 5, 6 and 8 remain opt-in / default-off.
 Build is local-only (needs WorldBox reference DLLs); CI builds only the
 Unity-free API project.
 
@@ -49,11 +49,11 @@ Unity-free API project.
 | Phase | State | Notes |
 |---|---|---|
 | 0  Fork plumbing                       | ✅ | Build portability, GUID `worldsphere3d.fork`, settings v2, API v2 |
-| 1  Voxel actors + buildings            | ✅ | Visibly rendering as of 2026-05-19 (`v2.0.0-alpha.7`); final root-cause fix in [ADR-0015](adr/0015-actor-invisibility-final-root-causes.md). `VoxelScaleMultiplier=8.0f` still fixes pre-root-cause sub-pixel rendering. See [ADR-0011](adr/0011-phase-1-visibility-postmortem.md). |
-| 2  Procedural building meshes          | ✅ | Visibly rendering as of 2026-05-19 (commit `3448c1f`, v2.0.0-alpha.5). AutoTest telemetry on save2 (Earth, pop 6406): drawCalls=377 instances=37760. Root cause of prior invisibility: 2D rd.positions tested against 3D frustum — see [ADR-0012](adr/0012-phase-2-procedural-not-rendering.md). |
+| 1  Voxel actors + buildings            | ✅ | Visibly rendering as of 2026-05-19 (`v2.0.0-alpha.7`); final root-cause fix in [ADR-0015](adr/0015-actor-invisibility-final-root-causes.md). `VoxelScaleMultiplier=8.0f` still fixes pre-root-cause sub-pixel rendering. See [ADR-0011](adr/0011-phase-1-visibility-postmortem.md). Flag default OFF. |
+| 2  Procedural building meshes          | ✅ | Visibly rendering as of 2026-05-19 (commit `3448c1f`, v2.0.0-alpha.5). AutoTest telemetry on save2 (Earth, pop 6406): drawCalls=377 instances=37760. Root cause of prior invisibility: 2D rd.positions tested against 3D frustum — see [ADR-0012](adr/0012-phase-2-procedural-not-rendering.md). Flag default OFF. |
 | 3a Crossed-quad foliage                | ✅ | Trees/bushes/rocks ship as crossed quads; flag default ON |
 | 3b Surface overlays + walls            | ✅ | `WorldTilemap.renderTile` Prefix + `drawWallType` Prefix wired |
-| 4  Mesh water                          | ✅ | Gerstner surface + mask buffer + lifecycle Postfix; flag default ON |
+| 4  Mesh water                          | ✅ | Gerstner surface + mask buffer + lifecycle Postfix; flag default OFF |
 | 5  Sun + cascaded shadows              | 🔄 | `SunDriver`/`SunRig`/`ShadowCascadeConfig` landed; **lit shader (`VoxelLit.shader`) requires Unity 2022.3 AssetBundle bake** — flag OFF |
 | 6  Skeletal animation                  | ⚠️  | Humanoid/quadruped rigs + `RigDriver` + CPU fallback shipped; GPU compute (`VoxelSkin.compute`) **gated off** — ADR-0006 documents DrawProceduralIndirect rewrite path forward; flag default OFF |
 | 7  Worldspace UI                       | ✅ | Nameplate + HP bar + damage popups; selection ring stub awaits `SelectionManager` hook; flag default ON |
@@ -64,7 +64,6 @@ Unity-free API project.
 ## Default-on flags (the user sees these without opting in)
 
 - `CrossedQuadFoliage` — Phase 3a/3b
-- `MeshWater` — Phase 4
 - `WorldspaceUI` — Phase 7
 - `ParticleEffects` — Phase 9 (decals + bursts)
 
@@ -72,6 +71,7 @@ Unity-free API project.
 
 - `VoxelEntities` — Phase 1 (visible in-game; flag remains opt-in until ship gate)
 - `ProceduralBuildings` — Phase 2 (blocked on smoke test)
+- `MeshWater` — Phase 4
 - `HighShadows` — Phase 5 (needs lit shader from Unity bake)
 - `SkeletalAnimation` — Phase 6 (cost gate)
 - `DayNightCycle` — Phase 8
