@@ -306,7 +306,11 @@ namespace WorldSphereMod.Voxel
                     // sprite rendering for now — they tend to be flat decals (arrows,
                     // ground markers) where voxelization adds nothing.
                     if (Constants.PerpActors.ContainsKey(a.asset.id)) continue;
-                    if (!rd.has_normal_render[i]) continue;
+                    // GATE REMOVED (codex plate-78 diff): upstream may set has_normal_render=false
+                    // for actors that should still get voxelized (e.g. all actors after the first
+                    // created settlement per user observation). Buildings have no such gate;
+                    // matching that here. If we DO need to skip, fix it post-voxelize.
+                    // if (!rd.has_normal_render[i]) continue;
 
                     Vector3 cullPos = rd.positions[i];
                     if (cullPos.z < Constants.ZDisplacement * 0.5f)
