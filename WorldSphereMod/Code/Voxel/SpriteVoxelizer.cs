@@ -54,8 +54,9 @@ namespace WorldSphereMod.Voxel
         /// rect is &lt;= 8x8, otherwise uses the full sprite rect. Caller is responsible for
         /// caching the result; see <see cref="VoxelMeshCache"/>.
         /// </summary>
-        public static Mesh Build(Sprite sprite, int depth = DefaultDepth)
+        public static Mesh Build(Sprite sprite, int depth = -1)
         {
+            depth = ResolveDepth(depth);
             bool profile = Core.savedSettings.ProfilerDump;
             Stopwatch totalSw = new Stopwatch();
             Stopwatch solidSw = new Stopwatch();
@@ -203,6 +204,13 @@ namespace WorldSphereMod.Voxel
             mesh.UploadMeshData(true);
             finalSw.Stop();
             return ReturnProfiled(mesh);
+        }
+
+        static int ResolveDepth(int depth)
+        {
+            if (depth > 0) return depth;
+            int configuredDepth = Core.savedSettings != null ? Core.savedSettings.VoxelSpriteDepth : 0;
+            return configuredDepth > 0 ? configuredDepth : 3;
         }
 
         /// <summary>

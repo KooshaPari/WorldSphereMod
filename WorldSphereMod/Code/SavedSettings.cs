@@ -28,6 +28,9 @@ namespace WorldSphereMod
         // ADR-0008: optional post-mesh Laplacian smoothing for voxel output.
         public bool VoxelMeshSmoothing = false;
         public int SmoothingIterations = 1;
+        // Sprite voxel extrusion depth: 1 keeps the old slab, 3 is the cheapest
+        // setting that reads as actual 3D depth at a glance.
+        public int VoxelSpriteDepth = 3;
         public float VoxelScaleMultiplier = 6.0f;
         public bool DebugVoxelOutline = false;
         public bool DebugSanityCube = false;

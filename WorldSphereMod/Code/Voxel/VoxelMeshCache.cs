@@ -49,7 +49,7 @@ namespace WorldSphereMod.Voxel
         }
 
         /// <summary>Return the cached voxel mesh for <paramref name="sprite"/>, building one if missing.</summary>
-        public static Mesh Get(Sprite sprite, int depth = SpriteVoxelizer.DefaultDepth)
+        public static Mesh Get(Sprite sprite, int depth = -1)
         {
             if (sprite == null) return null;
             int key = sprite.GetInstanceID();
