@@ -7,6 +7,13 @@ namespace WorldSphereMod.LOD
     public static class ImpostorBillboard
     {
         static readonly Dictionary<int, Mesh> _atlas = new Dictionary<int, Mesh>();
+        static long _hits;
+        static long _misses;
+
+        /// <summary>Cumulative cache-hit count since process start (or last Clear).</summary>
+        public static long HitCount => System.Threading.Interlocked.Read(ref _hits);
+        /// <summary>Cumulative cache-miss count since process start (or last Clear).</summary>
+        public static long MissCount => System.Threading.Interlocked.Read(ref _misses);
         static Material? _material;
         static bool _materialAttempted;
         static bool _materialDebugLogged;
@@ -77,8 +84,7 @@ namespace WorldSphereMod.LOD
             for (int pass = 0; pass < material.passCount; pass++)
             {
                 string passName = material.GetPassName(pass);
-                int nativeIndex = material.GetPassNativeIndex(pass);
-                Debug.Log($"[WSM3D][MATERIAL] IMPOSTOR pass[{pass}] name='{passName}' nativeIndex={nativeIndex}");
+                Debug.Log($"[WSM3D][MATERIAL] IMPOSTOR pass[{pass}] name='{passName}'");
             }
         }
 
@@ -86,7 +92,12 @@ namespace WorldSphereMod.LOD
         {
             if (sprite == null) return null;
             int key = sprite.GetInstanceID();
-            if (_atlas.TryGetValue(key, out var m) && m != null) return m;
+            if (_atlas.TryGetValue(key, out var m) && m != null)
+            {
+                System.Threading.Interlocked.Increment(ref _hits);
+                return m;
+            }
+            System.Threading.Interlocked.Increment(ref _misses);
             m = BuildQuad(sprite);
             m.RecalculateBounds();
             _atlas[key] = m;
@@ -99,6 +110,8 @@ namespace WorldSphereMod.LOD
         {
             foreach (var m in _atlas.Values) if (m != null) Object.Destroy(m);
             _atlas.Clear();
+            System.Threading.Interlocked.Exchange(ref _hits, 0);
+            System.Threading.Interlocked.Exchange(ref _misses, 0);
         }
 
         public static void Reset()

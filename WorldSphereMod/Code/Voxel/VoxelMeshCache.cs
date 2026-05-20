@@ -28,6 +28,13 @@ namespace WorldSphereMod.Voxel
         // queue it here and let VoxelFrameDriver drain after MeshInstanceBatcher.Flush().
         static readonly Queue<Mesh> _pendingDestroy = new Queue<Mesh>();
         static ulong _frame;
+        static long _hits;
+        static long _misses;
+
+        /// <summary>Cumulative cache-hit count since process start (or last Clear).</summary>
+        public static long HitCount => System.Threading.Interlocked.Read(ref _hits);
+        /// <summary>Cumulative cache-miss count since process start (or last Clear).</summary>
+        public static long MissCount => System.Threading.Interlocked.Read(ref _misses);
 
         /// <summary>Total number of meshes currently held.</summary>
         public static int Count
@@ -51,11 +58,13 @@ namespace WorldSphereMod.Voxel
                     }
                     e.LastFrame = _frame;
                     _cache[key] = e;
+                    System.Threading.Interlocked.Increment(ref _hits);
                     return e.Mesh;
                 }
             }
             // Build outside the lock — Mesh construction touches Unity APIs that
             // shouldn't be held under a lock, and Get() always runs on the main thread.
+            System.Threading.Interlocked.Increment(ref _misses);
             Mesh m = SpriteVoxelizer.Build(sprite, depth);
             LogVoxelizedSprite(sprite, m);
             if (m == null || m.vertexCount == 0)
@@ -89,6 +98,8 @@ namespace WorldSphereMod.Voxel
                 _diagnosedSprites.Clear();
                 _pendingDestroy.Clear();
             }
+            System.Threading.Interlocked.Exchange(ref _hits, 0);
+            System.Threading.Interlocked.Exchange(ref _misses, 0);
         }
 
         /// <summary>Destroy meshes queued by <see cref="Evict"/>. Call once per frame after the batcher flushes.</summary>
