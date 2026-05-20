@@ -23,3 +23,6 @@ Tools/wsm-log-parser/target/
 
 # Rust build artifacts
 Tools/**/target/
+
+# Codex worker scratch
+.codex-*.out
