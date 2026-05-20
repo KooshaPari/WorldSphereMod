@@ -80,13 +80,18 @@ namespace WorldSphereMod.Voxel
                 "Universal Render Pipeline/Lit",
                 "Universal Render Pipeline/Unlit",
                 "Universal Render Pipeline/Particles/Unlit",
-                // Built-in Particles/Standard Unlit MUST come before plain Standard:
-                // it consumes per-vertex colors as albedo (the SpriteVoxelizer encodes
-                // sprite pixel color into mesh vertex colors). Standard ignores vertex
-                // colors and uses only _Color + _MainTex — voxel meshes render black.
+                // OPAQUE vertex-color shaders. Sprites/Default IS vertex-color aware
+                // but is TRANSPARENT (renderQueue=3000), which makes voxel cubes
+                // render see-through with all inner faces visible — looks like an
+                // open box. Use Particles/Standard Surface or VertexLit which are
+                // opaque AND consume vertex colors as albedo. Sprites/Default kept
+                // last (after Standard) as 'visible but wrong' fallback only.
+                "Particles/Standard Surface",
+                "Mobile/Particles/VertexLit Blended",
+                "VertexLit",
                 "Particles/Standard Unlit",
-                "Sprites/Default",
                 "Standard",
+                "Sprites/Default",
             };
             foreach (var name in candidates)
             {
