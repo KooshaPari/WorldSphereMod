@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Diagnostics;
 using HarmonyLib;
 using UnityEngine;
 using WorldSphereMod.NewCamera;
@@ -23,10 +25,12 @@ namespace WorldSphereMod.Voxel
     {
         static Material? _material;
         static bool _materialAttempted;
+        static bool _materialDebugLogged;
         static bool _firstActorPosLogged;
         static bool _actorVoxelDiagnosticLogged;
         static bool _actorImpostorDiagnosticLogged;
         static bool _actorSkeletalDiagnosticLogged;
+        static readonly List<Vector3> _actorVoxelSubmitTranslations = new(5);
 
         /// <summary>
         /// Destroy the cached material and clear the resolve-attempted latch. Call when
@@ -41,10 +45,12 @@ namespace WorldSphereMod.Voxel
             _material = null;
             _materialAttempted = false;
             SanityTestCube.Reset();
+            _materialDebugLogged = false;
             _firstActorPosLogged = false;
             _actorVoxelDiagnosticLogged = false;
             _actorImpostorDiagnosticLogged = false;
             _actorSkeletalDiagnosticLogged = false;
+            _actorVoxelSubmitTranslations.Clear();
         }
 
         /// <summary>
@@ -87,6 +93,7 @@ namespace WorldSphereMod.Voxel
                     m.enableInstancing = false;
                 }
                 ConfigureVoxelMaterial(m, name);
+                LogVoxelMaterialPassDetails(m, name);
                 _material = m;
                 Debug.Log($"[WSM3D] Voxel material resolved via '{name}'.");
                 return true;
@@ -150,6 +157,40 @@ namespace WorldSphereMod.Voxel
             material.color = Color.white;
         }
 
+        static void LogVoxelMaterialPassDetails(Material material, string shaderName)
+        {
+            if (_materialDebugLogged) return;
+            _materialDebugLogged = true;
+
+            if (material == null)
+            {
+                Debug.LogWarning("[WSM3D] Voxel material diagnostics skipped: material is null.");
+                return;
+            }
+
+            string shaderNameSafe = material.shader != null ? material.shader.name : "<null shader>";
+            string keywords = material.shaderKeywords != null && material.shaderKeywords.Length > 0
+                ? string.Join(", ", material.shaderKeywords)
+                : "<none>";
+
+            string renderType = material.GetTag("RenderType", true, "<none>");
+            string queueTag = material.GetTag("Queue", false, "<none>");
+            Debug.Log($"[WSM3D][MATERIAL] VOXEL sourceCandidate='{shaderName}' resolvedShader='{shaderNameSafe}' passCount={material.passCount} renderQueue={material.renderQueue} renderType={renderType} queueOverride={queueTag}");
+            Debug.Log($"[WSM3D][MATERIAL] VOXEL shaderKeywords=[{keywords}]");
+            if (renderType == "<none>" || string.IsNullOrEmpty(renderType))
+            {
+                material.SetOverrideTag("RenderType", "Opaque");
+                Debug.LogWarning($"[WSM3D][MATERIAL] VOXEL sourceCandidate='{shaderName}' missing RenderType; forced override to 'Opaque'. renderQueue={material.renderQueue} renderType={material.GetTag("RenderType", true, "<none>")}");
+            }
+
+            for (int pass = 0; pass < material.passCount; pass++)
+            {
+                string passName = material.GetPassName(pass);
+                int nativeIndex = material.GetPassNativeIndex(pass);
+                Debug.Log($"[WSM3D][MATERIAL] VOXEL pass[{pass}] name='{passName}' nativeIndex={nativeIndex}");
+            }
+        }
+
         /// <summary>Per-frame submission. Matrix should already include scale.</summary>
         public static bool Submit(Mesh mesh, Matrix4x4 trs, Color tint)
         {
@@ -168,8 +209,72 @@ namespace WorldSphereMod.Voxel
         public static void Flush()
         {
             if (_material == null) return;
+            Camera flushCamera = ResolveFlushCamera();
+            LogActorVoxelSubmitDiagnostics(flushCamera);
+
+            if (!Core.savedSettings.ProfilerDump)
+            {
+                MeshInstanceBatcher.Flush();
+                VoxelMeshCache.Tick();
+                return;
+            }
+
+            var totalSw = Stopwatch.StartNew();
+            var batchSw = Stopwatch.StartNew();
             MeshInstanceBatcher.Flush();
+            batchSw.Stop();
+            Debug.Log($"[WSM3D][PERF] VoxelRender.Flush.MeshInstanceBatcher={batchSw.Elapsed.TotalMilliseconds:F3}ms");
+
+            var cacheSw = Stopwatch.StartNew();
             VoxelMeshCache.Tick();
+            cacheSw.Stop();
+            Debug.Log($"[WSM3D][PERF] VoxelRender.Flush.VoxelMeshCache.Tick={cacheSw.Elapsed.TotalMilliseconds:F3}ms");
+
+            totalSw.Stop();
+            Debug.Log($"[WSM3D][PERF] VoxelRender.Flush total={totalSw.Elapsed.TotalMilliseconds:F3}ms");
+        }
+
+        static void LogActorVoxelSubmitDiagnostics(Camera? camera)
+        {
+            if (_actorVoxelSubmitTranslations.Count == 0) return;
+
+            Debug.Log($"[WSM3D][DIAG] Actor-voxel TRS.GetColumn(3) first {_actorVoxelSubmitTranslations.Count} submissions:");
+            for (int i = 0; i < _actorVoxelSubmitTranslations.Count; i++)
+            {
+                Debug.Log($"[WSM3D][DIAG]  sample[{i}] trsPos={_actorVoxelSubmitTranslations[i]}");
+            }
+
+            LogCameraFrustumBounds(camera);
+            _actorVoxelSubmitTranslations.Clear();
+        }
+
+        static void LogCameraFrustumBounds(Camera? cam)
+        {
+            if (cam == null) return;
+
+            Vector3 nearBL = cam.ViewportToWorldPoint(new Vector3(0f, 0f, cam.nearClipPlane));
+            Vector3 nearBR = cam.ViewportToWorldPoint(new Vector3(1f, 0f, cam.nearClipPlane));
+            Vector3 nearTL = cam.ViewportToWorldPoint(new Vector3(0f, 1f, cam.nearClipPlane));
+            Vector3 nearTR = cam.ViewportToWorldPoint(new Vector3(1f, 1f, cam.nearClipPlane));
+            Vector3 farBL = cam.ViewportToWorldPoint(new Vector3(0f, 0f, cam.farClipPlane));
+            Vector3 farBR = cam.ViewportToWorldPoint(new Vector3(1f, 0f, cam.farClipPlane));
+            Vector3 farTL = cam.ViewportToWorldPoint(new Vector3(0f, 1f, cam.farClipPlane));
+            Vector3 farTR = cam.ViewportToWorldPoint(new Vector3(1f, 1f, cam.farClipPlane));
+
+            Vector3 min = Vector3.Min(Vector3.Min(nearBL, nearBR), Vector3.Min(nearTL, nearTR));
+            min = Vector3.Min(min, Vector3.Min(farBL, farBR));
+            min = Vector3.Min(min, Vector3.Min(farTL, farTR));
+            Vector3 max = Vector3.Max(Vector3.Max(nearBL, nearBR), Vector3.Max(nearTL, nearTR));
+            max = Vector3.Max(max, Vector3.Max(farBL, farBR));
+            max = Vector3.Max(max, Vector3.Max(farTL, farTR));
+
+            Debug.Log($"[WSM3D][DIAG] Camera frustum {cam.name}: pos={cam.transform.position} near={cam.nearClipPlane:F2} far={cam.farClipPlane:F2} fov={cam.fieldOfView:F2} aspect={cam.aspect:F4} ortho={cam.orthographic} orthoSize={cam.orthographicSize:F3} boundsMin={min} boundsMax={max}");
+        }
+
+        static Camera? ResolveFlushCamera()
+        {
+            if (CameraManager.MainCamera != null && CameraManager.MainCamera.enabled) return CameraManager.MainCamera;
+            return Camera.main;
         }
 
         // ---------------------------------------------------------------------
@@ -283,6 +388,7 @@ namespace WorldSphereMod.Voxel
                     LogFirstActorPos(posBeforeLift, pos, scl);
                     // Z/X axes encode sprite-billboard lean; on a 3D mesh they topple the body. Yaw only here; lean returns in Phase 6 as a spine-bone tilt.
                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
+                    RecordActorVoxelTrs(trs);
                     // Hide the sprite quad for this actor — we drew the 3D mesh instead.
                     if (Submit(m, trs, rd.colors[i]))
                     {
@@ -313,6 +419,13 @@ namespace WorldSphereMod.Voxel
                 if (_firstActorPosLogged) return;
                 _firstActorPosLogged = true;
                 Debug.Log($"[WSM3D] First-actor pos: raw={rawPos}, lifted={liftedPos}, scl={scl}");
+            }
+
+            static void RecordActorVoxelTrs(Matrix4x4 trs)
+            {
+                if (_actorVoxelSubmitTranslations.Count >= 5) return;
+                Vector4 pos = trs.GetColumn(3);
+                _actorVoxelSubmitTranslations.Add(new Vector3(pos.x, pos.y, pos.z));
             }
         }
 
