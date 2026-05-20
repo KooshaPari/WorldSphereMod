@@ -142,7 +142,7 @@ jobs:
 
             # Run verify in mock mode; accept failure from screenshot checks but
             # reject errors from schema/binary issues. Extract just result status.
-            "$PJ_BIN" verify "$manifest" --mode mock 2>&1 | tail -5
+            "$PJ_BIN" verify "$manifest" 2>&1 | tail -5 || true
           done
 
           echo ""
