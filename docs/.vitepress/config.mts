@@ -87,6 +87,7 @@ export default defineConfig({
           { text: '0003 — Reflective URP bindings', link: '/adr/0003-reflective-urp-bindings' },
           { text: '0004 — Rigid skinning over blended', link: '/adr/0004-rigid-skinning-over-blended' },
           { text: '0005 — Default-on flags per phase ship gate', link: '/adr/0005-default-on-flags-per-phase-ship-gate' },
+          { text: '0016 — Thread-safe MeshInstanceBatcher.Submit via deferred queue', link: '/adr/0016-thread-safe-meshinstancebatcher-submit-deferred-queue' },
         ],
       },
       {

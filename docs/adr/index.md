@@ -11,6 +11,7 @@ decision with context, alternatives, and consequences. They are
 | [0003](/adr/0003-reflective-urp-bindings) | Reflective URP bindings (`ShadowCascadeConfig` + `PostFxController`) | Accepted |
 | [0004](/adr/0004-rigid-skinning-over-blended) | Rigid (one-bone-per-vertex) skinning over blended for voxel meshes | Accepted |
 | [0005](/adr/0005-default-on-flags-per-phase-ship-gate) | Per-phase `SavedSettings` flag flips default-on only after in-game validation | Accepted |
+| [0016](/adr/0016-thread-safe-meshinstancebatcher-submit-deferred-queue) | Thread-safe `MeshInstanceBatcher.Submit` via deferred queue | Accepted |
 
 ## How to add an ADR
 
