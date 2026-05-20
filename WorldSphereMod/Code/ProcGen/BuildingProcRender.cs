@@ -8,6 +8,10 @@ namespace WorldSphereMod.ProcGen
     public static class BuildingProcRender
     {
         static bool _firstBuildingPosLogged;
+        static int _diagEntryCount;
+        static int _diagSkipNotWorld3D;
+        static int _diagSkipFlagOff;
+        static int _diagLastReportEntry;
 
         [Phase(nameof(SavedSettings.ProceduralBuildings))]
         [HarmonyPatch(typeof(BuildingManager), nameof(BuildingManager.precalculateRenderDataParallel))]
@@ -16,7 +20,16 @@ namespace WorldSphereMod.ProcGen
             [HarmonyPostfix]
             public static void EmitMeshes(BuildingManager __instance)
             {
-                if (!Core.IsWorld3D || !Core.savedSettings.ProceduralBuildings) return;
+                _diagEntryCount++;
+                if (_diagEntryCount - _diagLastReportEntry >= 60)
+                {
+                    _diagLastReportEntry = _diagEntryCount;
+                    int n0 = __instance != null ? __instance._visible_buildings_count : -1;
+                    Debug.Log($"[WSM3D] ProcMeshEmit diag entries={_diagEntryCount} skipNotWorld3D={_diagSkipNotWorld3D} skipFlagOff={_diagSkipFlagOff} IsWorld3D={Core.IsWorld3D} ProcBuildingsFlag={Core.savedSettings.ProceduralBuildings} visBuildings={n0}");
+                }
+
+                if (!Core.IsWorld3D) { _diagSkipNotWorld3D++; return; }
+                if (!Core.savedSettings.ProceduralBuildings) { _diagSkipFlagOff++; return; }
                 // Reuse the Phase 1 voxel material until Phase 5 ships VoxelLit.shader.
                 if (!VoxelRender.EnsureMaterial()) return;
 
