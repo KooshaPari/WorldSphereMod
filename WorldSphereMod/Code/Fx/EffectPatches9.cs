@@ -39,6 +39,7 @@ namespace WorldSphereMod.Fx
             [HarmonyPrefix]
             public static void OnFinish()
             {
+                VoxelParticleBurst.Clear();
                 ParticleEffectLibrary.Clear();
                 DecalPool.Clear();
                 if (_root != null) { Object.Destroy(_root.gameObject); _root = null; }

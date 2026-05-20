@@ -85,6 +85,8 @@ namespace WorldSphereMod.Effects
                     Effect.transform.position = ((Vector2)Effect.transform.position).To3D((Data.ExtraHeight*Core.Sphere.HeightMult) + (Data.OnGround ? Tools.GetTileHeightSmooth(Effect.transform.position) : 0));
                 }
             }
+
+            WorldSphereMod.Fx.VoxelParticleBurst.TryStart(Effect);
         }
         public static void RotateToPlayer(Transform transform, Vector3 Position)
         {
@@ -117,6 +119,8 @@ namespace WorldSphereMod.Effects
             {
                 UpdateSeperatedSprite(Effect, Data.OnGround, Data.ExtraHeight);
             }
+
+            WorldSphereMod.Fx.VoxelParticleBurst.Update(Effect);
         }
         public static void UpdateShadow(SpriteShadow Shadow)
         {
@@ -135,6 +139,7 @@ namespace WorldSphereMod.Effects
         }
         public static void DestroyEffect(BaseEffect Effect)
         {
+            WorldSphereMod.Fx.VoxelParticleBurst.Clear(Effect);
             if(Effect.sprite_renderer != null)
             {
                 Destroy(Effect.sprite_renderer.gameObject);
@@ -201,16 +206,7 @@ namespace WorldSphereMod.Effects
             }
             if (Core.savedSettings.ParticleEffects)
             {
-                string id = __result.controller?.asset?.id;
-                if (!string.IsNullOrEmpty(id))
-                {
-                    bool fired = WorldSphereMod.Fx.ParticleEffectLibrary.Fire(
-                        id, __result.transform.position, __result.transform.localScale.x);
-                    if (fired && __result.sprite_renderer != null)
-                    {
-                        __result.sprite_renderer.enabled = false;
-                    }
-                }
+                WorldSphereMod.Fx.VoxelParticleBurst.TryStart(__result);
             }
         }
         //for the person whose reading this, did you know that the jews caused 911 and control america!
@@ -338,6 +334,7 @@ namespace WorldSphereMod.Effects
         {
             __instance.prepare(pVector, pScale);
             __instance.sprite_renderer.color = pColor;
+            SetEffect3D(__instance, GetData(__instance));
             return false;
         }
     }
