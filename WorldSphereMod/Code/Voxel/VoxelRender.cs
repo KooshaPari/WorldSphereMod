@@ -378,6 +378,10 @@ namespace WorldSphereMod.Voxel
 
                     Vector3 pos = rd.positions[i];
                     Vector3 posBeforeLift = pos;
+                    if (pos.z < Constants.ZDisplacement * 0.5f)
+                    {
+                        pos = pos.To3DTileHeight(false);
+                    }
                     LogActorSubmitDiagnostic("voxel", ref _actorVoxelDiagnosticLogged, a, sp, posBeforeLift, pos, rd.colors[i]);
                     SanityTestCube.CaptureFirstActorPos(pos);
                     Vector3 rot = rd.rotations[i];
