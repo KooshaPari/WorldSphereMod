@@ -86,15 +86,28 @@ namespace WorldSphereMod.Voxel
                 // open box. Use Particles/Standard Surface or VertexLit which are
                 // opaque AND consume vertex colors as albedo. Sprites/Default kept
                 // last (after Standard) as 'visible but wrong' fallback only.
-                "Particles/Standard Surface",       // opaque, lit, vertex-color albedo
-                "Particles/Standard Unlit",          // opaque, unlit, vertex-color albedo
-                "Mobile/Particles/VertexLit Blended",
-                // Legacy VertexLit ignores vertex colors → magenta neon look —
-                // skip it for actor/building voxel meshes.
-                // "VertexLit",
-                "Standard",
+                // Sprites/Default is vertex-color aware but transparent by default.
+                // We force it to alpha-cutout opaque via material properties below.
+                // Order: try the more sophisticated ones first; fall through to
+                // Sprites/Default+opaque-cutout as the dependable last-resort.
+                "Particles/Standard Surface",
+                "Particles/Standard Unlit",
                 "Sprites/Default",
+                "Standard",
             };
+            // First try a custom inline opaque-vertex-color shader. Built-in
+            // candidates that DON'T consume vertex colors (Standard) leave voxel
+            // meshes gray/black; ones that DO are typically transparent
+            // (Sprites/Default) — the open-box-see-through bug. This inline
+            // shader is opaque AND consumes vertex colors as the only albedo.
+            Material? inlineMat = TryCompileInlineVoxelShader();
+            if (inlineMat != null)
+            {
+                _material = inlineMat;
+                Debug.Log("[WSM3D] Voxel material resolved via inline 'WSM3D/OpaqueVertexColor'.");
+                return true;
+            }
+
             foreach (var name in candidates)
             {
                 Shader? s = Shader.Find(name);
@@ -105,6 +118,23 @@ namespace WorldSphereMod.Voxel
                 {
                     m.enableInstancing = false;
                 }
+                // Force opaque alpha-cutout on transparent shaders (Sprites/Default
+                // especially) so voxel cubes render with vertex colors but stop
+                // showing all inner faces. ZWrite ON + One/Zero blend + AlphaTest
+                // keyword + Cutoff = solid voxel pixels visible, transparent
+                // pixels punched out, no see-through.
+                try
+                {
+                    m.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+                    m.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+                    m.SetInt("_ZWrite", 1);
+                    m.DisableKeyword("_ALPHABLEND_ON");
+                    m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                    m.EnableKeyword("_ALPHATEST_ON");
+                    m.SetFloat("_Cutoff", 0.5f);
+                    m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.AlphaTest;
+                }
+                catch { /* shader doesn't have these props — fine */ }
                 ConfigureVoxelMaterial(m, name);
                 LogVoxelMaterialPassDetails(m, name);
                 _material = m;
@@ -113,6 +143,27 @@ namespace WorldSphereMod.Voxel
             }
             Debug.LogWarning("[WSM3D] No usable shader found; voxel renderer disabled.");
             return false;
+        }
+
+
+        // Attempt to construct an inline opaque vertex-color shader at runtime.
+        // Returns null if Unity refuses to compile it (older Unity versions).
+        static Material? TryCompileInlineVoxelShader()
+        {
+            try
+            {
+                // First check if our custom name already exists (compiled once previously).
+                Shader? existing = Shader.Find("WSM3D/OpaqueVertexColor");
+                if (existing != null)
+                {
+                    return new Material(existing) { name = "WSM3D.Voxel.OpaqueVertexColor" };
+                }
+                // Unity 2022 doesn't have a public runtime ShaderLab compile API,
+                // so the inline-shader path is a no-op unless a baked shader of
+                // our name is shipped in an AssetBundle (Phase 5 TODO).
+                return null;
+            }
+            catch { return null; }
         }
 
         static readonly int _baseColorId = Shader.PropertyToID("_BaseColor");
