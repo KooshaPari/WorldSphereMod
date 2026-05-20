@@ -2,7 +2,7 @@
 
 ## Status
 
-Active diagnosis (2026-05-19).
+**Resolved (v2.0.0-alpha.5, 2026-05-19, commit `3448c1f`).**
 
 ## Context
 
@@ -96,6 +96,43 @@ if (!FrustumCuller.IsVisible(cullPos, radius)) { ... continue; }
 Same lift logic that the impostor branch already applied, just hoisted
 above the cull test. Bumped `radius` to 2.0 — a 1×1×1 box was too small
 to be meaningful for buildings spanning multiple tiles.
+
+### Follow-up fix (commit `9143f81`)
+
+The first round of the lift fix used `if (cullPos.z == 0f)` as the
+"position is 2D" test. The next AutoTest cycle showed the cull rate
+unchanged — `filtCull` still ~99%. The raw-vs-lifted sample dump
+explained why:
+
+```
+raw=(64.50, 72.50, -0.20) lifted=(64.50, 72.50, -0.20)
+```
+
+`rd.positions[i].z` is not exactly `0` — terrain elevation perturbs it
+slightly below zero. Generalized the test to use the
+`Constants.ZDisplacement = 100` sentinel (the existing "already in 3D
+space" marker) with a `< ZDisplacement * 0.5f` threshold. After this:
+
+```
+raw=(1.42, 1.50, -0.20) lifted=(1.42, 2.08, 101.50)
+```
+
+`To3DTileHeight(false)` swaps Y↔Z and adds `ZDisplacement` to the new
+Z, putting buildings in the camera's actual look direction.
+
+### Conclusive AutoTest telemetry (v2.0.0-alpha.5)
+
+```
+phase=VoxelEntities       drawCalls=531 instances=38935  (was 154/1144)
+phase=ProceduralBuildings drawCalls=377 instances=37760  (was 0/0)
+filtCull dropped from 1,292,700 to 143,901 (90% reduction)
+```
+
+Both phases visibly rendering for the first time. The same
+`cullPos < ZDisplacement * 0.5f → To3DTileHeight` lift was applied
+to all three FrustumCuller sites (`BuildingProcRender`,
+`VoxelRender.ActorVoxelEmit`, `VoxelRender.BuildingVoxelEmit`),
+unblocking Phase 1 (3.4× drawCall increase) as a bonus.
 
 ## Linked
 
