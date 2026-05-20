@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.Rendering;
 using WorldSphereMod.NewCamera;
@@ -41,6 +43,23 @@ namespace WorldSphereMod.Voxel
             public Vector4[] ColScratch = new Vector4[kBatch];
         }
 
+        readonly struct SubmitRecord
+        {
+            public readonly Mesh Mesh;
+            public readonly Material Material;
+            public readonly Matrix4x4 Matrix;
+            public readonly Vector4 Tint;
+
+            public SubmitRecord(Mesh mesh, Material material, Matrix4x4 matrix, Color tint)
+            {
+                Mesh = mesh;
+                Material = material;
+                Matrix = matrix;
+                Tint = tint;
+            }
+        }
+
+        static readonly ConcurrentQueue<SubmitRecord> _pendingSubmissions = new ConcurrentQueue<SubmitRecord>();
         static readonly Dictionary<Key, Bucket> _buckets = new Dictionary<Key, Bucket>(128);
         static readonly int _colorProp = Shader.PropertyToID("_InstanceColor");
         static readonly int _baseColorProp = Shader.PropertyToID("_BaseColor");
@@ -55,16 +74,10 @@ namespace WorldSphereMod.Voxel
 
         public static bool HasPendingSubmissions
         {
-            get
-            {
-                foreach (var kv in _buckets)
-                {
-                    if (kv.Value.Matrices.Count > 0) return true;
-                }
-                return false;
-            }
+            get { return Volatile.Read(ref _pendingSubmissionCount) > 0; }
         }
 
+        static int _pendingSubmissionCount;
         static bool _instancingErrorLogged;
         static bool _useFallbackPath;
         static bool _renderTargetLogged;
@@ -73,6 +86,27 @@ namespace WorldSphereMod.Voxel
         public static void Submit(Mesh mesh, Material mat, Matrix4x4 matrix, Color tint)
         {
             if (mesh == null || mat == null) return;
+            _pendingSubmissions.Enqueue(new SubmitRecord(mesh, mat, matrix, tint));
+            Interlocked.Increment(ref _pendingSubmissionCount);
+        }
+
+        static void DrainPendingSubmissions()
+        {
+            int drained = 0;
+            while (_pendingSubmissions.TryDequeue(out var record))
+            {
+                AddToBucket(record.Mesh, record.Material, record.Matrix, record.Tint);
+                drained++;
+            }
+
+            if (drained > 0)
+            {
+                Interlocked.Add(ref _pendingSubmissionCount, -drained);
+            }
+        }
+
+        static void AddToBucket(Mesh mesh, Material mat, Matrix4x4 matrix, Vector4 tint)
+        {
             var k = new Key { Mesh = mesh, Material = mat };
             if (!_buckets.TryGetValue(k, out var b))
             {
@@ -85,6 +119,10 @@ namespace WorldSphereMod.Voxel
 
         public static void Flush(int layer = 0, ShadowCastingMode shadows = ShadowCastingMode.On, bool receive = true)
         {
+            DrainPendingSubmissions();
+
+            LogAllCameras();
+
             Camera renderCamera = ResolveRenderCamera();
             int resolvedLayer = ResolveRenderLayer(layer, renderCamera);
             LogRenderTarget(renderCamera, layer, resolvedLayer, shadows, receive);
@@ -261,6 +299,22 @@ namespace WorldSphereMod.Voxel
             return resolved;
         }
 
+        static void LogAllCameras()
+        {
+            var cameras = Camera.allCameras;
+            for (int i = 0; i < cameras.Length; i++)
+            {
+                var cam = cameras[i];
+                string name = cam != null ? cam.name : "<null>";
+                bool enabled = cam != null && cam.enabled;
+                bool active = cam != null && cam.isActiveAndEnabled;
+                int cullingMask = cam != null ? cam.cullingMask : 0;
+                float depth = cam != null ? cam.depth : 0f;
+                string targetTexture = cam != null && cam.targetTexture != null ? cam.targetTexture.name : "<none>";
+                Debug.Log($"[WSM3D] Flush cameras[{i}] name={name} enabled={enabled} isActiveAndEnabled={active} cullingMask=0x{cullingMask:X8} depth={depth} targetTexture={targetTexture}");
+            }
+        }
+
         static void LogRenderTarget(Camera cam, int requestedLayer, int resolvedLayer, ShadowCastingMode shadows, bool receive)
         {
             if (_renderTargetLogged) return;
@@ -273,6 +327,11 @@ namespace WorldSphereMod.Voxel
 
         public static void Reset()
         {
+            while (_pendingSubmissions.TryDequeue(out _))
+            {
+            }
+
+            Interlocked.Exchange(ref _pendingSubmissionCount, 0);
             _buckets.Clear();
             _useFallbackPath = false;
             _instancingErrorLogged = false;
