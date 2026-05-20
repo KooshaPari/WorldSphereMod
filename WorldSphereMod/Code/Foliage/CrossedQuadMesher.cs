@@ -22,7 +22,7 @@ namespace WorldSphereMod.Foliage
     /// </summary>
     public static class CrossedQuadMesher
     {
-        public static Mesh Build(Sprite sprite, BuildingShape shape, float swayAmplitude, CrossedQuadVariant variant)
+        internal static Mesh Build(Sprite sprite, BuildingShape shape, float swayAmplitude, CrossedQuadVariant variant)
         {
             if (sprite == null) return CreateEmpty();
             // Defensive: the upstream SpriteVoxelizer crashed on non-readable atlases.

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Diagnostics;
 using HarmonyLib;
 using UnityEngine;
@@ -11,8 +10,6 @@ namespace WorldSphereMod.ProcGen
     public static class BuildingProcRender
     {
         static bool _firstBuildingPosLogged;
-        static readonly List<int> _impostorBuildings = new List<int>(128);
-        static readonly List<int> _voxelBuildings = new List<int>(128);
 
         [Phase(nameof(SavedSettings.ProceduralBuildings))]
         [HarmonyPatch(typeof(BuildingManager), nameof(BuildingManager.precalculateRenderDataParallel))]
@@ -33,10 +30,6 @@ namespace WorldSphereMod.ProcGen
                 Stopwatch regularSw = new Stopwatch();
                 int impostorCount = 0;
                 int regularCount = 0;
-                _impostorBuildings.Clear();
-                _voxelBuildings.Clear();
-                if (_impostorBuildings.Capacity < n) _impostorBuildings.Capacity = n;
-                if (_voxelBuildings.Capacity < n) _voxelBuildings.Capacity = n;
 
                 if (profile) totalSw.Start();
 
@@ -56,113 +49,108 @@ namespace WorldSphereMod.ProcGen
                         continue;
                     }
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode());
+                    bool submitted = false;
+
                     if (tier == WorldSphereMod.LOD.LodTier.Impostor)
                     {
-                        _impostorBuildings.Add(i);
-                        continue;
-                    }
-
-                    _voxelBuildings.Add(i);
-                }
-
-                for (int j = 0; j < _impostorBuildings.Count; j++)
-                {
-                    int i = _impostorBuildings[j];
-                    if (profile) impostorSw.Start();
-                    try
-                    {
-                        Sprite? impSp = rd.main_sprites[i];
-                        if (impSp == null) continue;
-                        Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(impSp);
-                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
-                        if (im == null || imMat == null) continue;
-                        Vector3 imPos = rd.positions[i];
-                        Vector3 imScl = rd.scales[i];
-                        if (rd.flip_x_states[i]) imScl.x = -imScl.x;
-                        if (imPos.z < Constants.ZDisplacement * 0.5f)
+                        if (profile) impostorSw.Start();
+                        try
                         {
-                            imPos = imPos.To3DTileHeight(false);
-                        }
-                        Quaternion br = Tools.RotateToCamera(ref imPos);
-                        Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
-                        bool submitted = false;
-                        if (!MeshInstanceBatcher.InstancingBroken)
-                        {
-                            MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
-                            submitted = true;
-                        }
-                        if (submitted)
-                        {
-                            rd.scales[i] = Vector3.zero;
-                        }
-                    }
-                    finally
-                    {
-                        if (profile)
-                        {
-                            impostorSw.Stop();
-                            impostorCount++;
-                        }
-                    }
-                }
-
-                for (int j = 0; j < _voxelBuildings.Count; j++)
-                {
-                    int i = _voxelBuildings[j];
-                    if (profile) regularSw.Start();
-                    try
-                    {
-                        Building b = arr[i];
-                        if (b == null || b.asset == null) continue;
-
-                        BuildingRules rules = BuildingRulesRegistry.Resolve(b.asset.id);
-
-                        Vector3 pos = rd.positions[i];
-                        Vector3 rawPos = pos;
-                        if (pos.z < Constants.ZDisplacement * 0.5f)
-                        {
-                            pos = pos.To3DTileHeight(false);
-                        }
-                        Vector3 rot = rd.rotations[i];
-                        Vector3 scl = rd.scales[i];
-                        if (rd.flip_x_states[i]) scl.x = -scl.x;
-                        scl.z = scl.x;
-
-                        if (rules.Shape == BuildingShape.CrossedQuad || rules.Shape == BuildingShape.Single)
-                        {
-                            LogFirstBuildingPos(rawPos, pos, scl);
-                            Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
-                            if (!FoliageMaterial.EnsureMaterial()) continue;
-                            Sprite? sp = rd.main_sprites[i];
-                            if (sp == null) continue;
-                            Mesh? fm = CrossedQuadMeshCache.GetOrBuild(sp, rules.Shape, rules.SwayAmplitude);
-                            if (fm == null) continue;
-                            Material? mat = FoliageMaterial.Get();
-                            if (mat == null) continue;
+                            Sprite? impSp = rd.main_sprites[i];
+                            if (impSp == null) continue;
+                            Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(impSp);
+                            Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
+                            if (im == null || imMat == null) continue;
+                            Vector3 imPos = rd.positions[i];
+                            Vector3 imScl = rd.scales[i];
+                            if (rd.flip_x_states[i]) imScl.x = -imScl.x;
+                            if (imPos.z < Constants.ZDisplacement * 0.5f)
+                            {
+                                imPos = imPos.To3DTileHeight(false);
+                            }
+                            Quaternion br = Tools.RotateToCamera(ref imPos);
+                            Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
                             if (!MeshInstanceBatcher.InstancingBroken)
                             {
-                                MeshInstanceBatcher.Submit(fm, mat, trs, rd.colors[i]);
+                                MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
+                                submitted = true;
                             }
                         }
-                        else
+                        finally
                         {
-                            scl *= Core.savedSettings.VoxelScaleMultiplier;
-                            LogFirstBuildingPos(rawPos, pos, scl);
-                            Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
-                            Mesh m = ProcGenCache.GetOrGenerate(b.asset, rules);
-                            if (m == null) continue;
-                            if (!VoxelRender.Submit(m, trs, rd.colors[i])) continue;
+                            if (profile)
+                            {
+                                impostorSw.Stop();
+                                impostorCount++;
+                            }
                         }
-
-                        rd.scales[i] = Vector3.zero;
                     }
-                    finally
+                    else
                     {
-                        if (profile)
+                        if (profile) regularSw.Start();
+                        try
                         {
-                            regularSw.Stop();
-                            regularCount++;
+                            BuildingRules rules = BuildingRulesRegistry.Resolve(b.asset.id);
+
+                            Vector3 pos = rd.positions[i];
+                            Vector3 rawPos = pos;
+                            if (pos.z < Constants.ZDisplacement * 0.5f)
+                            {
+                                pos = pos.To3DTileHeight(false);
+                            }
+                            Vector3 rot = rd.rotations[i];
+                            Vector3 scl = rd.scales[i];
+                            if (rd.flip_x_states[i]) scl.x = -scl.x;
+                            scl.z = scl.x;
+
+                            if (rules.Shape == BuildingShape.CrossedQuad || rules.Shape == BuildingShape.Single)
+                            {
+                                LogFirstBuildingPos(rawPos, pos, scl);
+                                if (!FoliageDensity.ShouldRender(rawPos, b.asset.id, Core.savedSettings.FoliageDensity))
+                                {
+                                    rd.scales[i] = Vector3.zero;
+                                    continue;
+                                }
+                                Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
+                                if (!FoliageMaterial.EnsureMaterial()) continue;
+                                Sprite? sp = rd.main_sprites[i];
+                                if (sp == null) continue;
+                                Mesh? fm = CrossedQuadMeshCache.GetOrBuild(sp, rules.Shape, rules.SwayAmplitude, b.asset.id);
+                                if (fm == null) continue;
+                                Material? mat = FoliageMaterial.Get();
+                                if (mat == null) continue;
+                                if (!MeshInstanceBatcher.InstancingBroken)
+                                {
+                                    MeshInstanceBatcher.Submit(fm, mat, trs, rd.colors[i]);
+                                    submitted = true;
+                                }
+                            }
+                            else
+                            {
+                                scl *= Core.savedSettings.VoxelScaleMultiplier;
+                                LogFirstBuildingPos(rawPos, pos, scl);
+                                Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
+                                Mesh m = ProcGenCache.GetOrGenerate(b.asset, rules);
+                                if (m == null) continue;
+                                if (VoxelRender.Submit(m, trs, rd.colors[i]))
+                                {
+                                    submitted = true;
+                                }
+                            }
                         }
+                        finally
+                        {
+                            if (profile)
+                            {
+                                regularSw.Stop();
+                                regularCount++;
+                            }
+                        }
+                    }
+
+                    if (submitted)
+                    {
+                        rd.scales[i] = Vector3.zero;
                     }
                 }
 

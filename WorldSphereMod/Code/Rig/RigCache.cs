@@ -63,9 +63,9 @@ namespace WorldSphereMod.Rig
 
         static SkinnedVoxelMesh BuildMesh(Sprite sprite, RigType rigType)
         {
-            if (rigType == RigType.Humanoid)
+            if (rigType == RigType.Humanoid || rigType == RigType.Quadruped)
             {
-                return BuildHumanoid(sprite);
+                return VoxelMeshCache.BuildWithBoneWeights(sprite, rigType);
             }
 
             Mesh mesh = SpriteVoxelizer.BuildPerTexel(sprite, SpriteVoxelizer.DefaultDepth, out _);
@@ -74,62 +74,6 @@ namespace WorldSphereMod.Rig
                 BaseMesh = mesh,
                 BoneIndices = System.Array.Empty<byte>(),
                 RigType = rigType == RigType.None ? RigType.Static : rigType,
-            };
-        }
-
-        // Build the mesh without greedy merging so each emitted vertex can be traced back
-        // to a single source texel, then look up that texel's BoneId from
-        // HumanoidRig.SegmentVoxels.
-        static SkinnedVoxelMesh BuildHumanoid(Sprite sprite)
-        {
-            BoneId[] segment = null;
-            if (sprite.texture != null && sprite.texture.isReadable)
-            {
-                Rect r = sprite.textureRect;
-                int w = Mathf.Max(1, (int)r.width);
-                int h = Mathf.Max(1, (int)r.height);
-                int sx = (int)r.x;
-                int sy = (int)r.y;
-                Color32[] tex = sprite.texture.GetPixels32();
-                int texW = sprite.texture.width;
-
-                var sub = new Color32[w * h];
-                for (int y = 0; y < h; y++)
-                {
-                    int dstRow = y * w;
-                    int srcRow = (sy + y) * texW + sx;
-                    for (int x = 0; x < w; x++)
-                    {
-                        sub[dstRow + x] = tex[srcRow + x];
-                    }
-                }
-                segment = HumanoidRig.SegmentVoxels(w, h, sub);
-            }
-
-            var mesh = SpriteVoxelizer.BuildPerTexel(sprite, SpriteVoxelizer.DefaultDepth, out int[] vertexToTexel);
-            var boneIndices = new byte[mesh.vertexCount];
-            int segLen = segment != null ? segment.Length : 0;
-            int vmapLen = vertexToTexel != null ? vertexToTexel.Length : 0;
-            for (int i = 0; i < boneIndices.Length; i++)
-            {
-                BoneId bone = BoneId.Spine;
-                if (segment != null && i < vmapLen)
-                {
-                    int t = vertexToTexel[i];
-                    if (t >= 0 && t < segLen)
-                    {
-                        BoneId b = segment[t];
-                        bone = b == BoneId.Root ? BoneId.Spine : b;
-                    }
-                }
-                boneIndices[i] = (byte)bone;
-            }
-
-            return new SkinnedVoxelMesh
-            {
-                BaseMesh = mesh,
-                BoneIndices = boneIndices,
-                RigType = RigType.Humanoid,
             };
         }
 

@@ -76,6 +76,11 @@ namespace WorldSphereMod.Foliage
             }
             if (sprite == null) return true;
 
+            if (t.life && !FoliageDensity.ShouldRender(pTile.pos.x, pTile.pos.y, sprite.name, Core.savedSettings.FoliageDensity))
+            {
+                return false;
+            }
+
             if (!FoliageMaterial.EnsureMaterial()) return true;
             Material? mat = FoliageMaterial.Get();
             if (mat == null) return true;

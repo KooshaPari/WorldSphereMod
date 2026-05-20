@@ -51,4 +51,22 @@ public sealed class Phase6RigRegistryTests
             source.Should().Contain($"[\"{id}\"]", $"ActorRigTypes should include {id}");
         }
     }
+
+    [Fact]
+    public void VoxelMeshCache_exposes_the_rig_weight_builder()
+    {
+        var source = ReadSource(@"WorldSphereMod/Code/Voxel/VoxelMeshCache.cs");
+
+        source.Should().Contain("BuildWithBoneWeights");
+        source.Should().Contain("HumanoidRig.SegmentVoxels");
+        source.Should().Contain("SkinnedVoxelMesh");
+    }
+
+    [Fact]
+    public void RigCache_uses_the_shared_bone_weight_builder_for_humanoids()
+    {
+        var source = ReadSource(@"WorldSphereMod/Code/Rig/RigCache.cs");
+
+        source.Should().Contain("VoxelMeshCache.BuildWithBoneWeights(sprite, rigType)");
+    }
 }

@@ -1,3 +1,5 @@
+using System;
+using Object = UnityEngine.Object;
 using System.Collections.Generic;
 using UnityEngine;
 using WorldSphereMod.ProcGen;
@@ -6,8 +8,9 @@ namespace WorldSphereMod.Foliage
 {
     /// <summary>
     /// LRU cache of crossed-quad foliage meshes. Mirrors <c>VoxelMeshCache</c>'s
-    /// lock + deferred-destroy + 10% eviction pattern. Key folds the shape into
-    /// the low byte so the same sprite can cache distinctly as CrossedQuad vs Single.
+    /// lock + deferred-destroy + 10% eviction pattern. Key includes the sprite,
+    /// shape, asset profile, and sway amplitude so the same atlas frame can cache
+    /// distinctly for oak/pine/palm variants or sway/no-sway paths.
     /// </summary>
     public static class CrossedQuadMeshCache
     {
@@ -66,7 +69,7 @@ namespace WorldSphereMod.Foliage
                 SpriteId = sprite.GetInstanceID(),
                 Shape = shape,
                 Variant = ResolveVariant(assetId),
-                SwayBits = BitConverter.SingleToInt32Bits(swayAmplitude),
+                SwayBits = System.BitConverter.ToInt32(System.BitConverter.GetBytes(swayAmplitude), 0),
             };
 
             lock (_lock)
@@ -150,7 +153,7 @@ namespace WorldSphereMod.Foliage
             }
             if (maxFrame == minFrame) return;
             ulong threshold = minFrame + (maxFrame - minFrame) / 10;
-            var toRemove = new List<long>();
+            var toRemove = new List<CacheKey>();
             foreach (var kv in _cache)
             {
                 if (kv.Value.LastFrame <= threshold) toRemove.Add(kv.Key);

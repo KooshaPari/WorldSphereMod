@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
 using WorldSphereMod;
+using WorldSphereMod.Rig;
 using Debug = UnityEngine.Debug;
 
 namespace WorldSphereMod.Voxel
@@ -96,6 +97,77 @@ namespace WorldSphereMod.Voxel
                 if (_cache.Count > Capacity) Evict();
             }
             return m;
+        }
+
+        /// <summary>
+        /// Build a voxel mesh plus per-vertex rigid bone assignment for skeletal-tier
+        /// actors. Humanoid rigs use the sprite's local Y bands to split head, torso,
+        /// arm, and leg voxels into one-bone skin regions.
+        /// </summary>
+        public static SkinnedVoxelMesh BuildWithBoneWeights(Sprite sprite, WorldSphereMod.Rig.RigType rigType)
+        {
+            WorldSphereMod.Rig.RigType resolvedRig = rigType == WorldSphereMod.Rig.RigType.None
+                ? WorldSphereMod.Rig.RigType.Static
+                : rigType;
+
+            if (sprite == null)
+            {
+                return new SkinnedVoxelMesh
+                {
+                    BaseMesh = null,
+                    BoneIndices = System.Array.Empty<byte>(),
+                    RigType = resolvedRig,
+                };
+            }
+
+            Mesh mesh = SpriteVoxelizer.BuildPerTexel(sprite, SpriteVoxelizer.DefaultDepth, out int[] vertexToTexel);
+            if (mesh == null || mesh.vertexCount == 0)
+            {
+                return new SkinnedVoxelMesh
+                {
+                    BaseMesh = mesh,
+                    BoneIndices = System.Array.Empty<byte>(),
+                    RigType = resolvedRig,
+                };
+            }
+
+            byte[] boneIndices = new byte[mesh.vertexCount];
+            if (resolvedRig == WorldSphereMod.Rig.RigType.Humanoid)
+            {
+                BoneId[] segment = BuildHumanoidSegments(sprite);
+                int segLen = segment != null ? segment.Length : 0;
+                int vmapLen = vertexToTexel != null ? vertexToTexel.Length : 0;
+
+                for (int i = 0; i < boneIndices.Length; i++)
+                {
+                    BoneId bone = BoneId.Spine;
+                    if (segment != null && i < vmapLen)
+                    {
+                        int t = vertexToTexel[i];
+                        if (t >= 0 && t < segLen)
+                        {
+                            BoneId mapped = segment[t];
+                            bone = mapped == BoneId.Root ? BoneId.Spine : mapped;
+                        }
+                    }
+                    boneIndices[i] = (byte)bone;
+                }
+            }
+            else
+            {
+                byte defaultBone = (byte)BoneId.Spine;
+                for (int i = 0; i < boneIndices.Length; i++)
+                {
+                    boneIndices[i] = defaultBone;
+                }
+            }
+
+            return new SkinnedVoxelMesh
+            {
+                BaseMesh = mesh,
+                BoneIndices = boneIndices,
+                RigType = resolvedRig,
+            };
         }
 
         /// <summary>
@@ -296,6 +368,35 @@ namespace WorldSphereMod.Voxel
                 _cache[warmKey] = new Entry { Mesh = mesh, LastFrame = _frame };
                 if (_cache.Count > Capacity) Evict();
             }
+        }
+
+        static BoneId[] BuildHumanoidSegments(Sprite sprite)
+        {
+            if (sprite == null || sprite.texture == null || !sprite.texture.isReadable)
+            {
+                return null;
+            }
+
+            Rect r = sprite.textureRect;
+            int w = Mathf.Max(1, (int)r.width);
+            int h = Mathf.Max(1, (int)r.height);
+            int sx = (int)r.x;
+            int sy = (int)r.y;
+            Color32[] tex = SpriteVoxelizer.GetPixelsCached(sprite.texture);
+            int texW = sprite.texture.width;
+
+            var sub = new Color32[w * h];
+            for (int y = 0; y < h; y++)
+            {
+                int dstRow = y * w;
+                int srcRow = (sy + y) * texW + sx;
+                for (int x = 0; x < w; x++)
+                {
+                    sub[dstRow + x] = tex[srcRow + x];
+                }
+            }
+
+            return WorldSphereMod.Rig.HumanoidRig.SegmentVoxels(w, h, sub);
         }
     }
 }
