@@ -86,10 +86,12 @@ namespace WorldSphereMod.Voxel
                 // open box. Use Particles/Standard Surface or VertexLit which are
                 // opaque AND consume vertex colors as albedo. Sprites/Default kept
                 // last (after Standard) as 'visible but wrong' fallback only.
-                "Particles/Standard Surface",
+                "Particles/Standard Surface",       // opaque, lit, vertex-color albedo
+                "Particles/Standard Unlit",          // opaque, unlit, vertex-color albedo
                 "Mobile/Particles/VertexLit Blended",
-                "VertexLit",
-                "Particles/Standard Unlit",
+                // Legacy VertexLit ignores vertex colors → magenta neon look —
+                // skip it for actor/building voxel meshes.
+                // "VertexLit",
                 "Standard",
                 "Sprites/Default",
             };
