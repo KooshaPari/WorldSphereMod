@@ -120,7 +120,16 @@ namespace WorldSphereMod.ProcGen
         {
             if (string.IsNullOrEmpty(assetId)) return BuildingRules.Default;
             if (_rules.TryGetValue(assetId, out var r)) return r;
-            // Vanilla asset IDs encode kind in their prefix; auto-route foliage/rocks before mod overrides land.
+            return _rules.GetOrAdd(assetId, AutoRouteFactory);
+        }
+
+        // Vanilla asset IDs encode kind in their prefix; auto-route foliage/rocks
+        // before mod overrides land. Memoized into _rules on first hit so we don't
+        // allocate a fresh BuildingRules per visible building per frame (the
+        // parallel building Postfix at BuildingProcRender.EmitMeshes resolves rules
+        // for every Single/CrossedQuad/procgen tier on every render pass).
+        static BuildingRules AutoRouteFactory(string assetId)
+        {
             if (assetId.StartsWith("tree_", StringComparison.Ordinal)
                 || assetId.StartsWith("bush_", StringComparison.Ordinal)
                 || assetId.StartsWith("palm_", StringComparison.Ordinal))
