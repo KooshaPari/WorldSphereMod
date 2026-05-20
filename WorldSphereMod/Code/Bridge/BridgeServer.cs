@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Drawing;
 using System.IO;
@@ -18,6 +19,7 @@ namespace WorldSphereMod.Bridge
         const int Port = 8766;
         static readonly int[] CandidatePorts = { Port, 8767, 8768, 8769 };
         static readonly BindingFlags SettingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase;
+        const string VoxelDumpRoot = @"C:\Users\koosh\.claude\jobs\b012a2c2";
 
         readonly ConcurrentQueue<Action> _mainThreadQueue = new ConcurrentQueue<Action>();
         HttpListener? _listener;
@@ -157,6 +159,24 @@ namespace WorldSphereMod.Bridge
                     if (string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase)) { WriteJson(context.Response, InvokeOnMainThread(BuildHealthPayload)); return; }
                     if (string.Equals(path, "/telemetry", StringComparison.OrdinalIgnoreCase)) { WriteJson(context.Response, InvokeOnMainThread(BuildTelemetryPayload)); return; }
                     if (string.Equals(path, "/settings", StringComparison.OrdinalIgnoreCase)) { WriteRawJson(context.Response, InvokeOnMainThread(BuildSettingsJson)); return; }
+                    if (string.Equals(path, "/voxel/sprite", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string spriteName = context.Request.QueryString["name"] ?? string.Empty;
+                        WriteJson(context.Response, InvokeOnMainThread(() => BuildVoxelSpritePayload(spriteName)));
+                        return;
+                    }
+                    if (string.Equals(path, "/voxel/actor", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string indexText = context.Request.QueryString["index"] ?? "0";
+                        WriteJson(context.Response, InvokeOnMainThread(() => BuildVoxelActorPayload(indexText)));
+                        return;
+                    }
+                    if (string.Equals(path, "/voxel/diff", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string baselinePath = context.Request.QueryString["baseline"] ?? string.Empty;
+                        WriteJson(context.Response, InvokeOnMainThread(() => BuildVoxelDiffPayload(baselinePath)));
+                        return;
+                    }
                     if (path.StartsWith("/phase/", StringComparison.OrdinalIgnoreCase))
                     {
                         string phaseName = Uri.UnescapeDataString(path.Substring("/phase/".Length));
@@ -183,6 +203,11 @@ namespace WorldSphereMod.Bridge
                     WriteJson(context.Response, InvokeOnMainThread(() => CaptureScreenshot(outputPath)));
                     return;
                 }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/voxel/dump_all", StringComparison.OrdinalIgnoreCase))
+                {
+                    WriteJson(context.Response, InvokeOnMainThread(DumpVoxelMeshes));
+                    return;
+                }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/diag/dump_now", StringComparison.OrdinalIgnoreCase))
                 {
                     WriteJson(context.Response, InvokeOnMainThread(ForceDiagDumpNow));
@@ -203,6 +228,398 @@ namespace WorldSphereMod.Bridge
             version = Core.savedSettings != null ? Core.savedSettings.Version : "unknown",
             isWorld3D = Core.IsWorld3D
         };
+
+        object BuildVoxelSpritePayload(string spriteName)
+        {
+            if (string.IsNullOrWhiteSpace(spriteName))
+            {
+                return new { ok = false, error = "missing_sprite_name" };
+            }
+
+            Sprite sprite = FindSpriteByName(spriteName);
+            if (sprite == null)
+            {
+                return new { ok = false, error = "unknown_sprite", name = spriteName };
+            }
+
+            WorldSphereMod.Voxel.VoxelMeshCache.Get(sprite);
+            if (!WorldSphereMod.Voxel.VoxelMeshCache.TryDescribe(sprite, out WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot snapshot) || snapshot == null)
+            {
+                return new { ok = false, error = "mesh_not_cached", name = spriteName, spriteId = sprite.GetInstanceID() };
+            }
+
+            return BuildVoxelSnapshotPayload(snapshot);
+        }
+
+        object BuildVoxelActorPayload(string indexText)
+        {
+            if (!int.TryParse(indexText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int index) || index < 0)
+            {
+                return new { ok = false, error = "invalid_index", index = indexText };
+            }
+
+            ActorManager manager = World.world != null ? World.world.units : null;
+            if (manager == null || manager.visible_units.array == null)
+            {
+                return new { ok = false, error = "world_not_ready", index };
+            }
+
+            int visibleCount = manager.visible_units.count;
+            if (index >= visibleCount)
+            {
+                return new { ok = false, error = "index_out_of_range", index, count = visibleCount };
+            }
+
+            var samples = new List<object>();
+            int end = Math.Min(visibleCount, index + 5);
+            for (int i = index; i < end; i++)
+            {
+                Actor actor = manager.visible_units.array[i];
+                Vector3 position = manager.render_data.positions[i];
+                Vector3 rotation = manager.render_data.rotations[i];
+                Vector3 scale = manager.render_data.scales[i];
+                Sprite sprite = manager.render_data.main_sprites[i];
+
+                WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot meshSnapshot = null;
+                if (sprite != null)
+                {
+                    WorldSphereMod.Voxel.VoxelMeshCache.Get(sprite);
+                    WorldSphereMod.Voxel.VoxelMeshCache.TryDescribe(sprite, out meshSnapshot);
+                }
+
+                samples.Add(new
+                {
+                    index = i,
+                    actorId = actor != null && actor.asset != null ? actor.asset.id : null,
+                    spriteName = sprite != null ? sprite.name : null,
+                    trs = new
+                    {
+                        position,
+                        rotation,
+                        scale
+                    },
+                    cachedMesh = meshSnapshot != null ? BuildVoxelSnapshotPayload(meshSnapshot) : null
+                });
+            }
+
+            return new
+            {
+                ok = true,
+                startIndex = index,
+                count = samples.Count,
+                actors = samples
+            };
+        }
+
+        object BuildVoxelDiffPayload(string baselinePath)
+        {
+            if (string.IsNullOrWhiteSpace(baselinePath))
+            {
+                return new { ok = false, error = "missing_baseline" };
+            }
+
+            string fullPath;
+            try
+            {
+                fullPath = Path.GetFullPath(baselinePath);
+            }
+            catch (Exception ex)
+            {
+                return new { ok = false, error = "invalid_baseline_path", path = baselinePath, message = ex.Message };
+            }
+
+            if (!File.Exists(fullPath))
+            {
+                return new { ok = false, error = "missing_baseline_file", path = fullPath };
+            }
+
+            List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot> baseline = LoadVoxelSnapshots(fullPath);
+            if (baseline == null)
+            {
+                return new { ok = false, error = "invalid_baseline_json", path = fullPath };
+            }
+
+            List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot> current = WorldSphereMod.Voxel.VoxelMeshCache.DescribeAll();
+            Dictionary<string, List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot>> baselineByName = GroupSnapshotsByName(baseline);
+            Dictionary<string, List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot>> currentByName = GroupSnapshotsByName(current);
+
+            var added = new List<object>();
+            var removed = new List<object>();
+            var changed = new List<object>();
+
+            foreach (KeyValuePair<string, List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot>> kv in currentByName)
+            {
+                if (!baselineByName.TryGetValue(kv.Key, out List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot> baselineMatches))
+                {
+                    for (int i = 0; i < kv.Value.Count; i++)
+                    {
+                        added.Add(BuildSnapshotSummary(kv.Value[i]));
+                    }
+                    continue;
+                }
+
+                int pairCount = Math.Min(kv.Value.Count, baselineMatches.Count);
+                for (int i = 0; i < pairCount; i++)
+                {
+                    var currentSnapshot = kv.Value[i];
+                    var baselineSnapshot = baselineMatches[i];
+                    List<string> changedFields = GetChangedFields(currentSnapshot, baselineSnapshot);
+                    if (changedFields.Count > 0)
+                    {
+                        changed.Add(new
+                        {
+                            key = kv.Key,
+                            index = i,
+                            changedFields,
+                            current = BuildSnapshotSummary(currentSnapshot),
+                            baseline = BuildSnapshotSummary(baselineSnapshot)
+                        });
+                    }
+                }
+
+                if (kv.Value.Count > baselineMatches.Count)
+                {
+                    for (int i = baselineMatches.Count; i < kv.Value.Count; i++)
+                    {
+                        added.Add(BuildSnapshotSummary(kv.Value[i]));
+                    }
+                }
+            }
+
+            foreach (KeyValuePair<string, List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot>> kv in baselineByName)
+            {
+                if (!currentByName.TryGetValue(kv.Key, out List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot> currentMatches))
+                {
+                    for (int i = 0; i < kv.Value.Count; i++)
+                    {
+                        removed.Add(BuildSnapshotSummary(kv.Value[i]));
+                    }
+                    continue;
+                }
+
+                if (kv.Value.Count > currentMatches.Count)
+                {
+                    for (int i = currentMatches.Count; i < kv.Value.Count; i++)
+                    {
+                        removed.Add(BuildSnapshotSummary(kv.Value[i]));
+                    }
+                }
+            }
+
+            return new
+            {
+                ok = true,
+                baseline = fullPath,
+                currentCount = current.Count,
+                baselineCount = baseline.Count,
+                added,
+                removed,
+                changed,
+                unchangedCount = Math.Max(0, current.Count - added.Count - changed.Count)
+            };
+        }
+
+        object DumpVoxelMeshes()
+        {
+            List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot> snapshots = WorldSphereMod.Voxel.VoxelMeshCache.DescribeAll();
+            var dump = new VoxelDumpDocument
+            {
+                generatedAtUtc = DateTime.UtcNow.ToString("yyyyMMddTHHmmssfff'Z'", CultureInfo.InvariantCulture),
+                meshCount = snapshots.Count,
+                meshes = snapshots
+            };
+
+            string json = JsonConvert.SerializeObject(dump, Formatting.Indented);
+            string directory = VoxelDumpRoot;
+            string path = Path.Combine(directory, "voxel-dump-" + dump.generatedAtUtc + ".json");
+            try
+            {
+                Directory.CreateDirectory(directory);
+                File.WriteAllText(path, json, Encoding.UTF8);
+            }
+            catch (Exception ex)
+            {
+                return new { ok = false, error = "write_failed", path, message = ex.Message, generatedAtUtc = dump.generatedAtUtc, meshCount = snapshots.Count };
+            }
+
+            return new { ok = true, path, generatedAtUtc = dump.generatedAtUtc, meshCount = snapshots.Count };
+        }
+
+        static object BuildVoxelSnapshotPayload(WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot snapshot)
+        {
+            return new
+            {
+                ok = true,
+                spriteId = snapshot.spriteId,
+                spriteName = snapshot.spriteName,
+                meshName = snapshot.meshName,
+                vertexCount = snapshot.vertexCount,
+                triangleCount = snapshot.triangleCount,
+                bounds = snapshot.bounds,
+                vertices = snapshot.vertices,
+                triangles = snapshot.triangles,
+                colors = snapshot.colors,
+                invariants = snapshot.invariants
+            };
+        }
+
+        static object BuildSnapshotSummary(WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot snapshot)
+        {
+            return new
+            {
+                spriteId = snapshot.spriteId,
+                spriteName = snapshot.spriteName,
+                meshName = snapshot.meshName,
+                vertexCount = snapshot.vertexCount,
+                triangleCount = snapshot.triangleCount,
+                bounds = snapshot.bounds,
+                invariants = snapshot.invariants
+            };
+        }
+
+        static List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot> LoadVoxelSnapshots(string path)
+        {
+            string json = File.ReadAllText(path);
+            string trimmed = json.TrimStart();
+            if (trimmed.StartsWith("[", StringComparison.Ordinal))
+            {
+                return JsonConvert.DeserializeObject<List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot>>(json);
+            }
+
+            VoxelDumpDocument document = JsonConvert.DeserializeObject<VoxelDumpDocument>(json);
+            return document != null ? document.meshes : null;
+        }
+
+        static Dictionary<string, List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot>> GroupSnapshotsByName(List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot> snapshots)
+        {
+            var grouped = new Dictionary<string, List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot>>(StringComparer.Ordinal);
+            if (snapshots == null) return grouped;
+
+            for (int i = 0; i < snapshots.Count; i++)
+            {
+                WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot snapshot = snapshots[i];
+                string key = snapshot != null && !string.IsNullOrEmpty(snapshot.spriteName) ? snapshot.spriteName : string.Empty;
+                if (!grouped.TryGetValue(key, out List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot> list))
+                {
+                    list = new List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot>();
+                    grouped[key] = list;
+                }
+
+                list.Add(snapshot);
+            }
+
+            foreach (KeyValuePair<string, List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot>> kv in grouped)
+            {
+                kv.Value.Sort((a, b) =>
+                {
+                    int idCompare = a.spriteId.CompareTo(b.spriteId);
+                    if (idCompare != 0) return idCompare;
+                    return string.CompareOrdinal(a.meshName, b.meshName);
+                });
+            }
+
+            return grouped;
+        }
+
+        static List<string> GetChangedFields(WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot current, WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot baseline)
+        {
+            var changed = new List<string>();
+            if (current == null || baseline == null)
+            {
+                changed.Add("snapshot");
+                return changed;
+            }
+
+            if (current.vertexCount != baseline.vertexCount) changed.Add("vertexCount");
+            if (current.triangleCount != baseline.triangleCount) changed.Add("triangleCount");
+            if (!BoundsEqual(current.bounds, baseline.bounds)) changed.Add("bounds");
+            if (!VectorListEqual(current.vertices, baseline.vertices)) changed.Add("vertices");
+            if (!IntListEqual(current.triangles, baseline.triangles)) changed.Add("triangles");
+            if (!ColorListEqual(current.colors, baseline.colors)) changed.Add("colors");
+            if (current.invariants == null || baseline.invariants == null)
+            {
+                changed.Add("invariants");
+                return changed;
+            }
+
+            if (current.invariants.distinctTriVerts != baseline.invariants.distinctTriVerts) changed.Add("distinctTriVerts");
+            if (current.invariants.maxTriIndexLessThanVerts != baseline.invariants.maxTriIndexLessThanVerts) changed.Add("maxTriIndexLessThanVerts");
+            if (current.invariants.maxTriIndex != baseline.invariants.maxTriIndex) changed.Add("maxTriIndex");
+            return changed;
+        }
+
+        static bool BoundsEqual(WorldSphereMod.Voxel.VoxelMeshCache.MeshBoundsSnapshot a, WorldSphereMod.Voxel.VoxelMeshCache.MeshBoundsSnapshot b)
+        {
+            if (a == null || b == null) return a == b;
+            return VectorEqual(a.min, b.min) && VectorEqual(a.max, b.max);
+        }
+
+        static bool VectorListEqual(List<Vector3> a, List<Vector3> b)
+        {
+            if (a == null || b == null) return a == b;
+            if (a.Count != b.Count) return false;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (!VectorEqual(a[i], b[i])) return false;
+            }
+            return true;
+        }
+
+        static bool IntListEqual(List<int> a, List<int> b)
+        {
+            if (a == null || b == null) return a == b;
+            if (a.Count != b.Count) return false;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a[i] != b[i]) return false;
+            }
+            return true;
+        }
+
+        static bool ColorListEqual(List<Color32> a, List<Color32> b)
+        {
+            if (a == null || b == null) return a == b;
+            if (a.Count != b.Count) return false;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (!ColorEqual(a[i], b[i])) return false;
+            }
+            return true;
+        }
+
+        static bool VectorEqual(Vector3 a, Vector3 b)
+        {
+            return Mathf.Abs(a.x - b.x) < 0.0001f &&
+                   Mathf.Abs(a.y - b.y) < 0.0001f &&
+                   Mathf.Abs(a.z - b.z) < 0.0001f;
+        }
+
+        static bool ColorEqual(Color32 a, Color32 b)
+        {
+            return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
+        }
+
+        static Sprite FindSpriteByName(string spriteName)
+        {
+            Sprite[] sprites = Resources.FindObjectsOfTypeAll<Sprite>();
+            for (int i = 0; i < sprites.Length; i++)
+            {
+                Sprite sprite = sprites[i];
+                if (sprite != null && string.Equals(sprite.name, spriteName, StringComparison.Ordinal))
+                {
+                    return sprite;
+                }
+            }
+
+            return null;
+        }
+
+        public sealed class VoxelDumpDocument
+        {
+            public string generatedAtUtc;
+            public int meshCount;
+            public List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot> meshes;
+        }
 
         object BuildTelemetryPayload() => new
         {

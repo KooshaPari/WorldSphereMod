@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -18,11 +19,40 @@ namespace WorldSphereMod.Voxel
     /// </summary>
     public static class VoxelMeshCache
     {
+        public const int SampleLimit = 100;
         public static int Capacity = 8192;
+
+        public sealed class MeshBoundsSnapshot
+        {
+            public Vector3 min;
+            public Vector3 max;
+        }
+
+        public sealed class MeshInvariantsSnapshot
+        {
+            public int distinctTriVerts;
+            public bool maxTriIndexLessThanVerts;
+            public int maxTriIndex;
+        }
+
+        public sealed class MeshSnapshot
+        {
+            public int spriteId;
+            public string spriteName;
+            public string meshName;
+            public int vertexCount;
+            public int triangleCount;
+            public MeshBoundsSnapshot bounds;
+            public List<Vector3> vertices = new List<Vector3>();
+            public List<int> triangles = new List<int>();
+            public List<Color32> colors = new List<Color32>();
+            public MeshInvariantsSnapshot invariants;
+        }
 
         struct Entry
         {
             public Mesh Mesh;
+            public MeshSnapshot Snapshot;
             public ulong LastFrame;
         }
 
@@ -50,6 +80,100 @@ namespace WorldSphereMod.Voxel
             get { lock (_lock) return _cache.Count; }
         }
 
+        public static bool TryDescribe(Sprite sprite, out MeshSnapshot snapshot)
+        {
+            snapshot = null;
+            if (sprite == null) return false;
+
+            int key = sprite.GetInstanceID();
+            lock (_lock)
+            {
+                if (!_cache.TryGetValue(key, out Entry entry) || entry.Snapshot == null)
+                {
+                    return false;
+                }
+
+                snapshot = entry.Snapshot;
+                return true;
+            }
+        }
+
+        public static List<MeshSnapshot> DescribeAll()
+        {
+            var snapshots = new List<MeshSnapshot>();
+            lock (_lock)
+            {
+                foreach (Entry entry in _cache.Values)
+                {
+                    if (entry.Snapshot != null)
+                    {
+                        snapshots.Add(entry.Snapshot);
+                    }
+                }
+            }
+
+            snapshots.Sort((a, b) =>
+            {
+                int nameCompare = string.CompareOrdinal(a != null ? a.spriteName : null, b != null ? b.spriteName : null);
+                if (nameCompare != 0) return nameCompare;
+                int idA = a != null ? a.spriteId : 0;
+                int idB = b != null ? b.spriteId : 0;
+                return idA.CompareTo(idB);
+            });
+            return snapshots;
+        }
+
+        internal static MeshSnapshot CreateSnapshot(Sprite sprite, Mesh mesh, IList<Vector3> vertices, IList<Color32> colors, IList<int> triangles)
+        {
+            var snapshot = new MeshSnapshot
+            {
+                spriteId = sprite != null ? sprite.GetInstanceID() : 0,
+                spriteName = sprite != null ? sprite.name : null,
+                meshName = mesh != null ? mesh.name : null,
+                vertexCount = vertices != null ? vertices.Count : 0,
+                triangleCount = triangles != null ? triangles.Count / 3 : 0,
+                bounds = new MeshBoundsSnapshot
+                {
+                    min = mesh != null ? mesh.bounds.min : Vector3.zero,
+                    max = mesh != null ? mesh.bounds.max : Vector3.zero,
+                },
+                invariants = new MeshInvariantsSnapshot
+                {
+                    distinctTriVerts = 0,
+                    maxTriIndexLessThanVerts = true,
+                    maxTriIndex = -1,
+                },
+            };
+
+            int vertexSampleCount = vertices != null ? Math.Min(SampleLimit, vertices.Count) : 0;
+            for (int i = 0; i < vertexSampleCount; i++)
+            {
+                snapshot.vertices.Add(vertices[i]);
+            }
+
+            int triangleSampleCount = triangles != null ? Math.Min(SampleLimit, triangles.Count) : 0;
+            var distinctTriangleVerts = new HashSet<int>();
+            int maxTriIndex = -1;
+            for (int i = 0; i < triangleSampleCount; i++)
+            {
+                int index = triangles[i];
+                snapshot.triangles.Add(index);
+                distinctTriangleVerts.Add(index);
+                if (index > maxTriIndex) maxTriIndex = index;
+            }
+
+            int colorSampleCount = colors != null ? Math.Min(SampleLimit, colors.Count) : 0;
+            for (int i = 0; i < colorSampleCount; i++)
+            {
+                snapshot.colors.Add(colors[i]);
+            }
+
+            snapshot.invariants.distinctTriVerts = distinctTriangleVerts.Count;
+            snapshot.invariants.maxTriIndex = maxTriIndex;
+            snapshot.invariants.maxTriIndexLessThanVerts = maxTriIndex < snapshot.vertexCount;
+            return snapshot;
+        }
+
         /// <summary>Return the cached voxel mesh for <paramref name="sprite"/>, building one if missing.</summary>
         public static Mesh Get(Sprite sprite, int depth = -1)
         {
@@ -73,7 +197,8 @@ namespace WorldSphereMod.Voxel
             // Build outside the lock — Mesh construction touches Unity APIs that
             // shouldn't be held under a lock, and Get() always runs on the main thread.
             System.Threading.Interlocked.Increment(ref _misses);
-            Mesh m = SpriteVoxelizer.Build(sprite, depth);
+            MeshSnapshot snapshot;
+            Mesh m = SpriteVoxelizer.Build(sprite, out snapshot, depth);
             if (m != null && Core.savedSettings.VoxelMeshSmoothing)
             {
                 // ADR-0008: Laplacian smoothing converts blocky voxel stair-steps
@@ -82,8 +207,9 @@ namespace WorldSphereMod.Voxel
                 Mesh smoothed = MeshSmoother.Smooth(m, Core.savedSettings.SmoothingIterations);
                 if (smoothed != null && !ReferenceEquals(smoothed, m))
                 {
-                    Object.Destroy(m);
+                    UnityEngine.Object.Destroy(m);
                     m = smoothed;
+                    snapshot = CreateSnapshot(sprite, m, m.vertices, m.colors32, m.triangles);
                 }
             }
             LogVoxelizedSprite(sprite, m);
@@ -93,7 +219,7 @@ namespace WorldSphereMod.Voxel
             }
             lock (_lock)
             {
-                _cache[key] = new Entry { Mesh = m, LastFrame = _frame };
+                _cache[key] = new Entry { Mesh = m, Snapshot = snapshot, LastFrame = _frame };
                 if (_cache.Count > Capacity) Evict();
             }
             return m;
@@ -250,19 +376,21 @@ namespace WorldSphereMod.Voxel
 
             if (batch.Count == 1)
             {
-                CacheWarmSprite(batch[0], SpriteVoxelizer.Build(batch[0]));
+                MeshSnapshot snapshot;
+                CacheWarmSprite(batch[0], SpriteVoxelizer.Build(batch[0], out snapshot), snapshot);
                 return;
             }
 
-            var built = new ConcurrentQueue<(Sprite Sprite, Mesh Mesh)>();
+            var built = new ConcurrentQueue<(Sprite Sprite, Mesh Mesh, MeshSnapshot Snapshot)>();
             System.Threading.Tasks.Parallel.ForEach(batch, sprite =>
             {
-                built.Enqueue((sprite, SpriteVoxelizer.Build(sprite)));
+                MeshSnapshot snapshot;
+                built.Enqueue((sprite, SpriteVoxelizer.Build(sprite, out snapshot), snapshot));
             });
 
             while (built.TryDequeue(out var result))
             {
-                CacheWarmSprite(result.Sprite, result.Mesh);
+                CacheWarmSprite(result.Sprite, result.Mesh, result.Snapshot);
             }
         }
 
@@ -273,7 +401,7 @@ namespace WorldSphereMod.Voxel
             {
                 foreach (var e in _cache.Values)
                 {
-                    if (e.Mesh != null) Object.Destroy(e.Mesh);
+                    if (e.Mesh != null) UnityEngine.Object.Destroy(e.Mesh);
                 }
                 _cache.Clear();
                 _diagnosedSprites.Clear();
@@ -293,7 +421,7 @@ namespace WorldSphereMod.Voxel
                 while (_pendingDestroy.Count > 0)
                 {
                     var m = _pendingDestroy.Dequeue();
-                    if (m != null) Object.Destroy(m);
+                    if (m != null) UnityEngine.Object.Destroy(m);
                 }
             }
         }
@@ -348,7 +476,7 @@ namespace WorldSphereMod.Voxel
             return sprite != null && sprite.texture != null && !IsPerpSprite(sprite);
         }
 
-        static void CacheWarmSprite(Sprite sprite, Mesh mesh)
+        static void CacheWarmSprite(Sprite sprite, Mesh mesh, MeshSnapshot snapshot)
         {
             LogVoxelizedSprite(sprite, mesh);
             if (sprite == null || mesh == null || mesh.vertexCount == 0)
@@ -365,7 +493,7 @@ namespace WorldSphereMod.Voxel
                     return;
                 }
 
-                _cache[warmKey] = new Entry { Mesh = mesh, LastFrame = _frame };
+                _cache[warmKey] = new Entry { Mesh = mesh, Snapshot = snapshot, LastFrame = _frame };
                 if (_cache.Count > Capacity) Evict();
             }
         }

@@ -56,6 +56,12 @@ namespace WorldSphereMod.Voxel
         /// </summary>
         public static Mesh Build(Sprite sprite, int depth = -1)
         {
+            return Build(sprite, out _, depth);
+        }
+
+        public static Mesh Build(Sprite sprite, out VoxelMeshCache.MeshSnapshot snapshot, int depth = -1)
+        {
+            snapshot = null;
             depth = ResolveDepth(depth);
             bool profile = Core.savedSettings.ProfilerDump;
             Stopwatch totalSw = new Stopwatch();
@@ -199,6 +205,7 @@ namespace WorldSphereMod.Voxel
             {
                 RenderTexture.ReleaseTemporary(fallbackRt);
             }
+            snapshot = VoxelMeshCache.CreateSnapshot(sprite, mesh, verts, cols, tris);
             // Hint to Unity that we don't write the mesh again; lets it free
             // CPU-side copy after upload.
             mesh.UploadMeshData(true);
