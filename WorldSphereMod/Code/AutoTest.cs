@@ -45,14 +45,15 @@ namespace WorldSphereMod
                 }
 
                 SetPhase(field, flagName, true);
-                // Give the new phase a frame to register patches, then settle.
                 yield return null;
-                // Tile-driven phases (foliage, walls) only Submit when
-                // WorldTilemap.renderTile fires. On a settled world that
-                // happens only when a tile is dirty — so trigger a refresh
-                // before measuring to give the Postfix a chance to fire.
                 ForceTilemapRefresh();
                 yield return null;
+                // Zero the static counters so the peak window measures only
+                // THIS phase's work. Without this, FrameDrawCalls retains
+                // the last Flush's values across phases that don't Submit
+                // (and therefore don't Flush, so don't reset).
+                MeshInstanceBatcher.FrameDrawCalls = 0;
+                MeshInstanceBatcher.FrameInstances = 0;
                 long peakDrawCalls = 0;
                 long peakInstances = 0;
                 for (int tick = 0; tick < 180; tick++)
