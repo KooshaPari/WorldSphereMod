@@ -12,6 +12,10 @@ namespace WorldSphereMod.ProcGen
         static int _diagSkipNotWorld3D;
         static int _diagSkipFlagOff;
         static int _diagLastReportEntry;
+        static int _diagSeenAtFlagOn;
+        static int _diagFiltPerp;
+        static int _diagFiltCull;
+        static int _diagSubmitted;
 
         [Phase(nameof(SavedSettings.ProceduralBuildings))]
         [HarmonyPatch(typeof(BuildingManager), nameof(BuildingManager.precalculateRenderDataParallel))]
@@ -21,15 +25,16 @@ namespace WorldSphereMod.ProcGen
             public static void EmitMeshes(BuildingManager __instance)
             {
                 _diagEntryCount++;
-                if (_diagEntryCount - _diagLastReportEntry >= 60)
+                if (_diagEntryCount - _diagLastReportEntry >= 15)
                 {
                     _diagLastReportEntry = _diagEntryCount;
                     int n0 = __instance != null ? __instance._visible_buildings_count : -1;
-                    Debug.Log($"[WSM3D] ProcMeshEmit diag entries={_diagEntryCount} skipNotWorld3D={_diagSkipNotWorld3D} skipFlagOff={_diagSkipFlagOff} IsWorld3D={Core.IsWorld3D} ProcBuildingsFlag={Core.savedSettings.ProceduralBuildings} visBuildings={n0}");
+                    Debug.Log($"[WSM3D] ProcMeshEmit diag entries={_diagEntryCount} seenAtFlagOn={_diagSeenAtFlagOn} skipFlagOff={_diagSkipFlagOff} filtPerp={_diagFiltPerp} filtCull={_diagFiltCull} submitted={_diagSubmitted} flag={Core.savedSettings.ProceduralBuildings} visBuildings={n0}");
                 }
 
                 if (!Core.IsWorld3D) { _diagSkipNotWorld3D++; return; }
                 if (!Core.savedSettings.ProceduralBuildings) { _diagSkipFlagOff++; return; }
+                _diagSeenAtFlagOn++;
                 // Reuse the Phase 1 voxel material until Phase 5 ships VoxelLit.shader.
                 if (!VoxelRender.EnsureMaterial()) return;
 
@@ -40,12 +45,13 @@ namespace WorldSphereMod.ProcGen
                 {
                     Building b = arr[i];
                     if (b == null || b.asset == null) continue;
-                    if (Constants.PerpBuildings.ContainsKey(b.asset.id)) continue;
+                    if (Constants.PerpBuildings.ContainsKey(b.asset.id)) { _diagFiltPerp++; continue; }
 
                     Vector3 cullPos = rd.positions[i];
                     float radius = 0.5f;
                     if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, radius))
                     {
+                        _diagFiltCull++;
                         continue;
                     }
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode());
@@ -115,6 +121,7 @@ namespace WorldSphereMod.ProcGen
                     }
                     if (submitted)
                     {
+                        _diagSubmitted++;
                         // BuildingRenderData has no has_normal_render; zeroing scales hides the
                         // sprite quad without nulling main_sprites (downstream chokes on null).
                         rd.scales[i] = Vector3.zero;
