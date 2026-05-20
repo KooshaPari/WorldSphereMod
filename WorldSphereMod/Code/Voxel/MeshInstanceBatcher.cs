@@ -85,7 +85,11 @@ namespace WorldSphereMod.Voxel
 
         static int _pendingSubmissionCount;
         static bool _instancingErrorLogged;
-        static bool _useFallbackPath;
+        // DIAGNOSTIC: default-true. Sprites/Default + many other sprite shaders don't
+        // declare multi_compile_instancing, so DrawMeshInstanced silently no-ops.
+        // The fallback per-instance Graphics.DrawMesh path always renders. Set
+        // true at declaration so Reset() doesn't undo it during world reload.
+        static bool _useFallbackPath = true;
         static bool _verboseDrawLoggingArmed;
         static bool _verboseDrawLoggingConsumed;
         static bool _renderTargetLogged;
@@ -382,7 +386,7 @@ namespace WorldSphereMod.Voxel
 
             Interlocked.Exchange(ref _pendingSubmissionCount, 0);
             _buckets.Clear();
-            _useFallbackPath = false;
+            _useFallbackPath = true; // intentionally STAYS true; see field declaration
             _instancingErrorLogged = false;
             _verboseDrawLoggingArmed = false;
             _verboseDrawLoggingConsumed = false;
