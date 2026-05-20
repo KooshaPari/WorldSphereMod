@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using UnityEngine;
 
 namespace WorldSphereMod.Voxel
@@ -54,9 +55,28 @@ namespace WorldSphereMod.Voxel
         /// </summary>
         public static Mesh Build(Sprite sprite, int depth = DefaultDepth)
         {
+            bool profile = Core.savedSettings.ProfilerDump;
+            Stopwatch totalSw = new Stopwatch();
+            Stopwatch solidSw = new Stopwatch();
+            Stopwatch greedySw = new Stopwatch();
+            Stopwatch finalSw = new Stopwatch();
+
+            if (profile) totalSw.Start();
+
+            Mesh ReturnProfiled(Mesh mesh)
+            {
+                if (!profile) return mesh;
+                if (totalSw.IsRunning) totalSw.Stop();
+                Debug.Log($"[WSM3D][PERF] SpriteVoxelizer.Build total={totalSw.Elapsed.TotalMilliseconds:F3}ms");
+                Debug.Log($"[WSM3D][PERF] SpriteVoxelizer.Build solidMask={solidSw.Elapsed.TotalMilliseconds:F3}ms");
+                Debug.Log($"[WSM3D][PERF] SpriteVoxelizer.Build greedyMesh={greedySw.Elapsed.TotalMilliseconds:F3}ms");
+                Debug.Log($"[WSM3D][PERF] SpriteVoxelizer.Build finalize={finalSw.Elapsed.TotalMilliseconds:F3}ms");
+                return mesh;
+            }
+
             if (sprite == null || sprite.texture == null)
             {
-                return CreateEmpty();
+                return ReturnProfiled(CreateEmpty());
             }
 
             Texture2D sourceTexture = sprite.texture;
@@ -65,9 +85,9 @@ namespace WorldSphereMod.Voxel
 
             // Atlased textures imported without Read/Write enabled throw on GetPixels32.
             // Return an empty mesh so the caller (cache) doesn't crash the render pass.
-            if (!sprite.texture.isReadable)
+            try
             {
-                try
+                if (!sprite.texture.isReadable)
                 {
                     fallbackRt = RenderTexture.GetTemporary(sourceTexture.width, sourceTexture.height, 0, RenderTextureFormat.ARGB32);
                     Graphics.Blit(sourceTexture, fallbackRt);
@@ -92,22 +112,22 @@ namespace WorldSphereMod.Voxel
 
                     sourceTexture = fallbackTexture;
                 }
-                catch
+            }
+            catch
+            {
+                if (fallbackTexture != null)
                 {
-                    if (fallbackTexture != null)
-                    {
-                        Object.Destroy(fallbackTexture);
-                    }
-                    if (fallbackRt != null)
-                    {
-                        RenderTexture.ReleaseTemporary(fallbackRt);
-                    }
-                    if (_unreadableSpriteWarnings.Add(sprite.name))
-                    {
-                        Debug.LogWarning($"[SpriteVoxelizer] Sprite '{sprite.name}' texture is not readable and fallback failed; returning null.");
-                    }
-                    return null;
+                    Object.Destroy(fallbackTexture);
                 }
+                if (fallbackRt != null)
+                {
+                    RenderTexture.ReleaseTemporary(fallbackRt);
+                }
+                if (_unreadableSpriteWarnings.Add(sprite.name))
+                {
+                    Debug.LogWarning($"[SpriteVoxelizer] Sprite '{sprite.name}' texture is not readable and fallback failed; returning null.");
+                }
+                return ReturnProfiled(null);
             }
 
             // Read the sprite's rectangle out of its atlas. We don't use the
@@ -118,6 +138,7 @@ namespace WorldSphereMod.Voxel
             int h = Mathf.Max(1, (int)r.height);
             int x0 = (int)r.x;
             int y0 = (int)r.y;
+            solidSw.Start();
             Color32[] tex = GetPixelsCached(sourceTexture);
             int texW = sourceTexture.width;
 
@@ -147,13 +168,17 @@ namespace WorldSphereMod.Voxel
             float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
             Vector3 origin = new Vector3(-pivot.x / ppu, -pivot.y / ppu, -(depth * 0.5f) / ppu);
             float cell = 1f / ppu;
+            solidSw.Stop();
 
             var verts = new List<Vector3>();
             var cols  = new List<Color32>();
             var tris  = new List<int>();
 
+            greedySw.Start();
             GreedyMesh(solid, color, w, h, depth, origin, cell, verts, cols, tris);
+            greedySw.Stop();
 
+            finalSw.Start();
             var mesh = new Mesh { name = $"voxel:{sprite.name}" };
             if (verts.Count > 65535)
             {
@@ -175,7 +200,8 @@ namespace WorldSphereMod.Voxel
             // Hint to Unity that we don't write the mesh again; lets it free
             // CPU-side copy after upload.
             mesh.UploadMeshData(true);
-            return mesh;
+            finalSw.Stop();
+            return ReturnProfiled(mesh);
         }
 
         /// <summary>
