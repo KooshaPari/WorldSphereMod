@@ -86,6 +86,8 @@ namespace WorldSphereMod.Voxel
         static int _pendingSubmissionCount;
         static bool _instancingErrorLogged;
         static bool _useFallbackPath;
+        static bool _verboseDrawLoggingArmed;
+        static bool _verboseDrawLoggingConsumed;
         static bool _renderTargetLogged;
         static bool _allCamerasLogged;
         static int _mainThreadId;
@@ -99,6 +101,11 @@ namespace WorldSphereMod.Voxel
         public static void Submit(Mesh mesh, Material mat, Matrix4x4 matrix, Color tint)
         {
             if (mesh == null || mat == null) return;
+
+            if (Core.savedSettings.ProfilerDump && !_verboseDrawLoggingArmed && !_verboseDrawLoggingConsumed)
+            {
+                _verboseDrawLoggingArmed = true;
+            }
 
             if (_mainThreadId != 0 && Thread.CurrentThread.ManagedThreadId == _mainThreadId)
             {
@@ -146,6 +153,7 @@ namespace WorldSphereMod.Voxel
             Camera renderCamera = ResolveRenderCamera();
             int resolvedLayer = ResolveRenderLayer(layer, renderCamera);
             LogRenderTarget(renderCamera, layer, resolvedLayer, shadows, receive);
+            bool verboseDrawLogging = Core.savedSettings.ProfilerDump && _verboseDrawLoggingArmed;
 
             FrameDrawCalls = 0;
             FrameInstances = 0;
@@ -178,7 +186,13 @@ namespace WorldSphereMod.Voxel
                     bucket.Block.SetVectorArray(_colorProp, bucket.ColScratch);
                     try
                     {
-                            Graphics.DrawMeshInstanced(
+                        if (verboseDrawLogging)
+                        {
+                            Vector4 p = bucket.MatScratch[0].GetColumn(3);
+                            Debug.Log($"[WSM3D][DIAG] DrawMeshInstanced mesh={kv.Key.Mesh?.name ?? "<null>"} material={kv.Key.Material?.name ?? "<null>"} shader={kv.Key.Material?.shader?.name ?? "<null>"} enableInstancing={(kv.Key.Material != null && kv.Key.Material.enableInstancing)} count={n} offset={offset} layer={resolvedLayer} shadows={shadows} receiveShadows={receive} firstPos=({p.x:F3}, {p.y:F3}, {p.z:F3}) fallback={_useFallbackPath}");
+                        }
+
+                        Graphics.DrawMeshInstanced(
                             kv.Key.Mesh, 0, kv.Key.Material,
                             bucket.MatScratch, n, bucket.Block,
                             shadows, receive, resolvedLayer, null, LightProbeUsage.Off);
@@ -203,11 +217,24 @@ namespace WorldSphereMod.Voxel
                 bucket.Matrices.Clear();
                 bucket.Colors.Clear();
             }
+
+            if (verboseDrawLogging)
+            {
+                _verboseDrawLoggingArmed = false;
+                _verboseDrawLoggingConsumed = true;
+            }
         }
 
+        static int _fallbackDrawDiagFrames = 0;
         static void DrawFallbackPath(Key key, Bucket bucket, int total, int layer, Camera renderCamera, ShadowCastingMode shadows, bool receive, int start = 0)
         {
             int end = Mathf.Min(bucket.Matrices.Count, start + total);
+            if (_fallbackDrawDiagFrames < 5)
+            {
+                _fallbackDrawDiagFrames++;
+                Vector4 firstPos = bucket.Matrices.Count > start ? bucket.Matrices[start].GetColumn(3) : new Vector4(0,0,0,0);
+                Debug.Log($"[WSM3D][DIAG-FB] DrawFallbackPath entry frame={_fallbackDrawDiagFrames} mesh={key.Mesh?.name ?? "<null>"} material={key.Material?.name ?? "<null>"} bucket.Matrices.Count={bucket.Matrices.Count} start={start} total={total} end={end} firstPos=({firstPos.x:F2},{firstPos.y:F2},{firstPos.z:F2}) layer={layer}");
+            }
             for (int i = start; i < end; i++)
             {
                 bucket.Block.Clear();
@@ -357,6 +384,8 @@ namespace WorldSphereMod.Voxel
             _buckets.Clear();
             _useFallbackPath = false;
             _instancingErrorLogged = false;
+            _verboseDrawLoggingArmed = false;
+            _verboseDrawLoggingConsumed = false;
             _renderTargetLogged = false;
             _allCamerasLogged = false;
             FrameDrawCalls = 0;
