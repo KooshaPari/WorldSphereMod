@@ -45,10 +45,19 @@ namespace WorldSphereMod
                 }
 
                 SetPhase(field, flagName, true);
-                yield return new WaitForSeconds(3f);
+                // Give the new phase a frame to register patches, then settle.
+                yield return null;
+                long peakDrawCalls = 0;
+                long peakInstances = 0;
+                for (int tick = 0; tick < 180; tick++)
+                {
+                    yield return null;
+                    if (MeshInstanceBatcher.FrameDrawCalls > peakDrawCalls) peakDrawCalls = MeshInstanceBatcher.FrameDrawCalls;
+                    if (MeshInstanceBatcher.FrameInstances > peakInstances) peakInstances = MeshInstanceBatcher.FrameInstances;
+                }
                 Debug.Log("[WSM3D] AutoTest: phase=" + flagName
-                    + " drawCalls=" + MeshInstanceBatcher.FrameDrawCalls
-                    + " instances=" + MeshInstanceBatcher.FrameInstances
+                    + " peakDrawCalls=" + peakDrawCalls
+                    + " peakInstances=" + peakInstances
                     + " useFallbackPath=" + MeshInstanceBatcher.UseFallbackPath
                     + " firstActorPos=" + GetFirstActorPos());
                 SetPhase(field, flagName, false);
