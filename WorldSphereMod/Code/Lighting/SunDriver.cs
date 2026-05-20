@@ -15,6 +15,21 @@ namespace WorldSphereMod.Lighting
 
         public static bool Active => Sun != null && Sun.shadows != LightShadows.None;
 
+        public static void ApplyShadowSettings()
+        {
+            if (Sun == null) return;
+
+            bool highShadows = Core.savedSettings.HighShadows;
+            // Keep the sun on soft shadows in both modes; HighShadows only expands the
+            // cascade budget and tightens the light bias for voxel silhouettes.
+            Sun.shadows = LightShadows.Soft;
+            Sun.shadowStrength = highShadows ? 0.92f : 0.78f;
+            Sun.shadowBias = highShadows ? 0.035f : 0.05f;
+            Sun.shadowNormalBias = highShadows ? 0.30f : 0.45f;
+
+            ShadowCascadeConfig.Apply(highShadows);
+        }
+
         public static void Init()
         {
             if (!Core.IsWorld3D) return;
@@ -31,14 +46,12 @@ namespace WorldSphereMod.Lighting
             Sun.type = LightType.Directional;
             Sun.intensity = 1.0f;
             Sun.color = Color.white;
-            Sun.shadows = LightShadows.Soft;
 
             LightingRoot.rotation = Quaternion.Euler(TimeOfDayToEuler(TimeOfDay), 30f, 0f);
 
+            ApplyShadowSettings();
             SunRig.Bind(Sun);
             BindMainCamera(CameraManager.MainCamera);
-
-            ShadowCascadeConfig.Apply(Core.savedSettings.HighShadows);
         }
 
         public static void Teardown()

@@ -11,13 +11,20 @@ namespace WorldSphereMod.Lighting
     public static class ShadowCascadeConfig
     {
         static bool _hasOriginals;
+        static bool _hasQualityOriginals;
         static bool _active;
         static int _origCount;
         static float _origDistance;
+        static int _origQualityCascades;
+        static float _origQualityDistance;
         static Vector3 _origCascade4;
         static float _origCascade2;
         static float _origDepthBias;
         static float _origNormalBias;
+
+        const float kShadowDistance = 50f;
+        const int kLowShadowCascades = 2;
+        const int kHighShadowCascades = 4;
 
         const string UrpAssetTypeName = "UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset";
 
@@ -70,16 +77,28 @@ namespace WorldSphereMod.Lighting
 
         public static void Apply(bool highShadows)
         {
+            if (!_hasQualityOriginals)
+            {
+                _origQualityDistance = QualitySettings.shadowDistance;
+                _origQualityCascades = QualitySettings.shadowCascades;
+                _hasQualityOriginals = true;
+            }
+
+            QualitySettings.shadowDistance = kShadowDistance;
+            QualitySettings.shadowCascades = highShadows ? kHighShadowCascades : kLowShadowCascades;
+
             Type? urpType = GetUrpAssetType();
             if (urpType == null)
             {
                 Debug.LogWarning("[WSM3D] ShadowCascadeConfig: URP not in use (UniversalRenderPipelineAsset type not found).");
+                _active = true;
                 return;
             }
             UnityEngine.Object? urp = GetActiveUrpAsset(urpType);
             if (urp == null)
             {
                 Debug.LogWarning("[WSM3D] ShadowCascadeConfig: URP not in use (no active UniversalRenderPipelineAsset).");
+                _active = true;
                 return;
             }
 
@@ -104,7 +123,7 @@ namespace WorldSphereMod.Lighting
                 WriteProp(urp, urpType, "shadowCascadeCount", 2);
                 WriteProp(urp, urpType, "cascade2Split", 0.25f);
             }
-            WriteProp(urp, urpType, "shadowDistance", 50f);
+            WriteProp(urp, urpType, "shadowDistance", kShadowDistance);
             WriteProp(urp, urpType, "shadowDepthBias", 1.0f);
             WriteProp(urp, urpType, "shadowNormalBias", 1.0f);
             _active = true;
@@ -112,7 +131,20 @@ namespace WorldSphereMod.Lighting
 
         public static void Reset()
         {
-            if (!_hasOriginals) return;
+            if (!_hasQualityOriginals && !_hasOriginals) return;
+
+            if (_hasQualityOriginals)
+            {
+                QualitySettings.shadowDistance = _origQualityDistance;
+                QualitySettings.shadowCascades = _origQualityCascades;
+            }
+
+            if (!_hasOriginals)
+            {
+                _active = false;
+                return;
+            }
+
             Type? urpType = GetUrpAssetType();
             if (urpType == null) { _active = false; return; }
             UnityEngine.Object? urp = GetActiveUrpAsset(urpType);

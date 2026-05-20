@@ -81,6 +81,10 @@ namespace WorldSphereMod
         public static void ApplyPhaseToggle(string flagName, bool newValue)
         {
             PhasePatchManager.ApplyPhaseToggle(flagName, newValue);
+            if (flagName == nameof(SavedSettings.HighShadows))
+            {
+                WorldSphereMod.Lighting.SunDriver.ApplyShadowSettings();
+            }
         }
 
         static void DoSomeOtherStuff()
