@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO;
 using System.Net;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
 using System.Threading;
@@ -14,6 +15,7 @@ namespace WorldSphereMod.Bridge
     public sealed class BridgeServer : MonoBehaviour
     {
         const int Port = 8766;
+        static readonly int[] CandidatePorts = { Port, 8767, 8768, 8769 };
         static readonly BindingFlags SettingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase;
 
         readonly ConcurrentQueue<Action> _mainThreadQueue = new ConcurrentQueue<Action>();
@@ -21,12 +23,23 @@ namespace WorldSphereMod.Bridge
         Thread? _listenerThread;
         volatile bool _running;
         int _mainThreadId;
+        int _boundPort = Port;
+
+        public static bool EnableFailed;
 
         public static void EnsureCreated()
         {
             if (Mod.Object == null) return;
-            if (Mod.Object.GetComponent<BridgeServer>() != null) return;
-            Mod.Object.AddComponent<BridgeServer>();
+            try
+            {
+                if (Mod.Object.GetComponent<BridgeServer>() != null) return;
+                Mod.Object.AddComponent<BridgeServer>();
+            }
+            catch (Exception ex)
+            {
+                EnableFailed = true;
+                Debug.LogWarning("[WSM3D][Bridge] failed to create bridge server: " + ex.Message);
+            }
         }
 
         void Awake()
@@ -48,21 +61,58 @@ namespace WorldSphereMod.Bridge
 
         void StartListener()
         {
+            foreach (int port in CandidatePorts)
+            {
+                if (TryStartListener(port)) return;
+            }
+
+            EnableFailed = true;
+        }
+
+        bool TryStartListener(int port)
+        {
+            HttpListener? listener = null;
             try
             {
-                _listener = new HttpListener();
-                _listener.Prefixes.Add($"http://127.0.0.1:{Port}/");
-                _listener.Start();
+                listener = new HttpListener();
+                listener.Prefixes.Add($"http://127.0.0.1:{port}/");
+                listener.Start();
+
+                _listener = listener;
                 _running = true;
+                _boundPort = port;
                 _listenerThread = new Thread(ListenLoop) { IsBackground = true, Name = "WSM3D BridgeServer" };
                 _listenerThread.Start();
-                Debug.Log($"[WSM3D][Bridge] HTTP RPC listening on 127.0.0.1:{Port}");
+                Debug.Log($"[WSM3D][Bridge] HTTP RPC listening on 127.0.0.1:{port}");
+                return true;
+            }
+            catch (HttpListenerException ex)
+            {
+                return HandleBindFailure(listener, port, ex);
+            }
+            catch (SocketException ex)
+            {
+                return HandleBindFailure(listener, port, ex);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return HandleBindFailure(listener, port, ex);
             }
             catch (Exception ex)
             {
-                Debug.LogError("[WSM3D][Bridge] failed to start HTTP listener: " + ex);
-                StopListener();
+                return HandleBindFailure(listener, port, ex);
             }
+        }
+
+        bool HandleBindFailure(HttpListener? listener, int port, Exception ex)
+        {
+            EnableFailed = true;
+            Debug.LogWarning($"[WSM3D][Bridge] failed to bind HTTP listener on 127.0.0.1:{port}: {ex.Message}");
+            if (_listener == listener) _listener = null;
+            _listenerThread = null;
+            _running = false;
+            try { listener?.Close(); } catch { }
+            return false;
         }
 
         void StopListener()
@@ -86,7 +136,7 @@ namespace WorldSphereMod.Bridge
                 catch (ObjectDisposedException) { return; }
                 catch (Exception ex)
                 {
-                    if (_running) Debug.LogWarning("[WSM3D][Bridge] listener loop error: " + ex.Message);
+                    if (_running) Debug.LogWarning("[WSM3D][Bridge] listener loop error on 127.0.0.1:" + _boundPort + ": " + ex.Message);
                     continue;
                 }
                 if (context != null) ProcessRequest(context);
