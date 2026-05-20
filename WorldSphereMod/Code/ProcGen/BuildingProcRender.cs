@@ -16,6 +16,7 @@ namespace WorldSphereMod.ProcGen
         static int _diagFiltPerp;
         static int _diagFiltCull;
         static int _diagSubmitted;
+        static int _diagSamplesLogged;
 
         [Phase(nameof(SavedSettings.ProceduralBuildings))]
         [HarmonyPatch(typeof(BuildingManager), nameof(BuildingManager.precalculateRenderDataParallel))]
@@ -54,8 +55,9 @@ namespace WorldSphereMod.ProcGen
                     {
                         cullPos = cullPos.To3DTileHeight(false);
                     }
-                    if (_diagSubmitted == 0 && _diagSeenAtFlagOn < 20)
+                    if (_diagSamplesLogged < 10)
                     {
+                        _diagSamplesLogged++;
                         Debug.Log($"[WSM3D] ProcMeshEmit cullPos sample raw={rawCullPos} lifted={cullPos} cam={(Camera.main != null ? Camera.main.transform.position.ToString() : "<null>")}");
                     }
                     float radius = 50f;
