@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
@@ -143,6 +144,7 @@ namespace WorldSphereMod.Voxel
             if (budgetMs <= 0) return;
 
             Stopwatch sw = Stopwatch.StartNew();
+            var batch = new List<Sprite>();
             while (sw.ElapsedMilliseconds < budgetMs)
             {
                 Sprite sprite = null;
@@ -165,29 +167,30 @@ namespace WorldSphereMod.Voxel
 
                     if (sprite == null)
                     {
-                        return;
+                        break;
                     }
                 }
 
-                Mesh mesh = SpriteVoxelizer.Build(sprite);
-                LogVoxelizedSprite(sprite, mesh);
-                if (mesh == null || mesh.vertexCount == 0)
-                {
-                    continue;
-                }
+                batch.Add(sprite);
+            }
 
-                int warmKey = sprite.GetInstanceID();
-                lock (_lock)
-                {
-                    if (_cache.ContainsKey(warmKey))
-                    {
-                        _pendingDestroy.Enqueue(mesh);
-                        continue;
-                    }
+            if (batch.Count == 0) return;
 
-                    _cache[warmKey] = new Entry { Mesh = mesh, LastFrame = _frame };
-                    if (_cache.Count > Capacity) Evict();
-                }
+            if (batch.Count == 1)
+            {
+                CacheWarmSprite(batch[0], SpriteVoxelizer.Build(batch[0]));
+                return;
+            }
+
+            var built = new ConcurrentQueue<(Sprite Sprite, Mesh Mesh)>();
+            System.Threading.Tasks.Parallel.ForEach(batch, sprite =>
+            {
+                built.Enqueue((sprite, SpriteVoxelizer.Build(sprite)));
+            });
+
+            while (built.TryDequeue(out var result))
+            {
+                CacheWarmSprite(result.Sprite, result.Mesh);
             }
         }
 
@@ -271,6 +274,28 @@ namespace WorldSphereMod.Voxel
         static bool ShouldWarmSprite(Sprite sprite)
         {
             return sprite != null && sprite.texture != null && !IsPerpSprite(sprite);
+        }
+
+        static void CacheWarmSprite(Sprite sprite, Mesh mesh)
+        {
+            LogVoxelizedSprite(sprite, mesh);
+            if (sprite == null || mesh == null || mesh.vertexCount == 0)
+            {
+                return;
+            }
+
+            int warmKey = sprite.GetInstanceID();
+            lock (_lock)
+            {
+                if (_cache.ContainsKey(warmKey))
+                {
+                    _pendingDestroy.Enqueue(mesh);
+                    return;
+                }
+
+                _cache[warmKey] = new Entry { Mesh = mesh, LastFrame = _frame };
+                if (_cache.Count > Capacity) Evict();
+            }
         }
     }
 }
