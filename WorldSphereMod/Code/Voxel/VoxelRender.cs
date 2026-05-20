@@ -80,8 +80,13 @@ namespace WorldSphereMod.Voxel
                 "Universal Render Pipeline/Lit",
                 "Universal Render Pipeline/Unlit",
                 "Universal Render Pipeline/Particles/Unlit",
-                "Standard",
+                // Built-in Particles/Standard Unlit MUST come before plain Standard:
+                // it consumes per-vertex colors as albedo (the SpriteVoxelizer encodes
+                // sprite pixel color into mesh vertex colors). Standard ignores vertex
+                // colors and uses only _Color + _MainTex — voxel meshes render black.
                 "Particles/Standard Unlit",
+                "Sprites/Default",
+                "Standard",
             };
             foreach (var name in candidates)
             {
