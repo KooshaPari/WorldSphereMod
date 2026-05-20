@@ -194,7 +194,10 @@ namespace WorldSphereMod.Voxel
         /// <summary>Per-frame submission. Matrix should already include scale.</summary>
         public static bool Submit(Mesh mesh, Matrix4x4 trs, Color tint)
         {
-            if (MeshInstanceBatcher.InstancingBroken) return false;
+            // Removed: if (InstancingBroken) return false. Once instancing throws,
+            // MeshInstanceBatcher.Flush has a working Graphics.DrawMesh fallback path.
+            // Pre-empting Submit here used to permanently disable voxel rendering after
+            // the first instancing exception. Now we always submit; Flush picks the right path.
             if (_material == null && !EnsureMaterial()) return false;
             MeshInstanceBatcher.Submit(mesh, _material!, trs, tint);
             return true;
@@ -361,11 +364,8 @@ namespace WorldSphereMod.Voxel
                         LogActorSubmitDiagnostic("impostor", ref _actorImpostorDiagnosticLogged, a, sp, imPosBeforeLift, imPos, rd.colors[i]);
                         Quaternion br = Tools.RotateToCamera(ref imPos);
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
-                        if (!MeshInstanceBatcher.InstancingBroken)
-                        {
-                            MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
-                            submitted = true;
-                        }
+                        MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
+                        submitted = true;
                         if (submitted)
                         {
                             rd.has_normal_render[i] = false;
@@ -491,11 +491,8 @@ namespace WorldSphereMod.Voxel
                         }
                         Quaternion br = Tools.RotateToCamera(ref imPos);
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
-                        if (!MeshInstanceBatcher.InstancingBroken)
-                        {
-                            MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
-                            submitted = true;
-                        }
+                        MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
+                        submitted = true;
                         if (submitted)
                         {
                             rd.scales[i] = Vector3.zero;
