@@ -123,7 +123,7 @@ namespace WorldSphereMod.Voxel
                             Graphics.DrawMeshInstanced(
                             kv.Key.Mesh, 0, kv.Key.Material,
                             bucket.MatScratch, n, bucket.Block,
-                            shadows, receive, resolvedLayer, renderCamera, LightProbeUsage.Off);
+                            shadows, receive, resolvedLayer, null, LightProbeUsage.Off);
                         FrameDrawCalls++;
                         offset += n;
                     }
@@ -162,7 +162,7 @@ namespace WorldSphereMod.Voxel
                     bucket.Matrices[i],
                     key.Material,
                     layer,
-                    renderCamera,
+                    null,
                     0,
                     bucket.Block,
                     shadows,
@@ -190,7 +190,7 @@ namespace WorldSphereMod.Voxel
                         debugTrs,
                         key.Material,
                         layer,
-                        renderCamera,
+                        null,
                         0,
                         bucket.Block,
                         shadows,
@@ -268,7 +268,7 @@ namespace WorldSphereMod.Voxel
             string camName = cam != null ? cam.name : "<null>";
             int camLayer = cam != null ? cam.gameObject.layer : -1;
             int mask = cam != null ? cam.cullingMask : 0;
-            Debug.Log($"[WSM3D] MeshInstanceBatcher render target camera={camName} cameraLayer={camLayer} cullingMask=0x{mask:X8} requestedLayer={requestedLayer} resolvedLayer={resolvedLayer} lightProbes=Off shadows={shadows} receiveShadows={receive}");
+            Debug.Log($"[WSM3D] MeshInstanceBatcher render target camera=ALL (was bound to CameraManager.MainCamera; resolved={camName}) cameraLayer={camLayer} cullingMask=0x{mask:X8} requestedLayer={requestedLayer} resolvedLayer={resolvedLayer} lightProbes=Off shadows={shadows} receiveShadows={receive}");
         }
 
         public static void Reset()
