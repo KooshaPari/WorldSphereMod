@@ -13,6 +13,35 @@ namespace WorldSphereMod.Foliage
     {
         public static int Capacity = 1024;
 
+        struct CacheKey
+        {
+            public int SpriteId;
+            public BuildingShape Shape;
+            public CrossedQuadVariant Variant;
+            public int SwayBits;
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = SpriteId;
+                    hash = (hash * 397) ^ (int)Shape;
+                    hash = (hash * 397) ^ (int)Variant;
+                    hash = (hash * 397) ^ SwayBits;
+                    return hash;
+                }
+            }
+
+            public override bool Equals(object obj)
+            {
+                if (obj is not CacheKey other) return false;
+                return SpriteId == other.SpriteId
+                    && Shape == other.Shape
+                    && Variant == other.Variant
+                    && SwayBits == other.SwayBits;
+            }
+        }
+
         struct Entry
         {
             public Mesh Mesh;
@@ -20,7 +49,7 @@ namespace WorldSphereMod.Foliage
         }
 
         static readonly object _lock = new object();
-        static readonly Dictionary<long, Entry> _cache = new Dictionary<long, Entry>(256);
+        static readonly Dictionary<CacheKey, Entry> _cache = new Dictionary<CacheKey, Entry>(256);
         static readonly Queue<Mesh> _pendingDestroy = new Queue<Mesh>();
         static ulong _frame;
 
@@ -29,10 +58,16 @@ namespace WorldSphereMod.Foliage
             get { lock (_lock) return _cache.Count; }
         }
 
-        public static Mesh? GetOrBuild(Sprite sprite, BuildingShape shape, float swayAmplitude)
+        public static Mesh? GetOrBuild(Sprite sprite, BuildingShape shape, float swayAmplitude, string? assetId = null)
         {
             if (sprite == null) return null;
-            long key = ((long)sprite.GetInstanceID() << 8) | (byte)shape;
+            CacheKey key = new CacheKey
+            {
+                SpriteId = sprite.GetInstanceID(),
+                Shape = shape,
+                Variant = ResolveVariant(assetId),
+                SwayBits = BitConverter.SingleToInt32Bits(swayAmplitude),
+            };
 
             lock (_lock)
             {
@@ -46,7 +81,7 @@ namespace WorldSphereMod.Foliage
 
             // Build outside the lock — Unity Mesh construction is main-thread and
             // shouldn't be held under a lock, matching the VoxelMeshCache pattern.
-            Mesh m = CrossedQuadMesher.Build(sprite, shape, swayAmplitude);
+            Mesh m = CrossedQuadMesher.Build(sprite, shape, swayAmplitude, key.Variant);
 
             lock (_lock)
             {
@@ -125,6 +160,27 @@ namespace WorldSphereMod.Foliage
                 if (_cache[key].Mesh != null) _pendingDestroy.Enqueue(_cache[key].Mesh);
                 _cache.Remove(key);
             }
+        }
+
+        static CrossedQuadVariant ResolveVariant(string? assetId)
+        {
+            if (string.IsNullOrEmpty(assetId)) return CrossedQuadVariant.Generic;
+
+            string id = assetId!;
+            if (id.IndexOf("palm", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return CrossedQuadVariant.Palm;
+            }
+            if (id.IndexOf("pine", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return CrossedQuadVariant.Pine;
+            }
+            if (id.IndexOf("oak", System.StringComparison.OrdinalIgnoreCase) >= 0
+                || id.StartsWith("tree_", System.StringComparison.OrdinalIgnoreCase))
+            {
+                return CrossedQuadVariant.Oak;
+            }
+            return CrossedQuadVariant.Generic;
         }
     }
 }

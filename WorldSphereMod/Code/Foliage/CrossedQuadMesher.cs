@@ -3,6 +3,14 @@ using WorldSphereMod.ProcGen;
 
 namespace WorldSphereMod.Foliage
 {
+    internal enum CrossedQuadVariant
+    {
+        Generic,
+        Oak,
+        Pine,
+        Palm
+    }
+
     /// <summary>
     /// Builds a foliage <see cref="Mesh"/> from a sprite. The two output shapes:
     ///   <see cref="BuildingShape.CrossedQuad"/> emits two perpendicular vertical
@@ -14,7 +22,7 @@ namespace WorldSphereMod.Foliage
     /// </summary>
     public static class CrossedQuadMesher
     {
-        public static Mesh Build(Sprite sprite, BuildingShape shape, float swayAmplitude)
+        public static Mesh Build(Sprite sprite, BuildingShape shape, float swayAmplitude, CrossedQuadVariant variant)
         {
             if (sprite == null) return CreateEmpty();
             // Defensive: the upstream SpriteVoxelizer crashed on non-readable atlases.
@@ -53,7 +61,14 @@ namespace WorldSphereMod.Foliage
             }
 
             Color sway = new Color(1f, 1f, 1f, swayAmplitude);
-            var mesh = new Mesh { name = $"crossquad:{(int)shape}:{sprite.name}" };
+            GetProfile(shape, variant, out float baseWidthScale, out float topWidthScale, out float heightScale, out float baseLift);
+            float scaledHeight = quadH * heightScale;
+            float baseHalfW = halfW * baseWidthScale;
+            float topHalfW = halfW * topWidthScale;
+            float y0 = baseLift;
+            float y1 = baseLift + scaledHeight;
+
+            var mesh = new Mesh { name = $"crossquad:{(int)shape}:{(int)variant}:{sprite.name}" };
 
             if (shape == BuildingShape.Single)
             {
@@ -83,16 +98,16 @@ namespace WorldSphereMod.Foliage
                 // upright quads. Quad A spans X-axis, Quad B spans Z-axis (rotated 90° around Y).
                 var verts = new Vector3[8]
                 {
-                    // Quad A: base at y=0 along +/-X
-                    new Vector3(-halfW, 0f,    0f),  // 0 BL
-                    new Vector3( halfW, 0f,    0f),  // 1 BR
-                    new Vector3( halfW, quadH, 0f),  // 2 TR
-                    new Vector3(-halfW, quadH, 0f),  // 3 TL
-                    // Quad B: base at y=0 along +/-Z (perpendicular to A around Y axis)
-                    new Vector3(0f,    0f,   -halfW), // 4 BL
-                    new Vector3(0f,    0f,    halfW), // 5 BR
-                    new Vector3(0f,    quadH, halfW), // 6 TR
-                    new Vector3(0f,    quadH,-halfW), // 7 TL
+                    // Quad A: base at y=y0 along +/-X
+                    new Vector3(-baseHalfW, y0,    0f),  // 0 BL
+                    new Vector3( baseHalfW, y0,    0f),  // 1 BR
+                    new Vector3( topHalfW,  y1,    0f),  // 2 TR
+                    new Vector3(-topHalfW,  y1,    0f),  // 3 TL
+                    // Quad B: base at y=y0 along +/-Z (perpendicular to A around Y axis)
+                    new Vector3(0f,    y0,   -baseHalfW), // 4 BL
+                    new Vector3(0f,    y0,    baseHalfW), // 5 BR
+                    new Vector3(0f,    y1,    topHalfW), // 6 TR
+                    new Vector3(0f,    y1,   -topHalfW), // 7 TL
                 };
                 var uvs = new Vector2[8]
                 {
@@ -125,5 +140,35 @@ namespace WorldSphereMod.Foliage
         }
 
         static Mesh CreateEmpty() => new Mesh { name = "crossquad:empty" };
+
+        static void GetProfile(BuildingShape shape, CrossedQuadVariant variant, out float baseWidthScale, out float topWidthScale, out float heightScale, out float baseLift)
+        {
+            baseWidthScale = 1f;
+            topWidthScale = 1f;
+            heightScale = 1f;
+            baseLift = 0f;
+
+            if (shape == BuildingShape.Single) return;
+
+            switch (variant)
+            {
+                case CrossedQuadVariant.Oak:
+                    baseWidthScale = 1.15f;
+                    topWidthScale = 0.82f;
+                    heightScale = 0.95f;
+                    break;
+                case CrossedQuadVariant.Pine:
+                    baseWidthScale = 0.68f;
+                    topWidthScale = 0.22f;
+                    heightScale = 1.42f;
+                    break;
+                case CrossedQuadVariant.Palm:
+                    baseWidthScale = 0.42f;
+                    topWidthScale = 1.02f;
+                    heightScale = 1.18f;
+                    baseLift = 0.08f;
+                    break;
+            }
+        }
     }
 }
