@@ -1,0 +1,11 @@
+set windows-shell := true
+
+build:
+    cargo build --manifest-path {{current_directory()}}/Cargo.toml
+
+smoke-test:
+    $ts = Get-Date -Format "yyyyMMdd-HHmmss"
+    $out = "{{current_directory()}}/../../docs/journeys/scratch/process-bound-test-$ts.png"
+    New-Item -ItemType Directory -Path (Split-Path $out) -Force | Out-Null
+    cargo run --manifest-path {{current_directory()}}/Cargo.toml -- worldbox $out
+
