@@ -53,6 +53,18 @@ namespace WorldSphereMod.Voxel
         public static bool UseFallbackPath => _useFallbackPath;
         public static bool InstancingBroken => _instancingErrorLogged;
 
+        public static bool HasPendingSubmissions
+        {
+            get
+            {
+                foreach (var kv in _buckets)
+                {
+                    if (kv.Value.Matrices.Count > 0) return true;
+                }
+                return false;
+            }
+        }
+
         static bool _instancingErrorLogged;
         static bool _useFallbackPath;
         static bool _renderTargetLogged;

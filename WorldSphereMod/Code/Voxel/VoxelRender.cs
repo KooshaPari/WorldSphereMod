@@ -431,14 +431,7 @@ namespace WorldSphereMod.Voxel
                 WorldSphereMod.LOD.FrustumCuller.UpdatePlanes();
             }
 
-            // Flush whenever ANY phase might have Submit'd. Walls + foliage
-            // submit into the same MeshInstanceBatcher and were silently
-            // discarded when only Phase 3 was on (no Flush ever happened).
-            bool anyEmitPhaseOn = Core.savedSettings.VoxelEntities
-                || Core.savedSettings.ProceduralBuildings
-                || Core.savedSettings.CrossedQuadFoliage
-                || Core.savedSettings.DebugSanityCube;
-            if (anyEmitPhaseOn)
+            if (MeshInstanceBatcher.HasPendingSubmissions)
             {
                 VoxelRender.Flush();
                 VoxelMeshCache.DrainPendingDestroy();
