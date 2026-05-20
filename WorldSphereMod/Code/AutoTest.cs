@@ -35,6 +35,18 @@ namespace WorldSphereMod
                 yield return null;
             }
 
+            // Snapshot each flag's pre-test value so we can restore it after the
+            // cycle. Without this, AutoTest leaves every phase OFF at runtime,
+            // even when the disk config says ON — the user's enabled phases
+            // would silently vanish after init.
+            var preTestState = new System.Collections.Generic.Dictionary<string, bool>();
+            foreach (string flagName in PhaseFlags)
+            {
+                FieldInfo snap = typeof(SavedSettings).GetField(flagName);
+                if (snap == null) continue;
+                preTestState[flagName] = (bool)snap.GetValue(Core.savedSettings);
+            }
+
             foreach (string flagName in PhaseFlags)
             {
                 FieldInfo field = typeof(SavedSettings).GetField(flagName);
@@ -70,7 +82,15 @@ namespace WorldSphereMod
                 SetPhase(field, flagName, false);
             }
 
-            Debug.Log("[WSM3D] AutoTest: complete");
+            // Restore each flag to its pre-test value so the user's chosen
+            // SavedSettings stays effective after AutoTest finishes.
+            foreach (var kv in preTestState)
+            {
+                FieldInfo restore = typeof(SavedSettings).GetField(kv.Key);
+                if (restore != null) SetPhase(restore, kv.Key, kv.Value);
+            }
+
+            Debug.Log("[WSM3D] AutoTest: complete (phase flags restored to pre-test values)");
         }
 
         static void SetPhase(FieldInfo field, string flagName, bool value)
