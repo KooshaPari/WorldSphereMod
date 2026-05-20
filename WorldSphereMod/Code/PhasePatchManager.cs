@@ -79,7 +79,10 @@ namespace WorldSphereMod
 
         private static IEnumerable<Type> GetPhaseTypes(string flagName)
         {
-            var types = Assembly.GetExecutingAssembly().GetTypes();
+            var phaseAssembly = typeof(PhaseAttribute).Assembly;
+            var types = phaseAssembly.GetTypes();
+            Debug.Log($"[WSM3D] PhasePatchManager: scanning assembly {phaseAssembly.FullName} for {flagName}.");
+            Debug.Log($"[WSM3D] PhasePatchManager: {flagName} phase candidates: {string.Join(", ", types.Where(type => type.GetCustomAttribute<PhaseAttribute>()?.SettingsFlagName == flagName).Select(type => type.FullName))}");
             foreach (var type in types)
             {
                 var phaseAttr = type.GetCustomAttribute<PhaseAttribute>();

@@ -122,7 +122,7 @@ namespace WorldSphereMod
             // Conditional patching: types with [Phase] attribute are only patched if their
             // phase gate is enabled in SavedSettings. This avoids IL detour overhead for
             // disabled phases (~80-150ms per disabled phase at Init time).
-            var types = Assembly.GetExecutingAssembly().GetTypes();
+            var types = typeof(PhaseAttribute).Assembly.GetTypes();
             foreach (var type in types)
             {
                 var phaseAttr = type.GetCustomAttribute<PhaseAttribute>();
