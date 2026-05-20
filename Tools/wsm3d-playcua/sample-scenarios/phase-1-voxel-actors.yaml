@@ -1,0 +1,36 @@
+name: phase-1-voxel-actors
+output_dir: artifacts
+default_wait_seconds: 1
+steps:
+  - action: load_save
+    slot: 2
+    note: Load the baseline save with voxel-heavy world content.
+  - action: wait_n_frames
+    frames: 12
+    fps: 30
+  - action: toggle_flag
+    key: EnableVoxelActors
+    value: true
+    note: Enable actor-voxel phase behavior in SavedSettings.
+  - action: screenshot
+    path: phase-1-voxel-actors/actors.png
+    vision:
+      required: true
+      prompt: >
+        Validate that this world shows active voxel actors and no obvious UI crash indicators.
+        Return strict JSON with keys passes, reason, and confidence.
+      criteria:
+        must_contain_voxel_actors: true
+        no_error_dialog: true
+  - action: assert_telemetry
+    required: true
+    checks:
+      - field: drawCalls
+        op: "<"
+        value: 900
+      - field: frameMs
+        op: "<"
+        value: 50
+      - field: instances
+        op: ">"
+        value: 10
