@@ -24,12 +24,12 @@ namespace WorldSphereMod
         // verified to render voxel meshes correctly. The wiring is in place but
         // the supplied placeholder material is unlit; Phase 5 ships the real
         // lit + shadow-casting shader.
-        public bool VoxelEntities = false;
+        public bool VoxelEntities = true;
         // ADR-0008: optional post-mesh Laplacian smoothing for voxel output.
         public bool VoxelMeshSmoothing = false;
         public int SmoothingIterations = 1;
         public float VoxelScaleMultiplier = 8.0f;
-        public bool DebugVoxelOutline = true;
+        public bool DebugVoxelOutline = false;
         public bool DebugSanityCube = false;
         public bool DebugSpawnBuildings = false;
         public bool AutoTest = false;
