@@ -11,6 +11,10 @@ namespace WorldSphereMod.Lighting
 
         FieldInfo? _wbTimeField;
         bool _useWbTime;
+        bool _seededFromWorldTime;
+        float _lastWorldTime;
+        float _lastWorldTimeSampleAt;
+        float _worldTimeRate = 0.001f;
 
         public static void EnsureCreated()
         {
@@ -37,7 +41,34 @@ namespace WorldSphereMod.Lighting
             if (_useWbTime && _wbTimeField != null)
             {
                 object? boxed = _wbTimeField.IsStatic ? _wbTimeField.GetValue(null) : _wbTimeField.GetValue(MapBox.instance);
-                if (boxed is float wt) Current = Mathf.Repeat(wt, 1f);
+                if (boxed is float wt)
+                {
+                    float worldTime = Mathf.Repeat(wt, 1f);
+                    if (!_seededFromWorldTime)
+                    {
+                        Current = worldTime;
+                        _lastWorldTime = worldTime;
+                        _lastWorldTimeSampleAt = Time.unscaledTime;
+                        _worldTimeRate = DaySpeed;
+                        _seededFromWorldTime = true;
+                    }
+                    else
+                    {
+                        float sampleAge = Time.unscaledTime - _lastWorldTimeSampleAt;
+                        float delta = Mathf.DeltaAngle(_lastWorldTime * 360f, worldTime * 360f) / 360f;
+                        if (sampleAge > 0f && Mathf.Abs(delta) > Mathf.Epsilon)
+                        {
+                            _worldTimeRate = delta / sampleAge;
+                            _lastWorldTime = worldTime;
+                            _lastWorldTimeSampleAt = Time.unscaledTime;
+                        }
+                    }
+                    Current = Mathf.Repeat(Current + Time.deltaTime * _worldTimeRate, 1f);
+                }
+                else
+                {
+                    Current = Mathf.Repeat(Current + Time.deltaTime * DaySpeed, 1f);
+                }
             }
             else
             {

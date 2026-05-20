@@ -13,6 +13,16 @@ namespace WorldSphereMod.Lighting
         static readonly int _sunDir = Shader.PropertyToID("_SunDir");
         static readonly int _sunCol = Shader.PropertyToID("_SunColor");
 
+        static readonly Color kZenithNight = new Color(0.05f, 0.07f, 0.18f);
+        static readonly Color kZenithDawn = new Color(0.18f, 0.22f, 0.35f);
+        static readonly Color kZenithNoon = new Color(0.35f, 0.5f, 0.85f);
+        static readonly Color kZenithDusk = new Color(0.14f, 0.11f, 0.24f);
+
+        static readonly Color kHorizonNight = new Color(0.05f, 0.06f, 0.1f);
+        static readonly Color kHorizonDawn = new Color(0.98f, 0.55f, 0.28f);
+        static readonly Color kHorizonNoon = new Color(0.62f, 0.78f, 0.98f);
+        static readonly Color kHorizonDusk = new Color(0.82f, 0.3f, 0.38f);
+
         public static void EnsureCreated()
         {
             if (Instance != null) return;
@@ -42,10 +52,8 @@ namespace WorldSphereMod.Lighting
             float t = TimeOfDay.Current;
 
             Color sun = SunRig.SunColor(t);
-            Color amb = SunRig.AmbientColor(t);
-
-            Color zenith = Color.Lerp(new Color(0.05f, 0.07f, 0.18f), new Color(0.35f, 0.5f, 0.85f), Mathf.Sin(t * Mathf.PI));
-            Color horizon = Color.Lerp(sun * 0.5f, sun * 0.9f, Mathf.Sin(t * Mathf.PI));
+            Color zenith = SampleSkyCurve(t, kZenithNight, kZenithDawn, kZenithNoon, kZenithDusk);
+            Color horizon = SampleSkyCurve(t, kHorizonNight, kHorizonDawn, kHorizonNoon, kHorizonDusk);
             Color ground = new Color(0.1f, 0.1f, 0.1f);
 
             _skyMat.SetColor(_zenith, zenith);
@@ -54,6 +62,14 @@ namespace WorldSphereMod.Lighting
             _skyMat.SetColor(_sunCol, sun);
             if (SunDriver.Sun != null)
                 _skyMat.SetVector(_sunDir, SunDriver.Sun.transform.forward * -1f);
+        }
+
+        static Color SampleSkyCurve(float t, Color night, Color dawn, Color noon, Color dusk)
+        {
+            if (t < 0.25f) return Color.Lerp(night, dawn, t / 0.25f);
+            if (t < 0.5f) return Color.Lerp(dawn, noon, (t - 0.25f) / 0.25f);
+            if (t < 0.75f) return Color.Lerp(noon, dusk, (t - 0.5f) / 0.25f);
+            return Color.Lerp(dusk, night, (t - 0.75f) / 0.25f);
         }
     }
 }
