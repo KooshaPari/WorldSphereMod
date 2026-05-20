@@ -76,6 +76,7 @@ namespace WorldSphereMod.Voxel
         /// DrawMeshInstanced entirely so the same draw goes through the
         /// known-good per-instance path. Set once at startup or after Reset.</summary>
         public static void ForceFallbackPath() { _useFallbackPath = true; }
+        public static void ArmFallbackDiagOnce() { _fallbackDrawDiagFrames = 4; }
         public static bool InstancingBroken => _instancingErrorLogged;
 
         public static bool HasPendingSubmissions

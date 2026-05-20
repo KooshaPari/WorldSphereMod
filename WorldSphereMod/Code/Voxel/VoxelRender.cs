@@ -411,12 +411,9 @@ namespace WorldSphereMod.Voxel
                 }
             }
 
-            // TODO Step 11: replace with Constants.ActorRigTypes registry lookup so quadrupeds
-            // and rigless assets (birds, snakes) route correctly. Default-humanoid is fine for
-            // Step 5 because every rig still resolves to the same bind-pose identity output.
             static WorldSphereMod.Rig.RigType ResolveRigType(string assetId)
             {
-                return WorldSphereMod.Rig.RigType.Humanoid;
+                return Constants.ResolveActorRig(assetId);
             }
 
             static void LogActorSubmitDiagnostic(string path, ref bool logged, Actor actor, Sprite? sprite, Vector3 beforeLift, Vector3 afterLift, Color tint)
@@ -570,6 +567,9 @@ namespace WorldSphereMod.Voxel
             {
                 WorldSphereMod.LOD.FrustumCuller.UpdatePlanes();
             }
+
+            WorldSphereMod.Rig.RigCache.Tick();
+            WorldSphereMod.Rig.RigCache.DrainPendingDestroy();
 
             if (MeshInstanceBatcher.HasPendingSubmissions)
             {
