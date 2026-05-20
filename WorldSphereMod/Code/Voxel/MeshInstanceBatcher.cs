@@ -81,6 +81,7 @@ namespace WorldSphereMod.Voxel
         static bool _instancingErrorLogged;
         static bool _useFallbackPath;
         static bool _renderTargetLogged;
+        static bool _allCamerasLogged;
         static Mesh? _debugCubeMesh;
 
         public static void Submit(Mesh mesh, Material mat, Matrix4x4 matrix, Color tint)
@@ -301,6 +302,8 @@ namespace WorldSphereMod.Voxel
 
         static void LogAllCameras()
         {
+            if (_allCamerasLogged) return;
+            _allCamerasLogged = true;
             var cameras = Camera.allCameras;
             for (int i = 0; i < cameras.Length; i++)
             {
@@ -336,6 +339,7 @@ namespace WorldSphereMod.Voxel
             _useFallbackPath = false;
             _instancingErrorLogged = false;
             _renderTargetLogged = false;
+            _allCamerasLogged = false;
             FrameDrawCalls = 0;
             FrameInstances = 0;
         }
