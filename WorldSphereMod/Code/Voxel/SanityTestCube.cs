@@ -81,7 +81,11 @@ namespace WorldSphereMod.Voxel
         {
             if (_mesh != null) return _mesh;
 
-            const float h = 10f;
+            // Unit cube (1x1x1 local). Combined with the TRS scale of _halfCubeSize
+            // (10) at the draw call, world size becomes 10x10x10. Previous h=10 here
+            // produced a 200-unit cube that filled the camera frustum from any sane
+            // strategy-view altitude — looked like the world had turned black.
+            const float h = 0.5f;
             Vector3[] vertices =
             {
                 new Vector3(-h, -h, -h), new Vector3(h, -h, -h), new Vector3(h, h, -h), new Vector3(-h, h, -h),
