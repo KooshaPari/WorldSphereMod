@@ -21,11 +21,11 @@ This fork lands a real 3D pipeline on top of that foundation:
 | 2  | landed       | Procedural building meshes (heuristic landed); visibly rendering in-game after `cullPos.To3DTileHeight` lift before FrustumCuller (2026-05-19, commit `3448c1f`, v2.0.0-alpha.5) — AutoTest telemetry: drawCalls=377 instances=37760 on save2 |
 | 3  | code-complete | 3a trees/bushes/rocks crossed-quads + 3b surface overlays + walls as 3D prisms |
 | 4  | code-complete (lite) | Mesh water — WaterGerstner shader source landed; AssetBundle bake deferred to Phase 5b |
-| 5  | research     | Directional sun + cascaded shadows + SSAO (see `docs/phase5-prep.md`) |
-| 6  | planned      | Skeletal animation driver (auto-rigged from sprite anatomy) |
-| 7  | code-complete (no selection hook) | Worldspace UI: nameplate, HP bar, damage popups landed; selection ring code in place pending SelectionManager investigation. |
+| 5  | code-complete (SSAO pending) | Sun driver + shadow cascade config + procedural sky landed (full 360° cycle as of v2.0.0-alpha.6); SSAO not yet implemented. |
+| 6  | in-progress  | Skeletal pipeline scaffold (rig cache + segmented CPU fallback + driver hooks) wired but GPU skinning path intentionally bypassed per ADR-0006; flag default OFF. |
+| 7  | code-complete | Worldspace UI: nameplate, HP bar, damage popups, selection ring all landed; SelectionHooks wired via `SelectedUnit`. |
 | 8  | code-complete (autonomous) | TimeOfDay autonomous driver + SunRig color gradient; ProceduralSky shader source landed; MapBox.world_time probe falls back since field absent. |
-| 9  | code-complete | Particle bursts on 5 effect IDs + 3-channel DecalPool + URP PostFX (opt-in via PostFX flag, default off). |
+| 9  | partial      | Particle bursts on 5 effect IDs ✅ + URP PostFX volume ✅; `DecalPool` is initialized + ticked + cleared but no `Emit()` call site exists in code → decals are effectively absent (task #143). |
 | 10 | code-complete (no proxy) | FrustumCuller + LodSelector + ImpostorBillboard + softened hardware gate; Proxy tier still routes to Voxel. |
 
 The full plan, including file-by-file changes and verification steps, lives
