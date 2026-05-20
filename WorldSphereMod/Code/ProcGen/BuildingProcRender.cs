@@ -94,6 +94,10 @@ namespace WorldSphereMod.ProcGen
 
                     Vector3 pos = rd.positions[i];
                     Vector3 rawPos = pos;
+                    if (pos.z < Constants.ZDisplacement * 0.5f)
+                    {
+                        pos = pos.To3DTileHeight(false);
+                    }
                     Vector3 rot = rd.rotations[i];
                     Vector3 scl = rd.scales[i];
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
