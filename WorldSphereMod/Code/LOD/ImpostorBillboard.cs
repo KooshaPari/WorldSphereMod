@@ -9,6 +9,7 @@ namespace WorldSphereMod.LOD
         static readonly Dictionary<int, Mesh> _atlas = new Dictionary<int, Mesh>();
         static Material? _material;
         static bool _materialAttempted;
+        static bool _materialDebugLogged;
 
         public static Material? GetMaterial()
         {
@@ -46,11 +47,39 @@ namespace WorldSphereMod.LOD
                 }
 
                 _material = mat;
+                LogImpostorMaterialPassDetails(_material, shaderName);
                 return _material;
             }
 
             Debug.LogWarning("[WSM3D] ImpostorBillboard material resolution failed; impostor rendering will stay sprite-only.");
             return null;
+        }
+
+        static void LogImpostorMaterialPassDetails(Material material, string shaderName)
+        {
+            if (_materialDebugLogged) return;
+            _materialDebugLogged = true;
+
+            if (material == null)
+            {
+                Debug.LogWarning("[WSM3D] Impostor material diagnostics skipped: material is null.");
+                return;
+            }
+
+            string shaderNameSafe = material.shader != null ? material.shader.name : "<null shader>";
+            string keywords = material.shaderKeywords != null && material.shaderKeywords.Length > 0
+                ? string.Join(", ", material.shaderKeywords)
+                : "<none>";
+
+            Debug.Log($"[WSM3D][MATERIAL] IMPOSTOR sourceCandidate='{shaderName}' resolvedShader='{shaderNameSafe}' passCount={material.passCount} renderQueue={material.renderQueue} renderType={material.GetTag("RenderType", false, "<none>")} queueOverride={material.GetTag("Queue", false, "<none>")}");
+            Debug.Log($"[WSM3D][MATERIAL] IMPOSTOR shaderKeywords=[{keywords}]");
+
+            for (int pass = 0; pass < material.passCount; pass++)
+            {
+                string passName = material.GetPassName(pass);
+                int nativeIndex = material.GetPassNativeIndex(pass);
+                Debug.Log($"[WSM3D][MATERIAL] IMPOSTOR pass[{pass}] name='{passName}' nativeIndex={nativeIndex}");
+            }
         }
 
         public static Mesh? GetOrCreate(Sprite sprite)
@@ -77,6 +106,7 @@ namespace WorldSphereMod.LOD
             if (_material != null) Object.Destroy(_material);
             _material = null;
             _materialAttempted = false;
+            _materialDebugLogged = false;
         }
 
         static Mesh BuildQuad(Sprite sprite)
