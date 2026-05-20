@@ -26,8 +26,8 @@ namespace WorldSphereMod
         // lit + shadow-casting shader.
         public bool VoxelEntities = true;
         // ADR-0008: optional post-mesh Laplacian smoothing for voxel output.
-        public bool VoxelMeshSmoothing = false;
-        public int SmoothingIterations = 1;
+        public bool VoxelMeshSmoothing = true;
+        public int SmoothingIterations = 2;
         // Sprite voxel extrusion depth: 1 keeps the old slab, 3 is the cheapest
         // setting that reads as actual 3D depth at a glance.
         public int VoxelSpriteDepth = 3;
@@ -38,6 +38,9 @@ namespace WorldSphereMod
         public bool AutoTest = false;
         // Phase 2: Procedural building meshes (vs. billboarded building sprites).
         public bool ProceduralBuildings = false;
+        // Optional Phase 2 style override: keep the old stylized procgen architecture
+        // path instead of voxelizing building sprites directly.
+        public bool BuildingStyleProcgen = false;
         // Phase 3: Crossed-quad foliage (vs. billboarded sprite top tiles).
         public bool CrossedQuadFoliage = true;
         // Phase 4: Mesh water surface (vs. flat tile color).

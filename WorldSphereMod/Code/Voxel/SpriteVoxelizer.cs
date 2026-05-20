@@ -213,7 +213,7 @@ namespace WorldSphereMod.Voxel
             return ReturnProfiled(mesh);
         }
 
-        static int ResolveDepth(int depth)
+        internal static int ResolveDepth(int depth)
         {
             if (depth > 0) return depth;
             int configuredDepth = Core.savedSettings != null ? Core.savedSettings.VoxelSpriteDepth : 0;
@@ -227,12 +227,13 @@ namespace WorldSphereMod.Voxel
         /// emitted face all four vertices share the same source texel index
         /// <c>x + y * spriteW</c>, written into <paramref name="vertexToTexel"/>. RigCache
         /// uses that mapping to project <see cref="Rig.HumanoidRig.SegmentVoxels"/> output
-        /// from pixel space onto per-vertex bone indices. The depth axis collapses to the
-        /// front-most texel (z=0) because the source is a 2D sprite — every (x,y,z) column of
-        /// solid voxels descends from the same texel.
+        /// from pixel space onto per-vertex bone indices. The depth axis mirrors X across the
+        /// back half so the rear silhouette reads as a real back side instead of a straight
+        /// extruded slab.
         /// </summary>
         public static Mesh BuildPerTexel(Sprite sprite, int depth, out int[] vertexToTexel)
         {
+            depth = ResolveDepth(depth);
             if (sprite == null || sprite.texture == null || !sprite.texture.isReadable)
             {
                 vertexToTexel = System.Array.Empty<int>();
@@ -249,6 +250,7 @@ namespace WorldSphereMod.Voxel
 
             bool[,,] solid = new bool[w, h, depth];
             Color32[,,] color = new Color32[w, h, depth];
+            int backStart = depth > 1 ? depth / 2 : 0;
             for (int y = 0; y < h; y++)
             {
                 int row = (y0 + y) * texW + x0;
@@ -259,8 +261,9 @@ namespace WorldSphereMod.Voxel
                     {
                         for (int z = 0; z < depth; z++)
                         {
-                            solid[x, y, z] = true;
-                            color[x, y, z] = c;
+                            int sampleX = depth <= 1 ? x : (z < backStart ? x : (w - 1 - x));
+                            solid[sampleX, y, z] = true;
+                            color[sampleX, y, z] = c;
                         }
                     }
                 }

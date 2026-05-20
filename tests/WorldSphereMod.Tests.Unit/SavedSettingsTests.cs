@@ -185,4 +185,16 @@ public class SavedSettingsTests
                 $"SavedSettings.{fieldName} must be declared exactly once");
         }
     }
+
+    [Fact]
+    public void SavedSettings_defaults_voxel_mesh_smoothing_on_with_two_iterations()
+    {
+        var source = ReadSavedSettingsSource();
+
+        Regex.Match(source, @"public\s+bool\s+VoxelMeshSmoothing\s*=\s*true")
+            .Success.Should().BeTrue("VoxelMeshSmoothing must default to true");
+
+        Regex.Match(source, @"public\s+int\s+SmoothingIterations\s*=\s*2")
+            .Success.Should().BeTrue("SmoothingIterations must default to 2");
+    }
 }

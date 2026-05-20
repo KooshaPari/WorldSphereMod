@@ -197,8 +197,7 @@ namespace WorldSphereMod.Voxel
             // Build outside the lock — Mesh construction touches Unity APIs that
             // shouldn't be held under a lock, and Get() always runs on the main thread.
             System.Threading.Interlocked.Increment(ref _misses);
-            MeshSnapshot snapshot;
-            Mesh m = SpriteVoxelizer.Build(sprite, out snapshot, depth);
+            Mesh m = SpriteVoxelizer.BuildPerTexel(sprite, depth, out _);
             if (m != null && Core.savedSettings.VoxelMeshSmoothing)
             {
                 // ADR-0008: Laplacian smoothing converts blocky voxel stair-steps
@@ -209,9 +208,9 @@ namespace WorldSphereMod.Voxel
                 {
                     UnityEngine.Object.Destroy(m);
                     m = smoothed;
-                    snapshot = CreateSnapshot(sprite, m, m.vertices, m.colors32, m.triangles);
                 }
             }
+            MeshSnapshot snapshot = m != null ? CreateSnapshot(sprite, m, m.vertices, m.colors32, m.triangles) : null;
             LogVoxelizedSprite(sprite, m);
             if (m == null || m.vertexCount == 0)
             {
@@ -376,16 +375,18 @@ namespace WorldSphereMod.Voxel
 
             if (batch.Count == 1)
             {
-                MeshSnapshot snapshot;
-                CacheWarmSprite(batch[0], SpriteVoxelizer.Build(batch[0], out snapshot), snapshot);
+                Mesh mesh = SpriteVoxelizer.BuildPerTexel(batch[0], -1, out _);
+                MeshSnapshot snapshot = mesh != null ? CreateSnapshot(batch[0], mesh, mesh.vertices, mesh.colors32, mesh.triangles) : null;
+                CacheWarmSprite(batch[0], mesh, snapshot);
                 return;
             }
 
             var built = new ConcurrentQueue<(Sprite Sprite, Mesh Mesh, MeshSnapshot Snapshot)>();
             System.Threading.Tasks.Parallel.ForEach(batch, sprite =>
             {
-                MeshSnapshot snapshot;
-                built.Enqueue((sprite, SpriteVoxelizer.Build(sprite, out snapshot), snapshot));
+                Mesh mesh = SpriteVoxelizer.BuildPerTexel(sprite, -1, out _);
+                MeshSnapshot snapshot = mesh != null ? CreateSnapshot(sprite, mesh, mesh.vertices, mesh.colors32, mesh.triangles) : null;
+                built.Enqueue((sprite, mesh, snapshot));
             });
 
             while (built.TryDequeue(out var result))
