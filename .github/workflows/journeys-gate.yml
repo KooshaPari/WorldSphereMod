@@ -51,6 +51,7 @@ jobs:
         env:
           # Override phenotype-journeys/rust-toolchain.toml (pins 1.83) so the
           # build uses the 1.88 we installed above. Its deps need edition2024.
+          # Upstream fix: KooshaPari/phenotype-journeys#60. Drop this env when merged.
           RUSTUP_TOOLCHAIN: "1.88.0"
         run: |
           set -euo pipefail
