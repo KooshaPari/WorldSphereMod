@@ -40,6 +40,7 @@ namespace WorldSphereMod.Voxel
             if (_material != null) Object.Destroy(_material);
             _material = null;
             _materialAttempted = false;
+            SanityTestCube.Reset();
             _firstActorPosLogged = false;
             _actorVoxelDiagnosticLogged = false;
             _actorImpostorDiagnosticLogged = false;
@@ -273,6 +274,7 @@ namespace WorldSphereMod.Voxel
                     Vector3 pos = rd.positions[i];
                     Vector3 posBeforeLift = pos;
                     LogActorSubmitDiagnostic("voxel", ref _actorVoxelDiagnosticLogged, a, sp, posBeforeLift, pos, rd.colors[i]);
+                    SanityTestCube.CaptureFirstActorPos(pos);
                     Vector3 rot = rd.rotations[i];
                     Vector3 scl = rd.scales[i];
                     if (rd.flip_x_states[i]) scl.x = -scl.x;

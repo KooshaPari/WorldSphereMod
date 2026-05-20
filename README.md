@@ -17,7 +17,7 @@ This fork lands a real 3D pipeline on top of that foundation:
 | Phase | Status | What changes |
 |---|---|---|
 | 0  | landed       | Fork metadata, build portability (`WORLDBOX_PATH`), CI, settings/API v2 |
-| 1  | landed       | Voxelized actors + buildings (with greedy meshing); visibly rendering in-game after `VoxelScaleMultiplier=8.0f` default fixed sub-pixel mesh issue (2026-05-19, commit `94030fb`) |
+| 1  | landed       | Voxelized actors + buildings (with greedy meshing); visibly rendering after Wave-14 root-cause resolution (v2.0.0-alpha.7, 2026-05-19) |
 | 2  | landed       | Procedural building meshes (heuristic landed); visibly rendering in-game after `cullPos.To3DTileHeight` lift before FrustumCuller (2026-05-19, commit `3448c1f`, v2.0.0-alpha.5) — AutoTest telemetry: drawCalls=377 instances=37760 on save2 |
 | 3  | code-complete | 3a trees/bushes/rocks crossed-quads + 3b surface overlays + walls as 3D prisms |
 | 4  | code-complete (lite) | Mesh water — WaterGerstner shader source landed; AssetBundle bake deferred to Phase 5b |

@@ -5,33 +5,53 @@ namespace WorldSphereMod.Voxel
 {
     public static class SanityTestCube
     {
-        static readonly Vector3 kPosition = new Vector3(210f, 5f, 280f);
+        public static Vector3 LastActorPos;
+        static bool _hasLastActorPos;
+        static Vector3 _lastLoggedBasePos = new Vector3(float.NaN, float.NaN, float.NaN);
         static Mesh? _mesh;
         static MaterialPropertyBlock? _block;
-        static bool _logged;
 
         static readonly int _instanceColorId = Shader.PropertyToID("_InstanceColor");
         static readonly int _baseColorId = Shader.PropertyToID("_BaseColor");
         static readonly int _colorId = Shader.PropertyToID("_Color");
+        static readonly Vector3 _heightOffset = Vector3.up * 50f;
+        static readonly float _halfCubeSize = 10f;
 
         public static void Draw()
         {
             Material? material = VoxelRender.GetResolvedMaterial();
             if (material == null) return;
+            if (!_hasLastActorPos) return;
 
             Mesh mesh = EnsureMesh();
             MaterialPropertyBlock block = EnsureBlock();
-            Matrix4x4 matrix = Matrix4x4.TRS(kPosition, Quaternion.identity, Vector3.one);
+            Vector3 basePos = LastActorPos;
+            Vector3 topPos = LastActorPos + _heightOffset;
+            Matrix4x4 baseMatrix = Matrix4x4.TRS(basePos, Quaternion.identity, Vector3.one * _halfCubeSize);
+            Matrix4x4 topMatrix = Matrix4x4.TRS(topPos, Quaternion.identity, Vector3.one * _halfCubeSize);
 
-            if (!_logged)
+            if (!basePos.Equals(_lastLoggedBasePos))
             {
-                _logged = true;
-                Debug.Log($"[WSM3D] SanityTestCube: drawing 10-unit cube at (210,5,280) using material {material.shader.name}");
+                Debug.Log($"[WSM3D] SanityTestCube: drawing 20-unit cube at base={basePos} and upOffset={topPos} using material {material.shader.name}");
+                _lastLoggedBasePos = basePos;
             }
 
             Graphics.DrawMesh(
                 mesh,
-                matrix,
+                baseMatrix,
+                material,
+                0,
+                null,
+                0,
+                block,
+                ShadowCastingMode.On,
+                true,
+                null,
+                LightProbeUsage.Off);
+
+            Graphics.DrawMesh(
+                mesh,
+                topMatrix,
                 material,
                 0,
                 null,
@@ -43,11 +63,25 @@ namespace WorldSphereMod.Voxel
                 LightProbeUsage.Off);
         }
 
+        public static void CaptureFirstActorPos(Vector3 actorWorldPos)
+        {
+            if (_hasLastActorPos) return;
+            LastActorPos = actorWorldPos;
+            _hasLastActorPos = true;
+        }
+
+        public static void Reset()
+        {
+            LastActorPos = Vector3.zero;
+            _hasLastActorPos = false;
+            _lastLoggedBasePos = new Vector3(float.NaN, float.NaN, float.NaN);
+        }
+
         static Mesh EnsureMesh()
         {
             if (_mesh != null) return _mesh;
 
-            const float h = 5f;
+            const float h = 10f;
             Vector3[] vertices =
             {
                 new Vector3(-h, -h, -h), new Vector3(h, -h, -h), new Vector3(h, h, -h), new Vector3(-h, h, -h),
