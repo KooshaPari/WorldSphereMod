@@ -31,6 +31,7 @@ namespace WorldSphereMod
         public float VoxelScaleMultiplier = 8.0f;
         public bool DebugVoxelOutline = true;
         public bool DebugSanityCube = false;
+        public bool AutoTest = false;
         // Phase 2: Procedural building meshes (vs. billboarded building sprites).
         public bool ProceduralBuildings = false;
         // Phase 3: Crossed-quad foliage (vs. billboarded sprite top tiles).

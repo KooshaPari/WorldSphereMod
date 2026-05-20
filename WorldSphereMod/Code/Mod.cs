@@ -27,7 +27,8 @@ using WorldSphereMod;
             Debug.LogWarning("[WSM3D] Compute/IndirectArgs not supported; impostor-only mode.");
             WorldSphereMod.LOD.LodSelector.ImpostorOnlyMode = true;
         }
-        IsAutoTest = System.Environment.GetEnvironmentVariable("WSM3D_AUTOTEST") == "1";
+        IsAutoTest = System.Environment.GetEnvironmentVariable("WSM3D_AUTOTEST") == "1"
+                    || (Core.savedSettings != null && Core.savedSettings.AutoTest);
     }
     public string GetUrl()
     {
