@@ -89,6 +89,7 @@ namespace WorldSphereMod.ProcGen
                         {
                             MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
                             submitted = true;
+                            _diagSubmitted++;
                         }
                         continue;
                     }
