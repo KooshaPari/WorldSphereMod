@@ -27,6 +27,7 @@ using WorldSphereMod;
             Debug.LogWarning("[WSM3D] Compute/IndirectArgs not supported; impostor-only mode.");
             WorldSphereMod.LOD.LodSelector.ImpostorOnlyMode = true;
         }
+        WorldSphereMod.Bridge.BridgeServer.EnsureCreated();
         IsAutoTest = System.Environment.GetEnvironmentVariable("WSM3D_AUTOTEST") == "1"
                     || (Core.savedSettings != null && Core.savedSettings.AutoTest);
     }
