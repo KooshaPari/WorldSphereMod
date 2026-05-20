@@ -22,6 +22,7 @@ namespace WorldSphereMod.Voxel
     {
         /// <summary>Voxel depth in texels. 1 = flat extruded card, &gt;1 = chunkier. </summary>
         public const int DefaultDepth = 1;
+        static readonly HashSet<string> _unreadableSpriteWarnings = new HashSet<string>();
 
         // Per-texture pixel cache. Sprite atlases share one underlying Texture2D across many
         // sprites; without this, each sprite voxelization re-paid the cost of decoding the
@@ -57,11 +58,56 @@ namespace WorldSphereMod.Voxel
             {
                 return CreateEmpty();
             }
+
+            Texture2D sourceTexture = sprite.texture;
+            Texture2D? fallbackTexture = null;
+            RenderTexture? fallbackRt = null;
+
             // Atlased textures imported without Read/Write enabled throw on GetPixels32.
             // Return an empty mesh so the caller (cache) doesn't crash the render pass.
             if (!sprite.texture.isReadable)
             {
-                return CreateEmpty();
+                try
+                {
+                    fallbackRt = RenderTexture.GetTemporary(sourceTexture.width, sourceTexture.height, 0, RenderTextureFormat.ARGB32);
+                    Graphics.Blit(sourceTexture, fallbackRt);
+
+                    RenderTexture prev = RenderTexture.active;
+                    RenderTexture.active = fallbackRt;
+                    try
+                    {
+                        fallbackTexture = new Texture2D(sourceTexture.width, sourceTexture.height, TextureFormat.RGBA32, false);
+                        fallbackTexture.ReadPixels(new Rect(0f, 0f, sourceTexture.width, sourceTexture.height), 0, 0, false);
+                        fallbackTexture.Apply(false, false);
+                    }
+                    finally
+                    {
+                        RenderTexture.active = prev;
+                    }
+
+                    if (fallbackTexture == null || !fallbackTexture.isReadable)
+                    {
+                        throw new System.Exception("Fallback texture conversion did not produce a readable texture.");
+                    }
+
+                    sourceTexture = fallbackTexture;
+                }
+                catch
+                {
+                    if (fallbackTexture != null)
+                    {
+                        Object.Destroy(fallbackTexture);
+                    }
+                    if (fallbackRt != null)
+                    {
+                        RenderTexture.ReleaseTemporary(fallbackRt);
+                    }
+                    if (_unreadableSpriteWarnings.Add(sprite.name))
+                    {
+                        Debug.LogWarning($"[SpriteVoxelizer] Sprite '{sprite.name}' texture is not readable and fallback failed; returning null.");
+                    }
+                    return null;
+                }
             }
 
             // Read the sprite's rectangle out of its atlas. We don't use the
@@ -72,8 +118,8 @@ namespace WorldSphereMod.Voxel
             int h = Mathf.Max(1, (int)r.height);
             int x0 = (int)r.x;
             int y0 = (int)r.y;
-            Color32[] tex = GetPixelsCached(sprite.texture);
-            int texW = sprite.texture.width;
+            Color32[] tex = GetPixelsCached(sourceTexture);
+            int texW = sourceTexture.width;
 
             // Build the alpha mask. We treat any pixel with alpha > 16 as solid;
             // matches the threshold used elsewhere for WorldBox pixel art.
@@ -118,6 +164,14 @@ namespace WorldSphereMod.Voxel
             mesh.SetTriangles(tris, 0);
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
+            if (fallbackTexture != null)
+            {
+                Object.Destroy(fallbackTexture);
+            }
+            if (fallbackRt != null)
+            {
+                RenderTexture.ReleaseTemporary(fallbackRt);
+            }
             // Hint to Unity that we don't write the mesh again; lets it free
             // CPU-side copy after upload.
             mesh.UploadMeshData(true);

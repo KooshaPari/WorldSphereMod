@@ -44,6 +44,11 @@ namespace WorldSphereMod.Voxel
             {
                 if (_cache.TryGetValue(key, out var e))
                 {
+                    if (e.Mesh == null || e.Mesh.vertexCount == 0)
+                    {
+                        _cache.Remove(key);
+                        return null;
+                    }
                     e.LastFrame = _frame;
                     _cache[key] = e;
                     return e.Mesh;
@@ -53,6 +58,10 @@ namespace WorldSphereMod.Voxel
             // shouldn't be held under a lock, and Get() always runs on the main thread.
             Mesh m = SpriteVoxelizer.Build(sprite, depth);
             LogVoxelizedSprite(sprite, m);
+            if (m == null || m.vertexCount == 0)
+            {
+                return null;
+            }
             lock (_lock)
             {
                 _cache[key] = new Entry { Mesh = m, LastFrame = _frame };

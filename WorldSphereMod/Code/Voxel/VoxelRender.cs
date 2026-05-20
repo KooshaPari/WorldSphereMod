@@ -243,7 +243,7 @@ namespace WorldSphereMod.Voxel
                         bool submitted = false;
                         Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
                         Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
-                        if (im == null || imMat == null) continue;
+                        if (im == null || im.vertexCount == 0 || imMat == null) continue;
                         Vector3 imPos = rd.positions[i];
                         Vector3 imPosBeforeLift = imPos;
                         Vector3 imScl = rd.scales[i];
@@ -268,7 +268,7 @@ namespace WorldSphereMod.Voxel
                     }
 
                     Mesh m = VoxelMeshCache.Get(sp);
-                    if (m == null) continue;
+                    if (m == null || m.vertexCount == 0) continue;
 
                     Vector3 pos = rd.positions[i];
                     Vector3 posBeforeLift = pos;
@@ -362,7 +362,7 @@ namespace WorldSphereMod.Voxel
                         // sprite (don't zero scales — that's the "hide the
                         // sprite because we drew our own mesh" path, which
                         // we didn't actually do here).
-                        if (im == null || imMat == null) continue;
+                        if (im == null || im.vertexCount == 0 || imMat == null) continue;
                         Vector3 imPos = rd.positions[i];
                         Vector3 imScl = rd.scales[i];
                         if (rd.flip_x_states[i]) imScl.x = -imScl.x;
@@ -385,7 +385,7 @@ namespace WorldSphereMod.Voxel
                     }
 
                     Mesh m = VoxelMeshCache.Get(sp);
-                    if (m == null) continue;
+                    if (m == null || m.vertexCount == 0) continue;
 
                     Vector3 pos = rd.positions[i];
                     Vector3 rot = rd.rotations[i];
