@@ -16,6 +16,9 @@ namespace WorldSphereMod
 {
     public static class Tools
     {
+        [ThreadStatic]
+        static Dictionary<Vector2Int, float>? _tileHeightSmoothCache;
+
         public static float GetHeight(this Actor Actor)
         {
             if(Actor.avatar?.GetComponent<Crabzilla>() != null)
@@ -245,20 +248,42 @@ namespace WorldSphereMod
         public static float GetTileHeightSmooth(this Vector2 Pos)
         {
             Vector2Int pos = Pos.AsInt();
+            Dictionary<Vector2Int, float>? cache = _tileHeightSmoothCache;
+            if (cache != null && cache.TryGetValue(pos, out float cachedHeight))
+            {
+                return cachedHeight;
+            }
+
             WorldTile Tile = World.world.GetTile(pos.x, pos.y);
+            float height;
             if (Tile == null)
             {
-                return -Core.Sphere.Radius;
+                height = -Core.Sphere.Radius;
             }
-            Vector2 SubPos = Pos - pos;
-            Vector2Int NextPos = new Vector2Int(Round(SubPos.x), Round(SubPos.y));
-            WorldTile ToTile = World.world.GetTile(pos.x + NextPos.x, pos.y + NextPos.y);
-            if (ToTile == null)
+            else
             {
-                return Tile.TileHeight();
+                Vector2 SubPos = Pos - pos;
+                Vector2Int NextPos = new Vector2Int(Round(SubPos.x), Round(SubPos.y));
+                WorldTile ToTile = World.world.GetTile(pos.x + NextPos.x, pos.y + NextPos.y);
+                if (ToTile == null)
+                {
+                    height = Tile.TileHeight();
+                }
+                else
+                {
+                    Vector2Int posrounded = new Vector2Int(Mathf.RoundToInt(SubPos.x), Mathf.RoundToInt(SubPos.y));
+                    height = Mathf.LerpUnclamped(Tile.TileHeight(), ToTile.TileHeight(), HalfRoot - Vector2.Distance(SubPos, posrounded));
+                }
             }
-            Vector2Int posrounded = new Vector2Int(Mathf.RoundToInt(SubPos.x), Mathf.RoundToInt(SubPos.y));
-            return Mathf.LerpUnclamped(Tile.TileHeight(), ToTile.TileHeight(), HalfRoot - Vector2.Distance(SubPos, posrounded));
+
+            cache ??= _tileHeightSmoothCache = new Dictionary<Vector2Int, float>(1024);
+            cache[pos] = height;
+            return height;
+        }
+
+        public static void ClearTileHeightSmoothCache()
+        {
+            _tileHeightSmoothCache?.Clear();
         }
         public static Vector3 To3DTileHeight(this Vector2 v, float ExtraHeight = 0)
         {

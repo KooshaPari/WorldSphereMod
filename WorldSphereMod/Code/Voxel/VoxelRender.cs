@@ -296,6 +296,7 @@ namespace WorldSphereMod.Voxel
             [HarmonyPostfix]
             public static void EmitVoxels(ActorManager __instance)
             {
+                Tools.ClearTileHeightSmoothCache();
                 if (!Core.IsWorld3D || !Core.savedSettings.VoxelEntities) return;
                 if (!EnsureMaterial()) return;
 
