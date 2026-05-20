@@ -28,7 +28,7 @@ namespace WorldSphereMod
         // ADR-0008: optional post-mesh Laplacian smoothing for voxel output.
         public bool VoxelMeshSmoothing = false;
         public int SmoothingIterations = 1;
-        public float VoxelScaleMultiplier = 30.0f;
+        public float VoxelScaleMultiplier = 6.0f;
         public bool DebugVoxelOutline = false;
         public bool DebugSanityCube = false;
         public bool DebugSpawnBuildings = false;
