@@ -200,15 +200,13 @@ namespace WorldSphereMod.Voxel
                     if (!rd.has_normal_render[i]) continue;
 
                     Vector3 cullPos = rd.positions[i];
-                    float radius = 0.5f;
+                    if (cullPos.z == 0f)
+                    {
+                        cullPos = cullPos.To3DTileHeight(false);
+                    }
+                    float radius = 1f;
                     if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, radius))
                     {
-                        // Offscreen per our frustum probe: skip voxel emission.
-                        // Do NOT flip has_normal_render — vanilla rendering has
-                        // its own culling, and a false negative here (stale
-                        // planes, wrong camera, position-space mismatch) used
-                        // to make the actor entirely invisible because we hid
-                        // the sprite without drawing a replacement.
                         continue;
                     }
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, a.GetHashCode());
@@ -341,14 +339,13 @@ namespace WorldSphereMod.Voxel
                     if (Constants.PerpBuildings.ContainsKey(b.asset.id)) continue;
 
                     Vector3 cullPos = rd.positions[i];
-                    float radius = 0.5f;
+                    if (cullPos.z == 0f)
+                    {
+                        cullPos = cullPos.To3DTileHeight(false);
+                    }
+                    float radius = 2f;
                     if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, radius))
                     {
-                        // See ActorVoxelEmit cull-skip: leave the building's
-                        // scale alone on a cull miss. Vanilla rendering will
-                        // not draw an offscreen building anyway, and zeroing
-                        // scales[i] used to hide buildings entirely when the
-                        // frustum probe was wrong.
                         continue;
                     }
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode());
