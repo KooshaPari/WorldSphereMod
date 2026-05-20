@@ -5,13 +5,9 @@ using WorldSphereMod.Voxel;
 namespace WorldSphereMod.Rig
 {
     /// <summary>
-    /// LRU cache of skinned voxel meshes keyed by (<see cref="Sprite.GetInstanceID"/>, <see cref="RigType"/>).
-    /// Mirrors the shape of <see cref="WorldSphereMod.Voxel.VoxelMeshCache"/>: lock-wrapped,
-    /// deferred destroy for meshes still in flight, 10% LRU eviction at capacity.
-    ///
-    /// Phase 6 Step 1: stub. <see cref="GetOrBuild"/> always returns a fallback
-    /// <see cref="SkinnedVoxelMesh"/> with <see cref="RigType.None"/>. Real segmentation
-    /// (HumanoidRig.SegmentVoxels etc.) lands in Step 3.
+    /// LRU cache of rig-aware voxel meshes keyed by (<see cref="Sprite.GetInstanceID"/>, <see cref="RigType"/>).
+    /// Humanoid entries keep a per-texel bone map; other rigs fall back to a static voxel
+    /// mesh until their dedicated deformation code lands.
     /// </summary>
     public static class RigCache
     {
@@ -35,8 +31,12 @@ namespace WorldSphereMod.Rig
 
         public static SkinnedVoxelMesh GetOrBuild(Sprite sprite, RigType rigType)
         {
-            if (sprite == null) return new SkinnedVoxelMesh { RigType = RigType.None };
-            long key = ((long)sprite.GetInstanceID() << 8) | (byte)rigType;
+            if (sprite == null)
+            {
+                return new SkinnedVoxelMesh { RigType = RigType.None };
+            }
+
+            long key = ((long)(uint)sprite.GetInstanceID() << 8) | (byte)rigType;
             lock (_lock)
             {
                 if (_cache.TryGetValue(key, out var e))
@@ -47,37 +47,42 @@ namespace WorldSphereMod.Rig
                 }
             }
 
-            SkinnedVoxelMesh built;
-            if (rigType == RigType.Humanoid)
-            {
-                built = BuildHumanoid(sprite);
-            }
-            else
-            {
-                built = new SkinnedVoxelMesh
-                {
-                    BaseMesh = new Mesh { name = $"rig:stub:{sprite.name}" },
-                    BoneIndices = System.Array.Empty<byte>(),
-                    RigType = RigType.None,
-                };
-            }
+            SkinnedVoxelMesh built = BuildMesh(sprite, rigType);
 
             lock (_lock)
             {
                 _cache[key] = new Entry { Mesh = built, LastFrame = _frame };
-                if (_cache.Count > Capacity) Evict();
+                if (_cache.Count > Capacity)
+                {
+                    Evict();
+                }
             }
+
             return built;
         }
 
-        // Step 4: voxelize without greedy merging so each emitted vertex can be traced back
+        static SkinnedVoxelMesh BuildMesh(Sprite sprite, RigType rigType)
+        {
+            if (rigType == RigType.Humanoid)
+            {
+                return BuildHumanoid(sprite);
+            }
+
+            Mesh mesh = SpriteVoxelizer.BuildPerTexel(sprite, SpriteVoxelizer.DefaultDepth, out _);
+            return new SkinnedVoxelMesh
+            {
+                BaseMesh = mesh,
+                BoneIndices = System.Array.Empty<byte>(),
+                RigType = rigType == RigType.None ? RigType.Static : rigType,
+            };
+        }
+
+        // Build the mesh without greedy merging so each emitted vertex can be traced back
         // to a single source texel, then look up that texel's BoneId from
-        // HumanoidRig.SegmentVoxels. Vertices whose texel index is out of range or maps to a
-        // transparent pixel (BoneId.Root sentinel from SegmentVoxels) fall back to Spine.
+        // HumanoidRig.SegmentVoxels.
         static SkinnedVoxelMesh BuildHumanoid(Sprite sprite)
         {
             BoneId[] segment = null;
-            int segW = 0, segH = 0;
             if (sprite.texture != null && sprite.texture.isReadable)
             {
                 Rect r = sprite.textureRect;
@@ -99,8 +104,6 @@ namespace WorldSphereMod.Rig
                     }
                 }
                 segment = HumanoidRig.SegmentVoxels(w, h, sub);
-                segW = w;
-                segH = h;
             }
 
             var mesh = SpriteVoxelizer.BuildPerTexel(sprite, SpriteVoxelizer.DefaultDepth, out int[] vertexToTexel);
@@ -116,8 +119,6 @@ namespace WorldSphereMod.Rig
                     if (t >= 0 && t < segLen)
                     {
                         BoneId b = segment[t];
-                        // SegmentVoxels uses Root=0 as the "unassigned / transparent" sentinel;
-                        // remap to Spine so those verts don't anchor to the world origin.
                         bone = b == BoneId.Root ? BoneId.Spine : b;
                     }
                 }
@@ -143,8 +144,10 @@ namespace WorldSphereMod.Rig
             {
                 foreach (var kv in _cache)
                 {
-                    if (kv.Value.Mesh.BaseMesh != null) Object.Destroy(kv.Value.Mesh.BaseMesh);
-                    RigDriver.ReleaseGpuMesh(kv.Key);
+                    if (kv.Value.Mesh.BaseMesh != null)
+                    {
+                        Object.Destroy(kv.Value.Mesh.BaseMesh);
+                    }
                 }
                 _cache.Clear();
                 _pendingDestroy.Clear();
@@ -158,32 +161,48 @@ namespace WorldSphereMod.Rig
                 while (_pendingDestroy.Count > 0)
                 {
                     var m = _pendingDestroy.Dequeue();
-                    if (m != null) Object.Destroy(m);
+                    if (m != null)
+                    {
+                        Object.Destroy(m);
+                    }
                 }
             }
         }
 
         static void Evict()
         {
-            // Caller holds _lock. O(N) two-pass eviction — find frame range, drop bottom decile.
-            if (_cache.Count == 0) return;
+            if (_cache.Count == 0)
+            {
+                return;
+            }
+
             ulong minFrame = ulong.MaxValue, maxFrame = 0;
             foreach (var v in _cache.Values)
             {
                 if (v.LastFrame < minFrame) minFrame = v.LastFrame;
                 if (v.LastFrame > maxFrame) maxFrame = v.LastFrame;
             }
-            if (maxFrame == minFrame) return;
+            if (maxFrame == minFrame)
+            {
+                return;
+            }
+
             ulong threshold = minFrame + (maxFrame - minFrame) / 10;
             var toRemove = new List<long>();
             foreach (var kv in _cache)
             {
-                if (kv.Value.LastFrame <= threshold) toRemove.Add(kv.Key);
+                if (kv.Value.LastFrame <= threshold)
+                {
+                    toRemove.Add(kv.Key);
+                }
             }
+
             foreach (var key in toRemove)
             {
-                if (_cache[key].Mesh.BaseMesh != null) _pendingDestroy.Enqueue(_cache[key].Mesh.BaseMesh);
-                RigDriver.ReleaseGpuMesh(key);
+                if (_cache[key].Mesh.BaseMesh != null)
+                {
+                    _pendingDestroy.Enqueue(_cache[key].Mesh.BaseMesh);
+                }
                 _cache.Remove(key);
             }
         }

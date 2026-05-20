@@ -11,7 +11,16 @@ namespace WorldSphereMod.Rig
         LRearUpper, LRearLower, RRearUpper, RRearLower,
     }
 
-    public enum RigType { None, Humanoid, Quadruped }
+    public enum RigType
+    {
+        None,
+        Humanoid,
+        Quadruped,
+        Bird,
+        Snake,
+        Insect,
+        Static,
+    }
 
     public readonly struct BoneDefinition
     {

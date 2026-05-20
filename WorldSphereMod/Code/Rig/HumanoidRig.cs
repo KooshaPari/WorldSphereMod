@@ -3,51 +3,44 @@ using UnityEngine;
 namespace WorldSphereMod.Rig
 {
     /// <summary>
-    /// 12-bone humanoid skeleton. Phase 6 Step 2: bind-pose only. Animation-driven
-    /// rotations land in Step 3.
-    ///
-    /// Bone order matches the first 12 entries of <see cref="BoneId"/> (Root..RLegLower).
-    /// Bind-pose offsets are local to each bone's parent in voxel-space units (Y-up); a
-    /// runtime scale multiplier is applied in <see cref="Evaluate"/> to match the actor's
-    /// sprite pixels-per-unit. <see cref="SegmentVoxels"/> is the deterministic
-    /// pixel-region heuristic from docs/phase6-architecture.md section 3.
+    /// 12-bone humanoid skeleton. The same deterministic pixel-space segmentation used
+    /// for cache-time bone assignment is reused at animation time through the static
+    /// skinning matrices returned by <see cref="Evaluate"/>.
     /// </summary>
     public static class HumanoidRig
     {
         public static readonly BoneDefinition[] Bones = new BoneDefinition[12]
         {
-            // BoneId.Root      = 0
             new BoneDefinition(-1, new Vector3(0f,  0f,   0f), default(RectInt)),
-            // BoneId.Hips      = 1 — child of Root
             new BoneDefinition(0,  new Vector3(0f,  0.5f, 0f), default(RectInt)),
-            // BoneId.Spine     = 2 — child of Hips
             new BoneDefinition(1,  new Vector3(0f,  0.3f, 0f), default(RectInt)),
-            // BoneId.Head      = 3 — child of Spine
             new BoneDefinition(2,  new Vector3(0f,  0.4f, 0f), default(RectInt)),
-            // BoneId.LArmUpper = 4 — child of Spine
             new BoneDefinition(2,  new Vector3(-0.3f,  0.2f, 0f), default(RectInt)),
-            // BoneId.LArmLower = 5 — child of LArmUpper
             new BoneDefinition(4,  new Vector3(-0.05f,-0.3f, 0f), default(RectInt)),
-            // BoneId.RArmUpper = 6 — child of Spine
             new BoneDefinition(2,  new Vector3( 0.3f,  0.2f, 0f), default(RectInt)),
-            // BoneId.RArmLower = 7 — child of RArmUpper
             new BoneDefinition(6,  new Vector3( 0.05f,-0.3f, 0f), default(RectInt)),
-            // BoneId.LLegUpper = 8 — child of Hips
             new BoneDefinition(1,  new Vector3(-0.15f,-0.3f, 0f), default(RectInt)),
-            // BoneId.LLegLower = 9 — child of LLegUpper
             new BoneDefinition(8,  new Vector3(0f, -0.4f, 0f), default(RectInt)),
-            // BoneId.RLegUpper = 10 — child of Hips
             new BoneDefinition(1,  new Vector3( 0.15f,-0.3f, 0f), default(RectInt)),
-            // BoneId.RLegLower = 11 — child of RLegUpper
             new BoneDefinition(10, new Vector3(0f, -0.4f, 0f), default(RectInt)),
         };
 
+        static readonly Matrix4x4[] _restWorld;
+        static readonly Matrix4x4[] _restWorldInverse;
+
+        static HumanoidRig()
+        {
+            _restWorld = BuildHierarchy(identityPose: true, scale: 1f, prone: false, armSwing: 0f, legStride: 0f, headPitch: 0f, attackSwing: 0f);
+            _restWorldInverse = new Matrix4x4[Bones.Length];
+            for (int i = 0; i < Bones.Length; i++)
+            {
+                _restWorldInverse[i] = _restWorld[i].inverse;
+            }
+        }
+
         /// <summary>
         /// Deterministic per-pixel bone assignment over a sprite's <see cref="Color32"/>
-        /// buffer in pixel space (Y=0 bottom). Returns an array of length
-        /// <paramref name="spriteW"/>*<paramref name="spriteH"/> indexed as
-        /// <c>idx = y*spriteW + x</c>. Pixels outside the alpha bbox or not matched by any
-        /// region rule fall through as <see cref="BoneId.Root"/> (sentinel for unused).
+        /// buffer in pixel space (Y=0 bottom).
         /// </summary>
         public static BoneId[] SegmentVoxels(int spriteW, int spriteH, Color32[] pixels)
         {
@@ -57,7 +50,6 @@ namespace WorldSphereMod.Rig
                 return result;
             }
 
-            // 1. Alpha-threshold bounding box.
             int x0 = spriteW, x1 = -1, y0 = spriteH, y1 = -1;
             for (int y = 0; y < spriteH; y++)
             {
@@ -77,13 +69,12 @@ namespace WorldSphereMod.Rig
 
             float W = x1 - x0;
             float H = y1 - y0;
-            // Region thresholds in pixel space (inclusive lower bounds where appropriate).
-            float headRowMin   = y1 - 0.20f * H;   // y >= this → head band (top 20%)
-            float upper40Min   = y1 - 0.40f * H;   // y >= this → also eligible for desaturated-head pickup
-            float leftArmMax   = x0 + 0.15f * W;   // x <  this → left arm column
-            float rightArmMin  = x1 - 0.15f * W;   // x >  this → right arm column
-            float legRowMax    = y0 + 0.30f * H;   // y <= this → leg band (bottom 30%)
-            float colMid       = x0 + 0.50f * W;   // vertical split for leg sides
+            float headRowMin = y1 - 0.20f * H;
+            float upper40Min = y1 - 0.40f * H;
+            float leftArmMax = x0 + 0.15f * W;
+            float rightArmMin = x1 - 0.15f * W;
+            float legRowMax = y0 + 0.30f * H;
+            float colMid = x0 + 0.50f * W;
 
             for (int y = y0; y <= y1; y++)
             {
@@ -94,13 +85,11 @@ namespace WorldSphereMod.Rig
                     Color32 c = pixels[idx];
                     if (c.a <= 16) continue;
 
-                    // 3. Head: top 20% of bbox rows.
                     if (y >= headRowMin)
                     {
                         result[idx] = BoneId.Head;
                         continue;
                     }
-                    // Plus: any pixel in upper 40% with low saturation (skin-tone proxy).
                     if (y >= upper40Min)
                     {
                         Color.RGBToHSV(new Color(c.r / 255f, c.g / 255f, c.b / 255f), out _, out float s, out _);
@@ -111,10 +100,9 @@ namespace WorldSphereMod.Rig
                         }
                     }
 
-                    // 5. Leg band (bottom 30%): split by column midpoint, then upper/lower half.
                     if (y <= legRowMax)
                     {
-                        float legMid = y0 + 0.15f * H; // midpoint of leg band (bottom 30% halved)
+                        float legMid = y0 + 0.15f * H;
                         bool isLeftSide = x < colMid;
                         bool isUpperHalf = y > legMid;
                         if (isLeftSide)
@@ -128,10 +116,7 @@ namespace WorldSphereMod.Rig
                         continue;
                     }
 
-                    // 4. Arm columns: left/right 15% bands above the leg band, not already
-                    // assigned to head. Split each band into upper / lower half (non-head rows).
-                    // Non-head rows here span [legRowMax+1 .. headRowMin-1].
-                    float nonHeadLow  = legRowMax;
+                    float nonHeadLow = legRowMax;
                     float nonHeadHigh = headRowMin;
                     float armMid = 0.5f * (nonHeadLow + nonHeadHigh);
                     if (x < leftArmMax)
@@ -145,10 +130,7 @@ namespace WorldSphereMod.Rig
                         continue;
                     }
 
-                    // 6. Torso residual: inside arm boundary, above leg band, below head.
-                    // Upper half → Spine, lower half → Hips.
-                    float torsoMid = 0.5f * (nonHeadLow + nonHeadHigh);
-                    result[idx] = (y > torsoMid) ? BoneId.Spine : BoneId.Hips;
+                    result[idx] = (y > armMid) ? BoneId.Spine : BoneId.Hips;
                 }
             }
 
@@ -156,75 +138,147 @@ namespace WorldSphereMod.Rig
         }
 
         /// <summary>
-        /// Step 8: 2D-to-3D projection. Projects sprite-scale animation signals from
-        /// <see cref="AnimationFrameData"/> onto per-bone local TRS matrices per the
-        /// mapping table in docs/phase6-architecture.md section 4. Missing/renamed fields
-        /// are tolerated by <see cref="SafeReadFloat"/>/<see cref="SafeReadVector2"/> —
-        /// the mapping is best-effort, so unknown signals silently degrade to identity
-        /// and the rig falls back to bind-pose for those bones.
+        /// Projects WorldBox's 2D animation state into bone skinning matrices. The
+        /// returned matrices are already in sprite-local space and can be applied
+        /// directly to voxel vertices.
         /// </summary>
         public static Matrix4x4[] Evaluate(AnimationFrameData? fd, float scale)
         {
-            var m = new Matrix4x4[Bones.Length];
-            for (int i = 0; i < m.Length; i++) m[i] = Matrix4x4.identity;
+            float armSwing = ReadFloat(fd, 0f, "arm_swing", "armSwing", "swing");
+            float legStride = ReadFloat(fd, 0f, "leg_stride", "legStride", "stride");
+            float headPitch = ReadFloat(fd, 0f, "head_pitch", "headPitch", "neck_pitch", "neckPitch");
+            float attackSwing = ReadFloat(fd, 0f, "attack_swing", "attackSwing", "attack", "attack_progress");
+            Vector2 size = ReadVector2(fd, "size_unit");
+            bool prone = size.x > 0.001f && size.y / size.x < 0.6f;
 
-            if (fd == null) return m;
-
-            // size_unit drives "lying down" detection — y/x < 0.6 means actor is prone.
-            Vector2 size = SafeReadVector2(fd, "size_unit");
-            if (size.x > 0.001f && size.y / size.x < 0.6f)
-            {
-                m[(int)BoneId.Root] = Matrix4x4.Rotate(Quaternion.Euler(-90f, 0, 0));
-            }
-
-            // Arm-swing: read fd.arm_swing or similar via reflection if it exists.
-            float armSwing = SafeReadFloat(fd, "arm_swing");   // expected range roughly -1..1
-            if (Mathf.Abs(armSwing) > 0.01f)
-            {
-                m[(int)BoneId.LArmUpper] = Matrix4x4.TRS(Bones[(int)BoneId.LArmUpper].BindPoseOffset,
-                    Quaternion.Euler(0, armSwing * 45f, 0), Vector3.one);
-                m[(int)BoneId.RArmUpper] = Matrix4x4.TRS(Bones[(int)BoneId.RArmUpper].BindPoseOffset,
-                    Quaternion.Euler(0, -armSwing * 45f, 0), Vector3.one);
-            }
-
-            // Leg stride: similar mapping.
-            float stride = SafeReadFloat(fd, "leg_stride");
-            if (Mathf.Abs(stride) > 0.01f)
-            {
-                m[(int)BoneId.LLegUpper] = Matrix4x4.TRS(Bones[(int)BoneId.LLegUpper].BindPoseOffset,
-                    Quaternion.Euler(0, stride * 35f, 0), Vector3.one);
-                m[(int)BoneId.RLegUpper] = Matrix4x4.TRS(Bones[(int)BoneId.RLegUpper].BindPoseOffset,
-                    Quaternion.Euler(0, -stride * 35f, 0), Vector3.one);
-                // Lower legs follow at half amplitude.
-                m[(int)BoneId.LLegLower] = Matrix4x4.TRS(Bones[(int)BoneId.LLegLower].BindPoseOffset,
-                    Quaternion.Euler(0, stride * 17.5f, 0), Vector3.one);
-                m[(int)BoneId.RLegLower] = Matrix4x4.TRS(Bones[(int)BoneId.RLegLower].BindPoseOffset,
-                    Quaternion.Euler(0, -stride * 17.5f, 0), Vector3.one);
-            }
-
-            return m;
+            return BuildHierarchy(false, scale, prone, armSwing, legStride, headPitch, attackSwing);
         }
 
-        static float SafeReadFloat(object fd, string fieldName)
+        static Matrix4x4[] BuildHierarchy(bool identityPose, float scale, bool prone, float armSwing, float legStride, float headPitch, float attackSwing)
         {
-            try
+            var local = new Matrix4x4[Bones.Length];
+            var world = new Matrix4x4[Bones.Length];
+
+            for (int i = 0; i < Bones.Length; i++)
             {
-                var f = fd.GetType().GetField(fieldName);
-                if (f != null && (f.FieldType == typeof(float) || f.FieldType == typeof(double)))
-                    return System.Convert.ToSingle(f.GetValue(fd));
+                Quaternion rot = Quaternion.identity;
+                switch ((BoneId)i)
+                {
+                    case BoneId.Root:
+                        if (prone)
+                        {
+                            rot = Quaternion.Euler(-90f, 0f, 0f);
+                        }
+                        break;
+                    case BoneId.Spine:
+                        rot = Quaternion.Euler(0f, 0f, Mathf.Clamp(attackSwing * 3f, -10f, 10f));
+                        break;
+                    case BoneId.Head:
+                        rot = Quaternion.Euler(Mathf.Clamp(headPitch * 20f + attackSwing * 8f, -25f, 25f), 0f, 0f);
+                        break;
+                    case BoneId.LArmUpper:
+                        rot = Quaternion.Euler(0f, Mathf.Clamp((armSwing * 55f) + (attackSwing * 25f), -90f, 90f), 0f);
+                        break;
+                    case BoneId.RArmUpper:
+                        rot = Quaternion.Euler(0f, Mathf.Clamp((-armSwing * 55f) + (attackSwing * 25f), -90f, 90f), 0f);
+                        break;
+                    case BoneId.LArmLower:
+                        rot = Quaternion.Euler(0f, Mathf.Clamp((armSwing * 18f) + (attackSwing * 10f), -65f, 65f), 0f);
+                        break;
+                    case BoneId.RArmLower:
+                        rot = Quaternion.Euler(0f, Mathf.Clamp((-armSwing * 18f) + (attackSwing * 10f), -65f, 65f), 0f);
+                        break;
+                    case BoneId.LLegUpper:
+                        rot = Quaternion.Euler(0f, Mathf.Clamp(legStride * 35f, -55f, 55f), 0f);
+                        break;
+                    case BoneId.RLegUpper:
+                        rot = Quaternion.Euler(0f, Mathf.Clamp(-legStride * 35f, -55f, 55f), 0f);
+                        break;
+                    case BoneId.LLegLower:
+                        rot = Quaternion.Euler(0f, Mathf.Clamp(legStride * 17.5f, -35f, 35f), 0f);
+                        break;
+                    case BoneId.RLegLower:
+                        rot = Quaternion.Euler(0f, Mathf.Clamp(-legStride * 17.5f, -35f, 35f), 0f);
+                        break;
+                }
+
+                Vector3 bind = Bones[i].BindPoseOffset * scale;
+                local[i] = Matrix4x4.TRS(bind, rot, Vector3.one);
+                int parent = Bones[i].ParentIndex;
+                world[i] = parent < 0 ? local[i] : world[parent] * local[i];
             }
-            catch { }
-            return 0f;
+
+            if (identityPose)
+            {
+                return world;
+            }
+
+            var skin = new Matrix4x4[Bones.Length];
+            for (int i = 0; i < Bones.Length; i++)
+            {
+                skin[i] = world[i] * _restWorldInverse[i];
+            }
+            return skin;
         }
 
-        static Vector2 SafeReadVector2(object fd, string fieldName)
+        static float ReadFloat(object? fd, float fallback, params string[] names)
         {
+            if (fd == null)
+            {
+                return fallback;
+            }
+
+            foreach (string name in names)
+            {
+                try
+                {
+                    var type = fd.GetType();
+                    var field = type.GetField(name);
+                    if (field != null && (field.FieldType == typeof(float) || field.FieldType == typeof(double)))
+                    {
+                        return System.Convert.ToSingle(field.GetValue(fd));
+                    }
+
+                    var prop = type.GetProperty(name);
+                    if (prop != null && (prop.PropertyType == typeof(float) || prop.PropertyType == typeof(double)))
+                    {
+                        return System.Convert.ToSingle(prop.GetValue(fd));
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            return fallback;
+        }
+
+        static Vector2 ReadVector2(object? fd, string fieldName)
+        {
+            if (fd == null)
+            {
+                return Vector2.zero;
+            }
+
             try
             {
-                var f = fd.GetType().GetField(fieldName);
-                if (f != null && f.FieldType == typeof(Vector2)) return (Vector2)f.GetValue(fd)!;
+                var type = fd.GetType();
+                var field = type.GetField(fieldName);
+                if (field != null && field.FieldType == typeof(Vector2))
+                {
+                    return (Vector2)field.GetValue(fd)!;
+                }
+
+                var prop = type.GetProperty(fieldName);
+                if (prop != null && prop.PropertyType == typeof(Vector2))
+                {
+                    return (Vector2)prop.GetValue(fd)!;
+                }
             }
-            catch { }
+            catch
+            {
+            }
+
             return Vector2.zero;
         }
     }
