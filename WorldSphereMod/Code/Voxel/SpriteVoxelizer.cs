@@ -25,10 +25,6 @@ namespace WorldSphereMod.Voxel
         /// <summary>Voxel depth in texels. 1 = flat extruded card, &gt;1 = chunkier. </summary>
         public const int DefaultDepth = 1;
         static readonly HashSet<string> _unreadableSpriteWarnings = new HashSet<string>();
-        [System.ThreadStatic] static List<Vector3> _vertsScratch;
-        [System.ThreadStatic] static List<Color32> _colsScratch;
-        [System.ThreadStatic] static List<int> _trisScratch;
-        [System.ThreadStatic] static List<int> _vertexToTexelScratch;
 
         // Per-texture pixel cache. Sprite atlases share one underlying Texture2D across many
         // sprites; without this, each sprite voxelization re-paid the cost of decoding the
@@ -176,9 +172,9 @@ namespace WorldSphereMod.Voxel
             float cell = 1f / ppu;
             solidSw.Stop();
 
-            var verts = GetVertsScratch();
-            var cols = GetColsScratch();
-            var tris = GetTrisScratch();
+            var verts = new List<Vector3>();
+            var cols  = new List<Color32>();
+            var tris  = new List<int>();
 
             greedySw.Start();
             GreedyMesh(solid, color, w, h, depth, origin, cell, verts, cols, tris);
@@ -207,10 +203,6 @@ namespace WorldSphereMod.Voxel
             // CPU-side copy after upload.
             mesh.UploadMeshData(true);
             finalSw.Stop();
-
-            verts.Clear();
-            cols.Clear();
-            tris.Clear();
             return ReturnProfiled(mesh);
         }
 
@@ -272,10 +264,10 @@ namespace WorldSphereMod.Voxel
             Vector3 origin = new Vector3(-pivot.x / ppu, -pivot.y / ppu, -(depth * 0.5f) / ppu);
             float cell = 1f / ppu;
 
-            var verts = GetVertsScratch();
-            var cols = GetColsScratch();
-            var tris = GetTrisScratch();
-            var vToT = GetVertexToTexelScratch();
+            var verts = new List<Vector3>();
+            var cols  = new List<Color32>();
+            var tris  = new List<int>();
+            var vToT  = new List<int>();
 
             for (int x = 0; x < w; x++)
             {
@@ -312,10 +304,6 @@ namespace WorldSphereMod.Voxel
             // data readable so they can stamp per-vertex bone indices alongside vertexToTexel.
 
             vertexToTexel = vToT.ToArray();
-            verts.Clear();
-            cols.Clear();
-            tris.Clear();
-            vToT.Clear();
             return mesh;
         }
 
@@ -512,34 +500,6 @@ namespace WorldSphereMod.Voxel
         static Mesh CreateEmpty()
         {
             return new Mesh { name = "voxel:empty" };
-        }
-
-        static List<Vector3> GetVertsScratch()
-        {
-            if (_vertsScratch == null) _vertsScratch = new List<Vector3>();
-            _vertsScratch.Clear();
-            return _vertsScratch;
-        }
-
-        static List<Color32> GetColsScratch()
-        {
-            if (_colsScratch == null) _colsScratch = new List<Color32>();
-            _colsScratch.Clear();
-            return _colsScratch;
-        }
-
-        static List<int> GetTrisScratch()
-        {
-            if (_trisScratch == null) _trisScratch = new List<int>();
-            _trisScratch.Clear();
-            return _trisScratch;
-        }
-
-        static List<int> GetVertexToTexelScratch()
-        {
-            if (_vertexToTexelScratch == null) _vertexToTexelScratch = new List<int>();
-            _vertexToTexelScratch.Clear();
-            return _vertexToTexelScratch;
         }
     }
 }
