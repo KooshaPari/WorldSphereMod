@@ -26,7 +26,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: dtolnay/rust-toolchain@1.86.0
+      - name: Install Rust 1.88
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup install 1.88.0
+          rustup default 1.88.0
+          rustc --version
+          cargo --version
 
       - uses: actions/cache@v4
         with:
