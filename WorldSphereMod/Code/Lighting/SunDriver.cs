@@ -81,8 +81,7 @@ namespace WorldSphereMod.Lighting
 
         static float TimeOfDayToEuler(float hours)
         {
-            float angle = (hours / 24f) * 360f - 90f;
-            return Mathf.Clamp(angle, -90f, 90f);
+            return (hours / 24f) * 360f - 90f;
         }
     }
 }

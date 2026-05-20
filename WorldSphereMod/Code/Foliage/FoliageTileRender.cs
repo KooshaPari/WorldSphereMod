@@ -85,7 +85,7 @@ namespace WorldSphereMod.Foliage
             float sway = t.road ? 0f : 1f;
 
             Mesh? mesh = CrossedQuadMeshCache.GetOrBuild(sprite, shape, sway);
-            if (mesh == null) return true;
+            if (mesh == null || mesh.vertexCount == 0) return true;
 
             Vector2 pos2 = new Vector2(pTile.pos.x, pTile.pos.y);
             Vector3 pos3 = Tools.To3DTileHeight(pos2);
