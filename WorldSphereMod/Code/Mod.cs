@@ -85,6 +85,10 @@ using WorldSphereMod;
     public void PostInit()
     {
         Core.PostInit();
+        if (!IsAutoTest && Core.savedSettings != null && Core.savedSettings.AutoTest)
+        {
+            IsAutoTest = true;
+        }
         if (IsAutoTest && Object != null && Object.GetComponent<AutoTestDriver>() == null) Object.AddComponent<AutoTestDriver>();
     }
 
