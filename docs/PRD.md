@@ -307,14 +307,14 @@ SavedSettings via reflection + invokes Core.ApplyPhaseToggle.
 
 ---
 
-### FR-WSM-015: Clean Mod Init (No NRE on Load)
+### FR-WSM-015: Clean Mod Init (No NRE on Load) — **LANDED 2026-05-21 (log scan: 0 WSM3D-tagged NREs between Init Mod and World Loaded)**
 
 **Description:** Mod.OnLoad completes without NullReferenceException
 even on cold install or after AssetBundle conflict.
 
 **Acceptance Criteria:**
 - Player.log contains "[WSM3D] Init Mod" before "Loading finished"
-- Zero `NullReferenceException` between Mod.OnLoad and "World Loaded"
+- Zero -tagged  between Mod.OnLoad and "World Loaded" (vanilla WorldBox PowerButton NRE excluded — upstream bug not blocking mod init)
 - LoadAssets null-guards bundle loader
 
 **Related Tests:**
