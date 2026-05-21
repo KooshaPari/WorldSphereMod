@@ -127,7 +127,7 @@ BuildingStyleProcgen flag).
 
 ---
 
-### FR-WSM-003: Per-Sprite Shape-Hint Routing
+### FR-WSM-003: Per-Sprite Shape-Hint Routing — **LANDED 2026-05-21 (AssetShapeRegistryTests 14/14 pass)**
 
 **Description:** AssetShapeRegistry maps asset ID prefixes to ShapeHint
 (Cylinder, LongX, Tall, Flat, Mirror, Auto), routing voxelization
