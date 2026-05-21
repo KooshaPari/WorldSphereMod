@@ -452,7 +452,10 @@ namespace WorldSphereMod.UI
             };
             SetGodPowerSprite(ref power, IconPath);
             AssetManager.powers.add(power);
-            PlayerConfig.dict.Add(ID, new PlayerOptionData(ID));
+            if (!PlayerConfig.dict.ContainsKey(ID))
+            {
+                PlayerConfig.dict.Add(ID, new PlayerOptionData(ID));
+            }
             var Button = PowerButtonCreator.CreateToggleButton(
                 ID,
                 SafeLoadSprite(IconPath),
