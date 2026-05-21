@@ -33,6 +33,10 @@ namespace WorldSphereMod
         // Sprite voxel extrusion depth: 1 keeps the old slab, 3 is the cheapest
         // setting that reads as actual 3D depth at a glance.
         public int VoxelSpriteDepth = 3;
+        // Voxel volume style for sprite inflation. Recognized values:
+        // "pertexel" (full slab), "balloon" (distance-based profile),
+        // "extruded" (alias for pertexel for backward compatibility).
+        public string VoxelInflationStyle = "pertexel";
         public float VoxelScaleMultiplier = 6.0f;
         public bool DebugVoxelOutline = false;
         public bool DebugSanityCube = false;

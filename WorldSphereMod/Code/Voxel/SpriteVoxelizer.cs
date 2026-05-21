@@ -221,6 +221,211 @@ namespace WorldSphereMod.Voxel
         }
 
         /// <summary>
+        /// Phase 1: balloon inflation builds a silhouette-expanded solid from a 2D
+        /// distance transform. Solid pixels near the edge stay thin in depth, while
+        /// interior pixels become thicker, creating a rounded inflated volume instead
+        /// of a flat per-texel column.
+        /// </summary>
+        public static Mesh BuildBalloon(Sprite sprite, int depth, out int[] vertexToTexel)
+        {
+            depth = ResolveDepth(depth);
+            if (sprite == null || sprite.texture == null || !sprite.texture.isReadable)
+            {
+                vertexToTexel = System.Array.Empty<int>();
+                return CreateEmpty();
+            }
+
+            Rect r = sprite.textureRect;
+            int w = Mathf.Max(1, (int)r.width);
+            int h = Mathf.Max(1, (int)r.height);
+            int x0 = (int)r.x;
+            int y0 = (int)r.y;
+            Color32[] tex = GetPixelsCached(sprite.texture);
+            int texW = sprite.texture.width;
+
+            bool[,] solid2d = new bool[w, h];
+            Color32[,] color2d = new Color32[w, h];
+            for (int y = 0; y < h; y++)
+            {
+                int row = (y0 + y) * texW + x0;
+                for (int x = 0; x < w; x++)
+                {
+                    Color32 c = tex[row + x];
+                    if (c.a > 16)
+                    {
+                        solid2d[x, y] = true;
+                        color2d[x, y] = c;
+                    }
+                }
+            }
+
+            int maxDist;
+            int[,] distToAir = ComputeManhattanDistanceToAir(solid2d, out maxDist);
+
+            bool[,,] solid = new bool[w, h, depth];
+            Color32[,,] color = new Color32[w, h, depth];
+            int safeDepth = Mathf.Max(1, depth);
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    if (!solid2d[x, y]) continue;
+
+                    int localDepth = safeDepth == 1
+                        ? 1
+                        : Mathf.Clamp(Mathf.RoundToInt(1f + (distToAir[x, y] * (safeDepth - 1f) / (float)Mathf.Max(1, maxDist))), 1, safeDepth);
+                    int zStart = (safeDepth - localDepth) / 2;
+                    int zEnd = zStart + localDepth;
+
+                    for (int z = zStart; z < zEnd; z++)
+                    {
+                        if (z < 0 || z >= depth) continue;
+                        int sampleX = x;
+                        solid[sampleX, y, z] = true;
+                        color[sampleX, y, z] = color2d[x, y];
+                        // Vertex remap metadata intentionally omitted for balloon mode.
+                        // Rigging still uses BuildPerTexel to maintain 1:1 voxel-to-texel mapping.
+                    }
+                }
+            }
+
+            Vector2 pivot = sprite.pivot;
+            float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
+            Vector3 origin = new Vector3(-pivot.x / ppu, -pivot.y / ppu, -(depth * 0.5f) / ppu);
+            float cell = 1f / ppu;
+
+            var verts = new List<Vector3>();
+            var cols = new List<Color32>();
+            var tris = new List<int>();
+
+            GreedyMesh(solid, color, w, h, depth, origin, cell, verts, cols, tris);
+
+            var mesh = new Mesh { name = $"voxel-balloon:{sprite.name}" };
+            if (verts.Count > 65535)
+            {
+                mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            }
+            mesh.SetVertices(verts);
+            mesh.SetColors(cols);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            // Balloon mode favors debug visibility over Rig cache mapping.
+            vertexToTexel = System.Array.Empty<int>();
+            return mesh;
+        }
+
+        static int[,] ComputeManhattanDistanceToAir(bool[,] solid, out int maxDist)
+        {
+            int w = solid.GetLength(0);
+            int h = solid.GetLength(1);
+            int[,] dist = new int[w, h];
+            var qx = new Queue<int>();
+            var qy = new Queue<int>();
+            maxDist = 0;
+
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    if (solid[x, y])
+                    {
+                        dist[x, y] = int.MaxValue / 4;
+                    }
+                    else
+                    {
+                        dist[x, y] = 0;
+                        qx.Enqueue(x);
+                        qy.Enqueue(y);
+                    }
+                }
+            }
+
+            bool hasAir = qx.Count > 0;
+            if (!hasAir)
+            {
+                for (int y = 0; y < h; y++)
+                {
+                    int x = 0;
+                    if (solid[x, y])
+                    {
+                        dist[x, y] = 0;
+                        qx.Enqueue(x);
+                        qy.Enqueue(y);
+                    }
+
+                    x = w - 1;
+                    if (solid[x, y])
+                    {
+                        dist[x, y] = 0;
+                        qx.Enqueue(x);
+                        qy.Enqueue(y);
+                    }
+                }
+
+                for (int x = 0; x < w; x++)
+                {
+                    int y = 0;
+                    if (solid[x, y])
+                    {
+                        dist[x, y] = 0;
+                        qx.Enqueue(x);
+                        qy.Enqueue(y);
+                    }
+
+                    y = h - 1;
+                    if (solid[x, y])
+                    {
+                        dist[x, y] = 0;
+                        qx.Enqueue(x);
+                        qy.Enqueue(y);
+                    }
+                }
+            }
+
+            int[] dx = { -1, 1, 0, 0 };
+            int[] dy = { 0, 0, -1, 1 };
+            while (qx.Count > 0)
+            {
+                int cx = qx.Dequeue();
+                int cy = qy.Dequeue();
+                int nextDist = dist[cx, cy] + 1;
+
+                for (int i = 0; i < 4; i++)
+                {
+                    int nx = cx + dx[i];
+                    int ny = cy + dy[i];
+                    if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+                    if (solid[nx, ny] && dist[nx, ny] > nextDist)
+                    {
+                        dist[nx, ny] = nextDist;
+                        if (nextDist > maxDist) maxDist = nextDist;
+                        qx.Enqueue(nx);
+                        qy.Enqueue(ny);
+                    }
+                }
+            }
+
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    if (solid[x, y] && dist[x, y] > maxDist)
+                    {
+                        maxDist = dist[x, y];
+                    }
+                }
+            }
+
+            if (maxDist == 0)
+            {
+                maxDist = 1;
+            }
+
+            return dist;
+        }
+
+        /// <summary>
         /// Phase 6 Step 4: per-texel voxel build with no greedy merging. Emits up to six
         /// unit-cube faces per opaque texel (only the faces that border a transparent or
         /// out-of-bounds neighbour, matching <see cref="Build"/>'s face-culling). For every

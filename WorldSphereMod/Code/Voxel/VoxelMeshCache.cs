@@ -59,6 +59,7 @@ namespace WorldSphereMod.Voxel
         static readonly object _lock = new object();
         static readonly Dictionary<int, Entry> _cache = new Dictionary<int, Entry>(1024);
         static readonly HashSet<int> _diagnosedSprites = new HashSet<int>();
+        static readonly HashSet<string> _invalidVoxelStyles = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
         static readonly Queue<Sprite> _warmQueue = new Queue<Sprite>();
         static readonly HashSet<int> _warmQueuedSprites = new HashSet<int>();
         // Evict() can't Destroy a mesh that may still be queued in the batcher for this frame;
@@ -197,7 +198,8 @@ namespace WorldSphereMod.Voxel
             // Build outside the lock — Mesh construction touches Unity APIs that
             // shouldn't be held under a lock, and Get() always runs on the main thread.
             System.Threading.Interlocked.Increment(ref _misses);
-            Mesh m = SpriteVoxelizer.BuildPerTexel(sprite, depth, out _);
+            Mesh m = BuildVoxelMesh(sprite, depth, out _, out string inflationStyle);
+            Debug.Log($"[WSM3D] VoxelMeshCache.Get style=\"{inflationStyle}\" sprite=\"{sprite.name}\" vertexCount={m?.vertexCount ?? 0}");
             if (m != null && Core.savedSettings.VoxelMeshSmoothing)
             {
                 // ADR-0008: Laplacian smoothing converts blocky voxel stair-steps
@@ -211,7 +213,7 @@ namespace WorldSphereMod.Voxel
                 }
             }
             MeshSnapshot snapshot = m != null ? CreateSnapshot(sprite, m, m.vertices, m.colors32, m.triangles) : null;
-            LogVoxelizedSprite(sprite, m);
+            LogVoxelizedSprite(sprite, m, inflationStyle);
             if (m == null || m.vertexCount == 0)
             {
                 return null;
@@ -375,7 +377,7 @@ namespace WorldSphereMod.Voxel
 
             if (batch.Count == 1)
             {
-                Mesh mesh = SpriteVoxelizer.BuildPerTexel(batch[0], -1, out _);
+                Mesh mesh = BuildVoxelMesh(batch[0], -1, out _);
                 MeshSnapshot snapshot = mesh != null ? CreateSnapshot(batch[0], mesh, mesh.vertices, mesh.colors32, mesh.triangles) : null;
                 CacheWarmSprite(batch[0], mesh, snapshot);
                 return;
@@ -384,7 +386,7 @@ namespace WorldSphereMod.Voxel
             var built = new ConcurrentQueue<(Sprite Sprite, Mesh Mesh, MeshSnapshot Snapshot)>();
             System.Threading.Tasks.Parallel.ForEach(batch, sprite =>
             {
-                Mesh mesh = SpriteVoxelizer.BuildPerTexel(sprite, -1, out _);
+                Mesh mesh = BuildVoxelMesh(sprite, -1, out _);
                 MeshSnapshot snapshot = mesh != null ? CreateSnapshot(sprite, mesh, mesh.vertices, mesh.colors32, mesh.triangles) : null;
                 built.Enqueue((sprite, mesh, snapshot));
             });
@@ -451,7 +453,7 @@ namespace WorldSphereMod.Voxel
             }
         }
 
-        static void LogVoxelizedSprite(Sprite sprite, Mesh mesh)
+        static void LogVoxelizedSprite(Sprite sprite, Mesh mesh, string inflationStyle)
         {
             if (sprite == null || mesh == null) return;
             int key = sprite.GetInstanceID();
@@ -461,7 +463,58 @@ namespace WorldSphereMod.Voxel
             }
 
             int triCount = mesh.subMeshCount > 0 ? (int)(mesh.GetIndexCount(0) / 3) : 0;
-            Debug.Log($"[WSM3D] Voxelized sprite \"{sprite.name}\" -> {mesh.vertexCount} verts, {triCount} tris, bounds={mesh.bounds}");
+            Debug.Log($"[WSM3D] Voxelized sprite \"{sprite.name}\" style=\"{inflationStyle}\" -> {mesh.vertexCount} verts, {triCount} tris, bounds={mesh.bounds}");
+        }
+
+        static Mesh BuildVoxelMesh(Sprite sprite, int depth, out Mesh mesh)
+        {
+            mesh = BuildVoxelMesh(sprite, depth, out _, out _);
+            return mesh;
+        }
+
+        static Mesh BuildVoxelMesh(Sprite sprite, int depth, out int[] vertexToTexel, out string inflationStyle)
+        {
+            inflationStyle = ResolveVoxelInflationStyle();
+            if (string.Equals(inflationStyle, "balloon", System.StringComparison.OrdinalIgnoreCase))
+            {
+                return SpriteVoxelizer.BuildBalloon(sprite, depth, out vertexToTexel);
+            }
+
+            vertexToTexel = System.Array.Empty<int>();
+            return SpriteVoxelizer.BuildPerTexel(sprite, depth, out vertexToTexel);
+        }
+
+        static string ResolveVoxelInflationStyle()
+        {
+            string rawStyle = Core.savedSettings != null ? Core.savedSettings.VoxelInflationStyle : null;
+            if (string.IsNullOrWhiteSpace(rawStyle))
+            {
+                return "pertexel";
+            }
+
+            string style = rawStyle.Trim().ToLowerInvariant();
+            if (style == "pertexel" || style == "per-texel" || style == "extruded" || style == "extrude")
+            {
+                return "pertexel";
+            }
+
+            if (style == "balloon" || style == "ballooned")
+            {
+                return "balloon";
+            }
+
+            if (style == "0" || style == "1")
+            {
+                int value = int.Parse(style);
+                return value == 1 ? "balloon" : "pertexel";
+            }
+
+            if (_invalidVoxelStyles.Add(rawStyle))
+            {
+                Debug.LogWarning($"[WSM3D] Unsupported VoxelInflationStyle '{rawStyle}'. Using per-texel fallback.");
+            }
+
+            return "pertexel";
         }
 
         static bool IsPerpSprite(Sprite sprite)
@@ -479,7 +532,7 @@ namespace WorldSphereMod.Voxel
 
         static void CacheWarmSprite(Sprite sprite, Mesh mesh, MeshSnapshot snapshot)
         {
-            LogVoxelizedSprite(sprite, mesh);
+            LogVoxelizedSprite(sprite, mesh, "warmup");
             if (sprite == null || mesh == null || mesh.vertexCount == 0)
             {
                 return;

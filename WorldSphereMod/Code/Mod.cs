@@ -18,6 +18,7 @@ using WorldSphereMod;
     {
         declare = pModDecl;
         Object = pGameObject;
+        WorldSphereMod.Rig.RigDriver.Clear();
         if (!SystemInfo.supportsInstancing)
         {
             throw new IncompatibleHardwareException();
