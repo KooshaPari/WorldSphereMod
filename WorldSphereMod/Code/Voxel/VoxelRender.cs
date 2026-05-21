@@ -634,16 +634,7 @@ namespace WorldSphereMod.Voxel
 
             WorldSphereMod.Rig.RigCache.Tick();
             WorldSphereMod.Rig.RigCache.DrainPendingDestroy();
-            if (Core.savedSettings.SkeletalAnimation)
-            {
-                WorldSphereMod.Rig.RigDriver.Update();
-            }
-            else
-            {
-                // Flag off — make sure no stale SkinnedMeshRenderer instances are left
-                // animating with potentially garbage bone matrices (dragonfly-legs bug).
-                WorldSphereMod.Rig.RigDriver.Clear();
-            }
+            WorldSphereMod.Rig.RigDriver.Update();
 
             if (MeshInstanceBatcher.HasPendingSubmissions)
             {
