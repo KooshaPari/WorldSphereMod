@@ -158,7 +158,7 @@ per entity per frame based on screen-projected size.
 
 ---
 
-### FR-WSM-005: Mesh Water
+### FR-WSM-005: Mesh Water — **LANDED 2026-05-21 (enabled=true patched=5)**
 
 **Description:** Replace flat water plane with Gerstner-wave displaced
 mesh updated each frame via _WaveTime uniform.
@@ -173,7 +173,7 @@ inspection endpoint (TBD)
 
 ---
 
-### FR-WSM-006: Crossed-Quad Foliage
+### FR-WSM-006: Crossed-Quad Foliage — **LANDED 2026-05-21 (enabled=true patched=2)**
 
 **Description:** Trees + bushes render as crossed-quad billboards with
 wind-sway shader.
@@ -219,7 +219,7 @@ animation curves; bone weights baked into voxel mesh per RigType.
 
 ---
 
-### FR-WSM-009: Day/Night Cycle
+### FR-WSM-009: Day/Night Cycle — **LANDED 2026-05-21 (enabled=true patched=1)**
 
 **Description:** Continuous sun rotation + sky color interpolation
 driven by WorldBox time scale.
@@ -233,7 +233,7 @@ driven by WorldBox time scale.
 
 ---
 
-### FR-WSM-010: Post-FX Pipeline
+### FR-WSM-010: Post-FX Pipeline — **LANDED 2026-05-21 (enabled=true patched=1)**
 
 **Description:** SSAO + SSGI + ACES tonemap + HDR cubemap reflection
 via OnRenderImage chain, gated by SavedSettings flags.
@@ -247,7 +247,7 @@ via OnRenderImage chain, gated by SavedSettings flags.
 
 ---
 
-### FR-WSM-011: Worldspace UI (Health Bars + Labels)
+### FR-WSM-011: Worldspace UI (Health Bars + Labels) — **LANDED 2026-05-21 (enabled=true patched=1)**
 
 **Description:** 3D mesh health bars + 3D mesh labels attached to actor
 head positions, camera-facing.
@@ -261,7 +261,7 @@ head positions, camera-facing.
 
 ---
 
-### FR-WSM-012: Voxel-Mesh Particle Bursts
+### FR-WSM-012: Voxel-Mesh Particle Bursts — **LANDED 2026-05-21 (enabled=true patched=3)**
 
 **Description:** Explosions/blood/fire/leaves spawn voxel-mesh bursts
 via VoxelParticleBurst lifecycle (spawn → grow → fade alpha).
@@ -292,7 +292,7 @@ at toggle registration time; phase flags survive kill+launch.
 
 ---
 
-### FR-WSM-014: Bridge POST Phase Activation
+### FR-WSM-014: Bridge POST Phase Activation — **LANDED 2026-05-21 (POST returns ok=true + /phase/<key> echoes)**
 
 **Description:** `POST /settings/<key>?value=true|false` writes
 SavedSettings via reflection + invokes Core.ApplyPhaseToggle.
