@@ -202,7 +202,7 @@ calibrated.
 
 ---
 
-### FR-WSM-008: Skeletal Animation
+### FR-WSM-008: Skeletal Animation — **LANDED 2026-05-21 (dragonfly bug root-caused + fixed; HumanoidRigBindPoseTests 3/3 pass)**
 
 **Description:** Humanoid actors deform via bone matrices driven by
 animation curves; bone weights baked into voxel mesh per RigType.
@@ -212,7 +212,7 @@ animation curves; bone weights baked into voxel mesh per RigType.
 - No vertex displacement > 10× sprite extent (dragonfly bug avoidance)
 - Walk-cycle visible on humanoid actors
 
-**Status: BLOCKED** by dragonfly bug — bind-pose audit pending.
+**Status: LANDED** — root cause was Evaluate() passing runtime scale into BuildHierarchy; rest pose was baked at scale=1 in static ctor so the skin matrix world[i] * restInverse[i] baked an N-times stretch. Fix: Evaluate now always uses scale=1; external mesh transform applies render scale separately.
 
 **Related Tests:** `Phase6RigRegistryTests`,
 `tests/WorldSphereMod.Tests.Unit/SkeletalDeformationBoundsTests` (TBD)

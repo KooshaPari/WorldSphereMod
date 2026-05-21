@@ -151,7 +151,13 @@ namespace WorldSphereMod.Rig
             Vector2 size = ReadVector2(fd, "size_unit");
             bool prone = size.x > 0.001f && size.y / size.x < 0.6f;
 
-            return BuildHierarchy(false, scale, prone, armSwing, legStride, headPitch, attackSwing);
+            // FR-WSM-008 dragonfly fix: skeleton hierarchy is ALWAYS at scale=1.
+            // _restWorldInverse was baked at scale=1 in the static ctor — passing a
+            // different scale here makes the skin matrix world[i] * restInverse[i]
+            // accumulate an N-times stretch since rest is at unit length but
+            // current pose has scale-multiplied bind offsets. External mesh transform
+            // applies render scale; bones stay unit-length.
+            return BuildHierarchy(false, 1f, prone, armSwing, legStride, headPitch, attackSwing);
         }
 
         public static Matrix4x4[] GetBindPoses()
