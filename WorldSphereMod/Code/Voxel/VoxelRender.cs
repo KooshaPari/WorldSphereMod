@@ -134,7 +134,14 @@ namespace WorldSphereMod.Voxel
                     m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
                     m.EnableKeyword("_ALPHATEST_ON");
                     m.SetFloat("_Cutoff", 0.5f);
-                    m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.AlphaTest;
+                    // Opaque-Geometry + 1 (queue 2001) instead of AlphaTest (2450)
+                    // so voxel meshes render in the OPAQUE pass right after terrain
+                    // (queue 2000). At AlphaTest queue we were rendering AFTER all
+                    // transparent passes — terrain wasn't covering us but the depth
+                    // buffer post-pass interactions made meshes invisible at this
+                    // camera altitude. Geometry+1 = same opaque pass, just sorted
+                    // after terrain so we don't z-fight ties with biome cubes.
+                    m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Geometry + 1;
                 }
                 catch { /* shader doesn't have these props — fine */ }
                 ConfigureVoxelMaterial(m, name);
