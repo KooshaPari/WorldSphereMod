@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using HarmonyLib;
 using UnityEngine;
+using WorldSphereMod.Textures;
 using WorldSphereMod.NewCamera;
 using Debug = UnityEngine.Debug;
 
@@ -104,6 +105,7 @@ namespace WorldSphereMod.Voxel
             if (inlineMat != null)
             {
                 _material = inlineMat;
+                McPackLoader.ApplyToMaterial(_material);
                 Debug.Log("[WSM3D] Voxel material resolved via inline 'WSM3D/OpaqueVertexColor'.");
                 return true;
             }
@@ -136,6 +138,7 @@ namespace WorldSphereMod.Voxel
                 }
                 catch { /* shader doesn't have these props — fine */ }
                 ConfigureVoxelMaterial(m, name);
+                McPackLoader.ApplyToMaterial(m);
                 LogVoxelMaterialPassDetails(m, name);
                 _material = m;
                 Debug.Log($"[WSM3D] Voxel material resolved via '{name}'.");
@@ -156,7 +159,10 @@ namespace WorldSphereMod.Voxel
                 Shader? existing = Shader.Find("WSM3D/OpaqueVertexColor");
                 if (existing != null)
                 {
-                    return new Material(existing) { name = "WSM3D.Voxel.OpaqueVertexColor" };
+                    Material inlineMaterial = new Material(existing) { name = "WSM3D.Voxel.OpaqueVertexColor" };
+                    ConfigureVoxelMaterial(inlineMaterial, "WSM3D/OpaqueVertexColor");
+                    McPackLoader.ApplyToMaterial(inlineMaterial);
+                    return inlineMaterial;
                 }
                 // Unity 2022 doesn't have a public runtime ShaderLab compile API,
                 // so the inline-shader path is a no-op unless a baked shader of
@@ -658,7 +664,7 @@ namespace WorldSphereMod.Voxel
                 WorldSphereMod.Water.WaterRender.UpdateLifecycle();
             }
 
-            WorldSphereMod.Terrain.TerrainSmoothingSurface.EnsureActive();
+            WorldSphereMod.Terrain.MountainSlopeSurface.EnsureActive();
 
             if (Time.time >= _nextCameraLookup)
             {

@@ -37,8 +37,8 @@
   "upside_down_movement_description": "如果视角相比初始是颠倒的，那操作也会随之颠倒",
   "biome_blending": "Biome Blending",
   "biome_blending_description": "Smooth terrain vertex colors across biome edges so grass, sand, and water transition over a few tiles.",
-  "terrain_smoothing": "Terrain Smoothing",
-  "terrain_smoothing_description": "Blend a smooth heightfield overlay over the blocky CompoundSpheres terrain.",
+  "mountain_slope_smoothing": "Mountain Slope Smoothing",
+  "mountain_slope_smoothing_description": "Blend a smooth heightfield overlay over mountain and cliff tiles.",
   "open_sprites": "打开贴图文件",
   "open_sprites_description":  "打开包含模组资源的文件夹，可以对其进行编辑，然后重启游戏以生效"
 }

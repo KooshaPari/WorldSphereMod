@@ -213,7 +213,7 @@ namespace WorldSphereMod.UI
                 new ButtonData("crossed_quad_foliage", "crossed_quad_foliage_description", "WorldSphereMod/Flat",          Core.savedSettings.CrossedQuadFoliage, TogglePhase_CrossedQuadFoliage),
                 new ButtonData("biome_blending",       "biome_blending_description",       "WorldSphereMod/World",         Core.savedSettings.BiomeBlending,       ToggleBiomeBlending),
                 new ButtonData("mesh_water",           "mesh_water_description",           "WorldSphereMod/PerlinNoise",   Core.savedSettings.MeshWater,           TogglePhase_MeshWater),
-                new ButtonData("terrain_smoothing",    "terrain_smoothing_description",    "WorldSphereMod/World",         Core.savedSettings.TerrainSmoothing,    TogglePhase_TerrainSmoothing),
+                new ButtonData("mountain_slope_smoothing", "mountain_slope_smoothing_description", "WorldSphereMod/World", Core.savedSettings.MountainSlopeSmoothing, TogglePhase_MountainSlopeSmoothing),
                 new ButtonData("high_shadows",         "high_shadows_description",         "WorldSphereMod/SkyBox",        Core.savedSettings.HighShadows,         TogglePhase_HighShadows),
                 new ButtonData("hdr_skybox",           "hdr_skybox_description",           "WorldSphereMod/SkyBox",        Core.savedSettings.HdrSkybox,           TogglePhase_HdrSkybox),
                 new ButtonData("color_grading_lut",    "color_grading_lut_description",    "WorldSphereMod/ModIcon",       Core.savedSettings.ColorGradingLut,      TogglePhase_ColorGradingLut),
@@ -252,7 +252,7 @@ namespace WorldSphereMod.UI
             }
         }
         static void TogglePhase_MeshWater(string _)           { Core.savedSettings.MeshWater           = !Core.savedSettings.MeshWater;           Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.MeshWater),           Core.savedSettings.MeshWater); }
-        static void TogglePhase_TerrainSmoothing(string _)    { Core.savedSettings.TerrainSmoothing    = !Core.savedSettings.TerrainSmoothing;    Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.TerrainSmoothing),    Core.savedSettings.TerrainSmoothing); }
+        static void TogglePhase_MountainSlopeSmoothing(string _)    { Core.savedSettings.MountainSlopeSmoothing    = !Core.savedSettings.MountainSlopeSmoothing;    Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.MountainSlopeSmoothing),    Core.savedSettings.MountainSlopeSmoothing); }
         static void TogglePhase_HighShadows(string _)         { Core.savedSettings.HighShadows         = !Core.savedSettings.HighShadows;         Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.HighShadows),         Core.savedSettings.HighShadows); }
         static void TogglePhase_HdrSkybox(string _)          { Core.savedSettings.HdrSkybox          = !Core.savedSettings.HdrSkybox;          Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.HdrSkybox),          Core.savedSettings.HdrSkybox); }
         static void TogglePhase_ColorGradingLut(string _)     { Core.savedSettings.ColorGradingLut     = !Core.savedSettings.ColorGradingLut;     Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.ColorGradingLut),     Core.savedSettings.ColorGradingLut); }
@@ -279,7 +279,7 @@ namespace WorldSphereMod.UI
             bool previousCrossedQuadFoliage = Core.savedSettings.CrossedQuadFoliage;
             bool previousBiomeBlending = Core.savedSettings.BiomeBlending;
             bool previousMeshWater = Core.savedSettings.MeshWater;
-            bool previousTerrainSmoothing = Core.savedSettings.TerrainSmoothing;
+            bool previousMountainSlopeSmoothing = Core.savedSettings.MountainSlopeSmoothing;
             bool previousHighShadows = Core.savedSettings.HighShadows;
             bool previousHdrSkybox = Core.savedSettings.HdrSkybox;
             bool previousColorGradingLut = Core.savedSettings.ColorGradingLut;
@@ -302,7 +302,7 @@ namespace WorldSphereMod.UI
             if (previousCrossedQuadFoliage != Core.savedSettings.CrossedQuadFoliage)     Core.ApplyPhaseToggle(nameof(SavedSettings.CrossedQuadFoliage),  Core.savedSettings.CrossedQuadFoliage);
             if (previousBiomeBlending != Core.savedSettings.BiomeBlending && Core.IsWorld3D) Core.Sphere.RefreshColors();
             if (previousMeshWater != Core.savedSettings.MeshWater)                       Core.ApplyPhaseToggle(nameof(SavedSettings.MeshWater),           Core.savedSettings.MeshWater);
-            if (previousTerrainSmoothing != Core.savedSettings.TerrainSmoothing)         Core.ApplyPhaseToggle(nameof(SavedSettings.TerrainSmoothing),    Core.savedSettings.TerrainSmoothing);
+            if (previousMountainSlopeSmoothing != Core.savedSettings.MountainSlopeSmoothing)         Core.ApplyPhaseToggle(nameof(SavedSettings.MountainSlopeSmoothing),    Core.savedSettings.MountainSlopeSmoothing);
             if (previousHighShadows != Core.savedSettings.HighShadows)                   Core.ApplyPhaseToggle(nameof(SavedSettings.HighShadows),         Core.savedSettings.HighShadows);
             if (previousHdrSkybox != Core.savedSettings.HdrSkybox)                       Core.ApplyPhaseToggle(nameof(SavedSettings.HdrSkybox),           Core.savedSettings.HdrSkybox);
             if (previousColorGradingLut != Core.savedSettings.ColorGradingLut)         Core.ApplyPhaseToggle(nameof(SavedSettings.ColorGradingLut),      Core.savedSettings.ColorGradingLut);

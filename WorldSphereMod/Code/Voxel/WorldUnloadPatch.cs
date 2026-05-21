@@ -30,7 +30,7 @@ namespace WorldSphereMod.Voxel
             try { WorldSphereMod.Voxel.VoxelRender.Reset(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] VoxelRender.Reset: " + e.Message); }
             try { WorldSphereMod.Voxel.MeshInstanceBatcher.Reset(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] MeshInstanceBatcher.Reset: " + e.Message); }
             try { WorldSphereMod.Foliage.FoliageTileRender.ClearCache(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] FoliageTileRender.ClearCache: " + e.Message); }
-            try { WorldSphereMod.Terrain.TerrainSmoothingSurface.Destroy(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] TerrainSmoothingSurface.Destroy: " + e.Message); }
+            try { WorldSphereMod.Terrain.MountainSlopeSurface.Destroy(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] MountainSlopeSurface.Destroy: " + e.Message); }
         }
     }
 }

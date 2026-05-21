@@ -34,6 +34,6 @@
     "upside_down_movement_description": "если камера перевернута, управление будет инвертировано",
     "biome_blending": "Biome Blending",
     "biome_blending_description": "Smooth terrain vertex colors across biome edges so grass, sand, and water transition over a few tiles.",
-    "terrain_smoothing": "Terrain Smoothing",
-    "terrain_smoothing_description": "Blend a smooth heightfield overlay over the blocky CompoundSpheres terrain."
+    "mountain_slope_smoothing": "Mountain Slope Smoothing",
+    "mountain_slope_smoothing_description": "Blend a smooth heightfield overlay over mountain and cliff tiles."
 }

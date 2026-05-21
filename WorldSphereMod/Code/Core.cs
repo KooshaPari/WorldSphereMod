@@ -88,7 +88,7 @@ namespace WorldSphereMod
             InitProfiler.Measure("Patch", () => Patch());
             InitProfiler.Measure("McPackLoader.Initialize", () =>
             {
-                WorldSphereMod.Texture.McPackLoader.Initialize();
+                WorldSphereMod.Textures.McPackLoader.Initialize();
             });
             InitProfiler.Measure("Lighting.SunDriver.Init", () =>
             {
