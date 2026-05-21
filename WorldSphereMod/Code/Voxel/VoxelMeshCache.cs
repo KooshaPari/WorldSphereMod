@@ -118,10 +118,26 @@ namespace WorldSphereMod.Voxel
             int key;
             lock (_lock)
             {
-                if (!_nameToSpriteId.TryGetValue(spriteName, out key)) return false;
-                if (!_cache.TryGetValue(key, out Entry e) || e.Snapshot == null) return false;
-                snapshot = e.Snapshot;
-                return true;
+                if (_nameToSpriteId.TryGetValue(spriteName, out key))
+                {
+                    if (_cache.TryGetValue(key, out Entry e) && e.Snapshot != null)
+                    {
+                        snapshot = e.Snapshot;
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Back-fill name index when caller resolves a Sprite outside the cache path.
+        public static void RegisterSpriteName(Sprite sprite)
+        {
+            if (sprite == null || string.IsNullOrEmpty(sprite.name)) return;
+            int key = sprite.GetInstanceID();
+            lock (_lock)
+            {
+                if (_cache.ContainsKey(key)) _nameToSpriteId[sprite.name] = key;
             }
         }
 

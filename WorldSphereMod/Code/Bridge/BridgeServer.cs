@@ -264,6 +264,9 @@ namespace WorldSphereMod.Bridge
             }
 
             WorldSphereMod.Voxel.VoxelMeshCache.Get(sprite);
+            // Back-fill name index for sprites that were cached before the name-index
+            // landed (pre-f39fb9b sessions).
+            WorldSphereMod.Voxel.VoxelMeshCache.RegisterSpriteName(sprite);
             // Try name index first (new), fall back to sprite-ref lookup for back-compat.
             bool found = WorldSphereMod.Voxel.VoxelMeshCache.TryDescribe(spriteName, out WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot snapshot);
             if (!found || snapshot == null)
