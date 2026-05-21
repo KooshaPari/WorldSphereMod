@@ -468,10 +468,23 @@ namespace WorldSphereMod.UI
                 id = ID
             });
             PowerButtonCreator.AddButtonToTab(Button, Tab);
-            if (!Enabled)
+            // PlayerConfig.dict.Add() sets boolVal=false by default.
+            // Set to match the Enabled parameter passed in — without this,
+            // 'Enabled=true' phases came up disabled after every game launch
+            // because PlayerConfig.dict shadowed SavedSettings (this is the
+            // 'bridge POST after each launch' workaround we documented at
+            // docs/journeys/scratch/all-phases-enabled-state.md).
+            PlayerConfig.dict[ID].boolVal = Enabled;
+            // Mirror into SavedSettings via reflection so phase code agrees.
+            try
             {
-                PlayerConfig.dict[ID].boolVal = false;
+                var field = typeof(SavedSettings).GetField(ID);
+                if (field != null && field.FieldType == typeof(bool) && Core.savedSettings != null)
+                {
+                    field.SetValue(Core.savedSettings, Enabled);
+                }
             }
+            catch { }
             PowerButtonSelector.instance.checkToggleIcons();
         }
       }
