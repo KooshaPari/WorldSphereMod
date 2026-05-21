@@ -177,9 +177,14 @@ namespace WorldSphereMod.Voxel
                     // framebuffer. Combined with the _MainTex=white above,
                     // every voxel renders as pure white = visible against any
                     // background.
-                    m.EnableKeyword("_EMISSION");
-                    m.SetColor("_EmissionColor", UnityEngine.Color.white);
-                    m.globalIlluminationFlags = UnityEngine.MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                    // Don't force emission to white anymore — overrides per-actor
+                    // vertex color tints. Voxel meshes have per-vertex Color32 set
+                    // by SpriteVoxelizer. Standard shader doesn't consume vertex
+                    // colors by default, but the per-instance _Color set via
+                    // MaterialPropertyBlock in MeshInstanceBatcher.Submit drives
+                    // tint. Just enable basic emission with low value so meshes
+                    // are still visible in dim scenes but respect per-actor color.
+                    m.DisableKeyword("_EMISSION");
                 }
                 catch { }
                 ConfigureVoxelMaterial(m, name);
