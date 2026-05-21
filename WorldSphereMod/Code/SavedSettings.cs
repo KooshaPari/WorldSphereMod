@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 namespace WorldSphereMod
 {
     [Serializable]
@@ -63,6 +63,10 @@ namespace WorldSphereMod
         // Phase 9: URP post-processing (bloom, color grading, vignette).
         public bool PostFX = false;
         public bool ParticleEffects = true;
+        public bool WeatherRain = false;
+        public bool WeatherSnow = false;
+        public bool WeatherLightning = false;
+
         // Phase 10: LOD ladder + impostor fallback.
         public float LODScale = 1.0f;
         public float WaterDetail = 1.0f;
@@ -71,3 +75,4 @@ namespace WorldSphereMod
         public bool ProfilerDump = false;
     }
 }
+

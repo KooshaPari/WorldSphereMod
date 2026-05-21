@@ -498,8 +498,12 @@ namespace WorldSphereMod.Voxel
             int i = verts.Count;
             verts.Add(a); verts.Add(b); verts.Add(dd); verts.Add(e);
             cols.Add(c);  cols.Add(c);  cols.Add(c);   cols.Add(c);
+            // Double-sided: emit both windings so the mesh renders regardless of
+            // which way the per-direction winding happens to point. Adds 2 extra tris per quad.
             tris.Add(i); tris.Add(i + 1); tris.Add(i + 2);
             tris.Add(i); tris.Add(i + 2); tris.Add(i + 3);
+            tris.Add(i); tris.Add(i + 2); tris.Add(i + 1);
+            tris.Add(i); tris.Add(i + 3); tris.Add(i + 2);
         }
 
         static bool ColorEq(Color32 a, Color32 b)
