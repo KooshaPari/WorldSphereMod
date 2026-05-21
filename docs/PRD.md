@@ -96,7 +96,7 @@ WorldSphereMod3D provides:
 
 ## Functional Requirements
 
-### FR-WSM-001: Voxel Actor Meshes
+### FR-WSM-001: Voxel Actor Meshes — **LANDED 2026-05-21 (commit 12ec2d5)**
 
 **Description:** Replace 2D actor sprites with voxel meshes built from
 the sprite via SpriteVoxelizer (extruded/balloon/lathe per shape hint).
@@ -389,7 +389,7 @@ covers cache + queue, but mesh-geometry invariants endpoint
 
 | Requirement | Block | Path to close |
 |---|---|---|
-| FR-WSM-001, FR-WSM-002 | `/voxel/sprite?name=X` returns `mesh_not_cached` even when cache.size > 0 | Audit BuildVoxelSpritePayload lookup (sprite name → instance ID mapping) |
+| FR-WSM-002 | Same as 001 + needs separate build sprite verification | Same fix (12ec2d5) — re-run for building sprite name |
 | FR-WSM-008 | Dragonfly bug on bone-weighted meshes | Bind-pose audit; SkinnedMeshRenderer per-actor cleanup |
 | NFR-WSM-001 | 30k-60k draws/frame on fallback path | Enable DrawMeshInstanced + verify with /telemetry; BRG migration as Phase 11 |
 | NFR-WSM-006 | Mesh-geometry endpoint payload bug | Same as FR-001 block above |
