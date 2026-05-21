@@ -458,6 +458,13 @@ namespace WorldSphereMod.Voxel
                             {
                                 skPos = skPos.To3DTileHeight(false);
                             }
+                            // Match the ActorVoxelEmit Y-lift so skinned actors aren't
+                            // embedded inside the terrain/water voxel. SubmitSkinnedActor
+                            // uses skPos as the rig root position; raise it by half the
+                            // expected actor height (use scl.y * VoxelScaleMultiplier as
+                            // rough actor height estimate; / 2 for center→bottom shift).
+                            float skHalfHeight = Mathf.Abs(skScl.y) * Core.savedSettings.VoxelScaleMultiplier * 0.5f;
+                            skPos.y += skHalfHeight;
                             LogActorSubmitDiagnostic("skeletal", ref _actorSkeletalDiagnosticLogged, a, rd.main_sprites[i], skPosBeforeLift, skPos, rd.colors[i]);
                             if (WorldSphereMod.Rig.RigDriver.SubmitSkinnedActor(
                                     a, skPos, Quaternion.Euler(0f, skRot.y, 0f), skScl, rd.colors[i], rigType))
