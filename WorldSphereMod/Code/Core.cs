@@ -389,7 +389,7 @@ namespace WorldSphereMod
             }
             static Color32 BlendBiomeColor(int index, Color32 fallback)
             {
-                if (World.world == null || World.world.tiles_list == null || index < 0 || index >= World.world.tiles_list.Count)
+                if (World.world == null || index < 0)
                 {
                     return fallback;
                 }

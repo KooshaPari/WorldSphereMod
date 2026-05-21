@@ -66,9 +66,10 @@ namespace WorldSphereMod.Voxel
             return _ready;
         }
 
-        static void OnPerformCulling(BatchRendererGroup rendererGroup, BatchCullingContext cullingContext, BatchCullingOutput cullingOutput, IntPtr userContext)
+        static Unity.Jobs.JobHandle OnPerformCulling(BatchRendererGroup rendererGroup, BatchCullingContext cullingContext, BatchCullingOutput cullingOutput, IntPtr userContext)
         {
             // Placeholder callback: keeps BRG signature in place for future work.
+            return default(Unity.Jobs.JobHandle);
         }
     }
 }
