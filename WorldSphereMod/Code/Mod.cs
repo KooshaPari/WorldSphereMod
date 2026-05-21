@@ -104,8 +104,9 @@ using WorldSphereMod;
         });
     }
 
-    public void PostInit()
-    {
+public void PostInit()
+{
+    // AutoScreenshotDriver removed (was untracked + used ScreenCapture not in stripped UnityEngine.dll). Re-add later via Tools/wsm3d-capture/ Rust path.
         Core.PostInit();
         if (!IsAutoTest && Core.savedSettings != null && Core.savedSettings.AutoTest)
         {
