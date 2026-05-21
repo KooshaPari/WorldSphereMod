@@ -187,7 +187,7 @@ wind-sway shader.
 
 ---
 
-### FR-WSM-007: High Shadows with Cascade Mapping
+### FR-WSM-007: High Shadows with Cascade Mapping — **LANDED 2026-05-21 (enabled=true patches=1; AutoTest-induced flap resolved by AutoTest=false default)**
 
 **Description:** SunDriver configures QualitySettings.shadowCascades=4
 + shadowDistance tuned for voxel silhouettes; shadow strength + bias
