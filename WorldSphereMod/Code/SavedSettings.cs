@@ -48,7 +48,7 @@ public class SavedSettings
         public bool DebugVoxelOutline = false;
         public bool DebugSanityCube = false;
         public bool DebugSpawnBuildings = false;
-        public bool AutoTest = false;
+        public bool AutoTest = true;
         // Phase 2: Procedural building meshes (vs. billboarded building sprites).
         public bool ProceduralBuildings = false;
         // Optional Phase 2 style override: keep the old stylized procgen architecture
