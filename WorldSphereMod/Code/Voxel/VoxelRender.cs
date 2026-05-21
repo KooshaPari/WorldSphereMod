@@ -604,6 +604,7 @@ namespace WorldSphereMod.Voxel
     /// </summary>
     public sealed class VoxelFrameDriver : MonoBehaviour
     {
+        static bool _lastSkeletalState = false;
         const float kCameraLookupInterval = 0.05f;
         float _nextCameraLookup = 0f;
 
@@ -636,13 +637,19 @@ namespace WorldSphereMod.Voxel
             WorldSphereMod.Rig.RigCache.DrainPendingDestroy();
             if (Core.savedSettings.SkeletalAnimation)
             {
+                if (_lastSkeletalState == false)
+                {
+                    _lastSkeletalState = true;
+                }
                 WorldSphereMod.Rig.RigDriver.Update();
             }
-            else
+            else if (_lastSkeletalState)
             {
-                // Flag off — make sure no stale SkinnedMeshRenderer instances are left
-                // animating with potentially garbage bone matrices (dragonfly-legs bug).
+                // Edge transition true->false. Dispose stale SkinnedMeshRenderer
+                // instances ONCE so they don't animate with garbage bone matrices
+                // (dragonfly-legs bug). Per-frame Clear would freeze the load.
                 WorldSphereMod.Rig.RigDriver.Clear();
+                _lastSkeletalState = false;
             }
 
             if (MeshInstanceBatcher.HasPendingSubmissions)
