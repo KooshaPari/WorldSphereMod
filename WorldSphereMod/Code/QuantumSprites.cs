@@ -370,10 +370,20 @@ namespace WorldSphereMod.QuantumSprites
         {
             CodeMatcher Matcher = new CodeMatcher(instructions, generator);
             Matcher.MatchForward(false, new CodeMatch(OpCodes.Callvirt, AccessTools.Method(typeof(Projectile), nameof(Projectile.getCurrentScale))));
+            if (Matcher.Pos < 0 || Matcher.IsInvalid)
+            {
+                global::UnityEngine.Debug.LogWarning("[WSM3D] QuantumSpritePatches.drawProjectiles transpiler: Projectile.getCurrentScale not found in vanilla IL — skipping");
+                return instructions;
+            }
             Matcher.RemoveInstruction();
             Matcher.RemoveInstruction();
             Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(Manager), nameof(Manager.SetProjectile))));
             Matcher.MatchForward(false, new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(Transform), "set_rotation")));
+            if (Matcher.Pos < 0 || Matcher.IsInvalid)
+            {
+                global::UnityEngine.Debug.LogWarning("[WSM3D] QuantumSpritePatches.drawProjectiles transpiler: Transform.set_rotation not found in vanilla IL — skipping second rewrite");
+                return Matcher.Instructions();
+            }
             Matcher.RemoveInstruction();
             Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(Tools), nameof(Tools.AddRotation))));
             return Matcher.Instructions();
