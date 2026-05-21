@@ -395,9 +395,19 @@ namespace WorldSphereMod.QuantumSprites
         {
             CodeMatcher Matcher = new CodeMatcher(instructions, generator);
             Matcher.MatchForward(false, new CodeMatch(OpCodes.Callvirt, AccessTools.Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.setScale), new Type[] { typeof(float) })));
+            if (Matcher.Pos < 0 || Matcher.IsInvalid)
+            {
+                global::UnityEngine.Debug.LogWarning("[WSM3D] QuantumSpritePatches.effects transpiler: setScale not found — skipping");
+                return instructions;
+            }
             Matcher.RemoveInstruction();
             Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(Manager), nameof(Manager.SetScaleAndResetRot))));
             Matcher.MatchForward(false, new CodeMatch(OpCodes.Callvirt, AccessTools.Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.setSharedMat))));
+            if (Matcher.Pos < 0 || Matcher.IsInvalid)
+            {
+                global::UnityEngine.Debug.LogWarning("[WSM3D] QuantumSpritePatches.effects transpiler: setSharedMat not found — skipping second insert");
+                return Matcher.Instructions();
+            }
             Matcher.Insert(new CodeInstruction(OpCodes.Ldloc_S, (byte)4), new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(Component), "get_transform")), new CodeInstruction(OpCodes.Ldloc_3), new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Manager), nameof(Manager.RotateToCameraAtPos))));
 
             return Matcher.Instructions();
@@ -408,6 +418,11 @@ namespace WorldSphereMod.QuantumSprites
         {
             CodeMatcher Matcher = new CodeMatcher(instructions, generator);
             Matcher.MatchForward(false, new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.setPosOnly), new Type[] {typeof(Vector3).MakeByRefType()})));
+            if (Matcher.Pos < 0 || Matcher.IsInvalid)
+            {
+                global::UnityEngine.Debug.LogWarning("[WSM3D] QuantumSpritePatches.buildings transpiler: setPosOnly not found — skipping");
+                return instructions;
+            }
             Matcher.RemoveInstruction();
             Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(Manager), nameof(Manager.SetPos))));
             return Matcher.Instructions();
