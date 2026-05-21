@@ -28,6 +28,7 @@ namespace WorldSphereMod.Fx
         const string BloomTypeName = "UnityEngine.Rendering.Universal.Bloom";
         const string ColorAdjustmentsTypeName = "UnityEngine.Rendering.Universal.ColorAdjustments";
         const string VignetteTypeName = "UnityEngine.Rendering.Universal.Vignette";
+        const string TonemappingTypeName = "UnityEngine.Rendering.Universal.Tonemapping";
 
         static Type? FindType(string fullName)
         {
@@ -86,7 +87,15 @@ namespace WorldSphereMod.Fx
                 if (valueField != null)
                 {
                     object coerced = value;
-                    if (valueField.FieldType != value.GetType() && value is IConvertible)
+                    if (valueField.FieldType.IsEnum)
+                    {
+                        try
+                        {
+                            coerced = Enum.Parse(valueField.FieldType, value.ToString() ?? string.Empty);
+                        }
+                        catch { coerced = value; }
+                    }
+                    if (!valueField.FieldType.IsEnum && valueField.FieldType != value.GetType() && value is IConvertible)
                     {
                         try { coerced = Convert.ChangeType(value, valueField.FieldType); }
                         catch { coerced = value; }
@@ -142,6 +151,7 @@ namespace WorldSphereMod.Fx
             Type? bloomType = FindType(BloomTypeName);
             Type? colorAdjustmentsType = FindType(ColorAdjustmentsTypeName);
             Type? vignetteType = FindType(VignetteTypeName);
+            Type? tonemappingType = FindType(TonemappingTypeName);
 
             if (volumeType == null || profileType == null || additionalDataType == null
                 || bloomType == null || colorAdjustmentsType == null || vignetteType == null)
@@ -213,6 +223,15 @@ namespace WorldSphereMod.Fx
                 {
                     TryWriteParam(vignette, "intensity", 0.25f);
                     TryWriteParam(vignette, "smoothness", 0.4f);
+                }
+
+                if (tonemappingType != null)
+                {
+                    object? tonemapping = TryAddOverride(addComp, _profile, tonemappingType);
+                    if (tonemapping != null)
+                    {
+                        TryWriteParam(tonemapping, "mode", "ACES");
+                    }
                 }
 
                 TryWrite(volume!, volumeType, "sharedProfile", _profile);

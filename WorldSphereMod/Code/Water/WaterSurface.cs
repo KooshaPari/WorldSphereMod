@@ -47,6 +47,10 @@ namespace WorldSphereMod.Water
             renderer.sharedMaterial = _material;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
+            if (RenderSettings.skybox != null && RenderSettings.skybox.mainTexture is Cubemap skyCubemap)
+            {
+                renderer.sharedMaterial.SetTexture("_SkyCubemap", skyCubemap);
+            }
 
             var surface = go.AddComponent<WaterSurface>();
             surface._filter = filter;
@@ -92,6 +96,8 @@ namespace WorldSphereMod.Water
             int tileCount = tiles.Length;
             int width = MapBox.width;
             int height = MapBox.height;
+            float depthSum = 0f;
+            int depthCount = 0;
 
             var vertices = _vertsScratch;
             var triangles = _trisScratch;
@@ -121,6 +127,8 @@ namespace WorldSphereMod.Water
                 WorldTile t = tiles[i];
                 if (t == null) continue;
                 if (!WaterMaskBuffer.IsWater(t.data.tile_id)) continue;
+                depthSum += WaterMaskBuffer.DepthAt(t.data.tile_id);
+                depthCount++;
 
                 int x = t.x;
                 int y = t.y;
@@ -138,6 +146,11 @@ namespace WorldSphereMod.Water
             _mesh.SetTriangles(triangles, 0);
             _mesh.RecalculateNormals();
             _mesh.RecalculateBounds();
+            if (_instanceMaterial != null)
+            {
+                float avgDepth = depthCount > 0 ? depthSum / depthCount : 0f;
+                _instanceMaterial.SetFloat("_WaterDepth", avgDepth);
+            }
         }
 
         void LateUpdate()
@@ -195,7 +208,8 @@ namespace WorldSphereMod.Water
             int metallicId = Shader.PropertyToID("_Metallic");
             bool isLit = false;
 
-            Shader? s = Resources.Load<Shader>("Shaders/WaterGerstner");
+            Shader? s = Resources.Load<Shader>("Shaders/ContinuumWaterGerstner");
+            if (s == null) s = Resources.Load<Shader>("Shaders/WaterGerstner");
             if (s != null)
             {
                 Material m = new Material(s) { name = "WSM3D.Water" };

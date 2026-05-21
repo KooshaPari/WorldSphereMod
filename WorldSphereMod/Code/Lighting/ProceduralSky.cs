@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.Rendering;
+using WorldSphereMod.NewCamera;
 
 namespace WorldSphereMod.Lighting
 {
@@ -6,12 +8,20 @@ namespace WorldSphereMod.Lighting
     {
         static ProceduralSky? Instance;
         Material? _skyMat;
+        RenderTexture? _skyCubemap;
+        Camera? _bakeCamera;
+        float _lastRenderedT = -1f;
+
+        const int kSkyCubemapSize = 128;
+        const float kDirtyThreshold = 0.005f;
 
         static readonly int _zenith = Shader.PropertyToID("_ZenithColor");
         static readonly int _horizon = Shader.PropertyToID("_HorizonColor");
         static readonly int _ground = Shader.PropertyToID("_GroundColor");
         static readonly int _sunDir = Shader.PropertyToID("_SunDir");
         static readonly int _sunCol = Shader.PropertyToID("_SunColor");
+        static readonly int _exposure = Shader.PropertyToID("_Exposure");
+        static readonly int _sunGlow = Shader.PropertyToID("_SunGlow");
 
         static readonly Color kZenithNight = new Color(0.05f, 0.07f, 0.18f);
         static readonly Color kZenithDawn = new Color(0.18f, 0.22f, 0.35f);
@@ -34,22 +44,33 @@ namespace WorldSphereMod.Lighting
         void Awake()
         {
             Instance = this;
-            Shader? s = Resources.Load<Shader>("Shaders/ProceduralSky");
+            Shader? s = Resources.Load<Shader>("Shaders/ContinuumSkybox");
+            if (s == null) s = Resources.Load<Shader>("Shaders/ProceduralSky");
             if (s == null) { Debug.LogWarning("[WSM3D] ProceduralSky shader not found; skybox unchanged."); return; }
             _skyMat = new Material(s) { name = "WSM3D.ProceduralSky" };
             RenderSettings.skybox = _skyMat;
+            SyncSkyboxComponent();
+            EnsureCubemap();
         }
 
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
             if (_skyMat != null) Object.Destroy(_skyMat);
+            if (_skyCubemap != null) Object.Destroy(_skyCubemap);
+            if (_bakeCamera != null) Object.Destroy(_bakeCamera.gameObject);
         }
 
         void LateUpdate()
         {
             if (_skyMat == null) return;
-            float t = TimeOfDay.Current;
+            Apply(TimeOfDay.Current);
+        }
+
+        void Apply(float t)
+        {
+            if (_skyMat == null) return;
+            SyncSkyboxComponent();
 
             Color sun = SunRig.SunColor(t);
             Color zenith = SampleSkyCurve(t, kZenithNight, kZenithDawn, kZenithNoon, kZenithDusk);
@@ -60,8 +81,18 @@ namespace WorldSphereMod.Lighting
             _skyMat.SetColor(_horizon, horizon);
             _skyMat.SetColor(_ground, ground);
             _skyMat.SetColor(_sunCol, sun);
+            _skyMat.SetFloat(_exposure, 1.25f);
+            _skyMat.SetFloat(_sunGlow, 0.9f);
             if (SunDriver.Sun != null)
+            {
                 _skyMat.SetVector(_sunDir, SunDriver.Sun.transform.forward * -1f);
+            }
+            if (ShouldRefreshCubemap(t))
+            {
+                BakeSkyCubemap();
+                SyncReflections(sun, SunDriver.Sun != null ? -SunDriver.Sun.transform.forward : Vector3.down);
+                _lastRenderedT = t;
+            }
         }
 
         static Color SampleSkyCurve(float t, Color night, Color dawn, Color noon, Color dusk)
@@ -70,6 +101,91 @@ namespace WorldSphereMod.Lighting
             if (t < 0.5f) return Color.Lerp(dawn, noon, (t - 0.25f) / 0.25f);
             if (t < 0.75f) return Color.Lerp(noon, dusk, (t - 0.5f) / 0.25f);
             return Color.Lerp(dusk, night, (t - 0.75f) / 0.25f);
+        }
+
+        void SyncSkyboxComponent()
+        {
+            if (CameraManager.MainCamera == null) return;
+            Skybox? skybox = CameraManager.MainCamera.GetComponent<Skybox>();
+            if (skybox == null) skybox = CameraManager.MainCamera.gameObject.AddComponent<Skybox>();
+            skybox.material = _skyMat;
+        }
+
+        void EnsureCubemap()
+        {
+            if (_skyCubemap != null) return;
+
+            var desc = new RenderTextureDescriptor(kSkyCubemapSize, kSkyCubemapSize, RenderTextureFormat.ARGBHalf, 16)
+            {
+                dimension = TextureDimension.Cube,
+                useMipMap = true,
+                autoGenerateMips = true,
+                msaaSamples = 1,
+                sRGB = false
+            };
+            _skyCubemap = new RenderTexture(desc)
+            {
+                name = "WSM3D.SkyCubemap",
+                hideFlags = HideFlags.HideAndDontSave,
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            _skyCubemap.Create();
+
+            GameObject bakeGo = new GameObject("WSM3D.SkyCubemapCamera");
+            bakeGo.hideFlags = HideFlags.HideAndDontSave;
+            bakeGo.SetActive(false);
+            _bakeCamera = bakeGo.AddComponent<Camera>();
+            _bakeCamera.enabled = false;
+            _bakeCamera.clearFlags = CameraClearFlags.Skybox;
+            _bakeCamera.cullingMask = 0;
+            _bakeCamera.allowHDR = true;
+            _bakeCamera.allowMSAA = false;
+            _bakeCamera.backgroundColor = Color.black;
+            _bakeCamera.transform.position = Vector3.zero;
+        }
+
+        bool ShouldRefreshCubemap(float t)
+        {
+            if (_skyCubemap == null || _bakeCamera == null) return false;
+            if (_lastRenderedT < 0f) return true;
+            float delta = Mathf.Abs(Mathf.DeltaAngle(_lastRenderedT * 360f, t * 360f)) / 360f;
+            return delta >= kDirtyThreshold;
+        }
+
+        void BakeSkyCubemap()
+        {
+            if (_skyCubemap == null || _bakeCamera == null) return;
+            if (_skyMat == null) return;
+
+            SyncSkyboxComponent();
+            _bakeCamera.transform.position = CameraManager.MainCamera != null
+                ? CameraManager.MainCamera.transform.position
+                : Vector3.zero;
+
+            if (!_bakeCamera.RenderToCubemap(_skyCubemap))
+            {
+                Debug.LogWarning("[WSM3D] ProceduralSky cubemap bake failed; keeping previous reflections.");
+                return;
+            }
+
+            if (_skyMat.mainTexture != _skyCubemap)
+            {
+                _skyMat.mainTexture = _skyCubemap;
+            }
+        }
+
+        void SyncReflections(Color sunColor, Vector3 sunDir)
+        {
+            if (_skyCubemap == null) return;
+            var water = WorldSphereMod.Water.WaterSurface.Instance;
+            if (water?._renderer != null)
+            {
+                Material mat = water._renderer.material;
+                mat.SetTexture("_SkyCubemap", _skyCubemap);
+                mat.SetVector("_SunDir", new Vector4(sunDir.x, sunDir.y, sunDir.z, 0f));
+                mat.SetColor("_SunColor", sunColor);
+            }
         }
     }
 }

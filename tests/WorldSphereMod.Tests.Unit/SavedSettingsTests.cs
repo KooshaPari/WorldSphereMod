@@ -204,14 +204,14 @@ public class SavedSettingsTests
     }
 
     [Fact]
-    public void SavedSettings_defaults_voxel_mesh_smoothing_on_with_two_iterations()
+    public void SavedSettings_defaults_voxel_mesh_smoothing_off_with_one_iteration()
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+VoxelMeshSmoothing\s*=\s*true")
-            .Success.Should().BeTrue("VoxelMeshSmoothing must default to true");
+        Regex.Match(source, @"public\s+bool\s+VoxelMeshSmoothing\s*=\s*false")
+            .Success.Should().BeTrue("VoxelMeshSmoothing must default to false");
 
-        Regex.Match(source, @"public\s+int\s+SmoothingIterations\s*=\s*2")
-            .Success.Should().BeTrue("SmoothingIterations must default to 2");
+        Regex.Match(source, @"public\s+int\s+SmoothingIterations\s*=\s*1")
+            .Success.Should().BeTrue("SmoothingIterations must default to 1");
     }
 }

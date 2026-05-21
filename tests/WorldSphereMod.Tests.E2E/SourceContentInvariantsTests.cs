@@ -120,7 +120,7 @@ public class SourceContentInvariantsTests
     }
 
     [Fact]
-    public void WorldSphereTab_cs_contains_all_ten_TogglePhase_handlers()
+    public void WorldSphereTab_cs_contains_all_eleven_TogglePhase_handlers()
     {
         var tab = ReadSourceFile("WorldSphereMod/Code/WorldSphereTab.cs");
 
@@ -129,6 +129,7 @@ public class SourceContentInvariantsTests
             "TogglePhase_VoxelEntities",
             "TogglePhase_ProceduralBuildings",
             "TogglePhase_CrossedQuadFoliage",
+            "ToggleBiomeBlending",
             "TogglePhase_MeshWater",
             "TogglePhase_HighShadows",
             "TogglePhase_SkeletalAnimation",
@@ -160,7 +161,7 @@ public class SourceContentInvariantsTests
     }
 
     [Fact]
-    public void EnJson_contains_all_ten_phase_toggle_keys()
+    public void EnJson_contains_all_eleven_phase_toggle_keys()
     {
         var enJsonText = ReadSourceFile("WorldSphereMod/Locales/en.json");
         var enJson = JObject.Parse(enJsonText);
@@ -170,6 +171,7 @@ public class SourceContentInvariantsTests
             "voxel_entities",
             "procedural_buildings",
             "crossed_quad_foliage",
+            "biome_blending",
             "mesh_water",
             "high_shadows",
             "skeletal_animation",
@@ -187,7 +189,7 @@ public class SourceContentInvariantsTests
     }
 
     [Fact]
-    public void EnJson_contains_descriptions_for_all_ten_phases()
+    public void EnJson_contains_descriptions_for_all_eleven_phases()
     {
         var enJsonText = ReadSourceFile("WorldSphereMod/Locales/en.json");
         var enJson = JObject.Parse(enJsonText);
@@ -197,6 +199,7 @@ public class SourceContentInvariantsTests
             "voxel_entities",
             "procedural_buildings",
             "crossed_quad_foliage",
+            "biome_blending",
             "mesh_water",
             "high_shadows",
             "skeletal_animation",
@@ -225,6 +228,7 @@ public class SourceContentInvariantsTests
             "voxel_entities",
             "procedural_buildings",
             "crossed_quad_foliage",
+            "biome_blending",
             "mesh_water",
             "high_shadows",
             "skeletal_animation",

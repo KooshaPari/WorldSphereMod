@@ -89,6 +89,18 @@ using WorldSphereMod;
         {
             WorldSphereMod.Lighting.ColorGradingLUT.EnsureCreated();
         });
+        InitProfiler.Measure("EnsureCreated: ScreenSpaceAO", () =>
+        {
+            WorldSphereMod.PostFx.ScreenSpaceAO.ApplySetting(Core.savedSettings != null && Core.savedSettings.SSAOEnabled);
+        });
+        InitProfiler.Measure("EnsureCreated: ScreenSpaceGI", () =>
+        {
+            WorldSphereMod.PostFx.ScreenSpaceGI.ApplySetting(Core.savedSettings != null && Core.savedSettings.SSGIEnabled);
+        });
+        InitProfiler.Measure("EnsureCreated: WeatherDriver", () =>
+        {
+            WorldSphereMod.Weather.WeatherDriver.EnsureCreated();
+        });
     }
 
     public void PostInit()

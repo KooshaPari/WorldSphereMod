@@ -20,7 +20,6 @@ namespace WorldSphereMod.Lighting
         {
             if (Instance != null) return;
             if (!Core.IsWorld3D) return;
-            if (!Core.savedSettings.DayNightCycle && Core.savedSettings.FogDensity == 0f) return;
             if (Mod.Object == null) return;
             Mod.Object.AddComponent<TimeOfDay>();
         }
@@ -38,6 +37,11 @@ namespace WorldSphereMod.Lighting
 
         void Update()
         {
+            if (!Core.IsWorld3D)
+            {
+                return;
+            }
+
             if (_useWbTime && _wbTimeField != null)
             {
                 object? boxed = _wbTimeField.IsStatic ? _wbTimeField.GetValue(null) : _wbTimeField.GetValue(MapBox.instance);
@@ -76,12 +80,10 @@ namespace WorldSphereMod.Lighting
             }
             SunDriver.TimeOfDay = Current * 24f;
 
-            if (Core.savedSettings.DayNightCycle || Core.savedSettings.FogDensity > 0f)
-            {
-                RenderSettings.fog = Core.savedSettings.FogDensity > 0f || Core.savedSettings.DayNightCycle;
-                RenderSettings.fogMode = FogMode.ExponentialSquared;
-                RenderSettings.fogDensity = Core.savedSettings.FogDensity;
-            }
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.ExponentialSquared;
+            RenderSettings.fogColor = SunRig.AmbientColor(Current) * 0.8f;
+            RenderSettings.fogDensity = Core.savedSettings.FogDensity > 0f ? Core.savedSettings.FogDensity : 0.0125f;
 
             WorldSphereMod.API.WorldSphereModAPI.RaiseTimeOfDay(Current);
         }

@@ -4,7 +4,7 @@ namespace WorldSphereMod
     [Serializable]
     public class SavedSettings
     {
-        public string Version = "2.0";
+        public string Version = "2.1";
         public bool Is3D = true;
         public bool InvertedCameraMovement = false;
         public bool PerlinNoise = true;
@@ -49,19 +49,26 @@ namespace WorldSphereMod
         public bool BiomeBlending = false;
         // Phase 4: Mesh water surface (vs. flat tile color).
         public bool MeshWater = false;
+        // Phase 5 prep: smooth overlay mesh that blends the upstream blocky terrain.
+        public bool TerrainSmoothing = false;
         // Phase 5: Directional sun + cascaded shadow maps.
         public bool HighShadows = false;
+        // Phase 5b: optional HDR skybox reflections and 256x16 LUT color grading.
+        public bool HdrSkybox = false;
+        public bool ColorGradingLut = false;
         // Phase 6: Skeletal animation driver for voxel actors.
         public bool SkeletalAnimation = false;
         // Phase 7: Worldspace UI (nameplates, health bars, selection rings).
         public bool WorldspaceUI = true;
         // Phase 8: Day/night cycle + procedural sky + fog.
         public bool DayNightCycle = false;
-        // Keep a visible starter density so Phase 8 fog is actually apparent on
-        // a fresh reset without requiring a separate hidden slider.
-        public float FogDensity = 0.0125f;
+        public float FogDensity = 0.0f;
         // Phase 9: URP post-processing (bloom, color grading, vignette).
         public bool PostFX = false;
+        // Phase 9: Built-in pipeline screen-space ambient occlusion (SSAO) pass.
+        public bool SSAOEnabled = false;
+        // Phase 9: Built-in pipeline screen-space global illumination (SSGI) pass.
+        public bool SSGIEnabled = false;
         public bool ParticleEffects = true;
         public bool WeatherRain = false;
         public bool WeatherSnow = false;

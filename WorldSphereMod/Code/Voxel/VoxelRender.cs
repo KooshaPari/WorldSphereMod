@@ -658,6 +658,8 @@ namespace WorldSphereMod.Voxel
                 WorldSphereMod.Water.WaterRender.UpdateLifecycle();
             }
 
+            WorldSphereMod.Terrain.TerrainSmoothingSurface.EnsureActive();
+
             if (Time.time >= _nextCameraLookup)
             {
                 WorldSphereMod.Lighting.SunDriver.BindMainCamera(CameraManager.MainCamera);

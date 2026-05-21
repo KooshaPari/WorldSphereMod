@@ -24,7 +24,7 @@ namespace WorldSphereMod
     public static class Core
     {
         public static SavedSettings savedSettings = new SavedSettings();
-        public static string SettingsVersion = "2.0";
+        public static string SettingsVersion = "2.1";
 
         public static Harmony Patcher;
         public static void SaveSettings()
@@ -102,7 +102,28 @@ namespace WorldSphereMod
             {
                 WorldSphereMod.Lighting.ColorGradingLUT.ApplySetting(newValue);
             }
-        }
+            if (flagName == nameof(SavedSettings.SSAOEnabled))
+            {
+                WorldSphereMod.PostFx.ScreenSpaceAO.ApplySetting(newValue);
+            }
+            if (flagName == nameof(SavedSettings.SSGIEnabled))
+            {
+                WorldSphereMod.PostFx.ScreenSpaceGI.ApplySetting(newValue);
+            }
+            if (flagName == nameof(SavedSettings.WeatherRain) ||
+                flagName == nameof(SavedSettings.WeatherSnow) ||
+                flagName == nameof(SavedSettings.WeatherLightning))
+            {
+                if (Core.savedSettings.WeatherRain || Core.savedSettings.WeatherSnow || Core.savedSettings.WeatherLightning)
+                {
+                    WorldSphereMod.Weather.WeatherDriver.EnsureCreated();
+                }
+                else
+                {
+                    WorldSphereMod.Weather.WeatherDriver.Teardown();
+                }
+            }
+    }
 
         static void DoSomeOtherStuff()
         {

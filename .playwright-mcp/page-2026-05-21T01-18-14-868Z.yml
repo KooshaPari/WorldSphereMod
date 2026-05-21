@@ -1,0 +1,66 @@
+- table [ref=e2]:
+  - rowgroup [ref=e3]:
+    - row "OptiFine Home Downloads Donate Cape Banners Login FAQ" [ref=e4]:
+      - cell "OptiFine Home Downloads Donate Cape Banners Login FAQ" [ref=e5]:
+        - link "OptiFine" [ref=e7] [cursor=pointer]:
+          - /url: home
+        - generic [ref=e8]:
+          - link "Home" [ref=e9] [cursor=pointer]:
+            - /url: home
+          - link "Downloads" [ref=e10] [cursor=pointer]:
+            - /url: downloads
+          - link "Donate" [ref=e11] [cursor=pointer]:
+            - /url: donate
+          - link "Cape" [ref=e12] [cursor=pointer]:
+            - /url: cape
+          - link "Banners" [ref=e13] [cursor=pointer]:
+            - /url: banners
+          - link "Login" [ref=e14] [cursor=pointer]:
+            - /url: login
+          - link "FAQ" [ref=e15] [cursor=pointer]:
+            - /url: faq
+    - row "Minecraft 1.21.11 OptiFine HD U J9 Download (Mirror) Changelog Forge 61.0.8 05.02.2026 + More Show all versions" [ref=e16]:
+      - cell "Minecraft 1.21.11 OptiFine HD U J9 Download (Mirror) Changelog Forge 61.0.8 05.02.2026 + More Show all versions" [ref=e17]:
+        - generic [ref=e18]:
+          - heading "Minecraft 1.21.11" [level=2] [ref=e19]
+          - table [ref=e20]:
+            - rowgroup [ref=e21]:
+              - row "OptiFine HD U J9 Download (Mirror) Changelog Forge 61.0.8 05.02.2026" [ref=e22]:
+                - cell "OptiFine HD U J9" [ref=e23]
+                - cell "Download" [ref=e24]:
+                  - link "Download" [ref=e25] [cursor=pointer]:
+                    - /url: http://adfoc.us/serve/sitelinks/?id=475250&url=http://optifine.net/adloadx?f=OptiFine_1.21.11_HD_U_J9.jar&x=e417
+                - cell "(Mirror)" [ref=e26]:
+                  - link "(Mirror)" [ref=e27] [cursor=pointer]:
+                    - /url: http://optifine.net/adloadx?f=OptiFine_1.21.11_HD_U_J9.jar
+                - cell "Changelog" [ref=e28]:
+                  - link "Changelog" [ref=e29] [cursor=pointer]:
+                    - /url: changelog?f=OptiFine_1.21.11_HD_U_J9.jar
+                - cell "Forge 61.0.8" [ref=e30]
+                - cell "05.02.2026" [ref=e31]
+          - link "+ More" [ref=e32] [cursor=pointer]:
+            - /url: javascript:showSpoiler('more1827911480', 'link1827911480', 'true');
+          - paragraph [ref=e33]:
+            - link "Show all versions" [ref=e34] [cursor=pointer]:
+              - /url: javascript:showSpoiler('all1656910100', 'link1656910100', 'true');
+    - row "Discord Twitter Reddit Privacy Refund Copyright Contact" [ref=e35]:
+      - cell "Discord Twitter Reddit Privacy Refund Copyright Contact" [ref=e36]:
+        - generic [ref=e37]:
+          - link "Discord" [ref=e38] [cursor=pointer]:
+            - /url: https://discord.gg/3mMpcwW
+            - img "Discord" [ref=e39]
+          - link "Twitter" [ref=e40] [cursor=pointer]:
+            - /url: https://twitter.com/OptiFineNews
+            - img "Twitter" [ref=e41]
+          - link "Reddit" [ref=e42] [cursor=pointer]:
+            - /url: https://reddit.com/r/optifine
+            - img "Reddit" [ref=e43]
+        - generic [ref=e44]:
+          - link "Privacy" [ref=e45] [cursor=pointer]:
+            - /url: privacy
+          - link "Refund" [ref=e46] [cursor=pointer]:
+            - /url: refund
+          - link "Copyright" [ref=e47] [cursor=pointer]:
+            - /url: copyright
+          - link "Contact" [ref=e48] [cursor=pointer]:
+            - /url: contact

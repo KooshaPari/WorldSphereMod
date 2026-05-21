@@ -12,9 +12,12 @@ namespace WorldSphereMod
         static readonly string[] PhaseFlags =
         {
             nameof(SavedSettings.VoxelEntities),
+            nameof(SavedSettings.SSAOEnabled),
+            nameof(SavedSettings.SSGIEnabled),
             nameof(SavedSettings.ProceduralBuildings),
             nameof(SavedSettings.CrossedQuadFoliage),
             nameof(SavedSettings.MeshWater),
+            nameof(SavedSettings.TerrainSmoothing),
             nameof(SavedSettings.HighShadows),
             nameof(SavedSettings.SkeletalAnimation),
             nameof(SavedSettings.WorldspaceUI),

@@ -120,6 +120,10 @@ namespace WorldSphereMod.Effects
                 UpdateSeperatedSprite(Effect, Data.OnGround, Data.ExtraHeight);
             }
 
+            if (Core.savedSettings.ParticleEffects)
+            {
+                WorldSphereMod.Fx.VoxelParticleBurst.TryStart(Effect);
+            }
             WorldSphereMod.Fx.VoxelParticleBurst.Update(Effect);
         }
         public static void UpdateShadow(SpriteShadow Shadow)
@@ -261,6 +265,10 @@ namespace WorldSphereMod.Effects
         {
             if (Core.IsWorld3D)
             {
+                if (Core.savedSettings.ParticleEffects)
+                {
+                    WorldSphereMod.Fx.VoxelParticleBurst.TryStart(__instance);
+                }
                 EffectManager.UpdateEffect(__instance);
             }
         }

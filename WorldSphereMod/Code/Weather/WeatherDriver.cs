@@ -132,6 +132,8 @@ namespace WorldSphereMod.Weather
             _particleMaterial = new Material(resolvedMaterial);
             _boltMaterial = new Material(resolvedMaterial);
 
+            _boltMaterial.color = new Color(0.9f, 0.96f, 1f, 0.9f);
+
             if (Core.savedSettings.WeatherRain)
             {
                 _rainSystem = CreateWeatherSystem("WSM3D.Rain", kRainStartSize, kRainLife, new Color(0.35f, 0.55f, 0.95f, 1f));
@@ -231,10 +233,7 @@ namespace WorldSphereMod.Weather
             meshFilter.sharedMesh = _voxelMesh;
 
             var meshRenderer = bolt.AddComponent<MeshRenderer>();
-            meshRenderer.sharedMaterial = new Material(_boltMaterial)
-            {
-                color = new Color(0.9f, 0.96f, 1f, 0.9f)
-            };
+            meshRenderer.sharedMaterial = _boltMaterial;
 
             Destroy(bolt, 0.25f);
         }

@@ -37,6 +37,8 @@
   "upside_down_movement_description": "如果視角相比初始是顛倒的，那操作也會隨之顛倒",    
   "biome_blending": "Biome Blending",
   "biome_blending_description": "Smooth terrain vertex colors across biome edges so grass, sand, and water transition over a few tiles.",
+  "terrain_smoothing": "Terrain Smoothing",
+  "terrain_smoothing_description": "Blend a smooth heightfield overlay over the blocky CompoundSpheres terrain.",
   "open_sprites": "打開貼圖文件",
   "open_sprites_description":  "打開包含模組資源的文件夾，可以對其進行編輯，然後重啓遊戲以生效"
 }

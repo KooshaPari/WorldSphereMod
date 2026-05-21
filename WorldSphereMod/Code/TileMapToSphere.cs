@@ -80,6 +80,10 @@ namespace WorldSphereMod.TileMapToSphere
         }
         static void Postfix()
         {
+            if (Core.GeneratingSphere)
+            {
+                return;
+            }
             if (Core.IsWorld3D && Core.savedSettings.BiomeBlending)
             {
                 TileMapToSphere.MarkBiomeBlendDirty();
@@ -335,6 +339,7 @@ namespace WorldSphereMod.TileMapToSphere
                 Bench.bench("Refresh Sphere", "game_total");
                 if (Core.IsWorld3D)
                 {
+                    // Upstream terrain mesh source: SphereManager.Refresh* / Sphere.RefreshSphere().
                     Core.Sphere.RefreshSphere();
                 }
                 Bench.benchEnd("Refresh Sphere", "game_total");

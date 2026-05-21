@@ -93,6 +93,12 @@ namespace WorldSphereMod.Fx
                 return false;
             }
 
+            int key = effect.GetInstanceID();
+            if (_active.ContainsKey(key))
+            {
+                return true;
+            }
+
             Sprite sprite = effect.sprite_renderer != null ? effect.sprite_renderer.sprite : null;
             if (sprite == null && effect.controller.prefab != null)
             {
@@ -121,7 +127,6 @@ namespace WorldSphereMod.Fx
                 return false;
             }
 
-            int key = effect.GetInstanceID();
             _active[key] = new BurstState
             {
                 Mesh = mesh,

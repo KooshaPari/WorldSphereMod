@@ -213,12 +213,18 @@ namespace WorldSphereMod.UI
                 new ButtonData("crossed_quad_foliage", "crossed_quad_foliage_description", "WorldSphereMod/Flat",          Core.savedSettings.CrossedQuadFoliage, TogglePhase_CrossedQuadFoliage),
                 new ButtonData("biome_blending",       "biome_blending_description",       "WorldSphereMod/World",         Core.savedSettings.BiomeBlending,       ToggleBiomeBlending),
                 new ButtonData("mesh_water",           "mesh_water_description",           "WorldSphereMod/PerlinNoise",   Core.savedSettings.MeshWater,           TogglePhase_MeshWater),
+                new ButtonData("terrain_smoothing",    "terrain_smoothing_description",    "WorldSphereMod/World",         Core.savedSettings.TerrainSmoothing,    TogglePhase_TerrainSmoothing),
                 new ButtonData("high_shadows",         "high_shadows_description",         "WorldSphereMod/SkyBox",        Core.savedSettings.HighShadows,         TogglePhase_HighShadows),
                 new ButtonData("hdr_skybox",           "hdr_skybox_description",           "WorldSphereMod/SkyBox",        Core.savedSettings.HdrSkybox,           TogglePhase_HdrSkybox),
                 new ButtonData("color_grading_lut",    "color_grading_lut_description",    "WorldSphereMod/ModIcon",       Core.savedSettings.ColorGradingLut,      TogglePhase_ColorGradingLut),
+                new ButtonData("ssao_enabled",         "ssao_enabled_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.SSAOEnabled,          TogglePhase_SSAOEnabled),
+                new ButtonData("ssgi_enabled",         "ssgi_enabled_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.SSGIEnabled,          TogglePhase_SSGIEnabled),
                 new ButtonData("skeletal_animation",   "skeletal_animation_description",   "WorldSphereMod/Rotate",        Core.savedSettings.SkeletalAnimation,   TogglePhase_SkeletalAnimation),
                 new ButtonData("worldspace_ui",        "worldspace_ui_description",        "WorldSphereMod/Camera",        Core.savedSettings.WorldspaceUI,        TogglePhase_WorldspaceUI),
                 new ButtonData("day_night_cycle",      "day_night_cycle_description",      "WorldSphereMod/SkyBox",        Core.savedSettings.DayNightCycle,       TogglePhase_DayNightCycle),
+                new ButtonData("weather_rain",          "weather_rain_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.WeatherRain,           TogglePhase_WeatherRain),
+                new ButtonData("weather_snow",          "weather_snow_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.WeatherSnow,           TogglePhase_WeatherSnow),
+                new ButtonData("weather_lightning",     "weather_lightning_description",    "WorldSphereMod/ModIcon",       Core.savedSettings.WeatherLightning,      TogglePhase_WeatherLightning),
                 new ButtonData("post_fx",              "post_fx_description",              "WorldSphereMod/ModIcon",       Core.savedSettings.PostFX,              TogglePhase_PostFX),
                 new ButtonData("particle_effects",     "particle_effects_description",     "WorldSphereMod/Logo",          Core.savedSettings.ParticleEffects,     TogglePhase_ParticleEffects),
                 new ButtonData("sanity_cube",           "sanity_cube_description",           "WorldSphereMod/ModIcon",       Core.savedSettings.DebugSanityCube,     ToggleDebugSanityCube),
@@ -246,12 +252,18 @@ namespace WorldSphereMod.UI
             }
         }
         static void TogglePhase_MeshWater(string _)           { Core.savedSettings.MeshWater           = !Core.savedSettings.MeshWater;           Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.MeshWater),           Core.savedSettings.MeshWater); }
+        static void TogglePhase_TerrainSmoothing(string _)    { Core.savedSettings.TerrainSmoothing    = !Core.savedSettings.TerrainSmoothing;    Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.TerrainSmoothing),    Core.savedSettings.TerrainSmoothing); }
         static void TogglePhase_HighShadows(string _)         { Core.savedSettings.HighShadows         = !Core.savedSettings.HighShadows;         Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.HighShadows),         Core.savedSettings.HighShadows); }
         static void TogglePhase_HdrSkybox(string _)          { Core.savedSettings.HdrSkybox          = !Core.savedSettings.HdrSkybox;          Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.HdrSkybox),          Core.savedSettings.HdrSkybox); }
         static void TogglePhase_ColorGradingLut(string _)     { Core.savedSettings.ColorGradingLut     = !Core.savedSettings.ColorGradingLut;     Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.ColorGradingLut),     Core.savedSettings.ColorGradingLut); }
+        static void TogglePhase_SSAOEnabled(string _)       { Core.savedSettings.SSAOEnabled      = !Core.savedSettings.SSAOEnabled;      Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.SSAOEnabled),      Core.savedSettings.SSAOEnabled); }
+        static void TogglePhase_SSGIEnabled(string _)       { Core.savedSettings.SSGIEnabled      = !Core.savedSettings.SSGIEnabled;      Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.SSGIEnabled),      Core.savedSettings.SSGIEnabled); }
         static void TogglePhase_SkeletalAnimation(string _)   { Core.savedSettings.SkeletalAnimation   = !Core.savedSettings.SkeletalAnimation;   Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.SkeletalAnimation),   Core.savedSettings.SkeletalAnimation); }
         static void TogglePhase_WorldspaceUI(string _)        { Core.savedSettings.WorldspaceUI        = !Core.savedSettings.WorldspaceUI;        Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.WorldspaceUI),        Core.savedSettings.WorldspaceUI); }
         static void TogglePhase_DayNightCycle(string _)       { Core.savedSettings.DayNightCycle       = !Core.savedSettings.DayNightCycle;       Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.DayNightCycle),       Core.savedSettings.DayNightCycle); }
+        static void TogglePhase_WeatherRain(string _)         { Core.savedSettings.WeatherRain         = !Core.savedSettings.WeatherRain;         Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.WeatherRain),         Core.savedSettings.WeatherRain); }
+        static void TogglePhase_WeatherSnow(string _)         { Core.savedSettings.WeatherSnow         = !Core.savedSettings.WeatherSnow;         Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.WeatherSnow),         Core.savedSettings.WeatherSnow); }
+        static void TogglePhase_WeatherLightning(string _)    { Core.savedSettings.WeatherLightning    = !Core.savedSettings.WeatherLightning;    Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.WeatherLightning),    Core.savedSettings.WeatherLightning); }
         static void TogglePhase_PostFX(string _)              { Core.savedSettings.PostFX              = !Core.savedSettings.PostFX;              Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.PostFX),              Core.savedSettings.PostFX); }
         static void TogglePhase_ParticleEffects(string _)     { Core.savedSettings.ParticleEffects     = !Core.savedSettings.ParticleEffects;     Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.ParticleEffects),     Core.savedSettings.ParticleEffects); }
         static void ToggleDebugSanityCube(string _)           { Core.savedSettings.DebugSanityCube     = !Core.savedSettings.DebugSanityCube;     Core.SaveSettings(); }
@@ -267,12 +279,18 @@ namespace WorldSphereMod.UI
             bool previousCrossedQuadFoliage = Core.savedSettings.CrossedQuadFoliage;
             bool previousBiomeBlending = Core.savedSettings.BiomeBlending;
             bool previousMeshWater = Core.savedSettings.MeshWater;
+            bool previousTerrainSmoothing = Core.savedSettings.TerrainSmoothing;
             bool previousHighShadows = Core.savedSettings.HighShadows;
             bool previousHdrSkybox = Core.savedSettings.HdrSkybox;
             bool previousColorGradingLut = Core.savedSettings.ColorGradingLut;
+            bool previousSSAOEnabled = Core.savedSettings.SSAOEnabled;
+            bool previousSSGIEnabled = Core.savedSettings.SSGIEnabled;
             bool previousSkeletalAnimation = Core.savedSettings.SkeletalAnimation;
             bool previousWorldspaceUI = Core.savedSettings.WorldspaceUI;
             bool previousDayNightCycle = Core.savedSettings.DayNightCycle;
+            bool previousWeatherRain = Core.savedSettings.WeatherRain;
+            bool previousWeatherSnow = Core.savedSettings.WeatherSnow;
+            bool previousWeatherLightning = Core.savedSettings.WeatherLightning;
             bool previousPostFX = Core.savedSettings.PostFX;
             bool previousParticleEffects = Core.savedSettings.ParticleEffects;
 
@@ -284,12 +302,18 @@ namespace WorldSphereMod.UI
             if (previousCrossedQuadFoliage != Core.savedSettings.CrossedQuadFoliage)     Core.ApplyPhaseToggle(nameof(SavedSettings.CrossedQuadFoliage),  Core.savedSettings.CrossedQuadFoliage);
             if (previousBiomeBlending != Core.savedSettings.BiomeBlending && Core.IsWorld3D) Core.Sphere.RefreshColors();
             if (previousMeshWater != Core.savedSettings.MeshWater)                       Core.ApplyPhaseToggle(nameof(SavedSettings.MeshWater),           Core.savedSettings.MeshWater);
+            if (previousTerrainSmoothing != Core.savedSettings.TerrainSmoothing)         Core.ApplyPhaseToggle(nameof(SavedSettings.TerrainSmoothing),    Core.savedSettings.TerrainSmoothing);
             if (previousHighShadows != Core.savedSettings.HighShadows)                   Core.ApplyPhaseToggle(nameof(SavedSettings.HighShadows),         Core.savedSettings.HighShadows);
             if (previousHdrSkybox != Core.savedSettings.HdrSkybox)                       Core.ApplyPhaseToggle(nameof(SavedSettings.HdrSkybox),           Core.savedSettings.HdrSkybox);
             if (previousColorGradingLut != Core.savedSettings.ColorGradingLut)         Core.ApplyPhaseToggle(nameof(SavedSettings.ColorGradingLut),      Core.savedSettings.ColorGradingLut);
+            if (previousSSAOEnabled != Core.savedSettings.SSAOEnabled)                 Core.ApplyPhaseToggle(nameof(SavedSettings.SSAOEnabled),          Core.savedSettings.SSAOEnabled);
+            if (previousSSGIEnabled != Core.savedSettings.SSGIEnabled)                 Core.ApplyPhaseToggle(nameof(SavedSettings.SSGIEnabled),          Core.savedSettings.SSGIEnabled);
             if (previousSkeletalAnimation != Core.savedSettings.SkeletalAnimation)       Core.ApplyPhaseToggle(nameof(SavedSettings.SkeletalAnimation),   Core.savedSettings.SkeletalAnimation);
             if (previousWorldspaceUI != Core.savedSettings.WorldspaceUI)                 Core.ApplyPhaseToggle(nameof(SavedSettings.WorldspaceUI),        Core.savedSettings.WorldspaceUI);
             if (previousDayNightCycle != Core.savedSettings.DayNightCycle)               Core.ApplyPhaseToggle(nameof(SavedSettings.DayNightCycle),       Core.savedSettings.DayNightCycle);
+            if (previousWeatherRain != Core.savedSettings.WeatherRain)                   Core.ApplyPhaseToggle(nameof(SavedSettings.WeatherRain),         Core.savedSettings.WeatherRain);
+            if (previousWeatherSnow != Core.savedSettings.WeatherSnow)                   Core.ApplyPhaseToggle(nameof(SavedSettings.WeatherSnow),         Core.savedSettings.WeatherSnow);
+            if (previousWeatherLightning != Core.savedSettings.WeatherLightning)         Core.ApplyPhaseToggle(nameof(SavedSettings.WeatherLightning),    Core.savedSettings.WeatherLightning);
             if (previousPostFX != Core.savedSettings.PostFX)                             Core.ApplyPhaseToggle(nameof(SavedSettings.PostFX),              Core.savedSettings.PostFX);
             if (previousParticleEffects != Core.savedSettings.ParticleEffects)           Core.ApplyPhaseToggle(nameof(SavedSettings.ParticleEffects),     Core.savedSettings.ParticleEffects);
 
