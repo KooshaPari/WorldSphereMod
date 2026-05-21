@@ -62,14 +62,14 @@ namespace WorldSphereMod.Voxel
         /// </summary>
         public static bool EnsureMaterial()
         {
-            if (_materialAttempted || _material != null)
-            {
-                if (MeshInstanceBatcher.UseFallbackPath && _material != null && _material.enableInstancing)
+                if (_materialAttempted || _material != null)
                 {
-                    _material.enableInstancing = false;
+                    if ((MeshInstanceBatcher.UseFallbackPath || !Core.savedSettings.UseBRG) && _material != null && _material.enableInstancing)
+                    {
+                        _material.enableInstancing = false;
+                    }
+                    return _material != null;
                 }
-                return _material != null;
-            }
             _materialAttempted = true;
 
             string[] candidates =
@@ -114,7 +114,7 @@ namespace WorldSphereMod.Voxel
                 if (s == null) continue;
                 Material m = new Material(s) { name = "WSM3D.Voxel.Placeholder" };
                 m.enableInstancing = true;
-                if (MeshInstanceBatcher.UseFallbackPath)
+                if (MeshInstanceBatcher.UseFallbackPath || Core.savedSettings.UseBRG)
                 {
                     m.enableInstancing = false;
                 }
@@ -666,6 +666,8 @@ namespace WorldSphereMod.Voxel
             WorldSphereMod.Lighting.SunDriver.Update();
 
             WorldSphereMod.Fx.DecalPool.Tick();
+
+            WorldSphereMod.Fx.Environmental.Tick();
 
             WorldSphereMod.Fx.PostFxController.ApplySetting(Core.savedSettings.PostFX);
         }

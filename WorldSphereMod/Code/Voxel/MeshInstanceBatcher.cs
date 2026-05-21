@@ -66,6 +66,7 @@ namespace WorldSphereMod.Voxel
         static readonly int _colorPropUnlit = Shader.PropertyToID("_Color");
         const int kBatch = 1023;
         const float kDebugCubeSize = 0.5f;
+        static bool UseBrg => Core.savedSettings != null && Core.savedSettings.UseBRG;
 
         public static long FrameDrawCalls;
         public static long FrameInstances;
@@ -81,7 +82,11 @@ namespace WorldSphereMod.Voxel
 
         public static bool HasPendingSubmissions
         {
-            get { return Volatile.Read(ref _pendingSubmissionCount) > 0 || _buckets.Count > 0; }
+            get
+            {
+                if (UseBrg && MeshInstanceBatcherBRG.IsReady) return MeshInstanceBatcherBRG.HasPendingSubmissions;
+                return Volatile.Read(ref _pendingSubmissionCount) > 0 || _buckets.Count > 0;
+            }
         }
 
         static int _pendingSubmissionCount;
@@ -105,6 +110,11 @@ namespace WorldSphereMod.Voxel
 
         public static void Submit(Mesh mesh, Material mat, Matrix4x4 matrix, Color tint)
         {
+            if (UseBrg && MeshInstanceBatcherBRG.TrySubmit(mesh, mat, matrix, tint))
+            {
+                return;
+            }
+
             if (mesh == null || mat == null) return;
 
             if (Core.savedSettings.ProfilerDump && !_verboseDrawLoggingArmed && !_verboseDrawLoggingConsumed)
@@ -151,6 +161,11 @@ namespace WorldSphereMod.Voxel
 
         public static void Flush(int layer = 0, ShadowCastingMode shadows = ShadowCastingMode.On, bool receive = true)
         {
+            if (UseBrg && MeshInstanceBatcherBRG.TryFlush(layer, shadows, receive))
+            {
+                return;
+            }
+
             DrainPendingSubmissions();
 
             LogAllCameras();
@@ -381,6 +396,7 @@ namespace WorldSphereMod.Voxel
 
         public static void Reset()
         {
+            MeshInstanceBatcherBRG.Reset();
             while (_pendingSubmissions.TryDequeue(out _))
             {
             }

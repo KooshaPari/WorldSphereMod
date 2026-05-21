@@ -25,6 +25,8 @@ namespace WorldSphereMod
         // the supplied placeholder material is unlit; Phase 5 ships the real
         // lit + shadow-casting shader.
         public bool VoxelEntities = true;
+        // Optional Unity 2022.3 BatchRendererGroup path for batching.
+        public bool UseBRG = false;
         // ADR-0008: optional post-mesh Laplacian smoothing for voxel output.
         public bool VoxelMeshSmoothing = true;
         public int SmoothingIterations = 2;
