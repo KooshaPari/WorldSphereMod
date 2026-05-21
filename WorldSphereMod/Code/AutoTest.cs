@@ -17,7 +17,7 @@ namespace WorldSphereMod
             nameof(SavedSettings.ProceduralBuildings),
             nameof(SavedSettings.CrossedQuadFoliage),
             nameof(SavedSettings.MeshWater),
-            nameof(SavedSettings.TerrainSmoothing),
+            nameof(SavedSettings.MountainSlopeSmoothing),
             nameof(SavedSettings.HighShadows),
             nameof(SavedSettings.SkeletalAnimation),
             nameof(SavedSettings.WorldspaceUI),

@@ -4,7 +4,7 @@ namespace WorldSphereMod
     [Serializable]
     public class SavedSettings
     {
-        public string Version = "2.1";
+        public string Version = "2.2";
         public bool Is3D = true;
         public bool InvertedCameraMovement = false;
         public bool PerlinNoise = true;
@@ -49,8 +49,9 @@ namespace WorldSphereMod
         public bool BiomeBlending = false;
         // Phase 4: Mesh water surface (vs. flat tile color).
         public bool MeshWater = false;
-        // Phase 5 prep: smooth overlay mesh that blends the upstream blocky terrain.
-        public bool TerrainSmoothing = false;
+        // Mountain slope smoothing: smooth overlay mesh that blends the upstream
+        // blocky terrain around cliff and ridge transitions.
+        public bool MountainSlopeSmoothing = false;
         // Phase 5: Directional sun + cascaded shadow maps.
         public bool HighShadows = false;
         // Phase 5b: optional HDR skybox reflections and 256x16 LUT color grading.

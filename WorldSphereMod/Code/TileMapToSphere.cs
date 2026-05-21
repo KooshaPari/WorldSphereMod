@@ -189,6 +189,7 @@ namespace WorldSphereMod.TileMapToSphere
             }
             return true;
         }
+
         static void CheckScales(TileZone pZone)
         {
             if (!ScaleQueue.HasZone(pZone))

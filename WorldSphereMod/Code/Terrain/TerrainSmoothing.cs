@@ -1,18 +1,17 @@
-using HarmonyLib;
 using System;
+using HarmonyLib;
 using UnityEngine;
-using CompoundSpheres;
 
 namespace WorldSphereMod.Terrain
 {
     /// <summary>
-    /// Optional smooth overlay for the upstream CompoundSpheres terrain mesh.
+    /// Optional mountain slope smoothing overlay for the upstream terrain mesh.
     /// The blocky backend stays in place underneath; this layer rebuilds a
     /// transparent heightfield mesh from the same tile data and blends over it.
     /// </summary>
-    public sealed class TerrainSmoothingSurface : MonoBehaviour
+    public sealed class MountainSlopeSurface : MonoBehaviour
     {
-        public static TerrainSmoothingSurface? Instance { get; private set; }
+        public static MountainSlopeSurface? Instance { get; private set; }
 
         static Material? _material;
         static bool _materialAttempted;
@@ -25,7 +24,7 @@ namespace WorldSphereMod.Terrain
         const float kOverlayLift = 0.06f;
         const float kOverlayAlpha = 0.72f;
 
-        public static TerrainSmoothingSurface? Create(Transform parent)
+        public static MountainSlopeSurface? Create(Transform parent)
         {
             if (Instance != null)
             {
@@ -37,7 +36,7 @@ namespace WorldSphereMod.Terrain
                 return null;
             }
 
-            GameObject go = new GameObject("WorldSphere Terrain Smoothing");
+            GameObject go = new GameObject("WorldSphere Mountain Slope Smoothing");
             go.transform.SetParent(parent, worldPositionStays: false);
 
             var filter = go.AddComponent<MeshFilter>();
@@ -46,10 +45,10 @@ namespace WorldSphereMod.Terrain
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
 
-            var surface = go.AddComponent<TerrainSmoothingSurface>();
+            var surface = go.AddComponent<MountainSlopeSurface>();
             surface._filter = filter;
             surface._renderer = renderer;
-            surface._mesh = new Mesh { name = "WorldSphere.TerrainSmoothing" };
+            surface._mesh = new Mesh { name = "WorldSphere.MountainSlopeSmoothing" };
             surface._mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
             filter.sharedMesh = surface._mesh;
             surface._dirty = true;
@@ -101,7 +100,7 @@ namespace WorldSphereMod.Terrain
 
         public static void EnsureActive()
         {
-            if (!Core.IsWorld3D || !Core.savedSettings.TerrainSmoothing)
+            if (!Core.IsWorld3D || !Core.savedSettings.MountainSlopeSmoothing)
             {
                 Destroy();
                 return;
@@ -123,7 +122,7 @@ namespace WorldSphereMod.Terrain
 
         void LateUpdate()
         {
-            if (!Core.IsWorld3D || !Core.savedSettings.TerrainSmoothing)
+            if (!Core.IsWorld3D || !Core.savedSettings.MountainSlopeSmoothing)
             {
                 return;
             }
@@ -301,7 +300,7 @@ namespace WorldSphereMod.Terrain
 
                 Material material = new Material(shader)
                 {
-                    name = "WSM3D.TerrainSmoothing",
+                    name = "WSM3D.MountainSlopeSmoothing",
                     renderQueue = 3000,
                     mainTexture = Texture2D.whiteTexture,
                 };
@@ -322,63 +321,20 @@ namespace WorldSphereMod.Terrain
                 return true;
             }
 
-            Debug.LogWarning("[WSM3D] No terrain smoothing shader found; overlay disabled.");
+            Debug.LogWarning("[WSM3D] No mountain slope smoothing shader found; overlay disabled.");
             return false;
         }
     }
 
-    [Phase(nameof(SavedSettings.TerrainSmoothing))]
-    [HarmonyPatch(typeof(Core.Sphere), nameof(Core.Sphere.Begin))]
-    public static class TerrainSmoothingBeginPatch
+    [Phase(nameof(SavedSettings.MountainSlopeSmoothing))]
+    [HarmonyPatch(typeof(WorldTilemap), nameof(WorldTilemap.redrawTiles))]
+    public static class MountainSlopeRedrawPatch
     {
         [HarmonyPostfix]
-        public static void OnSphereBegin()
+        public static void OnRedraw()
         {
-            TerrainSmoothingSurface.EnsureActive();
-        }
-    }
-
-    [Phase(nameof(SavedSettings.TerrainSmoothing))]
-    [HarmonyPatch(typeof(Core.Sphere), nameof(Core.Sphere.Finish))]
-    public static class TerrainSmoothingFinishPatch
-    {
-        [HarmonyPrefix]
-        public static void OnSphereFinish()
-        {
-            TerrainSmoothingSurface.Destroy();
-        }
-    }
-
-    [Phase(nameof(SavedSettings.TerrainSmoothing))]
-    [HarmonyPatch(typeof(Core.Sphere), nameof(Core.Sphere.UpdateBaseLayer))]
-    public static class TerrainSmoothingBaseLayerPatch
-    {
-        [HarmonyPostfix]
-        public static void OnUpdate()
-        {
-            TerrainSmoothingSurface.RequestRebuild();
-        }
-    }
-
-    [Phase(nameof(SavedSettings.TerrainSmoothing))]
-    [HarmonyPatch(typeof(Core.Sphere), nameof(Core.Sphere.UpdateScale))]
-    public static class TerrainSmoothingScalePatch
-    {
-        [HarmonyPostfix]
-        public static void OnUpdate()
-        {
-            TerrainSmoothingSurface.RequestRebuild();
-        }
-    }
-
-    [Phase(nameof(SavedSettings.TerrainSmoothing))]
-    [HarmonyPatch(typeof(Core.Sphere), nameof(Core.Sphere.UpdateTexture))]
-    public static class TerrainSmoothingTexturePatch
-    {
-        [HarmonyPostfix]
-        public static void OnUpdate()
-        {
-            TerrainSmoothingSurface.RequestRebuild();
+            MountainSlopeSurface.EnsureActive();
+            MountainSlopeSurface.RequestRebuild();
         }
     }
 }

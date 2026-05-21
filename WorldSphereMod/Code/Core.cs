@@ -6,6 +6,7 @@ using NeoModLoader.utils;
 using NeoModLoader.constants;
 using System.IO;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using static WorldSphereMod.CompoundSphereScripts;
 using static HarmonyLib.AccessTools;
 using WorldSphereMod.NewCamera;
@@ -24,7 +25,7 @@ namespace WorldSphereMod
     public static class Core
     {
         public static SavedSettings savedSettings = new SavedSettings();
-        public static string SettingsVersion = "2.1";
+        public static string SettingsVersion = "2.2";
 
         public static Harmony Patcher;
         public static void SaveSettings()
@@ -37,7 +38,24 @@ namespace WorldSphereMod
             SavedSettings? loadedData;
             try
             {
-                loadedData = JsonConvert.DeserializeObject<SavedSettings>(File.ReadAllText($"{Paths.ModsConfigPath}/WorldSphereMod.json"));
+                string raw = File.ReadAllText($"{Paths.ModsConfigPath}/WorldSphereMod.json");
+                if (raw.Contains("\"TerrainSmoothing\"") && !raw.Contains("\"MountainSlopeSmoothing\""))
+                {
+                    try
+                    {
+                        JObject obj = JObject.Parse(raw);
+                        if (obj["MountainSlopeSmoothing"] == null && obj["TerrainSmoothing"] != null)
+                        {
+                            obj["MountainSlopeSmoothing"] = obj["TerrainSmoothing"]!.Value<bool>();
+                        }
+                        raw = obj.ToString();
+                    }
+                    catch
+                    {
+                        // Fall back to the raw JSON below if the migration parse fails.
+                    }
+                }
+                loadedData = JsonConvert.DeserializeObject<SavedSettings>(raw);
                 if (loadedData == null) throw new FileLoadException();
             }
             catch
@@ -68,6 +86,10 @@ namespace WorldSphereMod
             InitProfiler.Measure("WorldSphereTab.Begin", () => WorldSphereTab.Begin());
             InitProfiler.Measure("DimensionConverter.Prepare", () => DimensionConverter.Prepare());
             InitProfiler.Measure("Patch", () => Patch());
+            InitProfiler.Measure("McPackLoader.Initialize", () =>
+            {
+                WorldSphereMod.Texture.McPackLoader.Initialize();
+            });
             InitProfiler.Measure("Lighting.SunDriver.Init", () =>
             {
                 if (Core.IsWorld3D)
@@ -88,6 +110,17 @@ namespace WorldSphereMod
             if (flagName == nameof(SavedSettings.WorldspaceUI) && newValue)
             {
                 WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated();
+            }
+            if (flagName == nameof(SavedSettings.MountainSlopeSmoothing))
+            {
+                if (newValue)
+                {
+                    WorldSphereMod.Terrain.MountainSlopeSurface.EnsureActive();
+                }
+                else
+                {
+                    WorldSphereMod.Terrain.MountainSlopeSurface.Destroy();
+                }
             }
             if (flagName == nameof(SavedSettings.DayNightCycle) && newValue)
             {
