@@ -112,7 +112,7 @@ the sprite via SpriteVoxelizer (extruded/balloon/lathe per shape hint).
 
 ---
 
-### FR-WSM-002: Voxel Building Meshes
+### FR-WSM-002: Voxel Building Meshes — **LANDED 2026-05-21 (commit 12ec2d5)**
 
 **Description:** Replace 2D building sprites with voxel meshes or
 procedural architectural meshes (BuildingProcRender behind
@@ -144,7 +144,7 @@ sample with directional sprite (no radial fan artifact)
 
 ---
 
-### FR-WSM-004: LOD Tier Selection + Impostor Fallback
+### FR-WSM-004: LOD Tier Selection + Impostor Fallback — **LANDED 2026-05-21 (verified via /telemetry impostorCacheHit=99.97%)**
 
 **Description:** LodSelector chooses Voxel / Procedural / Impostor tier
 per entity per frame based on screen-projected size.
@@ -336,7 +336,7 @@ ForceFallbackDrawPath=false; verify with `/telemetry.drawCalls << instances`.
 
 ---
 
-### NFR-WSM-002: Cache Hit Rate
+### NFR-WSM-002: Cache Hit Rate — **MEETS 2026-05-21 (99.99% verified)**
 
 **Description:** Voxel mesh cache hit rate after warmup.
 
