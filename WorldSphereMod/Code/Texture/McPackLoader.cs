@@ -226,13 +226,14 @@ namespace WorldSphereMod.Textures
                 if (!File.Exists(path)) return null;
                 byte[] bytes = File.ReadAllBytes(path);
                 Texture2D tex = new(2, 2, TextureFormat.RGBA32, true, true);
-                // Unity's PNG parse APIs (Texture2D.LoadImage / ImageConversion.LoadImage) are
-                // not exposed by WorldBox's stripped UnityEngine reference DLL. Skip the
-                // runtime PNG decode; user must pre-bake to AssetBundle. Phase 5b ships
-                // the offline atlas bake pipeline.
-                Debug.LogWarning($"[WSM3D] Atlas runtime PNG load not supported; bake AssetBundle for '{path}'.");
-                return null;
-                // (unreachable but kept for diff legibility) if (!ImageConversion.LoadImage(tex, bytes))
+                // Reflection bypass: Texture2D.LoadImage / ImageConversion.LoadImage are
+                // hidden from WorldBox's stripped UnityEngine reference DLL but still
+                // exist in the runtime assembly. Invoke via System.Reflection.
+                if (!TryLoadPngViaReflection(tex, bytes))
+                {
+                    Debug.LogWarning($"[WSM3D] Reflection-based PNG load failed for '{path}'.");
+                    return null;
+                }
 
                 tex.filterMode = FilterMode.Point;
                 tex.wrapMode = TextureWrapMode.Clamp;
@@ -275,5 +276,52 @@ namespace WorldSphereMod.Textures
                 return null;
             }
         }
+        // Reflection-based PNG decoder. Both 'Texture2D.LoadImage(byte[])' (legacy
+        // instance method, deprecated since Unity 2018 but still in the runtime
+        // assembly) and 'UnityEngine.ImageConversion.LoadImage(Texture2D, byte[])'
+        // (current static helper) are tried in order. Returns true on success.
+        static bool TryLoadPngViaReflection(Texture2D tex, byte[] bytes)
+        {
+            try
+            {
+                // 1) Try Texture2D's own LoadImage(byte[]) instance method.
+                var miInstance = typeof(Texture2D).GetMethod(
+                    "LoadImage",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic,
+                    null,
+                    new System.Type[] { typeof(byte[]) },
+                    null);
+                if (miInstance != null)
+                {
+                    object result = miInstance.Invoke(tex, new object[] { bytes });
+                    if (result is bool b1) return b1;
+                    return true;
+                }
+
+                // 2) Try UnityEngine.ImageConversion.LoadImage(Texture2D, byte[]).
+                var icType = typeof(Texture2D).Assembly.GetType("UnityEngine.ImageConversion");
+                if (icType != null)
+                {
+                    var miStatic = icType.GetMethod(
+                        "LoadImage",
+                        System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public,
+                        null,
+                        new System.Type[] { typeof(Texture2D), typeof(byte[]) },
+                        null);
+                    if (miStatic != null)
+                    {
+                        object result = miStatic.Invoke(null, new object[] { tex, bytes });
+                        if (result is bool b2) return b2;
+                        return true;
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[WSM3D] TryLoadPngViaReflection threw: {ex.GetType().Name}: {ex.Message}");
+            }
+            return false;
+        }
+
     }
 }
