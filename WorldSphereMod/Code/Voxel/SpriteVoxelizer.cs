@@ -159,7 +159,9 @@ namespace WorldSphereMod.Voxel
                 int row = (y0 + y) * texW + x0;
                 for (int x = 0; x < w; x++)
                 {
-                    Color32 c = tex[row + x];
+                    Color32 c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
+                        ? ColorTonemap.Tonemap(tex[row + x])
+                        : tex[row + x];
                     if (c.a > 16)
                     {
                         for (int z = 0; z < depth; z++)
@@ -250,7 +252,9 @@ namespace WorldSphereMod.Voxel
                 int row = (y0 + y) * texW + x0;
                 for (int x = 0; x < w; x++)
                 {
-                    Color32 c = tex[row + x];
+                    Color32 c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
+                        ? ColorTonemap.Tonemap(tex[row + x])
+                        : tex[row + x];
                     if (c.a > 16)
                     {
                         solid2d[x, y] = true;
@@ -461,7 +465,9 @@ namespace WorldSphereMod.Voxel
                 int row = (y0 + y) * texW + x0;
                 for (int x = 0; x < w; x++)
                 {
-                    Color32 c = tex[row + x];
+                    Color32 c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
+                        ? ColorTonemap.Tonemap(tex[row + x])
+                        : tex[row + x];
                     if (c.a > 16)
                     {
                         for (int z = 0; z < depth; z++)
