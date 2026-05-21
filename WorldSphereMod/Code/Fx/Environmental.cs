@@ -162,7 +162,10 @@ namespace WorldSphereMod.Fx
             }
 
             Vector3 pos = actor.current_position;
-            BaseEffect bloodFx = EffectsLibrary.spawnAt("fx_explosion_wave", pos, 0.4f);
+            // fx_explosion_wave is a concentric ring/bullseye pattern — looks like a UI target.
+            // Use the smaller blood-spray effect; fall back to skipping if not present.
+            BaseEffect bloodFx = EffectsLibrary.spawnAt("fx_blood", pos, 0.4f);
+            if (bloodFx == null) bloodFx = EffectsLibrary.spawnAt("fx_attack_impact", pos, 0.4f);
             if (bloodFx == null || bloodFx.sprite_renderer == null)
             {
                 return;
