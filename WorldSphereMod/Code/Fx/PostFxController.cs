@@ -15,6 +15,7 @@ namespace WorldSphereMod.Fx
     /// reflective write is wrapped so a property rename in a future URP build degrades to
     /// a missing-effect rather than a crash.
     /// </summary>
+    [Phase(nameof(SavedSettings.PostFX))]
     public static class PostFxController
     {
         static GameObject? _volumeGO;

@@ -11,6 +11,7 @@ namespace WorldSphereMod.Rig
     /// frame without rebuilding the voxel mesh. Other rig types still fall back to
     /// the static voxel path for now.
     /// </summary>
+    [Phase(nameof(SavedSettings.SkeletalAnimation))]
     public static class RigDriver
     {
         sealed class ActorRigInstance

@@ -3,6 +3,7 @@ using WorldSphereMod.NewCamera;
 
 namespace WorldSphereMod.Lighting
 {
+    [Phase(nameof(SavedSettings.HighShadows))]
     public static class SunDriver
     {
         public static Light? Sun { get; private set; }

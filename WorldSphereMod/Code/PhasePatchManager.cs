@@ -88,8 +88,10 @@ namespace WorldSphereMod
                 var phaseAttr = type.GetCustomAttribute<PhaseAttribute>();
                 if (phaseAttr == null) continue;
                 if (!string.Equals(phaseAttr.SettingsFlagName, flagName, StringComparison.Ordinal)) continue;
-                if (type.GetCustomAttribute<HarmonyPatch>() == null) continue;
-
+                // Was: skip non-HarmonyPatch types. Now: include any type with [Phase]
+                // so MonoBehaviour drivers (SunDriver, RigDriver, TimeOfDay,
+                // PostFxController) get inventoried for /phase/<name> visibility.
+                // ApplyPatch handles each kind appropriately.
                 yield return type;
             }
         }

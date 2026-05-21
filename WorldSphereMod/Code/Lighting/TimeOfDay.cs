@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace WorldSphereMod.Lighting
 {
+    [Phase(nameof(SavedSettings.DayNightCycle))]
     public sealed class TimeOfDay : MonoBehaviour
     {
         public static TimeOfDay? Instance;
