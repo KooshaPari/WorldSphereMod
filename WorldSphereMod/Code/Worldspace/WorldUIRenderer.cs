@@ -48,6 +48,7 @@ namespace WorldSphereMod.Worldspace
             Instance._rigs.Clear();
             Instance._seenThisFrame.Clear();
             HealthBar.Reset();
+            NameplateWorld.Reset();
             if (Instance._root != null) Object.Destroy(Instance._root.gameObject);
             Instance._root = null;
             GameObject go = Instance.gameObject;

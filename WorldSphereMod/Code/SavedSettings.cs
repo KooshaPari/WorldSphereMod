@@ -69,6 +69,8 @@ namespace WorldSphereMod
         public bool SkeletalAnimation = false;
         // Phase 7: Worldspace UI (nameplates, health bars, selection rings).
         public bool WorldspaceUI = true;
+        // Phase 7: optional worldspace 3D text labels instead of upstream NameplateText.
+        public bool WorldspaceLabel3D = false;
         // Phase 8: Day/night cycle + procedural sky + fog.
         public bool DayNightCycle = false;
         public float FogDensity = 0.0f;
