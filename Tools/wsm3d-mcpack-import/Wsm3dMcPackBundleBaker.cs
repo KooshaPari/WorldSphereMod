@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using System;
 using System.IO;
 using UnityEditor;
@@ -112,3 +113,4 @@ public static class Wsm3dMcPackBundleBaker
         return defaultValue;
     }
 }
+#endif

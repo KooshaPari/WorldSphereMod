@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
 using UnityEngine;
+using NeoModLoader.utils;
 
 namespace WorldSphereMod.Textures
 {
@@ -253,19 +254,19 @@ namespace WorldSphereMod.Textures
                     return null;
                 }
 
-                var bundle = AssetBundle.LoadFromFile(path);
-                if (bundle == null)
+                var wrappedBundle = AssetBundleUtils.GetAssetBundle(System.IO.Path.GetFileNameWithoutExtension(path));
+                if (wrappedBundle == null)
                 {
                     Debug.LogWarning($"[WSM3D] Failed to load atlas AssetBundle '{path}'.");
                     return null;
                 }
 
-                Texture2D? atlas = bundle.LoadAsset<Texture2D>(_bundleAtlasAssetName);
+                Texture2D? atlas = wrappedBundle.GetObject<Texture2D>(_bundleAtlasAssetName);
                 if (atlas == null)
                 {
                     Debug.LogWarning($"[WSM3D] AssetBundle '{path}' is missing texture '{_bundleAtlasAssetName}'.");
                 }
-                bundle.Unload(false);
+                // NML WrappedAssetBundle is cached — no unload needed.
                 return atlas;
             }
             catch
