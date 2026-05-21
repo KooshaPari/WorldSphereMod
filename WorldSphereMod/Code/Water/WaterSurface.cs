@@ -7,6 +7,16 @@ namespace WorldSphereMod.Water
     {
         public static WaterSurface? Instance;
 
+        static readonly int WaveTimeId = Shader.PropertyToID("_WaveTime");
+        static readonly int WaveAmpId = Shader.PropertyToID("_WaveAmp");
+        static readonly int WaveFreqId = Shader.PropertyToID("_WaveFreq");
+        static readonly int WaveSpeedId = Shader.PropertyToID("_WaveSpeed");
+        static readonly Vector4 BaseWaveAmp = new Vector4(0.12f, 0.075f, 0.05f, 0f);
+        static readonly Vector4 BaseWaveFreq = new Vector4(0.45f, 1.1f, 2.0f, 0f);
+        static readonly Vector4 BaseWaveSpeed = new Vector4(1.0f, 1.6f, 2.4f, 0f);
+        const float BobAmplitude = 0.05f;
+        const float BobSpeed = 0.8f;
+
         static Material? _material;
         static bool _materialAttempted;
 
@@ -14,6 +24,7 @@ namespace WorldSphereMod.Water
         internal MeshRenderer? _renderer;
         Mesh? _mesh;
         Material? _instanceMaterial;   // per-renderer copy of _material; we own SetFloat on this
+        Vector3 _baseLocalPosition;
         float _waveTime;
 
         // Reusable scratch buffers for RebuildMesh. Cleared instead of freshly allocated each
@@ -44,8 +55,10 @@ namespace WorldSphereMod.Water
             surface._mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
             filter.sharedMesh = surface._mesh;
             // Touch renderer.material once to materialize the per-instance copy. We use it for
-            // SetFloat in LateUpdate so we don't mutate the shared template asset.
+            // per-frame shader parameter updates so we don't mutate the shared template asset.
             surface._instanceMaterial = renderer.material;
+            surface._baseLocalPosition = go.transform.localPosition;
+            surface.ApplyWaveProfile();
             surface.RebuildMesh();
 
             Instance = surface;
@@ -130,10 +143,40 @@ namespace WorldSphereMod.Water
         void LateUpdate()
         {
             _waveTime += Time.deltaTime;
+            ApplyWaveProfile();
+        }
+
+        void ApplyWaveProfile()
+        {
+            float detail = Mathf.Clamp(Core.savedSettings.WaterDetail, 0f, 2f);
+            float detail01 = detail * 0.5f;
+            float ampScale = Mathf.Lerp(1.1f, 1.8f, detail01);
+            float freqScale = Mathf.Lerp(0.95f, 1.1f, detail01);
+            float speedScale = Mathf.Lerp(0.95f, 1.05f, detail01);
+
+            // Keep the object itself in motion even when the shader falls back to a flat
+            // material, so the surface still reads as water during runtime diagnostics.
+            float bobScale = Mathf.Lerp(0.85f, 1.25f, detail01);
+            float bob = Mathf.Sin(_waveTime * BobSpeed) * BobAmplitude * bobScale;
+            transform.localPosition = _baseLocalPosition + new Vector3(0f, bob, 0f);
+
             // Write to the per-renderer instance material so we never mutate the shared template.
-            if (_instanceMaterial != null)
+            if (_instanceMaterial == null) return;
+            if (_instanceMaterial.HasProperty(WaveTimeId))
             {
-                _instanceMaterial.SetFloat("_WaveTime", _waveTime);
+                _instanceMaterial.SetFloat(WaveTimeId, _waveTime);
+            }
+            if (_instanceMaterial.HasProperty(WaveAmpId))
+            {
+                _instanceMaterial.SetVector(WaveAmpId, BaseWaveAmp * ampScale);
+            }
+            if (_instanceMaterial.HasProperty(WaveFreqId))
+            {
+                _instanceMaterial.SetVector(WaveFreqId, BaseWaveFreq * freqScale);
+            }
+            if (_instanceMaterial.HasProperty(WaveSpeedId))
+            {
+                _instanceMaterial.SetVector(WaveSpeedId, BaseWaveSpeed * speedScale);
             }
         }
 

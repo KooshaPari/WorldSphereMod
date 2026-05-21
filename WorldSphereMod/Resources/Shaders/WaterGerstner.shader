@@ -20,8 +20,8 @@ Shader "WorldSphereMod3D/WaterGerstner"
         _WaveDir0  ("Wave Dir 0",       Vector) = (1, 0, 0, 0)
         _WaveDir1  ("Wave Dir 1",       Vector) = (0.7, 0.7, 0, 0)
         _WaveDir2  ("Wave Dir 2",       Vector) = (-0.5, 0.866, 0, 0)
-        _WaveAmp   ("Wave Amplitude xyz", Vector) = (0.08, 0.05, 0.03, 0)
-        _WaveFreq  ("Wave Frequency xyz", Vector) = (0.5, 1.2, 2.1, 0)
+        _WaveAmp   ("Wave Amplitude xyz", Vector) = (0.12, 0.075, 0.05, 0)
+        _WaveFreq  ("Wave Frequency xyz", Vector) = (0.45, 1.1, 2.0, 0)
         _WaveSpeed ("Wave Speed xyz",     Vector) = (1.0, 1.6, 2.4, 0)
         _WaveTime  ("Time",               Float)  = 0
         _CylinderRadius ("Cylinder radius (cyl. shape)", Float) = 12
