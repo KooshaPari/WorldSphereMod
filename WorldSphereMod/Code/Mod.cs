@@ -39,7 +39,7 @@ using WorldSphereMod;
 
     public void Init()
     {
-        InitProfiler.Measure("Core.Init", () => Core.Init());
+        InitProfiler.Measure("Core.Init", () => { try { Core.Init(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] Core.Init FAILED: " + ex); } });
         // Phase 1: per-frame flush driver for batched voxel mesh draw calls.
         // No-op when SavedSettings.VoxelEntities is false (Flush early-returns
         // until a material is resolved on first Submit).
@@ -47,7 +47,7 @@ using WorldSphereMod;
         {
             InitProfiler.Measure("AddComponent: VoxelFrameDriver", () =>
             {
-                Object.AddComponent<WorldSphereMod.Voxel.VoxelFrameDriver>();
+                try { Object.AddComponent<WorldSphereMod.Voxel.VoxelFrameDriver>(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] VoxelFrameDriver FAILED: " + ex); }
             });
         }
         if (Object != null && Object.GetComponent<WorldSphereMod.Perf.ProfilerFrameDriver>() == null)
@@ -66,42 +66,15 @@ using WorldSphereMod;
         }
         // Phase 7 Step 1: rig-tracker MonoBehaviour. EnsureCreated is idempotent
         // and gated on IsWorld3D && WorldspaceUI internally.
-        InitProfiler.Measure("EnsureCreated: WorldUIRenderer", () =>
-        {
-            WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated();
-        });
-        InitProfiler.Measure("EnsureCreated: RuntimeStatsOverlay", () =>
-        {
-            WorldSphereMod.Worldspace.RuntimeStatsOverlay.EnsureCreated();
-        });
-        InitProfiler.Measure("EnsureCreated: TimeOfDay", () =>
-        {
-            WorldSphereMod.Lighting.TimeOfDay.EnsureCreated();
-        });
-        InitProfiler.Measure("EnsureCreated: ProceduralSky", () =>
-        {
-            WorldSphereMod.Lighting.ProceduralSky.EnsureCreated();
-        });
-        InitProfiler.Measure("EnsureCreated: CubemapLighting", () =>
-        {
-            WorldSphereMod.Lighting.CubemapLighting.EnsureCreated();
-        });
-        InitProfiler.Measure("EnsureCreated: ColorGradingLUT", () =>
-        {
-            WorldSphereMod.Lighting.ColorGradingLUT.EnsureCreated();
-        });
-        InitProfiler.Measure("EnsureCreated: ScreenSpaceAO", () =>
-        {
-            WorldSphereMod.PostFx.ScreenSpaceAO.ApplySetting(Core.savedSettings != null && Core.savedSettings.SSAOEnabled);
-        });
-        InitProfiler.Measure("EnsureCreated: ScreenSpaceGI", () =>
-        {
-            WorldSphereMod.PostFx.ScreenSpaceGI.ApplySetting(Core.savedSettings != null && Core.savedSettings.SSGIEnabled);
-        });
-        InitProfiler.Measure("EnsureCreated: WeatherDriver", () =>
-        {
-            WorldSphereMod.Weather.WeatherDriver.EnsureCreated();
-        });
+        InitProfiler.Measure("EnsureCreated: WorldUIRenderer", () => { try { WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] WorldUIRenderer FAILED: " + ex); } });
+        InitProfiler.Measure("EnsureCreated: RuntimeStatsOverlay", () => { try { WorldSphereMod.Worldspace.RuntimeStatsOverlay.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] RuntimeStatsOverlay FAILED: " + ex); } });
+        InitProfiler.Measure("EnsureCreated: TimeOfDay", () => { try { WorldSphereMod.Lighting.TimeOfDay.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] TimeOfDay FAILED: " + ex); } });
+        InitProfiler.Measure("EnsureCreated: ProceduralSky", () => { try { WorldSphereMod.Lighting.ProceduralSky.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] ProceduralSky FAILED: " + ex); } });
+        InitProfiler.Measure("EnsureCreated: CubemapLighting", () => { try { WorldSphereMod.Lighting.CubemapLighting.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] CubemapLighting FAILED: " + ex); } });
+        InitProfiler.Measure("EnsureCreated: ColorGradingLUT", () => { try { WorldSphereMod.Lighting.ColorGradingLUT.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] ColorGradingLUT FAILED: " + ex); } });
+        InitProfiler.Measure("EnsureCreated: ScreenSpaceAO", () => { try { WorldSphereMod.PostFx.ScreenSpaceAO.ApplySetting(Core.savedSettings != null && Core.savedSettings.SSAOEnabled); } catch (System.Exception ex) { Debug.LogError("[WSM3D] ScreenSpaceAO FAILED: " + ex); } });
+        InitProfiler.Measure("EnsureCreated: ScreenSpaceGI", () => { try { WorldSphereMod.PostFx.ScreenSpaceGI.ApplySetting(Core.savedSettings != null && Core.savedSettings.SSGIEnabled); } catch (System.Exception ex) { Debug.LogError("[WSM3D] ScreenSpaceGI FAILED: " + ex); } });
+        InitProfiler.Measure("EnsureCreated: WeatherDriver", () => { try { WorldSphereMod.Weather.WeatherDriver.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] WeatherDriver FAILED: " + ex); } });
     }
 
 public void PostInit()
