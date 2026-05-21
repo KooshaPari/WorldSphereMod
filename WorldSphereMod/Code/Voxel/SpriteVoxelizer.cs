@@ -25,6 +25,8 @@ namespace WorldSphereMod.Voxel
         /// <summary>Voxel depth in texels. 1 = flat extruded card, &gt;1 = chunkier. </summary>
         public const int DefaultDepth = 1;
         static readonly HashSet<string> _unreadableSpriteWarnings = new HashSet<string>();
+        static int _buildPerTexelDiagCount;
+        static readonly object _buildPerTexelDiagLock = new object();
 
         // Per-texture pixel cache. Sprite atlases share one underlying Texture2D across many
         // sprites; without this, each sprite voxelization re-paid the cost of decoding the
@@ -521,6 +523,21 @@ namespace WorldSphereMod.Voxel
             mesh.SetTriangles(tris, 0);
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
+            bool shouldLog = false;
+            int diagIndex = 0;
+            lock (_buildPerTexelDiagLock)
+            {
+                if (_buildPerTexelDiagCount < 5)
+                {
+                    _buildPerTexelDiagCount++;
+                    diagIndex = _buildPerTexelDiagCount;
+                    shouldLog = true;
+                }
+            }
+            if (shouldLog)
+            {
+                Debug.Log($"[WSM3D][DIAG] BuildPerTexel #{diagIndex}: sprite=\"{sprite.name}\" w={w} h={h} depth={depth} verts={mesh.vertexCount} tris={tris.Count / 3} bounds={mesh.bounds}");
+            }
             // No UploadMeshData(true) here: callers (RigCache) need to keep CPU-side vertex
             // data readable so they can stamp per-vertex bone indices alongside vertexToTexel.
 

@@ -208,25 +208,25 @@ namespace WorldSphereMod.UI
             // a no-op compared to upstream.
             CreateWindowButton("3D Phases", "WorldSphereMod/ModIcon", "phases_window", new List<ButtonData>()
             {
-                new ButtonData("voxel_entities",       "voxel_entities_description",       "WorldSphereMod/Round",        Core.savedSettings.VoxelEntities,       TogglePhase_VoxelEntities),
-                new ButtonData("procedural_buildings", "procedural_buildings_description", "WorldSphereMod/World",         Core.savedSettings.ProceduralBuildings, TogglePhase_ProceduralBuildings),
-                new ButtonData("crossed_quad_foliage", "crossed_quad_foliage_description", "WorldSphereMod/Flat",          Core.savedSettings.CrossedQuadFoliage, TogglePhase_CrossedQuadFoliage),
-                new ButtonData("biome_blending",       "biome_blending_description",       "WorldSphereMod/World",         Core.savedSettings.BiomeBlending,       ToggleBiomeBlending),
-                new ButtonData("mesh_water",           "mesh_water_description",           "WorldSphereMod/PerlinNoise",   Core.savedSettings.MeshWater,           TogglePhase_MeshWater),
-                new ButtonData("mountain_slope_smoothing", "mountain_slope_smoothing_description", "WorldSphereMod/World", Core.savedSettings.MountainSlopeSmoothing, TogglePhase_MountainSlopeSmoothing),
-                new ButtonData("high_shadows",         "high_shadows_description",         "WorldSphereMod/SkyBox",        Core.savedSettings.HighShadows,         TogglePhase_HighShadows),
-                new ButtonData("hdr_skybox",           "hdr_skybox_description",           "WorldSphereMod/SkyBox",        Core.savedSettings.HdrSkybox,           TogglePhase_HdrSkybox),
-                new ButtonData("color_grading_lut",    "color_grading_lut_description",    "WorldSphereMod/ModIcon",       Core.savedSettings.ColorGradingLut,      TogglePhase_ColorGradingLut),
-                new ButtonData("ssao_enabled",         "ssao_enabled_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.SSAOEnabled,          TogglePhase_SSAOEnabled),
-                new ButtonData("ssgi_enabled",         "ssgi_enabled_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.SSGIEnabled,          TogglePhase_SSGIEnabled),
-                new ButtonData("skeletal_animation",   "skeletal_animation_description",   "WorldSphereMod/Rotate",        Core.savedSettings.SkeletalAnimation,   TogglePhase_SkeletalAnimation),
-                new ButtonData("worldspace_ui",        "worldspace_ui_description",        "WorldSphereMod/Camera",        Core.savedSettings.WorldspaceUI,        TogglePhase_WorldspaceUI),
-                new ButtonData("day_night_cycle",      "day_night_cycle_description",      "WorldSphereMod/SkyBox",        Core.savedSettings.DayNightCycle,       TogglePhase_DayNightCycle),
-                new ButtonData("weather_rain",          "weather_rain_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.WeatherRain,           TogglePhase_WeatherRain),
-                new ButtonData("weather_snow",          "weather_snow_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.WeatherSnow,           TogglePhase_WeatherSnow),
-                new ButtonData("weather_lightning",     "weather_lightning_description",    "WorldSphereMod/ModIcon",       Core.savedSettings.WeatherLightning,      TogglePhase_WeatherLightning),
-                new ButtonData("post_fx",              "post_fx_description",              "WorldSphereMod/ModIcon",       Core.savedSettings.PostFX,              TogglePhase_PostFX),
-                new ButtonData("particle_effects",     "particle_effects_description",     "WorldSphereMod/Logo",          Core.savedSettings.ParticleEffects,     TogglePhase_ParticleEffects),
+                new ButtonData("voxel_entities",       "voxel_entities_description",       "WorldSphereMod/Round",        Core.savedSettings.VoxelEntities,       TogglePhase),
+                new ButtonData("procedural_buildings", "procedural_buildings_description", "WorldSphereMod/World",         Core.savedSettings.ProceduralBuildings, TogglePhase),
+                new ButtonData("crossed_quad_foliage", "crossed_quad_foliage_description", "WorldSphereMod/Flat",          Core.savedSettings.CrossedQuadFoliage, TogglePhase),
+                new ButtonData("biome_blending",       "biome_blending_description",       "WorldSphereMod/World",         Core.savedSettings.BiomeBlending,       TogglePhase),
+                new ButtonData("mesh_water",           "mesh_water_description",           "WorldSphereMod/PerlinNoise",   Core.savedSettings.MeshWater,           TogglePhase),
+                new ButtonData("mountain_slope_smoothing", "mountain_slope_smoothing_description", "WorldSphereMod/World", Core.savedSettings.MountainSlopeSmoothing, TogglePhase),
+                new ButtonData("high_shadows",         "high_shadows_description",         "WorldSphereMod/SkyBox",        Core.savedSettings.HighShadows,         TogglePhase),
+                new ButtonData("hdr_skybox",           "hdr_skybox_description",           "WorldSphereMod/SkyBox",        Core.savedSettings.HdrSkybox,           TogglePhase),
+                new ButtonData("color_grading_lut",    "color_grading_lut_description",    "WorldSphereMod/ModIcon",       Core.savedSettings.ColorGradingLut,      TogglePhase),
+                new ButtonData("ssao_enabled",         "ssao_enabled_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.SSAOEnabled,          TogglePhase),
+                new ButtonData("ssgi_enabled",         "ssgi_enabled_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.SSGIEnabled,          TogglePhase),
+                new ButtonData("skeletal_animation",   "skeletal_animation_description",   "WorldSphereMod/Rotate",        Core.savedSettings.SkeletalAnimation,   TogglePhase),
+                new ButtonData("worldspace_ui",        "worldspace_ui_description",        "WorldSphereMod/Camera",        Core.savedSettings.WorldspaceUI,        TogglePhase),
+                new ButtonData("day_night_cycle",      "day_night_cycle_description",      "WorldSphereMod/SkyBox",        Core.savedSettings.DayNightCycle,       TogglePhase),
+                new ButtonData("weather_rain",          "weather_rain_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.WeatherRain,           TogglePhase),
+                new ButtonData("weather_snow",          "weather_snow_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.WeatherSnow,           TogglePhase),
+                new ButtonData("weather_lightning",     "weather_lightning_description",    "WorldSphereMod/ModIcon",       Core.savedSettings.WeatherLightning,      TogglePhase),
+                new ButtonData("post_fx",              "post_fx_description",              "WorldSphereMod/ModIcon",       Core.savedSettings.PostFX,              TogglePhase),
+                new ButtonData("particle_effects",     "particle_effects_description",     "WorldSphereMod/Logo",          Core.savedSettings.ParticleEffects,     TogglePhase),
                 new ButtonData("sanity_cube",           "sanity_cube_description",           "WorldSphereMod/ModIcon",       Core.savedSettings.DebugSanityCube,     ToggleDebugSanityCube),
             });
 
@@ -239,33 +239,72 @@ namespace WorldSphereMod.UI
             CreateButton("Reset Defaults", "WorldSphereMod/ModIcon", ResetToDefaults);
         }
 
-        static void TogglePhase_VoxelEntities(string _)       { Core.savedSettings.VoxelEntities       = !Core.savedSettings.VoxelEntities;       Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.VoxelEntities),       Core.savedSettings.VoxelEntities); }
-        static void TogglePhase_ProceduralBuildings(string _) { Core.savedSettings.ProceduralBuildings = !Core.savedSettings.ProceduralBuildings; Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.ProceduralBuildings), Core.savedSettings.ProceduralBuildings); }
-        static void TogglePhase_CrossedQuadFoliage(string _)  { Core.savedSettings.CrossedQuadFoliage  = !Core.savedSettings.CrossedQuadFoliage;  Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.CrossedQuadFoliage),  Core.savedSettings.CrossedQuadFoliage); }
-        static void ToggleBiomeBlending(string _)
+        static void TogglePhase(string phaseToggleId)
         {
-            Core.savedSettings.BiomeBlending = !Core.savedSettings.BiomeBlending;
+            if (!TryResolvePhaseToggleField(phaseToggleId, out FieldInfo? settingField))
+            {
+                UnityEngine.Debug.LogWarning($"[WSM3D] Missing SavedSettings field for phase toggle '{phaseToggleId}'.");
+                return;
+            }
+
+            bool nextValue = !(settingField.GetValue(Core.savedSettings) as bool? ?? false);
+            settingField.SetValue(Core.savedSettings, nextValue);
+            Core.ApplyPhaseToggle(settingField.Name, nextValue);
             Core.SaveSettings();
-            if (Core.IsWorld3D)
+
+            if (!PlayerConfig.dict.ContainsKey(phaseToggleId))
+            {
+                PlayerConfig.dict.Add(phaseToggleId, new PlayerOptionData(phaseToggleId));
+            }
+            PlayerConfig.dict[phaseToggleId].boolVal = nextValue;
+
+            if (settingField.Name == nameof(SavedSettings.BiomeBlending) && Core.IsWorld3D)
             {
                 Core.Sphere.RefreshColors();
             }
         }
-        static void TogglePhase_MeshWater(string _)           { Core.savedSettings.MeshWater           = !Core.savedSettings.MeshWater;           Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.MeshWater),           Core.savedSettings.MeshWater); }
-        static void TogglePhase_MountainSlopeSmoothing(string _)    { Core.savedSettings.MountainSlopeSmoothing    = !Core.savedSettings.MountainSlopeSmoothing;    Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.MountainSlopeSmoothing),    Core.savedSettings.MountainSlopeSmoothing); }
-        static void TogglePhase_HighShadows(string _)         { Core.savedSettings.HighShadows         = !Core.savedSettings.HighShadows;         Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.HighShadows),         Core.savedSettings.HighShadows); }
-        static void TogglePhase_HdrSkybox(string _)          { Core.savedSettings.HdrSkybox          = !Core.savedSettings.HdrSkybox;          Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.HdrSkybox),          Core.savedSettings.HdrSkybox); }
-        static void TogglePhase_ColorGradingLut(string _)     { Core.savedSettings.ColorGradingLut     = !Core.savedSettings.ColorGradingLut;     Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.ColorGradingLut),     Core.savedSettings.ColorGradingLut); }
-        static void TogglePhase_SSAOEnabled(string _)       { Core.savedSettings.SSAOEnabled      = !Core.savedSettings.SSAOEnabled;      Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.SSAOEnabled),      Core.savedSettings.SSAOEnabled); }
-        static void TogglePhase_SSGIEnabled(string _)       { Core.savedSettings.SSGIEnabled      = !Core.savedSettings.SSGIEnabled;      Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.SSGIEnabled),      Core.savedSettings.SSGIEnabled); }
-        static void TogglePhase_SkeletalAnimation(string _)   { Core.savedSettings.SkeletalAnimation   = !Core.savedSettings.SkeletalAnimation;   Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.SkeletalAnimation),   Core.savedSettings.SkeletalAnimation); }
-        static void TogglePhase_WorldspaceUI(string _)        { Core.savedSettings.WorldspaceUI        = !Core.savedSettings.WorldspaceUI;        Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.WorldspaceUI),        Core.savedSettings.WorldspaceUI); }
-        static void TogglePhase_DayNightCycle(string _)       { Core.savedSettings.DayNightCycle       = !Core.savedSettings.DayNightCycle;       Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.DayNightCycle),       Core.savedSettings.DayNightCycle); }
-        static void TogglePhase_WeatherRain(string _)         { Core.savedSettings.WeatherRain         = !Core.savedSettings.WeatherRain;         Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.WeatherRain),         Core.savedSettings.WeatherRain); }
-        static void TogglePhase_WeatherSnow(string _)         { Core.savedSettings.WeatherSnow         = !Core.savedSettings.WeatherSnow;         Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.WeatherSnow),         Core.savedSettings.WeatherSnow); }
-        static void TogglePhase_WeatherLightning(string _)    { Core.savedSettings.WeatherLightning    = !Core.savedSettings.WeatherLightning;    Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.WeatherLightning),    Core.savedSettings.WeatherLightning); }
-        static void TogglePhase_PostFX(string _)              { Core.savedSettings.PostFX              = !Core.savedSettings.PostFX;              Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.PostFX),              Core.savedSettings.PostFX); }
-        static void TogglePhase_ParticleEffects(string _)     { Core.savedSettings.ParticleEffects     = !Core.savedSettings.ParticleEffects;     Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.ParticleEffects),     Core.savedSettings.ParticleEffects); }
+        static bool TryResolvePhaseToggleField(string toggleId, out FieldInfo? settingField)
+        {
+            settingField = typeof(SavedSettings).GetField(toggleId);
+            if (settingField != null)
+            {
+                return true;
+            }
+
+            string normalizedToggle = NormalizeSettingId(toggleId);
+            foreach (FieldInfo field in typeof(SavedSettings).GetFields(BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (field.FieldType != typeof(bool))
+                {
+                    continue;
+                }
+                if (string.Equals(NormalizeSettingId(field.Name), normalizedToggle, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    settingField = field;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        static string NormalizeSettingId(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return string.Empty;
+            }
+
+            System.Text.StringBuilder normalized = new System.Text.StringBuilder(id.Length);
+            for (int i = 0; i < id.Length; i++)
+            {
+                char c = id[i];
+                if (char.IsLetterOrDigit(c))
+                {
+                    normalized.Append(char.ToLowerInvariant(c));
+                }
+            }
+            return normalized.ToString();
+        }
         static void ToggleDebugSanityCube(string _)           { Core.savedSettings.DebugSanityCube     = !Core.savedSettings.DebugSanityCube;     Core.SaveSettings(); }
         static void ToggleProfileMode()
         {
