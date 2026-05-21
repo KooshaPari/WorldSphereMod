@@ -284,20 +284,20 @@ namespace WorldSphereMod.Voxel
                 {
                     if (!solid2d[x, y]) continue;
 
-                    int localDepth = safeDepth == 1
-                        ? 1
-                        : Mathf.Clamp(Mathf.RoundToInt(1f + (distToAir[x, y] * (safeDepth - 1f) / (float)Mathf.Max(1, maxDist))), 1, safeDepth);
-                    int zStart = (safeDepth - localDepth) / 2;
-                    int zEnd = zStart + localDepth;
+                    // FIXED dot-cloud failure mode: voxel at (x,y,z) opaque IFF
+                    // abs(z - zCenter) <= distToAir[x,y]. Result: silhouette (d=1)
+                    // is 3 voxels deep, body (d=N) is 2N+1 voxels deep — SOLID FILL,
+                    // interior voxels exist so outer shell emits a closed surface.
+                    // Force minimum d=2 for body pixels so silhouette isn't paper-thin.
+                    int d = Mathf.Max(2, distToAir[x, y]);
+                    int zCenter = safeDepth / 2;
+                    int zStart = Mathf.Max(0, zCenter - d);
+                    int zEnd = Mathf.Min(depth, zCenter + d + 1);
 
                     for (int z = zStart; z < zEnd; z++)
                     {
-                        if (z < 0 || z >= depth) continue;
-                        int sampleX = x;
-                        solid[sampleX, y, z] = true;
-                        color[sampleX, y, z] = color2d[x, y];
-                        // Vertex remap metadata intentionally omitted for balloon mode.
-                        // Rigging still uses BuildPerTexel to maintain 1:1 voxel-to-texel mapping.
+                        solid[x, y, z] = true;
+                        color[x, y, z] = color2d[x, y];
                     }
                 }
             }
