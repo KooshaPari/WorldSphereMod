@@ -48,6 +48,8 @@ namespace WorldSphereMod.Bridge
         void Awake()
         {
             _mainThreadId = Thread.CurrentThread.ManagedThreadId;
+            // Survive scene transitions (save load destroys Mod.Object's scene → bridge dies → main-thread queue stops draining → all HTTP requests time out at 5s default(T)).
+            try { UnityEngine.Object.DontDestroyOnLoad(gameObject); } catch { /* root-only requirement */ }
             StartListener();
         }
 
