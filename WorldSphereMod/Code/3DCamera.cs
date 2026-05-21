@@ -459,10 +459,13 @@ namespace WorldSphereMod.NewCamera
         {
             CodeMatcher Matcher = new CodeMatcher(instructions);
             Matcher.MatchForward(false, new CodeMatch(OpCodes.Call, AccessTools.Method(typeof(InputHelpers), nameof(InputHelpers.GetMouseButton))));
+            if (Matcher.Pos < 0 || Matcher.IsInvalid)
             {
-                Matcher.RemoveInstruction();
-                Matcher.Insert(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(UpdateVelocity), nameof(GetMouseIf2D))));
+                global::UnityEngine.Debug.LogWarning("[WSM3D] UpdateVelocity transpiler: InputHelpers.GetMouseButton not found in vanilla IL — skipping");
+                return instructions;
             }
+            Matcher.RemoveInstruction();
+            Matcher.Insert(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(UpdateVelocity), nameof(GetMouseIf2D))));
             return Matcher.Instructions();
         }
         public static bool GetMouseIf2D(int pButton)
