@@ -586,7 +586,12 @@ namespace WorldSphereMod.Voxel
 
         static Mesh BuildVoxelMesh(Sprite sprite, int depth, out int[] vertexToTexel, out string inflationStyle)
         {
-            inflationStyle = ResolveVoxelInflationStyle();
+            // Per-sprite shape-hint routing. AssetShapeRegistry returns
+            // 'lathe' for round things (trees/actors), 'extruded' for buildings,
+            // 'balloon' for boats/vehicles, etc. Honors non-auto global override.
+            inflationStyle = sprite != null
+                ? AssetShapeRegistry.ResolveStyle(sprite.name, sprite)
+                : ResolveVoxelInflationStyle();
             if (string.Equals(inflationStyle, "lathe", System.StringComparison.OrdinalIgnoreCase))
             {
                 depth = -1;
