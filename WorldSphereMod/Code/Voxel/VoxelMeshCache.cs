@@ -482,9 +482,19 @@ namespace WorldSphereMod.Voxel
         static Mesh BuildVoxelMesh(Sprite sprite, int depth, out int[] vertexToTexel, out string inflationStyle)
         {
             inflationStyle = ResolveVoxelInflationStyle();
+            if (string.Equals(inflationStyle, "lathe", System.StringComparison.OrdinalIgnoreCase))
+            {
+                depth = -1;
+            }
+
             if (string.Equals(inflationStyle, "balloon", System.StringComparison.OrdinalIgnoreCase))
             {
                 return SpriteVoxelizer.BuildBalloon(sprite, depth, out vertexToTexel);
+            }
+
+            if (string.Equals(inflationStyle, "lathe", System.StringComparison.OrdinalIgnoreCase))
+            {
+                return SpriteVoxelizer.BuildLathe(sprite, depth, out vertexToTexel);
             }
 
             vertexToTexel = System.Array.Empty<int>();
@@ -508,6 +518,11 @@ namespace WorldSphereMod.Voxel
             if (style == "balloon" || style == "ballooned")
             {
                 return "balloon";
+            }
+
+            if (style == "lathe" || style == "revolved" || style == "revolve")
+            {
+                return "lathe";
             }
 
             if (style == "0" || style == "1")

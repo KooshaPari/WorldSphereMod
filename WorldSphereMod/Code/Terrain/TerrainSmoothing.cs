@@ -1,13 +1,14 @@
 using System;
+using System.Collections.Generic;
+using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
 
 namespace WorldSphereMod.Terrain
 {
     /// <summary>
-    /// Optional mountain slope smoothing overlay for the upstream terrain mesh.
-    /// The blocky backend stays in place underneath; this layer rebuilds a
-    /// transparent heightfield mesh from the same tile data and blends over it.
+    /// Cliff-facing slope mesh for upstream terrain. The underlying voxel-like terrain
+    /// remains unchanged; this only emits geometry for steep tile transitions.
     /// </summary>
     public sealed class MountainSlopeSurface : MonoBehaviour
     {
@@ -21,8 +22,16 @@ namespace WorldSphereMod.Terrain
         Mesh? _mesh;
         bool _dirty = true;
 
-        const float kOverlayLift = 0.06f;
-        const float kOverlayAlpha = 0.72f;
+        struct CliffQuad
+        {
+            public int X;
+            public int Y;
+            public bool IsVertical;
+            public float HeightA;
+            public float HeightB;
+            public Color32 ColorA;
+            public Color32 ColorB;
+        }
 
         public static MountainSlopeSurface? Create(Transform parent)
         {
@@ -39,13 +48,13 @@ namespace WorldSphereMod.Terrain
             GameObject go = new GameObject("WorldSphere Mountain Slope Smoothing");
             go.transform.SetParent(parent, worldPositionStays: false);
 
-            var filter = go.AddComponent<MeshFilter>();
-            var renderer = go.AddComponent<MeshRenderer>();
+            MeshFilter filter = go.AddComponent<MeshFilter>();
+            MeshRenderer renderer = go.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = _material;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
 
-            var surface = go.AddComponent<MountainSlopeSurface>();
+            MountainSlopeSurface surface = go.AddComponent<MountainSlopeSurface>();
             surface._filter = filter;
             surface._renderer = renderer;
             surface._mesh = new Mesh { name = "WorldSphere.MountainSlopeSmoothing" };
@@ -68,6 +77,11 @@ namespace WorldSphereMod.Terrain
             if (Instance._mesh != null)
             {
                 UnityEngine.Object.Destroy(Instance._mesh);
+            }
+
+            if (Instance._renderer != null)
+            {
+                UnityEngine.Object.Destroy(Instance._renderer.sharedMaterial);
             }
 
             Instance._mesh = null;
@@ -148,8 +162,6 @@ namespace WorldSphereMod.Terrain
                 return;
             }
 
-            Tools.ClearTileHeightSmoothCache();
-
             int width = MapBox.width;
             int height = MapBox.height;
             if (width <= 1 || height <= 1)
@@ -157,64 +169,59 @@ namespace WorldSphereMod.Terrain
                 return;
             }
 
-            int vertexCount = width * height;
-            Vector3[] vertices = new Vector3[vertexCount];
-            Color32[] colors = new Color32[vertexCount];
-
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-                    int i = (y * width) + x;
-                    float sampleHeight = SampleHeight(x, y);
-                    vertices[i] = Core.Sphere.SpherePos(x, y, sampleHeight + kOverlayLift);
-                    colors[i] = SampleColor(x, y);
-                }
-            }
-
-            int xCells = Core.Sphere.IsWrapped ? width : width - 1;
-            int yCells = height - 1;
-            int triangleCount = xCells * yCells * 6;
-            if (triangleCount <= 0)
+            List<CliffQuad> quads = DetectCliffQuads(width, height);
+            if (quads.Count == 0)
             {
                 return;
             }
 
-            int[] triangles = new int[triangleCount];
-            int t = 0;
-            for (int y = 0; y < yCells; y++)
+            Vector3[] vertices = new Vector3[quads.Count * 4];
+            Color32[] colors = new Color32[quads.Count * 4];
+            int[] triangles = new int[quads.Count * 6];
+
+            int vi = 0;
+            int ti = 0;
+            for (int i = 0; i < quads.Count; i++)
             {
-                int row = y * width;
-                int nextRow = (y + 1) * width;
-                for (int x = 0; x < xCells; x++)
+                CliffQuad quad = quads[i];
+                if (quad.IsVertical)
                 {
-                    int xNext = x + 1;
-                    if (xNext >= width)
-                    {
-                        if (!Core.Sphere.IsWrapped)
-                        {
-                            continue;
-                        }
-                        xNext = 0;
-                    }
+                    Vector3 p00 = Core.Sphere.SpherePos(quad.X, quad.Y, quad.HeightA);
+                    Vector3 p01 = Core.Sphere.SpherePos(quad.X, quad.Y + 1, quad.HeightA);
+                    Vector3 p10 = Core.Sphere.SpherePos(quad.X + 1, quad.Y, quad.HeightB);
+                    Vector3 p11 = Core.Sphere.SpherePos(quad.X + 1, quad.Y + 1, quad.HeightB);
 
-                    int i00 = row + x;
-                    int i10 = row + xNext;
-                    int i01 = nextRow + x;
-                    int i11 = nextRow + xNext;
-
-                    triangles[t++] = i00;
-                    triangles[t++] = i10;
-                    triangles[t++] = i11;
-                    triangles[t++] = i00;
-                    triangles[t++] = i11;
-                    triangles[t++] = i01;
+                    vertices[vi++] = p00;
+                    vertices[vi++] = p01;
+                    vertices[vi++] = p10;
+                    vertices[vi++] = p11;
                 }
-            }
+                else
+                {
+                    Vector3 p00 = Core.Sphere.SpherePos(quad.X, quad.Y, quad.HeightA);
+                    Vector3 p10 = Core.Sphere.SpherePos(quad.X + 1, quad.Y, quad.HeightA);
+                    Vector3 p01 = Core.Sphere.SpherePos(quad.X, quad.Y + 1, quad.HeightB);
+                    Vector3 p11 = Core.Sphere.SpherePos(quad.X + 1, quad.Y + 1, quad.HeightB);
 
-            if (t != triangleCount)
-            {
-                Array.Resize(ref triangles, t);
+                    vertices[vi++] = p00;
+                    vertices[vi++] = p10;
+                    vertices[vi++] = p01;
+                    vertices[vi++] = p11;
+                }
+
+                int baseColor = i * 4;
+                colors[baseColor] = quad.ColorA;
+                colors[baseColor + 1] = quad.ColorA;
+                colors[baseColor + 2] = quad.ColorB;
+                colors[baseColor + 3] = quad.ColorB;
+
+                int baseVertex = i * 4;
+                triangles[ti++] = baseVertex;
+                triangles[ti++] = baseVertex + 1;
+                triangles[ti++] = baseVertex + 2;
+                triangles[ti++] = baseVertex + 2;
+                triangles[ti++] = baseVertex + 1;
+                triangles[ti++] = baseVertex + 3;
             }
 
             _mesh.vertices = vertices;
@@ -224,21 +231,76 @@ namespace WorldSphereMod.Terrain
             _mesh.RecalculateBounds();
         }
 
-        float SampleHeight(int x, int y)
+        List<CliffQuad> DetectCliffQuads(int width, int height)
         {
-            Vector2 sample = new Vector2(x + 0.5f, y + 0.5f);
-            return Tools.GetTileHeightSmooth(sample);
-        }
+            List<CliffQuad> quads = new List<CliffQuad>(Mathf.Max(width, 0) * Mathf.Max(height, 0));
+            bool wrapped = Core.Sphere.IsWrapped;
 
-        Color32 SampleColor(int x, int y)
-        {
-            WorldTile tile = ResolveTile(x, y);
-            if (tile == null)
+            for (int y = 0; y < height; y++)
             {
-                return new Color32(0, 0, 0, 0);
+                for (int x = 0; x < width; x++)
+                {
+                    WorldTile tile = ResolveTile(x, y);
+                    if (tile == null)
+                    {
+                        continue;
+                    }
+
+                    float tileHeight = tile.TileHeight();
+                    Color32 tileColor = Core.Sphere.GetColor(tile.data.tile_id);
+
+                    int rightX = x + 1;
+                    if (wrapped || rightX < width)
+                    {
+                        int sampleX = wrapped ? rightX % width : rightX;
+                        WorldTile rightTile = ResolveTile(sampleX, y);
+                        if (rightTile != null)
+                        {
+                            float rightHeight = rightTile.TileHeight();
+                            if (Mathf.Abs(tileHeight - rightHeight) > 1f)
+                            {
+                                Color32 rightColor = Core.Sphere.GetColor(rightTile.data.tile_id);
+                                quads.Add(new CliffQuad
+                                {
+                                    X = x,
+                                    Y = y,
+                                    IsVertical = false,
+                                    HeightA = tileHeight,
+                                    HeightB = rightHeight,
+                                    ColorA = tileColor,
+                                    ColorB = rightColor,
+                                });
+                            }
+                        }
+                    }
+
+                    int upY = y + 1;
+                    if (upY < height)
+                    {
+                        WorldTile upTile = ResolveTile(x, upY);
+                        if (upTile != null)
+                        {
+                            float upHeight = upTile.TileHeight();
+                            if (Mathf.Abs(tileHeight - upHeight) > 1f)
+                            {
+                                Color32 upColor = Core.Sphere.GetColor(upTile.data.tile_id);
+                                quads.Add(new CliffQuad
+                                {
+                                    X = x,
+                                    Y = y,
+                                    IsVertical = true,
+                                    HeightA = tileHeight,
+                                    HeightB = upHeight,
+                                    ColorA = tileColor,
+                                    ColorB = upColor,
+                                });
+                            }
+                        }
+                    }
+                }
             }
 
-            return Core.Sphere.GetColor(tile.data.tile_id);
+            return quads;
         }
 
         WorldTile ResolveTile(int x, int y)
@@ -268,6 +330,29 @@ namespace WorldSphereMod.Terrain
             return World.world.GetTileSimple(x, y);
         }
 
+        static Material? GetUnderlyingTerrainMaterial()
+        {
+            FieldInfo? terrainField = typeof(Core.Sphere).GetField(
+                "CompoundSphereMaterial",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            if (terrainField != null && terrainField.GetValue(null) is Material terrainMaterial && terrainMaterial != null)
+            {
+                return terrainMaterial;
+            }
+
+            Transform? capsule = Core.Sphere.CenterCapsule;
+            if (capsule != null)
+            {
+                MeshRenderer? parentRenderer = capsule.parent?.GetComponentInChildren<MeshRenderer>();
+                if (parentRenderer != null && parentRenderer.sharedMaterial != null)
+                {
+                    return parentRenderer.sharedMaterial;
+                }
+            }
+
+            return null;
+        }
+
         static bool EnsureMaterial()
         {
             if (_material != null)
@@ -282,12 +367,29 @@ namespace WorldSphereMod.Terrain
 
             _materialAttempted = true;
 
+            Material? terrainMaterial = GetUnderlyingTerrainMaterial();
+            if (terrainMaterial != null)
+            {
+                Material material = new Material(terrainMaterial)
+                {
+                    name = "WSM3D.MountainSlopeSmoothing"
+                };
+                material.color = Color.white;
+                if (material.enableInstancing)
+                {
+                    _material = material;
+                    return true;
+                }
+
+                UnityEngine.Object.Destroy(material);
+            }
+
             string[] candidates =
             {
-                "Sprites/Default",
                 "Universal Render Pipeline/Unlit",
                 "Universal Render Pipeline/Lit",
                 "Standard",
+                "Sprites/Default",
             };
 
             foreach (string name in candidates)
@@ -300,17 +402,10 @@ namespace WorldSphereMod.Terrain
 
                 Material material = new Material(shader)
                 {
-                    name = "WSM3D.MountainSlopeSmoothing",
-                    renderQueue = 3000,
-                    mainTexture = Texture2D.whiteTexture,
+                    name = "WSM3D.MountainSlopeSmoothing"
                 };
-                material.color = new Color(1f, 1f, 1f, kOverlayAlpha);
-
-                if (!material.enableInstancing)
-                {
-                    material.enableInstancing = true;
-                }
-
+                material.color = Color.white;
+                material.enableInstancing = true;
                 if (!material.enableInstancing)
                 {
                     UnityEngine.Object.Destroy(material);

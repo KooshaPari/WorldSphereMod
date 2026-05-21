@@ -321,6 +321,121 @@ namespace WorldSphereMod.Voxel
             return mesh;
         }
 
+        /// <summary>
+        /// Phase 1: lathe inflation revolves a 2D silhouette around the Y axis into a
+        /// W×H×W voxel volume. For each opaque row, we compute a silhouette half-width r(y)
+        /// and fill cylinder-space voxels where (x-c)^2+(z-c)^2 ≤ r(y)^2.
+        /// Color is sampled from the source sprite via a cylindrical wrap:
+        /// column = (x-c)*cos(theta) + c, theta = atan2(z-c, x-c).
+        /// </summary>
+        public static Mesh BuildLathe(Sprite sprite, int depth, out int[] vertexToTexel)
+        {
+            if (sprite == null || sprite.texture == null || !sprite.texture.isReadable)
+            {
+                vertexToTexel = System.Array.Empty<int>();
+                return CreateEmpty();
+            }
+
+            Rect r = sprite.textureRect;
+            int w = Mathf.Max(1, (int)r.width);
+            int h = Mathf.Max(1, (int)r.height);
+            int x0 = (int)r.x;
+            int y0 = (int)r.y;
+            Color32[] tex = GetPixelsCached(sprite.texture);
+            int texW = sprite.texture.width;
+
+            float cx = w * 0.5f;
+            float cz = w * 0.5f;
+            int depthFromSprite = w;
+
+            int[] rowRadius = new int[h];
+            for (int y = 0; y < h; y++)
+            {
+                int rowStart = (y0 + y) * texW + x0;
+                int rowRadiusSq = 0;
+                for (int x = 0; x < w; x++)
+                {
+                    Color32 c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
+                        ? ColorTonemap.Tonemap(tex[rowStart + x])
+                        : tex[rowStart + x];
+                    if (c.a <= 16) continue;
+
+                    float dx = x - cx;
+                    int thisRadius = Mathf.CeilToInt(Mathf.Abs(dx));
+                    if (thisRadius > rowRadiusSq) rowRadiusSq = thisRadius;
+                }
+                rowRadius[y] = rowRadiusSq;
+            }
+
+            bool[,,] solid = new bool[w, h, depthFromSprite];
+            Color32[,,] color = new Color32[w, h, depthFromSprite];
+
+            int[] sampleColumn = new int[w * depthFromSprite];
+            for (int z = 0; z < depthFromSprite; z++)
+            {
+                float dz = z - cz;
+                for (int x = 0; x < w; x++)
+                {
+                    float dx = x - cx;
+                    int idx = z * w + x;
+                    float theta = Mathf.Atan2(dz, dx);
+                    float sx = (dx * Mathf.Cos(theta)) + cx;
+                    int sampleX = Mathf.Clamp(Mathf.RoundToInt(sx), 0, w - 1);
+                    sampleColumn[idx] = sampleX;
+                }
+            }
+
+            for (int y = 0; y < h; y++)
+            {
+                int rY = rowRadius[y];
+                if (rY <= 0) continue;
+
+                int rowStart = (y0 + y) * texW + x0;
+                float rSq = rY * (float)rY;
+                for (int z = 0; z < depthFromSprite; z++)
+                {
+                    int rowz = z * w;
+                    float dz = z - cz;
+                    for (int x = 0; x < w; x++)
+                    {
+                        float dx = x - cx;
+                        if (dx * dx + dz * dz > rSq) continue;
+
+                        int sampleX = sampleColumn[rowz + x];
+                        Color32 c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
+                            ? ColorTonemap.Tonemap(tex[rowStart + sampleX])
+                            : tex[rowStart + sampleX];
+                        solid[x, y, z] = true;
+                        color[x, y, z] = c;
+                    }
+                }
+            }
+
+            Vector2 pivot = sprite.pivot;
+            float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
+            Vector3 origin = new Vector3(-pivot.x / ppu, -pivot.y / ppu, -(depthFromSprite * 0.5f) / ppu);
+            float cell = 1f / ppu;
+
+            var verts = new List<Vector3>();
+            var cols = new List<Color32>();
+            var tris = new List<int>();
+
+            GreedyMesh(solid, color, w, h, depthFromSprite, origin, cell, verts, cols, tris);
+
+            var mesh = new Mesh { name = $"voxel-lathe:{sprite.name}" };
+            if (verts.Count > 65535)
+            {
+                mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            }
+            mesh.SetVertices(verts);
+            mesh.SetColors(cols);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            vertexToTexel = System.Array.Empty<int>();
+            return mesh;
+        }
+
         static int[,] ComputeManhattanDistanceToAir(bool[,] solid, out int maxDist)
         {
             int w = solid.GetLength(0);

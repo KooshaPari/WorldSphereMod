@@ -36,6 +36,7 @@ namespace WorldSphereMod
         public bool VoxelColorTonemap = true;
         // Voxel volume style for sprite inflation. Recognized values:
         // "pertexel" (full slab), "balloon" (distance-based profile),
+        // "lathe" (revolved 360° extrusion; depth is forced to sprite width),
         // "extruded" (alias for pertexel for backward compatibility).
         public string VoxelInflationStyle = "pertexel";
         public float VoxelScaleMultiplier = 6.0f;
