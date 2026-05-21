@@ -259,6 +259,13 @@ namespace WorldSphereMod.Voxel
             }
 
             byte[] boneIndices = new byte[mesh.vertexCount];
+            bool enableSkeletalSkinning = Core.savedSettings == null || Core.savedSettings.SkeletalAnimation;
+            if (!enableSkeletalSkinning)
+            {
+                mesh.boneWeights = System.Array.Empty<BoneWeight>();
+                mesh.bindposes = System.Array.Empty<Matrix4x4>();
+            }
+
             if (resolvedRig == WorldSphereMod.Rig.RigType.Humanoid)
             {
                 BoneId[] segment = BuildHumanoidSegments(sprite);
@@ -292,7 +299,7 @@ namespace WorldSphereMod.Voxel
             return new SkinnedVoxelMesh
             {
                 BaseMesh = mesh,
-                BoneIndices = boneIndices,
+                BoneIndices = enableSkeletalSkinning ? boneIndices : System.Array.Empty<byte>(),
                 RigType = resolvedRig,
             };
         }
