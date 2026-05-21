@@ -363,7 +363,7 @@ namespace WorldSphereMod
                 int height = MapBox.height;
                 Manager = SphereManager.Creator.CreateSphereManager(width, height, SphereManagerConfig);
             }
-            public static Color32 GetColor(int index)
+            static Color32 GetBaseColor(int index)
             {
                 Color32 dst = World.world.world_layer.pixels[index];
 
@@ -387,6 +387,93 @@ namespace WorldSphereMod
 
                 return new Color32((byte)r, (byte)g, (byte)b, (byte)Mathf.Clamp(a, 0, 255));
             }
+            static Color32 BlendBiomeColor(int index, Color32 fallback)
+            {
+                if (World.world == null || World.world.tiles_list == null || index < 0 || index >= World.world.tiles_list.Count)
+                {
+                    return fallback;
+                }
+
+                WorldTile center = World.world.tiles_list[index];
+                const int radius = 2;
+                float totalWeight = 0f;
+                float r = 0f;
+                float g = 0f;
+                float b = 0f;
+                float a = 0f;
+
+                for (int dy = -radius; dy <= radius; dy++)
+                {
+                    int y = center.y + dy;
+                    if (y < 0 || y >= MapBox.height)
+                    {
+                        continue;
+                    }
+
+                    for (int dx = -radius; dx <= radius; dx++)
+                    {
+                        float distance = Mathf.Sqrt((dx * dx) + (dy * dy));
+                        if (distance > radius)
+                        {
+                            continue;
+                        }
+
+                        int x = center.x + dx;
+                        if (Core.Sphere.IsWrapped)
+                        {
+                            x = (int)Tools.MathStuff.Wrap(x, 0, MapBox.width);
+                        }
+                        else if (x < 0 || x >= MapBox.width)
+                        {
+                            continue;
+                        }
+
+                        WorldTile sample = World.world.GetTileSimple(x, y);
+                        if (sample == null)
+                        {
+                            continue;
+                        }
+
+                        Color32 sampleColor = GetBaseColor(sample.data.tile_id);
+                        if (sampleColor.a == 0)
+                        {
+                            continue;
+                        }
+
+                        float weight = 1f - (distance / (radius + 1f));
+                        if (weight <= 0f)
+                        {
+                            continue;
+                        }
+
+                        totalWeight += weight;
+                        r += sampleColor.r * weight;
+                        g += sampleColor.g * weight;
+                        b += sampleColor.b * weight;
+                        a += sampleColor.a * weight;
+                    }
+                }
+
+                if (totalWeight <= 0f)
+                {
+                    return fallback;
+                }
+
+                return new Color32(
+                    (byte)Mathf.Clamp(Mathf.RoundToInt(r / totalWeight), 0, 255),
+                    (byte)Mathf.Clamp(Mathf.RoundToInt(g / totalWeight), 0, 255),
+                    (byte)Mathf.Clamp(Mathf.RoundToInt(b / totalWeight), 0, 255),
+                    (byte)Mathf.Clamp(Mathf.RoundToInt(a / totalWeight), 0, 255));
+            }
+            public static Color32 GetColor(int index)
+            {
+                Color32 baseColor = GetBaseColor(index);
+                if (!Core.savedSettings.BiomeBlending)
+                {
+                    return baseColor;
+                }
+                return BlendBiomeColor(index, baseColor);
+            }
             public static Color GetAddedColor(int Index)
             {
                 return FlashLayer.pixels[Index].Normalised();
@@ -404,6 +491,14 @@ namespace WorldSphereMod
                 Manager.RefreshScales();
                 Manager.RefreshTextures();
                 Manager.RefreshCustom("AddedColors");
+                RefreshColors();
+            }
+            public static void RefreshColors()
+            {
+                if (Manager == null)
+                {
+                    return;
+                }
                 Manager.RefreshColors();
             }
             public static void UpdateLayer(SphereTile Tile)

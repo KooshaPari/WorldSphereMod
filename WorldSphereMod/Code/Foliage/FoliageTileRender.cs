@@ -97,6 +97,15 @@ namespace WorldSphereMod.Foliage
             Quaternion rot = Tools.GetRotation(pTile.pos);
             Matrix4x4 trs = Matrix4x4.TRS(pos3, rot, Vector3.one);
 
+            if (!t.road && t.life && Core.savedSettings.CrossedQuadFoliage)
+            {
+                WorldSphereMod.Fx.Environmental.EnqueueLeaf(pos3);
+                if (Core.savedSettings.DayNightCycle)
+                {
+                    WorldSphereMod.Fx.Environmental.EnqueueFirefly(pos3);
+                }
+            }
+
             MeshInstanceBatcher.Submit(mesh, mat, trs, Color.white);
 
             // Update the diff memo. The cached sprite reference lets a future

@@ -211,6 +211,7 @@ namespace WorldSphereMod.UI
                 new ButtonData("voxel_entities",       "voxel_entities_description",       "WorldSphereMod/Round",        Core.savedSettings.VoxelEntities,       TogglePhase_VoxelEntities),
                 new ButtonData("procedural_buildings", "procedural_buildings_description", "WorldSphereMod/World",         Core.savedSettings.ProceduralBuildings, TogglePhase_ProceduralBuildings),
                 new ButtonData("crossed_quad_foliage", "crossed_quad_foliage_description", "WorldSphereMod/Flat",          Core.savedSettings.CrossedQuadFoliage, TogglePhase_CrossedQuadFoliage),
+                new ButtonData("biome_blending",       "biome_blending_description",       "WorldSphereMod/World",         Core.savedSettings.BiomeBlending,       ToggleBiomeBlending),
                 new ButtonData("mesh_water",           "mesh_water_description",           "WorldSphereMod/PerlinNoise",   Core.savedSettings.MeshWater,           TogglePhase_MeshWater),
                 new ButtonData("high_shadows",         "high_shadows_description",         "WorldSphereMod/SkyBox",        Core.savedSettings.HighShadows,         TogglePhase_HighShadows),
                 new ButtonData("skeletal_animation",   "skeletal_animation_description",   "WorldSphereMod/Rotate",        Core.savedSettings.SkeletalAnimation,   TogglePhase_SkeletalAnimation),
@@ -233,6 +234,15 @@ namespace WorldSphereMod.UI
         static void TogglePhase_VoxelEntities(string _)       { Core.savedSettings.VoxelEntities       = !Core.savedSettings.VoxelEntities;       Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.VoxelEntities),       Core.savedSettings.VoxelEntities); }
         static void TogglePhase_ProceduralBuildings(string _) { Core.savedSettings.ProceduralBuildings = !Core.savedSettings.ProceduralBuildings; Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.ProceduralBuildings), Core.savedSettings.ProceduralBuildings); }
         static void TogglePhase_CrossedQuadFoliage(string _)  { Core.savedSettings.CrossedQuadFoliage  = !Core.savedSettings.CrossedQuadFoliage;  Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.CrossedQuadFoliage),  Core.savedSettings.CrossedQuadFoliage); }
+        static void ToggleBiomeBlending(string _)
+        {
+            Core.savedSettings.BiomeBlending = !Core.savedSettings.BiomeBlending;
+            Core.SaveSettings();
+            if (Core.IsWorld3D)
+            {
+                Core.Sphere.RefreshColors();
+            }
+        }
         static void TogglePhase_MeshWater(string _)           { Core.savedSettings.MeshWater           = !Core.savedSettings.MeshWater;           Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.MeshWater),           Core.savedSettings.MeshWater); }
         static void TogglePhase_HighShadows(string _)         { Core.savedSettings.HighShadows         = !Core.savedSettings.HighShadows;         Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.HighShadows),         Core.savedSettings.HighShadows); }
         static void TogglePhase_SkeletalAnimation(string _)   { Core.savedSettings.SkeletalAnimation   = !Core.savedSettings.SkeletalAnimation;   Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.SkeletalAnimation),   Core.savedSettings.SkeletalAnimation); }
@@ -251,6 +261,7 @@ namespace WorldSphereMod.UI
             bool previousVoxelEntities = Core.savedSettings.VoxelEntities;
             bool previousProceduralBuildings = Core.savedSettings.ProceduralBuildings;
             bool previousCrossedQuadFoliage = Core.savedSettings.CrossedQuadFoliage;
+            bool previousBiomeBlending = Core.savedSettings.BiomeBlending;
             bool previousMeshWater = Core.savedSettings.MeshWater;
             bool previousHighShadows = Core.savedSettings.HighShadows;
             bool previousSkeletalAnimation = Core.savedSettings.SkeletalAnimation;
@@ -265,6 +276,7 @@ namespace WorldSphereMod.UI
             if (previousVoxelEntities != Core.savedSettings.VoxelEntities)               Core.ApplyPhaseToggle(nameof(SavedSettings.VoxelEntities),       Core.savedSettings.VoxelEntities);
             if (previousProceduralBuildings != Core.savedSettings.ProceduralBuildings)   Core.ApplyPhaseToggle(nameof(SavedSettings.ProceduralBuildings), Core.savedSettings.ProceduralBuildings);
             if (previousCrossedQuadFoliage != Core.savedSettings.CrossedQuadFoliage)     Core.ApplyPhaseToggle(nameof(SavedSettings.CrossedQuadFoliage),  Core.savedSettings.CrossedQuadFoliage);
+            if (previousBiomeBlending != Core.savedSettings.BiomeBlending && Core.IsWorld3D) Core.Sphere.RefreshColors();
             if (previousMeshWater != Core.savedSettings.MeshWater)                       Core.ApplyPhaseToggle(nameof(SavedSettings.MeshWater),           Core.savedSettings.MeshWater);
             if (previousHighShadows != Core.savedSettings.HighShadows)                   Core.ApplyPhaseToggle(nameof(SavedSettings.HighShadows),         Core.savedSettings.HighShadows);
             if (previousSkeletalAnimation != Core.savedSettings.SkeletalAnimation)       Core.ApplyPhaseToggle(nameof(SavedSettings.SkeletalAnimation),   Core.savedSettings.SkeletalAnimation);

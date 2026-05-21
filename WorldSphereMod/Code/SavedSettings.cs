@@ -45,6 +45,8 @@ namespace WorldSphereMod
         public bool BuildingStyleProcgen = false;
         // Phase 3: Crossed-quad foliage (vs. billboarded sprite top tiles).
         public bool CrossedQuadFoliage = true;
+        // Terrain polish: blend biome colors across tile boundaries.
+        public bool BiomeBlending = false;
         // Phase 4: Mesh water surface (vs. flat tile color).
         public bool MeshWater = false;
         // Phase 5: Directional sun + cascaded shadow maps.
@@ -55,7 +57,9 @@ namespace WorldSphereMod
         public bool WorldspaceUI = true;
         // Phase 8: Day/night cycle + procedural sky + fog.
         public bool DayNightCycle = false;
-        public float FogDensity = 0.0f;
+        // Keep a visible starter density so Phase 8 fog is actually apparent on
+        // a fresh reset without requiring a separate hidden slider.
+        public float FogDensity = 0.0125f;
         // Phase 9: URP post-processing (bloom, color grading, vignette).
         public bool PostFX = false;
         public bool ParticleEffects = true;

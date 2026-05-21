@@ -26,6 +26,7 @@ namespace WorldSphereMod.Voxel
             try { WorldSphereMod.Rig.RigDriver.Clear(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] RigDriver.Clear: " + e.Message); }
             try { WorldSphereMod.LOD.ImpostorBillboard.Clear(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] ImpostorBillboard.Clear: " + e.Message); }
             try { WorldSphereMod.LOD.LodSelector.ResetHysteresis(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] LodSelector.ResetHysteresis: " + e.Message); }
+            try { WorldSphereMod.Fx.Environmental.Clear(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] Environmental.Clear: " + e.Message); }
             try { WorldSphereMod.Voxel.VoxelRender.Reset(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] VoxelRender.Reset: " + e.Message); }
             try { WorldSphereMod.Voxel.MeshInstanceBatcher.Reset(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] MeshInstanceBatcher.Reset: " + e.Message); }
             try { WorldSphereMod.Foliage.FoliageTileRender.ClearCache(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] FoliageTileRender.ClearCache: " + e.Message); }

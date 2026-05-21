@@ -78,6 +78,13 @@ namespace WorldSphereMod.TileMapToSphere
             }
             return true;
         }
+        static void Postfix()
+        {
+            if (Core.IsWorld3D && Core.savedSettings.BiomeBlending)
+            {
+                TileMapToSphere.MarkBiomeBlendDirty();
+            }
+        }
     }
     public class TileQueue
     {
@@ -127,6 +134,7 @@ namespace WorldSphereMod.TileMapToSphere
     [HarmonyPatch(typeof(WorldTilemap), nameof(WorldTilemap.redrawTiles))]
     public static class TileMapToSphere
     {
+        static bool _biomeBlendDirty;
         public static void AddToQueue(WorldTile pTile)
         {
             ScaleQueue.AddTile(pTile);
@@ -163,6 +171,10 @@ namespace WorldSphereMod.TileMapToSphere
             ColorQueue?.Dispose();
             TextureQueue?.Dispose();
             ScaleQueue?.Dispose();
+        }
+        public static void MarkBiomeBlendDirty()
+        {
+            _biomeBlendDirty = true;
         }
         public static bool Prefix(bool pForceAll)
         {
@@ -243,6 +255,11 @@ namespace WorldSphereMod.TileMapToSphere
                 checkZoneToRender(tZone2);
             }
             Finish();
+            if (_biomeBlendDirty && Core.savedSettings.BiomeBlending)
+            {
+                _biomeBlendDirty = false;
+                Core.Sphere.RefreshColors();
+            }
         }
         static void Finish()
         {

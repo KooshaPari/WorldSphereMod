@@ -12,6 +12,9 @@ namespace WorldSphereMod.Fx
     /// </summary>
     public static class VoxelParticleBurst
     {
+        const float DefaultDurationSeconds = 1.5f;
+        const float ScaleMultiplier = 2.0f;
+
         struct BurstProfile
         {
             public readonly float Duration;
@@ -39,12 +42,12 @@ namespace WorldSphereMod.Fx
         static readonly Dictionary<int, BurstState> _active = new Dictionary<int, BurstState>(16);
         static readonly Dictionary<string, BurstProfile> _profiles = new Dictionary<string, BurstProfile>
         {
-            ["fx_meteorite"] = new BurstProfile(0.60f, 0.18f, 0.70f),
-            ["fx_explosion_wave"] = new BurstProfile(0.42f, 0.15f, 0.60f),
-            ["fx_fire_smoke"] = new BurstProfile(1.10f, 0.20f, 0.58f),
-            ["fx_antimatter_effect"] = new BurstProfile(0.85f, 0.18f, 0.66f),
-            ["fx_napalm_flash"] = new BurstProfile(0.34f, 0.12f, 0.52f),
-            ["fx_cloud"] = new BurstProfile(1.20f, 0.18f, 0.62f),
+            ["fx_meteorite"] = new BurstProfile(DefaultDurationSeconds, 0.18f, 0.70f),
+            ["fx_explosion_wave"] = new BurstProfile(DefaultDurationSeconds, 0.15f, 0.60f),
+            ["fx_fire_smoke"] = new BurstProfile(DefaultDurationSeconds, 0.20f, 0.58f),
+            ["fx_antimatter_effect"] = new BurstProfile(DefaultDurationSeconds, 0.18f, 0.66f),
+            ["fx_napalm_flash"] = new BurstProfile(DefaultDurationSeconds, 0.12f, 0.52f),
+            ["fx_cloud"] = new BurstProfile(DefaultDurationSeconds, 0.18f, 0.62f),
         };
 
         static Transform GetRenderTransform(BaseEffect effect)
@@ -123,16 +126,11 @@ namespace WorldSphereMod.Fx
             {
                 Mesh = mesh,
                 Material = material,
-                BaseScale = renderTransform.localScale,
+                BaseScale = renderTransform.localScale * ScaleMultiplier,
                 BaseTint = effect.sprite_renderer != null ? effect.sprite_renderer.color : Color.white,
                 StartedAt = Time.time,
                 Profile = profile,
             };
-
-            if (effect.sprite_renderer != null)
-            {
-                effect.sprite_renderer.enabled = false;
-            }
 
             return true;
         }
@@ -158,7 +156,7 @@ namespace WorldSphereMod.Fx
             }
 
             float elapsed = Time.time - state.StartedAt;
-            float duration = Mathf.Max(0.01f, state.Profile.Duration);
+            float duration = Mathf.Max(0.01f, state.Profile.Duration > 0f ? state.Profile.Duration : DefaultDurationSeconds);
             float t = Mathf.Clamp01(elapsed / duration);
 
             if (t >= 1f)
