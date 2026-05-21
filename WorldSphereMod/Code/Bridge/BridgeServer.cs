@@ -517,6 +517,18 @@ namespace WorldSphereMod.Bridge
             return new { ok = true, path, generatedAtUtc = dump.generatedAtUtc, meshCount = snapshots.Count };
         }
 
+        static object PodVector3(UnityEngine.Vector3 v) => new { x = v.x, y = v.y, z = v.z };
+        static object PodBounds(WorldSphereMod.Voxel.VoxelMeshCache.MeshBoundsSnapshot b)
+            => b == null ? null : (object)new { min = new { x = b.min.x, y = b.min.y, z = b.min.z }, max = new { x = b.max.x, y = b.max.y, z = b.max.z } };
+        static List<object> PodVertices(List<UnityEngine.Vector3> verts, int max = 64)
+        {
+            var o = new List<object>(System.Math.Min(verts == null ? 0 : verts.Count, max));
+            if (verts == null) return o;
+            int n = System.Math.Min(verts.Count, max);
+            for (int i = 0; i < n; i++) o.Add(new { x = verts[i].x, y = verts[i].y, z = verts[i].z });
+            return o;
+        }
+
         static object BuildVoxelSnapshotPayload(WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot snapshot)
         {
             return new
@@ -527,8 +539,8 @@ namespace WorldSphereMod.Bridge
                 meshName = snapshot.meshName,
                 vertexCount = snapshot.vertexCount,
                 triangleCount = snapshot.triangleCount,
-                bounds = snapshot.bounds,
-                vertices = snapshot.vertices,
+                bounds = PodBounds(snapshot.bounds),
+                vertices = PodVertices(snapshot.vertices),
                 triangles = snapshot.triangles,
                 colors = snapshot.colors,
                 invariants = snapshot.invariants
@@ -544,7 +556,7 @@ namespace WorldSphereMod.Bridge
                 meshName = snapshot.meshName,
                 vertexCount = snapshot.vertexCount,
                 triangleCount = snapshot.triangleCount,
-                bounds = snapshot.bounds,
+                bounds = PodBounds(snapshot.bounds),
                 invariants = snapshot.invariants
             };
         }
