@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using UnityEngine;
 using WorldSphereMod;
 using WorldSphereMod.Rig;
@@ -56,17 +55,34 @@ namespace WorldSphereMod.Voxel
             public ulong LastFrame;
         }
 
+        struct BuildRequest
+        {
+            public Sprite Sprite;
+            public int Key;
+            public int Depth;
+        }
+
+        struct BuildCompletion
+        {
+            public int Key;
+            public Sprite Sprite;
+            public Mesh Mesh;
+            public MeshSnapshot Snapshot;
+            public string InflationStyle;
+            public bool BuildFailed;
+        }
+
         static readonly object _lock = new object();
         static readonly Dictionary<int, Entry> _cache = new Dictionary<int, Entry>(1024);
         static readonly HashSet<int> _diagnosedSprites = new HashSet<int>();
         static readonly HashSet<string> _invalidVoxelStyles = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
-        static readonly Queue<Sprite> _warmQueue = new Queue<Sprite>();
-        static readonly HashSet<int> _warmQueuedSprites = new HashSet<int>();
+        static readonly ConcurrentQueue<BuildCompletion> _completedBuilds = new ConcurrentQueue<BuildCompletion>();
+        static readonly HashSet<int> _pendingBuilds = new HashSet<int>();
         // Evict() can't Destroy a mesh that may still be queued in the batcher for this frame;
         // queue it here and let VoxelFrameDriver drain after MeshInstanceBatcher.Flush().
         static readonly Queue<Mesh> _pendingDestroy = new Queue<Mesh>();
         static ulong _frame;
-        static int _warmBudgetMsPerFrame = 5;
+        static Mesh _placeholderMesh;
         static long _hits;
         static long _misses;
 
@@ -195,39 +211,189 @@ namespace WorldSphereMod.Voxel
                     return e.Mesh;
                 }
             }
-            // Build outside the lock — Mesh construction touches Unity APIs that
-            // shouldn't be held under a lock, and Get() always runs on the main thread.
+
             System.Threading.Interlocked.Increment(ref _misses);
-            Mesh m = BuildVoxelMesh(sprite, depth, out _, out string inflationStyle);
-            Debug.Log($"[WSM3D] VoxelMeshCache.Get style=\"{inflationStyle}\" sprite=\"{sprite.name}\" vertexCount={m?.vertexCount ?? 0}");
-            if (m != null && Core.savedSettings.VoxelMeshSmoothing)
-            {
-                // ADR-0008: Laplacian smoothing converts blocky voxel stair-steps
-                // into a rounded 'blob' silhouette. Smooth returns a copy via
-                // Object.Instantiate; destroy the raw mesh so we don't leak it.
-                Mesh smoothed = MeshSmoother.Smooth(m, Core.savedSettings.SmoothingIterations);
-                if (smoothed != null && !ReferenceEquals(smoothed, m))
-                {
-                    UnityEngine.Object.Destroy(m);
-                    m = smoothed;
-                }
-            }
-            MeshSnapshot snapshot = m != null ? CreateSnapshot(sprite, m, m.vertices, m.colors32, m.triangles) : null;
-            LogVoxelizedSprite(sprite, m, inflationStyle);
-            if (m == null || m.vertexCount == 0)
-            {
-                return null;
-            }
+            EnqueueBuild(sprite, depth, key);
+            return GetPlaceholderVoxelMesh();
+        }
+
+        static void EnqueueBuild(Sprite sprite, int depth, int key)
+        {
             lock (_lock)
             {
-                _cache[key] = new Entry { Mesh = m, Snapshot = snapshot, LastFrame = _frame };
+                if (_cache.ContainsKey(key) || _pendingBuilds.Contains(key))
+                {
+                    return;
+                }
+
+                _cache[key] = new Entry { Mesh = GetPlaceholderVoxelMesh(), Snapshot = null, LastFrame = _frame };
+                _pendingBuilds.Add(key);
                 if (_cache.Count > Capacity) Evict();
             }
-            return m;
+
+            var request = new BuildRequest { Sprite = sprite, Key = key, Depth = depth };
+            System.Threading.Tasks.Task.Run(() => BuildVoxelMeshAsync(request))
+                .ContinueWith(task =>
+                {
+                    if (task == null || !task.IsCompleted)
+                    {
+                        return;
+                    }
+
+                    if (task.IsFaulted)
+                    {
+                        _completedBuilds.Enqueue(new BuildCompletion
+                        {
+                            Key = key,
+                            Sprite = sprite,
+                            Mesh = null,
+                            Snapshot = null,
+                            InflationStyle = null,
+                            BuildFailed = true
+                        });
+                        return;
+                    }
+
+                    _completedBuilds.Enqueue(task.Result);
+                }, System.Threading.Tasks.TaskContinuationOptions.ExecuteSynchronously);
+        }
+
+        static BuildCompletion BuildVoxelMeshAsync(BuildRequest request)
+        {
+            Mesh m = BuildVoxelMesh(request.Sprite, request.Depth, out int[] vertexToTexel, out string inflationStyle);
+            MeshSnapshot snapshot = m != null ? CreateSnapshot(request.Sprite, m, m.vertices, m.colors32, m.triangles) : null;
+            return new BuildCompletion
+            {
+                Key = request.Key,
+                Sprite = request.Sprite,
+                Mesh = m,
+                Snapshot = snapshot,
+                InflationStyle = inflationStyle,
+                BuildFailed = m == null || m.vertexCount == 0 || vertexToTexel == null,
+            };
         }
 
         /// <summary>
-        /// Build a voxel mesh plus per-vertex rigid bone assignment for skeletal-tier
+        /// Apply up to <paramref name="maxCompletionsPerFrame"/> completed async builds.
+        /// </summary>
+        public static void DrainCompletedBuilds(int maxCompletionsPerFrame = 8)
+        {
+            int drained = 0;
+            while (drained < maxCompletionsPerFrame && _completedBuilds.TryDequeue(out BuildCompletion completion))
+            {
+                lock (_lock)
+                {
+                    _pendingBuilds.Remove(completion.Key);
+                }
+
+                if (completion.BuildFailed || completion.Mesh == null || completion.Mesh.vertexCount == 0)
+                {
+                    continue;
+                }
+
+                Mesh mesh = completion.Mesh;
+                if (mesh != null && Core.savedSettings.VoxelMeshSmoothing)
+                {
+                    Mesh smoothed = MeshSmoother.Smooth(mesh, Core.savedSettings.SmoothingIterations);
+                    if (smoothed != null && !ReferenceEquals(smoothed, mesh))
+                    {
+                        UnityEngine.Object.Destroy(mesh);
+                        mesh = smoothed;
+                        completion.Snapshot = CreateSnapshot(completion.Sprite, mesh, mesh.vertices, mesh.colors32, mesh.triangles);
+                    }
+                }
+
+                if (completion.Snapshot == null)
+                {
+                    completion.Snapshot = CreateSnapshot(completion.Sprite, mesh, mesh.vertices, mesh.colors32, mesh.triangles);
+                }
+
+                LogVoxelizedSprite(completion.Sprite, mesh, completion.InflationStyle);
+                lock (_lock)
+                {
+                    if (_cache.TryGetValue(completion.Key, out Entry existing))
+                    {
+                        if (existing.Mesh != null && !ReferenceEquals(existing.Mesh, _placeholderMesh))
+                        {
+                            _pendingDestroy.Enqueue(existing.Mesh);
+                        }
+                    }
+
+                    _cache[completion.Key] = new Entry { Mesh = mesh, Snapshot = completion.Snapshot, LastFrame = _frame };
+                    if (_cache.Count > Capacity) Evict();
+                }
+
+                drained++;
+            }
+        }
+
+        static Mesh GetPlaceholderVoxelMesh()
+        {
+            if (_placeholderMesh != null) return _placeholderMesh;
+
+            lock (_lock)
+            {
+                if (_placeholderMesh != null) return _placeholderMesh;
+                _placeholderMesh = BuildPlaceholderMesh();
+                return _placeholderMesh;
+            }
+        }
+
+        static Mesh BuildPlaceholderMesh()
+        {
+            const float h = 0.5f;
+            var mesh = new Mesh { name = "WSM3D.Voxel.Placeholder" };
+            Vector3[] vertices =
+            {
+                new Vector3(-h, -h, -h),
+                new Vector3(h, -h, -h),
+                new Vector3(h, h, -h),
+                new Vector3(-h, h, -h),
+                new Vector3(-h, -h, h),
+                new Vector3(h, -h, h),
+                new Vector3(h, h, h),
+                new Vector3(-h, h, h),
+                new Vector3(-h, -h, -h),
+                new Vector3(-h, h, -h),
+                new Vector3(-h, h, h),
+                new Vector3(-h, -h, h),
+                new Vector3(h, -h, -h),
+                new Vector3(h, h, -h),
+                new Vector3(h, h, h),
+                new Vector3(h, -h, h),
+                new Vector3(-h, h, -h),
+                new Vector3(h, h, -h),
+                new Vector3(h, h, h),
+                new Vector3(-h, h, h),
+                new Vector3(-h, -h, -h),
+                new Vector3(h, -h, -h),
+                new Vector3(h, -h, h),
+                new Vector3(-h, -h, h),
+            };
+            int[] triangles =
+            {
+                0, 2, 1, 0, 3, 2,
+                4, 5, 6, 4, 6, 7,
+                0, 1, 5, 0, 5, 4,
+                3, 7, 6, 3, 6, 2,
+                0, 4, 7, 0, 7, 3,
+                1, 2, 6, 1, 6, 5,
+            };
+            Color32[] colors = new Color32[vertices.Length];
+            for (int i = 0; i < colors.Length; i++)
+            {
+                colors[i] = Color.magenta;
+            }
+
+            mesh.vertices = vertices;
+            mesh.triangles = triangles;
+            mesh.colors32 = colors;
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        /// <summary>
         /// actors. Humanoid rigs use the sprite's local Y bands to split head, torso,
         /// arm, and leg voxels into one-bone skin regions.
         /// </summary>
@@ -304,106 +470,6 @@ namespace WorldSphereMod.Voxel
             };
         }
 
-        /// <summary>
-        /// Queue sprites for budgeted voxel-mesh warmup. Work is drained from
-        /// <see cref="VoxelFrameDriver.LateUpdate"/> via <see cref="DrainWarmCacheTick"/>.
-        /// </summary>
-        public static void WarmCacheAsync(IEnumerable<Sprite> sprites, int msBudgetPerFrame = 5)
-        {
-            if (sprites == null) return;
-
-            lock (_lock)
-            {
-                _warmBudgetMsPerFrame = msBudgetPerFrame > 0 ? msBudgetPerFrame : 1;
-
-                foreach (var sprite in sprites)
-                {
-                    if (!ShouldWarmSprite(sprite)) continue;
-
-                    int key = sprite.GetInstanceID();
-                    if (_cache.ContainsKey(key) || _warmQueuedSprites.Contains(key)) continue;
-
-                    _warmQueue.Enqueue(sprite);
-                    _warmQueuedSprites.Add(key);
-                }
-            }
-        }
-
-        /// <summary>Advance the frame counter; call once per render frame.</summary>
-        public static void Tick()
-        {
-            lock (_lock) _frame++;
-        }
-
-        /// <summary>
-        /// Drain queued warm-cache work for a bounded amount of time. Call once per
-        /// frame from <see cref="VoxelFrameDriver.LateUpdate"/>.
-        /// </summary>
-        public static void DrainWarmCacheTick()
-        {
-            int budgetMs;
-            lock (_lock)
-            {
-                budgetMs = _warmBudgetMsPerFrame;
-            }
-
-            if (budgetMs <= 0) return;
-
-            Stopwatch sw = Stopwatch.StartNew();
-            var batch = new List<Sprite>();
-            while (sw.ElapsedMilliseconds < budgetMs)
-            {
-                Sprite sprite = null;
-
-                lock (_lock)
-                {
-                    while (_warmQueue.Count > 0)
-                    {
-                        sprite = _warmQueue.Dequeue();
-                        if (sprite == null) continue;
-
-                        int key = sprite.GetInstanceID();
-                        _warmQueuedSprites.Remove(key);
-
-                        if (sprite.texture == null) { sprite = null; continue; }
-                        if (IsPerpSprite(sprite)) { sprite = null; continue; }
-                        if (_cache.ContainsKey(key)) { sprite = null; continue; }
-                        break;
-                    }
-
-                    if (sprite == null)
-                    {
-                        break;
-                    }
-                }
-
-                batch.Add(sprite);
-            }
-
-            if (batch.Count == 0) return;
-
-            if (batch.Count == 1)
-            {
-                Mesh mesh = BuildVoxelMesh(batch[0], -1, out _);
-                MeshSnapshot snapshot = mesh != null ? CreateSnapshot(batch[0], mesh, mesh.vertices, mesh.colors32, mesh.triangles) : null;
-                CacheWarmSprite(batch[0], mesh, snapshot);
-                return;
-            }
-
-            var built = new ConcurrentQueue<(Sprite Sprite, Mesh Mesh, MeshSnapshot Snapshot)>();
-            System.Threading.Tasks.Parallel.ForEach(batch, sprite =>
-            {
-                Mesh mesh = BuildVoxelMesh(sprite, -1, out _);
-                MeshSnapshot snapshot = mesh != null ? CreateSnapshot(sprite, mesh, mesh.vertices, mesh.colors32, mesh.triangles) : null;
-                built.Enqueue((sprite, mesh, snapshot));
-            });
-
-            while (built.TryDequeue(out var result))
-            {
-                CacheWarmSprite(result.Sprite, result.Mesh, result.Snapshot);
-            }
-        }
-
         /// <summary>Wipe everything. Call when the world reloads.</summary>
         public static void Clear()
         {
@@ -416,11 +482,24 @@ namespace WorldSphereMod.Voxel
                 _cache.Clear();
                 _diagnosedSprites.Clear();
                 _pendingDestroy.Clear();
-                _warmQueue.Clear();
-                _warmQueuedSprites.Clear();
+                _pendingBuilds.Clear();
+                while (_completedBuilds.TryDequeue(out _))
+                {
+                }
+                if (_placeholderMesh != null)
+                {
+                    UnityEngine.Object.Destroy(_placeholderMesh);
+                    _placeholderMesh = null;
+                }
             }
             System.Threading.Interlocked.Exchange(ref _hits, 0);
             System.Threading.Interlocked.Exchange(ref _misses, 0);
+        }
+
+        /// <summary>Advance the frame counter; call once per render frame.</summary>
+        public static void Tick()
+        {
+            lock (_lock) _frame++;
         }
 
         /// <summary>Destroy meshes queued by <see cref="Evict"/>. Call once per frame after the batcher flushes.</summary>
@@ -539,41 +618,6 @@ namespace WorldSphereMod.Voxel
             return "pertexel";
         }
 
-        static bool IsPerpSprite(Sprite sprite)
-        {
-            if (sprite == null) return false;
-
-            string name = sprite.name;
-            return (!string.IsNullOrEmpty(name) && (Constants.PerpActors.ContainsKey(name) || Constants.PerpBuildings.ContainsKey(name)));
-        }
-
-        static bool ShouldWarmSprite(Sprite sprite)
-        {
-            return sprite != null && sprite.texture != null && !IsPerpSprite(sprite);
-        }
-
-        static void CacheWarmSprite(Sprite sprite, Mesh mesh, MeshSnapshot snapshot)
-        {
-            LogVoxelizedSprite(sprite, mesh, "warmup");
-            if (sprite == null || mesh == null || mesh.vertexCount == 0)
-            {
-                return;
-            }
-
-            int warmKey = sprite.GetInstanceID();
-            lock (_lock)
-            {
-                if (_cache.ContainsKey(warmKey))
-                {
-                    _pendingDestroy.Enqueue(mesh);
-                    return;
-                }
-
-                _cache[warmKey] = new Entry { Mesh = mesh, Snapshot = snapshot, LastFrame = _frame };
-                if (_cache.Count > Capacity) Evict();
-            }
-        }
-
         static BoneId[] BuildHumanoidSegments(Sprite sprite)
         {
             if (sprite == null || sprite.texture == null || !sprite.texture.isReadable)
@@ -604,3 +648,5 @@ namespace WorldSphereMod.Voxel
         }
     }
 }
+
+

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
@@ -32,15 +33,19 @@ namespace WorldSphereMod.Voxel
         // sprites; without this, each sprite voxelization re-paid the cost of decoding the
         // entire atlas via GetPixels32(). Keyed by Texture.GetInstanceID() so atlas swap-outs
         // and texture deletions invalidate naturally via ClearPixelCache() at world unload.
-        static readonly Dictionary<int, Color32[]> _texPixelCache = new Dictionary<int, Color32[]>(64);
+        static readonly ConcurrentDictionary<int, Color32[]> _texPixelCache = new ConcurrentDictionary<int, Color32[]>();
 
         internal static Color32[] GetPixelsCached(Texture2D tex)
         {
             int key = tex.GetInstanceID();
-            if (_texPixelCache.TryGetValue(key, out var px)) return px;
+            if (_texPixelCache.TryGetValue(key, out var px))
+            {
+                return px;
+            }
+
             px = tex.GetPixels32();
-            _texPixelCache[key] = px;
-            return px;
+            var cached = _texPixelCache.GetOrAdd(key, px);
+            return cached;
         }
 
         /// <summary>Drop the per-texture pixel cache. Wire into world unload so stale atlas
@@ -55,6 +60,8 @@ namespace WorldSphereMod.Voxel
         /// path the terrain uses (<see cref="Tools.PixelsFromSpriteAtlas"/>) when the sprite
         /// rect is &lt;= 8x8, otherwise uses the full sprite rect. Caller is responsible for
         /// caching the result; see <see cref="VoxelMeshCache"/>.
+        /// This method is used from background cache-build workers and avoids shared mutable
+        /// state during mesh generation.
         /// </summary>
         public static Mesh Build(Sprite sprite, int depth = -1)
         {

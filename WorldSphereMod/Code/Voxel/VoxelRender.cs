@@ -658,7 +658,7 @@ namespace WorldSphereMod.Voxel
                 VoxelMeshCache.DrainPendingDestroy();
             }
 
-            VoxelMeshCache.DrainWarmCacheTick();
+            VoxelMeshCache.DrainCompletedBuilds(8);
 
             if (Core.savedSettings.DebugSanityCube)
             {
