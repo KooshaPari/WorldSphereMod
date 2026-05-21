@@ -86,10 +86,15 @@ namespace WorldSphereMod
             InitProfiler.Measure("WorldSphereTab.Begin", () => WorldSphereTab.Begin());
             InitProfiler.Measure("DimensionConverter.Prepare", () => DimensionConverter.Prepare());
             InitProfiler.Measure("Patch", () => Patch());
-            InitProfiler.Measure("McPackLoader.Initialize", () =>
+            // Gated: McPack bundle competes with worldsphere main bundle (NML's
+            // AssetBundleUtils throws NRE on duplicate file IDs). Opt-in only.
+            if (Core.savedSettings != null && Core.savedSettings.EnableMcPackTextures)
             {
-                WorldSphereMod.Textures.McPackLoader.Initialize();
-            });
+                InitProfiler.Measure("McPackLoader.Initialize", () =>
+                {
+                    WorldSphereMod.Textures.McPackLoader.Initialize();
+                });
+            }
             InitProfiler.Measure("Lighting.SunDriver.Init", () =>
             {
                 if (Core.IsWorld3D)

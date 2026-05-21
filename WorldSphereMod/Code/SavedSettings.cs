@@ -4,7 +4,7 @@ namespace WorldSphereMod
     [Serializable]
 public class SavedSettings
 {
-    public bool AutoScreenshotEnabled = false;
+    public bool AutoScreenshotEnabled = true;
     public float AutoScreenshotIntervalSeconds = 30f;
     public string AutoScreenshotPath = @"C:\Users\koosh\Dev\WorldSphereMod\docs\journeys\scratch\";
 
@@ -33,6 +33,7 @@ public class SavedSettings
         public bool UseBRG = false;
         // ADR-0008: optional post-mesh Laplacian smoothing for voxel output.
         public bool VoxelMeshSmoothing = true;
+        public bool EnableMcPackTextures = false;
         public int SmoothingIterations = 2;
         // Sprite voxel extrusion depth: 1 keeps the old slab, 3 is the cheapest
         // setting that reads as actual 3D depth at a glance.
