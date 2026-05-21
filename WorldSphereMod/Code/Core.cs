@@ -633,6 +633,11 @@ namespace WorldSphereMod
             static void LoadAssets()
             {
                 WrappedAssetBundle ab = AssetBundleUtils.GetAssetBundle("worldsphere");
+                if (ab == null)
+                {
+                    Debug.LogError("[WSM3D] AssetBundleUtils.GetAssetBundle('worldsphere') returned null — likely an NML duplicate-bundle conflict. Skipping LoadAssets. Mesh/material/skybox not available this session.");
+                    return;
+                }
                 CompoundSphereMesh = ab.GetObject<Mesh>("assets/worldspheremod/compoundspheremesh.asset");
                 CompoundSphereMaterial = ab.GetObject<Material>("assets/worldspheremod/compoundspherematerial.mat");
                 CameraManager.Begin(ab.GetObject<Material>("assets/worldspheremod/SkyBox.mat").shader);
