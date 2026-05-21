@@ -437,6 +437,15 @@ namespace WorldSphereMod.QuantumSprites
         {
             CodeMatcher Matcher = new CodeMatcher(instructions, generator);
             Matcher.MatchForward(false, new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.set), new Type[] { typeof(Vector3).MakeByRefType(), typeof(float) })));
+            // Pattern can fail to match after vanilla IL updates — guard before
+            // RemoveInstruction so we don't throw ArgumentOutOfRangeException
+            // (which Harmony wraps in IL Compile Error and aborts the whole
+            // Patcher.PatchAll, taking the entire WSM3D mod down with it).
+            if (Matcher.Pos < 0 || Matcher.IsInvalid)
+            {
+                global::UnityEngine.Debug.LogWarning("[WSM3D] MainQuantumSpritePatch transpiler: GroupSpriteObject.set pattern not found in vanilla IL — skipping transpile (sprite-render Manager.set rewire disabled)");
+                return instructions;
+            }
             Matcher.RemoveInstruction();
             Matcher.Insert(new CodeInstruction(OpCodes.Ldarg_0), new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(Manager), nameof(Manager.set))));
             return Matcher.Instructions();

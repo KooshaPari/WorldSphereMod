@@ -68,7 +68,7 @@ namespace WorldSphereMod.UI
             Sprite? sprite = Resources.Load<Sprite>(path);
             if (sprite == null)
             {
-                UnityEngine.Debug.LogWarning($"[WSM3D] Sprite resource not found: {path} - falling back to ModIcon");
+                global::UnityEngine.Debug.LogWarning($"[WSM3D] Sprite resource not found: {path} - falling back to ModIcon");
                 if (!IconCache.TryGetValue(FallbackIconPath, out sprite))
                 {
                     sprite = Resources.Load<Sprite>(FallbackIconPath);
@@ -244,7 +244,7 @@ namespace WorldSphereMod.UI
         {
             if (!TryResolvePhaseToggleField(phaseToggleId, out FieldInfo? settingField))
             {
-                UnityEngine.Debug.LogWarning($"[WSM3D] Missing SavedSettings field for phase toggle '{phaseToggleId}'.");
+                global::UnityEngine.Debug.LogWarning($"[WSM3D] Missing SavedSettings field for phase toggle '{phaseToggleId}'.");
                 return;
             }
 
@@ -489,7 +489,7 @@ namespace WorldSphereMod.UI
             content = GameObject.Find($"/Canvas Container Main/Canvas - Windows/windows/{window.name}/Background/Scroll View/Viewport/Content");
             if (scrollView == null || content == null)
             {
-                UnityEngine.Debug.LogWarning($"[WSM3D] WindowManager: failed to create window {id}; scroll/content path missing");
+                global::UnityEngine.Debug.LogWarning($"[WSM3D] WindowManager: failed to create window {id}; scroll/content path missing");
                 return;
             }
             var powerWindow = scrollView.AddComponent<PowerWindow>();
@@ -510,7 +510,17 @@ namespace WorldSphereMod.UI
         {
             ID = id;
             Object = content;
+            if (Object == null)
+            {
+                global::UnityEngine.Debug.LogWarning("[WSM3D] PowerWindow.init: content GameObject is null/destroyed for id=" + id + " — skipping layout setup");
+                return;
+            }
             VerticalLayoutGroup layoutGroup = Object.AddComponent<VerticalLayoutGroup>();
+            if (layoutGroup == null)
+            {
+                global::UnityEngine.Debug.LogWarning("[WSM3D] PowerWindow.init: AddComponent<VerticalLayoutGroup> returned null for id=" + id);
+                return;
+            }
             layoutGroup.childControlHeight = false;
             layoutGroup.childControlWidth = false;
             layoutGroup.childForceExpandHeight = false;
