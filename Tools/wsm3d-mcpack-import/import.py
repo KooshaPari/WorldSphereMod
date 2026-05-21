@@ -240,7 +240,7 @@ def main() -> int:
     output_dir = out_root / f"{safe_pack_name(pack_path)}_{manifest_hash[:10]}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    rgb_atlas = "atlas_rgb.png"
+    rgb_atlas = "atlas.png"
     rgb_atlas_path = output_dir / rgb_atlas
     write_atlas(rgb_size, rgb_input, rgb_placements, rgb_atlas_path)
     for image in rgb_decoded.values():

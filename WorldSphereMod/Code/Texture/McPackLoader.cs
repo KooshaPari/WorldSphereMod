@@ -49,6 +49,9 @@ namespace WorldSphereMod.Textures
             [JsonProperty("atlas_rgb")]
             public string AtlasRgb { get; set; } = string.Empty;
 
+            [JsonProperty("atlas_bundle")]
+            public string? AtlasBundle { get; set; }
+
             [JsonProperty("atlas_normal")]
             public string? AtlasNormal { get; set; }
 
@@ -65,6 +68,7 @@ namespace WorldSphereMod.Textures
         static readonly int _mainTexId = Shader.PropertyToID("_MainTex");
         static readonly int _baseMapId = Shader.PropertyToID("_BaseMap");
         static readonly int _normalMapId = Shader.PropertyToID("_BumpMap");
+        static readonly string _bundleAtlasAssetName = "atlas";
 
         static readonly string ConfigRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
@@ -165,7 +169,15 @@ namespace WorldSphereMod.Textures
             }
 
             _manifest = manifest;
-            _mainAtlas = LoadAtlasFile(Path.Combine(Path.GetDirectoryName(latestManifest)!, manifest.AtlasRgb));
+            string manifestDir = Path.GetDirectoryName(latestManifest)!;
+            if (string.IsNullOrWhiteSpace(manifest.AtlasBundle))
+            {
+                _mainAtlas = LoadAtlasFile(Path.Combine(manifestDir, manifest.AtlasRgb));
+            }
+            else
+            {
+                _mainAtlas = LoadAtlasBundle(Path.Combine(manifestDir, manifest.AtlasBundle));
+            }
             if (string.IsNullOrWhiteSpace(manifest.AtlasNormal) == false)
             {
                 _normalAtlas = LoadAtlasFile(Path.Combine(Path.GetDirectoryName(latestManifest)!, manifest.AtlasNormal!));
@@ -228,6 +240,37 @@ namespace WorldSphereMod.Textures
             catch
             {
                 Debug.LogWarning($"[WSM3D] Failed to load atlas texture '{path}'.");
+                return null;
+            }
+        }
+
+        static Texture2D? LoadAtlasBundle(string path)
+        {
+            try
+            {
+                if (!File.Exists(path))
+                {
+                    return null;
+                }
+
+                var bundle = AssetBundle.LoadFromFile(path);
+                if (bundle == null)
+                {
+                    Debug.LogWarning($"[WSM3D] Failed to load atlas AssetBundle '{path}'.");
+                    return null;
+                }
+
+                Texture2D? atlas = bundle.LoadAsset<Texture2D>(_bundleAtlasAssetName);
+                if (atlas == null)
+                {
+                    Debug.LogWarning($"[WSM3D] AssetBundle '{path}' is missing texture '{_bundleAtlasAssetName}'.");
+                }
+                bundle.Unload(false);
+                return atlas;
+            }
+            catch
+            {
+                Debug.LogWarning($"[WSM3D] Failed to load atlas AssetBundle '{path}'.");
                 return null;
             }
         }
