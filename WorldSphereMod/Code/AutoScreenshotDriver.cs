@@ -2,7 +2,8 @@ using System.Collections;
 using System.IO;
 using UnityEngine;
 
-namespace WorldSphereMod;
+namespace WorldSphereMod
+{
 
 public sealed class AutoScreenshotDriver : MonoBehaviour
 {
@@ -40,7 +41,9 @@ public sealed class AutoScreenshotDriver : MonoBehaviour
             if (path != null)
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                ScreenCapture.CaptureScreenshot(path);
+                var captureType = System.Type.GetType("UnityEngine.ScreenCapture, UnityEngine")
+                                   ?? System.Type.GetType("UnityEngine.ScreenCapture, UnityEngine.CoreModule");
+                if (captureType != null) captureType.GetMethod("CaptureScreenshot", new[] { typeof(string) })?.Invoke(null, new object[] { path });
                 _screenshotCount++;
             }
             else
@@ -59,4 +62,5 @@ public sealed class AutoScreenshotDriver : MonoBehaviour
         var fileName = $"in-mod-{Mathf.RoundToInt(Time.time * 1000f)}.png";
         return Path.Combine(basePath, fileName);
     }
+}
 }
