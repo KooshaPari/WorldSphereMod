@@ -917,7 +917,14 @@ namespace WorldSphereMod.Bridge
                     catch (Exception ex) { error = ex; }
                     finally { done.Set(); }
                 });
-                done.Wait();
+                // 5s timeout — if Update() isn't draining (paused / disabled / mid-load),
+                // returns default(T) + logs warning instead of hanging the listener thread
+                // indefinitely, which would back up the entire HTTP accept loop.
+                if (!done.Wait(5000))
+                {
+                    UnityEngine.Debug.LogWarning("[WSM3D][Bridge] main-thread dispatch timed out (5s) — returning default(T).");
+                    return default(T);
+                }
                 if (error != null) throw error;
                 return result;
             }
