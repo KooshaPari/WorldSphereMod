@@ -114,7 +114,11 @@ namespace WorldSphereMod.Fx
             try
             {
                 var existing = cam.GetComponent(additionalDataType);
-                if (existing != null) return existing;
+                if (existing != null)
+                {
+                    Debug.Log("[WSM3D] PostFxController: found existing UniversalAdditionalCameraData on main camera.");
+                    return existing;
+                }
             }
             catch (Exception e) { Debug.LogWarning($"[WSM3D] PostFxController: GetComponent UACD failed: {e.Message}"); }
 
@@ -131,20 +135,37 @@ namespace WorldSphereMod.Fx
                 try
                 {
                     var m = ext.GetMethod("GetUniversalAdditionalCameraData", BindingFlags.Static | BindingFlags.Public);
-                    if (m != null) return m.Invoke(null, new object[] { cam });
+                    if (m != null)
+                    {
+                        Debug.Log("[WSM3D] PostFxController: resolving UniversalAdditionalCameraData via extension method.");
+                        return m.Invoke(null, new object[] { cam });
+                    }
                 }
                 catch (Exception e) { Debug.LogWarning($"[WSM3D] PostFxController: {name}.GetUniversalAdditionalCameraData failed: {e.Message}"); }
             }
 
             // Fallback: AddComponent if extension method not located.
-            try { return cam.gameObject.AddComponent(additionalDataType); }
+            try
+            {
+                Debug.Log("[WSM3D] PostFxController: adding UniversalAdditionalCameraData component to main camera.");
+                return cam.gameObject.AddComponent(additionalDataType);
+            }
             catch (Exception e) { Debug.LogWarning($"[WSM3D] PostFxController: AddComponent UACD failed: {e.Message}"); return null; }
         }
 
         public static void Create()
         {
-            if (!Core.savedSettings.PostFX || !Core.IsWorld3D) return;
-            if (_volumeGO != null) return;
+            Debug.Log($"[WSM3D] PostFxController: Create() called. PostFX={Core.savedSettings?.PostFX}, IsWorld3D={Core.IsWorld3D}, unavailable={_postFxUnavailable}, volumeExists={_volumeGO != null}");
+            if (!Core.savedSettings.PostFX || !Core.IsWorld3D)
+            {
+                Debug.LogWarning($"[WSM3D] PostFxController: Create skipped because PostFX={Core.savedSettings?.PostFX} IsWorld3D={Core.IsWorld3D}");
+                return;
+            }
+            if (_volumeGO != null)
+            {
+                Debug.Log("[WSM3D] PostFxController: Create skipped because post-FX volume already exists.");
+                return;
+            }
 
             Type? volumeType = FindType(VolumeTypeName);
             Type? profileType = FindType(VolumeProfileTypeName);
@@ -161,10 +182,12 @@ namespace WorldSphereMod.Fx
                 _postFxUnavailable = true;
                 return;
             }
+            Debug.Log("[WSM3D] PostFxController: URP types resolved for post-FX initialization.");
 
             try
             {
                 _volumeGO = new GameObject("WSM3D.PostFxVolume");
+                Debug.Log("[WSM3D] PostFxController: created volume GameObject.");
             }
             catch (Exception e)
             {
@@ -237,13 +260,22 @@ namespace WorldSphereMod.Fx
 
                 TryWrite(volume!, volumeType, "sharedProfile", _profile);
                 TryWrite(volume!, volumeType, "profile", _profile);
+                Debug.Log("[WSM3D] PostFxController: volume profile assigned.");
             }
 
             Camera cam = CameraManager.MainCamera;
             if (cam != null)
             {
                 object? acd = GetUniversalAdditionalCameraData(cam, additionalDataType);
-                if (acd != null) TryWrite(acd, additionalDataType, "renderPostProcessing", true);
+                if (acd != null)
+                {
+                    Debug.Log("[WSM3D] PostFxController: enabling camera renderPostProcessing hook.");
+                    TryWrite(acd, additionalDataType, "renderPostProcessing", true);
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[WSM3D] PostFxController: Create skipped setting renderPostProcessing because MainCamera is null.");
             }
         }
 
@@ -276,7 +308,12 @@ namespace WorldSphereMod.Fx
 
         public static void Destroy()
         {
-            if (_volumeGO == null) return;
+            Debug.Log($"[WSM3D] PostFxController: Destroy() called. volumeExists={_volumeGO != null}, profileExists={_profile != null}");
+            if (_volumeGO == null)
+            {
+                Debug.Log("[WSM3D] PostFxController: Destroy skipped because no active post-FX volume.");
+                return;
+            }
 
             Type? additionalDataType = FindType(AdditionalCameraDataTypeName);
             Camera cam = CameraManager.MainCamera;

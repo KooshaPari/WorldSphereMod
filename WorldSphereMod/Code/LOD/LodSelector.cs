@@ -10,7 +10,7 @@ namespace WorldSphereMod.LOD
     {
         public static bool ImpostorOnlyMode;
         public static float VoxelThreshold = 0.08f;
-        public static float ProxyThreshold = 0.025f;
+        public static float ProxyThreshold = 0.020f;
 
         struct LodHysteresis
         {
