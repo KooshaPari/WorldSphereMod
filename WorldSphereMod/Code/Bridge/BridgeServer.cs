@@ -178,6 +178,11 @@ namespace WorldSphereMod.Bridge
                         WriteJson(context.Response, InvokeOnMainThread(BuildVoxelStatsPayload));
                         return;
                     }
+                    if (string.Equals(path, "/voxel/queue", StringComparison.OrdinalIgnoreCase))
+                    {
+                        WriteJson(context.Response, InvokeOnMainThread(BuildVoxelQueuePayload));
+                        return;
+                    }
                     if (string.Equals(path, "/voxel/actor", StringComparison.OrdinalIgnoreCase))
                     {
                         string indexText = context.Request.QueryString["index"] ?? "0";
@@ -299,6 +304,14 @@ namespace WorldSphereMod.Bridge
                 hits = WorldSphereMod.Voxel.VoxelMeshCache.HitCount,
                 misses = WorldSphereMod.Voxel.VoxelMeshCache.MissCount
             }
+        };
+
+        object BuildVoxelQueuePayload() => new
+        {
+            ok = true,
+            pendingBuilds = WorldSphereMod.Voxel.VoxelMeshCache.PendingBuilds,
+            completedThisFrame = WorldSphereMod.Voxel.VoxelMeshCache.CompletedBuildsThisFrame,
+            totalBuilds = WorldSphereMod.Voxel.VoxelMeshCache.TotalBuilds
         };
 
         object BuildVoxelActorPayload(string indexText)

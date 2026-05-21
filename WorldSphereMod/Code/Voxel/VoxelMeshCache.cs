@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 using WorldSphereMod;
 using WorldSphereMod.Rig;
@@ -85,11 +86,23 @@ namespace WorldSphereMod.Voxel
         static Mesh _placeholderMesh;
         static long _hits;
         static long _misses;
+        static long _totalBuilds;
+        static int _completedBuildsThisFrame;
 
         /// <summary>Cumulative cache-hit count since process start (or last Clear).</summary>
         public static long HitCount => System.Threading.Interlocked.Read(ref _hits);
         /// <summary>Cumulative cache-miss count since process start (or last Clear).</summary>
         public static long MissCount => System.Threading.Interlocked.Read(ref _misses);
+        /// <summary>Number of builds currently queued for background processing.</summary>
+        public static int PendingBuilds
+        {
+            get { lock (_lock) return _pendingBuilds.Count; }
+        }
+
+        /// <summary>Number of completions that were applied in the last frame.</summary>
+        public static int CompletedBuildsThisFrame => Volatile.Read(ref _completedBuildsThisFrame);
+        /// <summary>Total background build requests enqueued since process start (or last Clear).</summary>
+        public static long TotalBuilds => Interlocked.Read(ref _totalBuilds);
 
         /// <summary>Total number of meshes currently held.</summary>
         public static int Count
@@ -228,6 +241,7 @@ namespace WorldSphereMod.Voxel
 
                 _cache[key] = new Entry { Mesh = GetPlaceholderVoxelMesh(), Snapshot = null, LastFrame = _frame };
                 _pendingBuilds.Add(key);
+                Interlocked.Increment(ref _totalBuilds);
                 if (_cache.Count > Capacity) Evict();
             }
 
@@ -325,6 +339,15 @@ namespace WorldSphereMod.Voxel
 
                 drained++;
             }
+            if (drained > 0)
+            {
+                Interlocked.Add(ref _completedBuildsThisFrame, drained);
+            }
+        }
+
+        public static void BeginFrame()
+        {
+            Interlocked.Exchange(ref _completedBuildsThisFrame, 0);
         }
 
         static Mesh GetPlaceholderVoxelMesh()
@@ -394,6 +417,7 @@ namespace WorldSphereMod.Voxel
         }
 
         /// <summary>
+        /// Build a voxel mesh plus per-vertex rigid bone assignment for skeletal-tier
         /// actors. Humanoid rigs use the sprite's local Y bands to split head, torso,
         /// arm, and leg voxels into one-bone skin regions.
         /// </summary>
@@ -483,8 +507,8 @@ namespace WorldSphereMod.Voxel
                 _diagnosedSprites.Clear();
                 _pendingDestroy.Clear();
                 _pendingBuilds.Clear();
-                while (_completedBuilds.TryDequeue(out _))
-                {
+            while (_completedBuilds.TryDequeue(out _))
+            {
                 }
                 if (_placeholderMesh != null)
                 {
@@ -494,6 +518,8 @@ namespace WorldSphereMod.Voxel
             }
             System.Threading.Interlocked.Exchange(ref _hits, 0);
             System.Threading.Interlocked.Exchange(ref _misses, 0);
+            System.Threading.Interlocked.Exchange(ref _totalBuilds, 0);
+            Interlocked.Exchange(ref _completedBuildsThisFrame, 0);
         }
 
         /// <summary>Advance the frame counter; call once per render frame.</summary>
@@ -648,5 +674,3 @@ namespace WorldSphereMod.Voxel
         }
     }
 }
-
-

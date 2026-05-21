@@ -625,6 +625,7 @@ namespace WorldSphereMod.Voxel
         {
             if (!Core.IsWorld3D) return;
 
+            WorldSphereMod.Voxel.VoxelMeshCache.BeginFrame();
             WorldSphereMod.LOD.ImpostorBillboard.Tick();
 
             bool hasRenderWork = Core.savedSettings.VoxelEntities || Core.savedSettings.ProceduralBuildings || Core.savedSettings.CrossedQuadFoliage;
