@@ -77,6 +77,7 @@ namespace WorldSphereMod.Voxel
         /// DrawMeshInstanced entirely so the same draw goes through the
         /// known-good per-instance path. Set once at startup or after Reset.</summary>
         public static void ForceFallbackPath() { _useFallbackPath = true; }
+        public static void SetFallbackPath(bool useFallback) => _useFallbackPath = useFallback;
         public static void ArmFallbackDiagOnce() { _fallbackDrawDiagFrames = 4; }
         public static bool InstancingBroken => _instancingErrorLogged;
 
@@ -91,11 +92,9 @@ namespace WorldSphereMod.Voxel
 
         static int _pendingSubmissionCount;
         static bool _instancingErrorLogged;
-        // DIAGNOSTIC: default-true. Sprites/Default + many other sprite shaders don't
-        // declare multi_compile_instancing, so DrawMeshInstanced silently no-ops.
-        // The fallback per-instance Graphics.DrawMesh path always renders. Set
-        // true at declaration so Reset() doesn't undo it during world reload.
-        static bool _useFallbackPath = true;
+        // Default to instanced rendering; material checks below guard unsupported
+        // shader paths before issuing DrawMeshInstanced.
+        static bool _useFallbackPath = false;
         static bool _verboseDrawLoggingArmed;
         static bool _verboseDrawLoggingConsumed;
         static bool _renderTargetLogged;
@@ -202,6 +201,18 @@ namespace WorldSphereMod.Voxel
                     }
                     bucket.Matrices.CopyTo(offset, bucket.MatScratch, 0, n);
                     bucket.Colors.CopyTo(offset, bucket.ColScratch, 0, n);
+
+                    if (!CanUseInstancedDraw(kv.Key.Material, out string disableReason))
+                    {
+                        if (!_instancingErrorLogged)
+                        {
+                            _instancingErrorLogged = true;
+                            Debug.LogError(disableReason);
+                        }
+                        DrawFallbackPath(kv.Key, bucket, total, resolvedLayer, renderCamera, shadows, receive, offset);
+                        break;
+                    }
+
                     bucket.Block.Clear();
                     bucket.Block.SetVectorArray(_colorProp, bucket.ColScratch);
                     try
@@ -225,14 +236,28 @@ namespace WorldSphereMod.Voxel
                         {
                             _instancingErrorLogged = true;
                             string matName = kv.Key.Material != null ? kv.Key.Material.shader.name : "<null>";
-                            Debug.LogError($"[WSM3D] DrawMeshInstanced rejected material; falling back to per-instance Graphics.DrawMesh. Voxel render perf is degraded but visible.");
+                            Debug.LogError($"[WSM3D] DrawMeshInstanced rejected material; falling back to per-instance Graphics.DrawMesh. Voxel render perf is degraded but visible. material={matName}");
                         }
 
                         _useFallbackPath = true;
-                            DrawFallbackPath(kv.Key, bucket, total, resolvedLayer, renderCamera, shadows, receive, offset);
-                            break;
-                        }
+                        DrawFallbackPath(kv.Key, bucket, total, resolvedLayer, renderCamera, shadows, receive, offset);
+                        break;
                     }
+                    catch (System.Exception ex)
+                    {
+                        if (!_instancingErrorLogged)
+                        {
+                            _instancingErrorLogged = true;
+                            string matName = kv.Key.Material != null ? kv.Key.Material.shader?.name : "<null>";
+                            Debug.LogError($"[WSM3D] DrawMeshInstanced threw {ex.GetType().Name}; falling back to per-instance Graphics.DrawMesh. Voxel render perf is degraded but visible. material={matName}");
+                        }
+
+                        _useFallbackPath = true;
+                        DrawFallbackPath(kv.Key, bucket, total, resolvedLayer, renderCamera, shadows, receive, offset);
+                        break;
+                    }
+
+                }
 
                 bucket.Matrices.Clear();
                 bucket.Colors.Clear();
@@ -403,7 +428,7 @@ namespace WorldSphereMod.Voxel
 
             Interlocked.Exchange(ref _pendingSubmissionCount, 0);
             _buckets.Clear();
-            _useFallbackPath = true; // intentionally STAYS true; see field declaration
+            _useFallbackPath = false;
             _instancingErrorLogged = false;
             _verboseDrawLoggingArmed = false;
             _verboseDrawLoggingConsumed = false;
@@ -411,6 +436,45 @@ namespace WorldSphereMod.Voxel
             _allCamerasLogged = false;
             FrameDrawCalls = 0;
             FrameInstances = 0;
+        }
+
+        static bool CanUseInstancedDraw(Material material, out string reason)
+        {
+            reason = null;
+            if (material == null)
+            {
+                reason = "[WSM3D] DrawMeshInstanced blocked: material is null.";
+                return false;
+            }
+
+            if (!SystemInfo.supportsInstancing)
+            {
+                reason = "[WSM3D] DrawMeshInstanced blocked: SystemInfo.supportsInstancing is false.";
+                return false;
+            }
+
+            if (!material.enableInstancing)
+            {
+                reason = $"[WSM3D] DrawMeshInstanced blocked: material '{material.name}' has instancing disabled.";
+                return false;
+            }
+
+            if (material.shader != null &&
+                material.shader.name.StartsWith("Standard", System.StringComparison.Ordinal))
+            {
+                if (!material.IsKeywordEnabled("INSTANCING_ON"))
+                {
+                    material.EnableKeyword("INSTANCING_ON");
+                }
+
+                if (!material.IsKeywordEnabled("INSTANCING_ON"))
+                {
+                    reason = $"[WSM3D] DrawMeshInstanced blocked: Standard material '{material.name}' does not expose INSTANCING_ON.";
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 }

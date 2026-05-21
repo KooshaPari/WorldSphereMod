@@ -22,10 +22,10 @@ using ai.behaviours;
 using System.Linq;
 namespace WorldSphereMod
 {
-    public static class Core
+        public static class Core
     {
         public static SavedSettings savedSettings = new SavedSettings();
-        public static string SettingsVersion = "2.2";
+        public static string SettingsVersion = "2.3";
 
         public static Harmony Patcher;
         public static void SaveSettings()
@@ -70,6 +70,7 @@ namespace WorldSphereMod
             // rather than discarding them.
             if (loadedData.Version != SettingsVersion)
             {
+                ApplySchemaVersionMigration(loadedData);
                 loadedData.Version = SettingsVersion;
                 savedSettings = loadedData;
                 SaveSettings();
@@ -77,6 +78,33 @@ namespace WorldSphereMod
             }
             savedSettings = loadedData;
             return true;
+        }
+
+        static void ApplySchemaVersionMigration(SavedSettings loadedData)
+        {
+            var currentDefaults = new SavedSettings();
+            var phaseFlags = typeof(PhaseAttribute).Assembly
+                .GetTypes()
+                .Select(type => type.GetCustomAttribute<PhaseAttribute>())
+                .Where(phaseAttr => phaseAttr != null)
+                .Select(phaseAttr => phaseAttr!.SettingsFlagName)
+                .Distinct();
+
+            foreach (var phaseFlag in phaseFlags)
+            {
+                if (string.IsNullOrWhiteSpace(phaseFlag))
+                {
+                    continue;
+                }
+
+                var field = typeof(SavedSettings).GetField(phaseFlag);
+                if (field == null || field.FieldType != typeof(bool))
+                {
+                    continue;
+                }
+
+                field.SetValue(loadedData, field.GetValue(currentDefaults));
+            }
         }
 
         // go go gadget un-box my worldbox

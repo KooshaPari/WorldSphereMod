@@ -1,126 +1,182 @@
-# Functional Requirements — WorldSphereMod3D
+# Functional Requirements
 
-**Document ID:** FR-WSM
-**Status:** Living
-**Last updated:** 2026-05-18
+## FR-WSM-001: Voxel Actor Meshes
+**Description:** Replace 2D actor sprites with voxel meshes built from the sprite via SpriteVoxelizer (extruded/balloon/lathe per shape hint).
 
-Every behavioral commitment of the fork is captured here as a numbered
-`FR-WSM-NNN`. Use RFC 2119 keywords (SHALL / SHOULD / MAY). Tests and code
-trace back via `// Traces to: FR-WSM-NNN` comments (Phenotype convention,
-`docs/phenotype-conventions.md` §4).
+**Acceptance Criteria:**  
+- `curl /voxel/sprite?name=walk_0` returns `{vertexCount>0, triangleCount>0, distinctTriVerts:true, maxTriIndexLessThanVerts:true}`  
+- `/telemetry.voxelCacheHit > 0.99` after warmup  
+- `Actor.scales[i] != Vector3.zero` where the voxel branch took ownership  
 
-Numbering scheme: `FR-WSM-0NN` per phase block (000s = cross-cutting,
-100s = Phase 1, 200s = Phase 2, …, 1000s = Phase 10).
+**Related Tests:** `tests/WorldSphereMod.Tests.Unit/SpriteVoxelizerTests`, `tests/WorldSphereMod.Tests.Unit/AssetShapeRegistryTests`
 
----
+## FR-WSM-002: Voxel Building Meshes
+**Description:** Replace 2D building sprites with voxel meshes or procedural architectural meshes (BuildingProcRender behind BuildingStyleProcgen flag).
 
-## 0xx — Cross-cutting / governance
+**Acceptance Criteria:**  
+- `curl /voxel/sprite?name=main_0_0` returns valid mesh invariants  
+- `/phase/ProceduralBuildings` shows `enabled=true` with patches>=1  
+- `BuildingProcRender.EmitMeshes.Regular` count > 0 in log per frame  
 
-| ID | Requirement |
-|---|---|
-| FR-WSM-001 | The mod SHALL load under NeoModLoader with GUID `worldsphere3d.fork`, distinct from upstream's `worldsphere`, enabling co-installation. |
-| FR-WSM-002 | The build SHALL succeed via `dotnet build WorldSphereMod.csproj -c Release` given a valid `WORLDBOX_PATH` env var (or default Steam install per `Directory.Build.props`), returning 0 errors. |
-| FR-WSM-003 | The `WorldSphereAPI` v1 surface (`IsWorld3D`, `MakeActorNonUpright`, `MakeBuildingNonUpright`, `MakeProjectileNonUpright`, `EditEffect`, `GetSetting<T>`) SHALL remain signature-compatible with upstream. |
-| FR-WSM-004 | The `WorldSphereAPI` v2 surface (`IsModel3D`, `RegisterCustomMesh`, `RegisterBuildingRules`) SHALL no-op safely when the connected host is upstream rather than this fork. |
-| FR-WSM-005 | Every rendering phase SHALL be gated by a `SavedSettings` boolean flag and MUST NOT break another phase when flipped OFF. |
-| FR-WSM-006 | The mod SHALL persist settings under `SettingsVersion = "2.0"` and migrate v1.5 preferences forward without loss. |
-| FR-WSM-007 | A single `WorldUnloadPatch` Prefix on `Core.Sphere.Finish` SHALL drain all fork-side caches (voxel, procgen, foliage, rig, batcher buckets, impostor atlas, LOD hysteresis, world-UI rig) on world unload. |
-| FR-WSM-008 | When the GPU fails the compute-shader / instancing / indirect-args gate, the mod SHALL set `ImpostorOnlyMode = true` rather than throwing `IncompatibleHardwareException`. |
+**Related Tests:** `tests/WorldSphereMod.Tests.Unit/BuildingRulesRegistryTests`
 
-## 1xx — Phase 1 (voxel actors + items + projectiles)
+## FR-WSM-003: Per-Sprite Shape-Hint Routing
+**Description:** AssetShapeRegistry maps asset ID prefixes to ShapeHint (Cylinder, LongX, Tall, Flat, Mirror, Auto), routing voxelization appropriately.
 
-| ID | Requirement |
-|---|---|
-| FR-WSM-101 | The system SHALL voxelize each sprite into a cube mesh when `VoxelEntities` is enabled, with per-cube colour baked into a vertex-colour attribute. |
-| FR-WSM-102 | `SpriteVoxelizer` SHALL apply greedy meshing on the X/Y plane (Z-thickness=1 default) and yield ~5–10× vertex reduction over naive per-texel emit. |
-| FR-WSM-103 | `VoxelMeshCache` SHALL key on `Sprite.GetInstanceID()` and use LRU eviction with deferred `Object.Destroy` to avoid destroying in-flight meshes. |
-| FR-WSM-104 | `MeshInstanceBatcher.Submit` SHALL bucket by `(mesh, material)` and `Flush` SHALL emit up to 1023 instances per `Graphics.DrawMeshInstanced` call with a correctly sized per-batch colour array (no tail-garbage tint on partial batches). |
-| FR-WSM-105 | Voxel actor rotation SHALL be yaw-only (no Z/X lean) to prevent body topple while walking. |
-| FR-WSM-106 | Drops, items, projectiles, and talk bubbles SHALL route through the voxel pipeline when `VoxelEntities` is enabled; talk-bubble/arrow variants MAY retain camera-billboard rotation. |
+**Acceptance Criteria:**  
+- `AssetShapeRegistry.GetShapeHint("human_warrior")==Cylinder`  
+- `GetShapeHint("boat_small")==Mirror`  
+- `GetShapeHint("wall_stone")==LongX`  
+- Default falls back to aspect-ratio heuristic  
 
-## 2xx — Phase 2 (procedural building meshes)
+**Related Tests:** `Phase6RigRegistryTests`, manual `/voxel/sprite` sample with directional sprite (no radial fan artifact)
 
-| ID | Requirement |
-|---|---|
-| FR-WSM-201 | The system SHALL emit a procedural mesh per `BuildingAsset` via footprint extrusion + multi-story inference + door/window detection + roof inference when `ProceduralBuildings` is enabled. |
-| FR-WSM-202 | `BuildingMeshGen` SHALL infer roof type (flat / gable / hipped) from the dominant warm-palette cluster in the upper sprite rows. |
-| FR-WSM-203 | The public API `RegisterBuildingRules(string assetId, object rules)` SHALL allow external mods to override the procgen heuristic per asset. |
-| FR-WSM-204 | `ProcGenCache.Clear` SHALL route through a deferred-destroy queue (not synchronous `Object.Destroy` under lock). |
+## FR-WSM-004: LOD Tier Selection + Impostor Fallback
+**Description:** LodSelector chooses Voxel / Procedural / Impostor tier per entity per frame based on screen-projected size.
 
-## 3xx — Phase 3 (foliage, walls, surface overlays)
+**Acceptance Criteria:**  
+- `/telemetry.impostorCacheHit > 0.99` when zoomed out  
+- At close zoom, voxel tier active for ≥ 80% of visible entities  
+- `LodSelector._entityHeight` scales with `VoxelScaleMultiplier`  
 
-| ID | Requirement |
-|---|---|
-| FR-WSM-301 | Trees, bushes, and rocks SHALL render as crossed-quad meshes (two perpendicular quads sharing the sprite texture) when `CrossedQuadFoliage` is enabled. |
-| FR-WSM-302 | Grass / life / road surface overlays SHALL be rendered via a Prefix on `WorldTilemap.renderTile`. |
-| FR-WSM-303 | Walls SHALL be rendered as 3D prisms via a Prefix on `QuantumSpriteLibrary.drawWallType`. |
-| FR-WSM-304 | Wind sway vertex displacement SHALL be parameterized by asset tag (`tag_foliage` swayed, `tag_rock` zero displacement). |
+**Related Tests:** `LodSelectorTests`
 
-## 4xx — Phase 4 (mesh water)
+## FR-WSM-005: Mesh Water
+**Description:** Replace flat water plane with Gerstner-wave displaced mesh updated each frame via `_WaveTime` uniform.
 
-| ID | Requirement |
-|---|---|
-| FR-WSM-401 | The water surface SHALL be a mesh layer overlaid on the terrain, clipped to a per-tile water mask, when `MeshWater` is enabled. |
-| FR-WSM-402 | Water vertices on the X-wrap seam SHALL be deduplicated (no shimmer on cylindrical wrap). |
-| FR-WSM-403 | The water material SHALL be instanced per renderer (not mutated shared template) and released on `Destroy`. |
-| FR-WSM-404 | Underlying tile colour SHALL suppress its water-tint alpha when the mesh water layer is active (avoid double-blue). |
-| FR-WSM-405 | Runtime `MeshWater` toggle SHALL be supported via `WaterRender.UpdateLifecycle`; tile changes SHALL invalidate the water mask via Postfixes on `UpdateBaseLayer` / `UpdateScale`. |
+**Acceptance Criteria:**  
+- `/phase/MeshWater` enabled=true with patches >= 5  
+- `WaterRender.UpdateLifecycle` produces visible mesh in Player.log  
+- Wave amplitude > 0 at runtime  
 
-## 5xx — Phase 5 (sun + cascaded shadows)
+**Related Tests:** Visual via `/voxel/dump_all`-style water-surface inspection endpoint (TBD)
 
-| ID | Requirement |
-|---|---|
-| FR-WSM-501 | A directional `Sun` light SHALL be parented to a `LightingRoot` GameObject (not the camera) and rotated by `TimeOfDay`. |
-| FR-WSM-502 | URP cascaded shadows SHALL be configurable via reflective bindings on the active pipeline asset when `HighShadows` is enabled. |
-| FR-WSM-503 | `ShadowCascadeConfig` SHALL stash original pipeline-asset values exactly once (`_hasOriginals` set once, never cleared) so Reset→Apply→Reset never re-stashes mod values as originals. |
+## FR-WSM-006: Crossed-Quad Foliage
+**Description:** Trees + bushes render as crossed-quad billboards with wind-sway shader.
 
-## 6xx — Phase 6 (skeletal animation)
+**Acceptance Criteria:**  
+- `/phase/CrossedQuadFoliage` enabled=true with patches >= 2  
+- `FoliageTileRender + WallTileRender` Postfixes fire on `WorldTilemap.renderTile`  
 
-| ID | Requirement |
-|---|---|
-| FR-WSM-601 | Voxel actors SHALL be skinned via a 12-bone humanoid rig or 9-bone quadruped rig when `SkeletalAnimation` is enabled. |
-| FR-WSM-602 | `SpriteVoxelizer.BuildPerTexel` SHALL produce a non-greedy variant carrying per-voxel bone indices for the rig consumer. |
-| FR-WSM-603 | `RigDriver` SHALL prefer the GPU compute-skinning path and fall back to CPU bind-pose on any compute-shader failure. |
-| FR-WSM-604 | `RigCache` eviction SHALL release the matching `RigDriver` GPU mesh entry to prevent buffer leak. |
+**Related Tests:** `tests/WorldSphereMod.Tests.Unit/Phase3FoliageTests`
 
-## 7xx — Phase 7 (worldspace UI)
+## FR-WSM-007: High Shadows with Cascade Mapping
+**Description:** SunDriver configures `QualitySettings.shadowCascades=4` + shadowDistance tuned for voxel silhouettes; shadow strength + bias calibrated.
 
-| ID | Requirement |
-|---|---|
-| FR-WSM-701 | Nameplates, HP bars, and damage popups SHALL render in world space when `WorldspaceUI` is enabled. |
-| FR-WSM-702 | The HP bar SHALL share a single static mesh and material across all actors. |
-| FR-WSM-703 | `Actor.getHealthRatio` reflection MethodInfo SHALL be cached (no per-frame per-actor lookup). |
-| FR-WSM-704 | Damage popups SHALL be pooled (64 world-canvas TMP instances) with lazy camera assignment. |
+**Acceptance Criteria:**  
+- `/phase/HighShadows` enabled=true with patches >= 1  
+- `QualitySettings.shadowCascades == 4` when flag on  
+- Shadow bias != default  
 
-## 8xx — Phase 8 (day/night + sky + fog)
+**Related Tests:** TBD — needs editor-mode assertion harness
 
-| ID | Requirement |
-|---|---|
-| FR-WSM-801 | `TimeOfDay` SHALL probe `MapBox.world_time` at startup via reflection and fall back to an autonomous driver when the field is absent. |
-| FR-WSM-802 | `SunRig` SHALL drive a 4-anchor (night / dawn / noon / dusk) color-temperature gradient when `DayNightCycle` is enabled. |
-| FR-WSM-803 | The skybox SHALL be swapped at runtime to a procedural-sky material via `RenderSettings.skybox`. |
+## FR-WSM-008: Skeletal Animation
+**Description:** Humanoid actors deform via bone matrices driven by animation curves; bone weights baked into voxel mesh per RigType.
 
-## 9xx — Phase 9 (particles + decals + post-FX)
+**Acceptance Criteria:**  
+- `/phase/SkeletalAnimation` enabled=true with patches >= 1  
+- No vertex displacement > 10× sprite extent (dragonfly bug avoidance)  
+- Walk-cycle visible on humanoid actors  
+- **Status: BLOCKED** by dragonfly bug — bind-pose audit pending.  
 
-| ID | Requirement |
-|---|---|
-| FR-WSM-901 | A pool of 16 `ParticleSystem`s SHALL burst on at least 5 effect IDs when `ParticleEffects` is enabled. |
-| FR-WSM-902 | `DecalPool` SHALL maintain three sub-pools — Footprint (32), Scorch (16), Blood (32) — of flat quads with TTL expiry. |
-| FR-WSM-903 | The URP `Volume` + `VolumeProfile` (Bloom + ColorAdjustments + Vignette) SHALL be bound reflectively and gated by `PostFX` (default OFF). |
+**Related Tests:** `Phase6RigRegistryTests`, `tests/WorldSphereMod.Tests.Unit/SkeletalDeformationBoundsTests` (TBD)
 
-## 10xx — Phase 10 (LOD + impostor + profiler)
+## FR-WSM-009: Day/Night Cycle
+**Description:** Continuous sun rotation + sky color interpolation driven by WorldBox time scale.
 
-| ID | Requirement |
-|---|---|
-| FR-WSM-1001 | `LodSelector` SHALL choose between `Voxel`, `Proxy`, and `Impostor` tiers with 3-frame hysteresis on tier transitions. |
-| FR-WSM-1002 | `FrustumCuller` SHALL cache `GeometryUtility.CalculateFrustumPlanes` once per frame. |
-| FR-WSM-1003 | `ImpostorBillboard` SHALL maintain a sprite-keyed quad atlas as the compatibility-fallback rendering path. |
-| FR-WSM-1004 | `FrameProfiler` SHALL emit per-system stopwatch totals once per second when `ProfilerDump` is enabled. |
-| FR-WSM-1005 | `LodSelector._hyst` per-actor hysteresis state SHALL be reaped on `WorldUIRenderer.UnregisterActor`. |
+**Acceptance Criteria:**  
+- `/phase/DayNightCycle` enabled=true with patches >= 1  
+- `SunDriver.CurrentAngle` changes > 0.01 rad/sec during active gameplay  
+- Skybox color gradients interpolate per sun position  
 
----
+**Related Tests:** TBD
 
-> **Traceability:** Tests SHALL include `// Traces to: FR-WSM-NNN` so the
-> compliance scanner (Phenotype `phenotype-compliance-scanner`) can map
-> requirements to verification. Coverage target per
-> `docs/phenotype-conventions.md` §4 is 95%+.
+## FR-WSM-010: Post-FX Pipeline
+**Description:** SSAO + SSGI + ACES tonemap + HDR cubemap reflection via OnRenderImage chain, gated by SavedSettings flags.
+
+**Acceptance Criteria:**  
+- `/phase/PostFX` enabled=true with patches >= 1  
+- SSAO/SSGI components attached to main Camera when flag on  
+- ACES tonemap shader resolves at material load  
+
+**Related Tests:** TBD
+
+## FR-WSM-011: Worldspace UI (Health Bars + Labels)
+**Description:** 3D mesh health bars + 3D mesh labels attached to actor head positions, camera-facing.
+
+**Acceptance Criteria:**  
+- `/phase/WorldspaceUI` enabled=true with patches >= 1  
+- Health bar 3D mesh submitted per actor when `WorldspaceHealth3D` on  
+- TextMesh attached per actor when `WorldspaceLabel3D` on  
+
+**Related Tests:** TBD
+
+## FR-WSM-012: Voxel-Mesh Particle Bursts
+**Description:** Explosions/blood/fire/leaves spawn voxel-mesh bursts via VoxelParticleBurst lifecycle (spawn → grow → fade alpha).
+
+**Acceptance Criteria:**  
+- `/phase/ParticleEffects` enabled=true with patches >= 3  
+- `Meteorite.spawnOn + ExplosionFlash.start + StatusParticle.spawnParticle` all trigger `VoxelParticleBurst.TryStart`  
+
+**Related Tests:** `tests/WorldSphereMod.Tests.Unit/Phase9bParticleTests`
+
+## FR-WSM-013: Settings Persistence Across Launches
+**Description:** SavedSettings + PlayerConfig.dict mirror each other at toggle registration time; phase flags survive kill+launch.
+
+**Acceptance Criteria:**  
+- After `pwsh Tools/wsm3d.ps1 kill && launch`, every `/phase/` returns same enabled value as before kill  
+- `WorldSphereTab.RegisterToggleButton` sets `boolVal = Enabled` unconditionally  
+- Reflection-mirror into `Core.savedSettings`.  
+
+**Related Tests:** `tests/WorldSphereMod.Tests.Unit/PlayerConfigMirrorTests` (TBD)
+
+## FR-WSM-014: Bridge POST Phase Activation
+**Description:** `POST /settings/?value=true|false` writes SavedSettings via reflection + invokes `Core.ApplyPhaseToggle`.
+
+**Acceptance Criteria:**  
+- POST returns `{ok:true, key, value}` on success  
+- Subsequent `/phase/` reflects the new state  
+- ApplyPhaseToggle handler runs (driver attach/detach where applicable)  
+
+**Related Tests:** `tests/WorldSphereMod.Tests.E2E/BridgeSettingsPostTests`
+
+## FR-WSM-015: Clean Mod Init (No NRE on Load)
+**Description:** `Mod.OnLoad` completes without `NullReferenceException` even on cold install or after AssetBundle conflict.
+
+**Acceptance Criteria:**  
+- Player.log contains `"[WSM3D] Init Mod"` before "Loading finished"  
+- Zero `NullReferenceException` between Mod.OnLoad and "World Loaded"  
+- `LoadAssets` null-guards bundle loader  
+
+**Related Tests:** `tests/WorldSphereMod.Tests.E2E/ModLoadSmokeTests`
+
+## NFR-WSM-001: Frame Budget at Strategy View
+**Description:** Steady-state frame time with all phases enabled on a populated world.  
+**Target:** ≤ 50ms (20+ FPS)  
+**Current:** 426–1115ms (1–2 FPS) — **FAILING**  
+**Path to target:** Enable DrawMeshInstanced via ForceFallbackDrawPath=false; verify with `/telemetry.drawCalls << instances`.
+
+## NFR-WSM-002: Cache Hit Rate
+**Description:** Voxel mesh cache hit rate after warmup.  
+**Target:** > 99%  
+**Current:** 99.97% — **MEETS**
+
+## NFR-WSM-003: Mod.OnLoad Time
+**Description:** Time from NML calling OnLoad to "Init Mod" log entry.  
+**Target:** < 5s  
+**Current:** ~2.3s — **MEETS**
+
+## NFR-WSM-004: Memory Footprint
+**Description:** Memory delta after 30 min of strategy view.  
+**Target:** < 2 GB  
+**Current:** unmeasured  
+
+## NFR-WSM-005: Machine-Readable Phase Health
+**Description:** Every SavedSettings phase flag has a `/phase/` endpoint returning enabled + patchedTypes.  
+**Target:** 100% coverage  
+**Current:** 10/10 phases inventoried — **MEETS** (post `29cdaa2`)
+
+## NFR-WSM-006: Non-Visual Validation Coverage
+**Description:** Fraction of phase-correctness assertions that can be made via bridge endpoints (no screenshot).  
+**Target:** ≥ 90%  
+**Current:** partially adopted — `/phase` covers wire state, `/voxel/*` covers cache + queue, but mesh-geometry invariants endpoint (`/voxel/sprite?name=X`) still returns empty for some sprites.

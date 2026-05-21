@@ -34,7 +34,9 @@ public class SavedSettings
         // ADR-0008: optional post-mesh Laplacian smoothing for voxel output.
         public bool VoxelMeshSmoothing = true;
         public bool EnableMcPackTextures = false;
-        public bool ForceFallbackDrawPath = true;
+        // Set false to use the DrawMeshInstanced fast-path by default.
+        // Flip true only when a diagnostic needs guaranteed per-instance rendering.
+        public bool ForceFallbackDrawPath = false;
         public int SmoothingIterations = 2;
         // Sprite voxel extrusion depth: 1 keeps the old slab, 3 is the cheapest
         // setting that reads as actual 3D depth at a glance.
@@ -109,4 +111,3 @@ public class SavedSettings
         public bool ProfilerDump = false;
     }
 }
-

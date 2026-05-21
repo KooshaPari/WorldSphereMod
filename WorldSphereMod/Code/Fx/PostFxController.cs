@@ -339,9 +339,18 @@ namespace WorldSphereMod.Fx
 
         public static void ApplySetting(bool enabled)
         {
+            Debug.Log($"[WSM3D] PostFxController: ApplySetting({enabled})");
+            if (enabled)
+            {
+                Debug.Log($"[WSM3D] PostFxController: requested enable. settings.PostFX={Core.savedSettings?.PostFX}, IsWorld3D={Core.IsWorld3D}, unavailable={_postFxUnavailable}, volumeExists={_volumeGO != null}");
+            }
             if (_postFxUnavailable)
+            {
+                Debug.LogWarning("[WSM3D] PostFxController: ApplySetting ignored because runtime types unavailable.");
                 return;
+            }
             if (enabled && _volumeGO == null) Create();
+            else if (enabled && _volumeGO != null) Debug.Log("[WSM3D] PostFxController: ApplySetting true but volume already exists.");
             else if (!enabled && _volumeGO != null) Destroy();
         }
     }

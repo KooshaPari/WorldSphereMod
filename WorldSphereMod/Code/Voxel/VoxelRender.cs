@@ -685,16 +685,9 @@ namespace WorldSphereMod.Voxel
         void OnEnable()
         {
             MeshInstanceBatcher.SetMainThread();
-            // Force per-instance Graphics.DrawMesh path. Diagnostic-era safety:
-            // when Standard shader resolves without INSTANCING_ON, DrawMeshInstanced
-            // silently no-ops. Fallback is slower but known-visible.
-            // PERF GATE: at 29k+ draws/frame the fallback is the bottleneck.
-            // SavedSettings.ForceFallbackDrawPath default true (safe); set false
-            // to attempt DrawMeshInstanced now that the material chain is correct.
-            if (Core.savedSettings == null || Core.savedSettings.ForceFallbackDrawPath)
-            {
-                MeshInstanceBatcher.ForceFallbackPath();
-            }
+            // Force per-instance fallback only when explicitly requested. The
+            // Standard material path now keeps INSTANCING_ON in sync before DrawMeshInstanced.
+            MeshInstanceBatcher.SetFallbackPath(Core.savedSettings != null && Core.savedSettings.ForceFallbackDrawPath);
             WorldSphereMod.Lighting.SunDriver.BindMainCamera(CameraManager.MainCamera);
         }
 

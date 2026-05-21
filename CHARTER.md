@@ -1,68 +1,121 @@
-# Charter — WorldSphereMod3D
+# PhenoHandbook Charter
+## Mission Statement
+PhenoHandbook provides the definitive patterns and guidelines repository for the Phenotype ecosystem, codifying architectural decisions, design patterns, and best practices that ensure consistency and quality across all projects and teams.
 
-## Mission
+Our mission is to establish a single source of truth for how we build software—capturing tribal knowledge, standardizing approaches, and enabling teams to make consistent decisions that align with the organization's technical vision.
 
-Finish the 3D conversion of WorldBox **without losing the pixel-art
-identity**. Every visible entity — actors, buildings, foliage, water,
-effects, UI — becomes a real mesh; the look stays unmistakably WorldBox.
-Ship as a hard fork that co-installs alongside upstream, degrades
-gracefully on weak hardware, and stays approachable for the next
-contributor (human or agent) walking in cold.
+---
 
-## Tenets
+## Tenets (unless you know better ones)
 
-1. **Visual identity preservation is non-negotiable.** Voxelization,
-   procgen, and crossed-quad foliage are all *mesh* techniques chosen
-   specifically because they preserve the original sprite silhouette and
-   palette. Any rendering change MUST keep the WorldBox look from any
-   camera angle. Side-by-side screenshots are PR-mandatory for any
-   rendering-affecting change.
+### 1. Living Documentation
+Patterns evolve as we learn. The handbook is continuously updated. No pattern is sacred; all are subject to revision based on evidence.
+- **Rationale**: Static patterns become obsolete
+- **Implication**: Continuous revision process
+- **Trade-off**: Stability for currency
 
-2. **Feature flags are load-bearing.** Every phase ships behind a
-   `SavedSettings` flag, defaults OFF, and flips ON only after in-game
-   smoke test ([ADR-0005](./docs/adr/0005-default-on-flags-per-phase-ship-gate.md)).
-   Flipping any flag OFF must not break another phase. No phase silently
-   takes another phase down with it.
+### 2. Evidence-Based Guidelines
+Every pattern includes rationale, trade-offs, and when to break the rule. Guidelines are not dogma.
 
-3. **Co-installability with upstream is a hard requirement.** GUID stays
-   `worldsphere3d.fork`. Both mods must be installable side-by-side; the
-   user enables exactly one in NeoModLoader. We do not break upstream
-   users.
+- **Rationale**: Context-free advice is harmful
+- **Implication**: Comprehensive pattern documentation
+- **Trade-off**: Brevity for usefulness
 
-4. **API backwards compatibility is forever.** The `WorldSphereAPI` v1
-   surface is signature-frozen. v2 additions are no-ops on v1 hosts. The
-   `WorldSphereTester/` regression mod is the gate; if it breaks, we
-   broke compatibility.
+### 3. Cross-Project Consistency
+Shared vocabulary. Predictable structures. New team members orient quickly.
+- **Rationale**: Consistency reduces cognitive load
+- **Implication**: Standardization where beneficial
+- **Trade-off**: Flexibility for predictability
 
-5. **The hardware gate is a fallback, not a wall.** Users on hardware that
-   fails the compute-shader / instancing / indirect-args gate get the
-   impostor-billboard LOD path, not a red icon and a do-nothing mod. The
-   gate softens to `ImpostorOnlyMode = true`; it does not throw.
+### 4. Accessible to All Levels
+Junior developers understand the basics. Senior developers appreciate the nuances. Everyone finds value.
+- **Rationale**: Patterns are educational
+- **Implication**: Layered explanation depth
+- **Trade-off**: Conciseness for accessibility
 
-6. **Caches drain on world unload, in one place.** A single Harmony Prefix
-   on `Core.Sphere.Finish` (`WorldUnloadPatch.cs`) drains every
-   fork-side cache. New caches register there. Anything else leaks across
-   reloads.
+### 5. Implementation Agnostic
+Patterns describe what and why; implementations vary. Principles over prescriptions.
+Adapt to context.
+- **Rationale**: Technology changes; principles endure
+- **Implication**: Abstract pattern definitions
+- **Trade-off**: Specificity for longevity
 
-7. **Comments capture *why*, not *what*.** The code says what it does.
-   Comments are reserved for non-obvious invariants, workarounds, and
-   hidden constraints (z-displacement sentinel, cylindrical X-wrap,
-   parallel-render-pass thread-safety, `_hasOriginals` one-shot,
-   `MapBox.world_time` reflection-probe fallback). When in doubt, no
-   comment.
+### 6. Community Contribution
+Best practices emerge from practice. Contributions from all teams. Collective ownership.
+- **Rationale**: Knowledge is distributed
+- **Implication**: Open contribution process
+- **Trade-off**: Control for comprehensiveness
 
-8. **Spec roots live at repo root.** `PRD.md`, `SPEC.md`, `ADR.md`,
-   `PLAN.md`, `FUNCTIONAL_REQUIREMENTS.md`, `RESEARCH.md`, `SOTA.md`,
-   `CHARTER.md` — all at root, per Phenotype convention. Agents joining
-   cold find them without exploring.
+---
 
-## Stewardship
+## Scope & Boundaries
 
-Solo-author fork (`@KooshaPari`). PRs go to
-`claude/research-ultraplan-fork-DdgI5`, not `main`. One PR per phase. CI
-on the Unity-free `WorldSphereAPI.csproj`; full-mod build is local-only
-(needs WorldBox reference DLLs).
+### In Scope
+1. **Architectural Patterns**
+   - Hexagonal architecture
+   - Microservices patterns
+   - Event-driven architecture
+   - Data flow patterns
+2. **Design Patterns**
+   - GoF patterns with context
+   - Domain-driven design
+   - API design guidelines
+   - Error handling patterns
+3. **Coding Standards**
+   - Style guides per language
+   - Naming conventions
+   - Documentation standards
+   - Testing patterns
+4. **Operational Guidelines**
+   - Observability practices
+   - Deployment patterns
+   - Incident response
+   - Security practices
+5. **Decision Records**
+   - ADR templates
+   - Reviewed decisions
+   - Deprecation notices
+   - Migration guides
 
-> See [`PRD.md`](./PRD.md) for product framing, [`SPEC.md`](./SPEC.md) for
-> the system-level technical spec, [`PLAN.md`](./PLAN.md) for the 10-phase
-> implementation plan.
+### Out of Scope
+1. **Project-Specific Documentation**
+   - Implementation details
+   - API documentation
+   - Reference documentation
+2. **Tutorials**
+   - Step-by-step guides
+   - Learning paths
+   - Hands-on exercises
+3. **Tool Documentation**
+   - Usage manuals
+   - Configuration guides
+4. **Policies**
+   - HR policies
+   - Security policies
+
+---
+
+## Target Users
+1. **Software Engineers** - Implementing features, Need guidance, Require context
+2. **Technical Leads** - Making decisions, Need rationale
+3. **New Team Members** - Learning our ways, Need orientation
+
+---
+
+## Success Criteria
+
+| Metric | Target |
+|--------|--------|
+| Coverage | 100% of common patterns |
+| Updates | Monthly minimum |
+| Adoption | Referenced in 80%+ of ADRs |
+| Satisfaction | >4.5/5 |
+
+---
+
+## Governance
+Maintainers review contributions. Patterns require two approvals. Breaking changes announced broadly.
+
+---
+
+*This charter is a living document.*
