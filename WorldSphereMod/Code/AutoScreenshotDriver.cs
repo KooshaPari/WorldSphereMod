@@ -13,12 +13,10 @@ public sealed class AutoScreenshotDriver : MonoBehaviour
 
     private void Start()
     {
-        if (Core.savedSettings == null || !Core.savedSettings.AutoScreenshotEnabled)
-        {
-            Destroy(this);
-            return;
-        }
-
+        Debug.Log("[WSM3D] AutoScreenshotDriver.Start savedSettings=" + (Core.savedSettings != null) +
+                  " enabled=" + (Core.savedSettings != null ? Core.savedSettings.AutoScreenshotEnabled : false));
+        // Always-on diagnostic capture; ignore the SavedSettings gate while we're
+        // debugging Phase 1 visibility. Cap of 20 captures prevents disk fill.
         StartCoroutine(CaptureLoop());
     }
 
@@ -40,11 +38,15 @@ public sealed class AutoScreenshotDriver : MonoBehaviour
             var path = GetNextScreenshotPath();
             if (path != null)
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
                 var captureType = System.Type.GetType("UnityEngine.ScreenCapture, UnityEngine")
                                    ?? System.Type.GetType("UnityEngine.ScreenCapture, UnityEngine.CoreModule");
-                if (captureType != null) captureType.GetMethod("CaptureScreenshot", new[] { typeof(string) })?.Invoke(null, new object[] { path });
+                if (captureType == null) { Debug.LogWarning("[WSM3D] AutoScreenshot ScreenCapture Type not found"); yield break; }
+                var m = captureType.GetMethod("CaptureScreenshot", new[] { typeof(string) });
+                if (m == null) { Debug.LogWarning("[WSM3D] AutoScreenshot CaptureScreenshot method not found"); yield break; }
+                m.Invoke(null, new object[] { path });
                 _screenshotCount++;
+                Debug.Log("[WSM3D] AutoScreenshot saved " + path);
             }
             else
             {
