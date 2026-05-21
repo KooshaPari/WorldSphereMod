@@ -162,7 +162,20 @@ namespace WorldSphereMod.Bridge
                     if (string.Equals(path, "/voxel/sprite", StringComparison.OrdinalIgnoreCase))
                     {
                         string spriteName = context.Request.QueryString["name"] ?? string.Empty;
-                        WriteJson(context.Response, InvokeOnMainThread(() => BuildVoxelSpritePayload(spriteName)));
+                        if (string.IsNullOrWhiteSpace(spriteName))
+                        {
+                            WriteJson(context.Response, InvokeOnMainThread(BuildVoxelSpriteListPayload));
+                            return;
+                        }
+
+                        HttpStatusCode statusCode = HttpStatusCode.OK;
+                        object payload = InvokeOnMainThread(() => BuildVoxelSpritePayload(spriteName, out statusCode));
+                        WriteJson(context.Response, payload, statusCode);
+                        return;
+                    }
+                    if (string.Equals(path, "/voxel/stats", StringComparison.OrdinalIgnoreCase))
+                    {
+                        WriteJson(context.Response, InvokeOnMainThread(BuildVoxelStatsPayload));
                         return;
                     }
                     if (string.Equals(path, "/voxel/actor", StringComparison.OrdinalIgnoreCase))
@@ -229,27 +242,64 @@ namespace WorldSphereMod.Bridge
             isWorld3D = Core.IsWorld3D
         };
 
-        object BuildVoxelSpritePayload(string spriteName)
+        object BuildVoxelSpritePayload(string spriteName, out HttpStatusCode statusCode)
         {
+            statusCode = HttpStatusCode.OK;
             if (string.IsNullOrWhiteSpace(spriteName))
             {
+                statusCode = HttpStatusCode.BadRequest;
                 return new { ok = false, error = "missing_sprite_name" };
             }
 
             Sprite sprite = FindSpriteByName(spriteName);
             if (sprite == null)
             {
+                statusCode = HttpStatusCode.NotFound;
                 return new { ok = false, error = "unknown_sprite", name = spriteName };
             }
 
             WorldSphereMod.Voxel.VoxelMeshCache.Get(sprite);
             if (!WorldSphereMod.Voxel.VoxelMeshCache.TryDescribe(sprite, out WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot snapshot) || snapshot == null)
             {
+                statusCode = HttpStatusCode.NotFound;
                 return new { ok = false, error = "mesh_not_cached", name = spriteName, spriteId = sprite.GetInstanceID() };
             }
 
             return BuildVoxelSnapshotPayload(snapshot);
         }
+
+        object BuildVoxelSpriteListPayload()
+        {
+            List<WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot> snapshots = WorldSphereMod.Voxel.VoxelMeshCache.DescribeAll();
+            var names = new List<string>(snapshots.Count);
+            for (int i = 0; i < snapshots.Count; i++)
+            {
+                string name = snapshots[i] != null ? snapshots[i].spriteName : null;
+                if (!string.IsNullOrEmpty(name) && !names.Contains(name))
+                {
+                    names.Add(name);
+                }
+            }
+            names.Sort(StringComparer.Ordinal);
+
+            return new
+            {
+                ok = true,
+                count = names.Count,
+                spriteNames = names
+            };
+        }
+
+        object BuildVoxelStatsPayload() => new
+        {
+            ok = true,
+            cache = new
+            {
+                size = WorldSphereMod.Voxel.VoxelMeshCache.Count,
+                hits = WorldSphereMod.Voxel.VoxelMeshCache.HitCount,
+                misses = WorldSphereMod.Voxel.VoxelMeshCache.MissCount
+            }
+        };
 
         object BuildVoxelActorPayload(string indexText)
         {
