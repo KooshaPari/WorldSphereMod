@@ -405,6 +405,11 @@ namespace WorldSphereMod.General
         {
             CodeMatcher Matcher = new CodeMatcher(instructions);
             Matcher.MatchForward(false, new CodeMatch(OpCodes.Callvirt, setpos));
+            if (Matcher.Pos < 0 || Matcher.IsInvalid)
+            {
+                global::UnityEngine.Debug.LogWarning("[WSM3D] DontShowPossessedUnit transpiler: Actor.isInsideSomething Callvirt not found in vanilla IL — skipping");
+                return instructions;
+            }
             Matcher.RemoveInstruction();
             Matcher.Insert(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(DontShowPossessedUnit), nameof(IsVisible))));
             return Matcher.Instructions();
