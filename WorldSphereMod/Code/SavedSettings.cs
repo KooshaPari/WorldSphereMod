@@ -49,9 +49,15 @@ public class SavedSettings
         public bool DebugVoxelOutline = false;
         public bool DebugSanityCube = true;
         public bool DebugSpawnBuildings = false;
-        public bool AutoTest = true;
+        // AutoTest set false now that Phase 1+6+10 confirmed via opus —
+        // AutoTest's flag-flip cycle leaves the game in non-default state on
+        // exit + spams 13×3s timing buckets per launch. Switch to manual
+        // re-enable when running phase-budget regression tests.
+        public bool AutoTest = false;
         // Phase 2: Procedural building meshes (vs. billboarded building sprites).
-        public bool ProceduralBuildings = false;
+        // Default ON now that Phase 2 is code-complete (per README) — buildings
+        // render as proc-meshes instead of 2D sprites.
+        public bool ProceduralBuildings = true;
         // Optional Phase 2 style override: keep the old stylized procgen architecture
         // path instead of voxelizing building sprites directly.
         public bool BuildingStyleProcgen = false;
