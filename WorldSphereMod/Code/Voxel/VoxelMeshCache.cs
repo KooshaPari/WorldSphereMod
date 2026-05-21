@@ -126,6 +126,20 @@ namespace WorldSphereMod.Voxel
                         return true;
                     }
                 }
+                // Fallback: scan all entries for matching snapshot.spriteName
+                // Necessary when the cache entry was inserted with a different
+                // Sprite instance ID than the one Bridge resolves now.
+                foreach (var kvp in _cache)
+                {
+                    if (kvp.Value.Snapshot != null &&
+                        string.Equals(kvp.Value.Snapshot.spriteName, spriteName, System.StringComparison.Ordinal))
+                    {
+                        // Back-fill name index for next time
+                        _nameToSpriteId[spriteName] = kvp.Key;
+                        snapshot = kvp.Value.Snapshot;
+                        return true;
+                    }
+                }
             }
             return false;
         }
