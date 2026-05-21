@@ -357,9 +357,9 @@ namespace WorldSphereMod.Bridge
                     spriteName = sprite != null ? sprite.name : null,
                     trs = new
                     {
-                        position,
-                        rotation,
-                        scale
+                        position = new { x = position.x, y = position.y, z = position.z },
+                        rotation = new { x = rotation.x, y = rotation.y, z = rotation.z },
+                        scale    = new { x = scale.x,    y = scale.y,    z = scale.z    }
                     },
                     cachedMesh = meshSnapshot != null ? BuildVoxelSnapshotPayload(meshSnapshot) : null
                 });
