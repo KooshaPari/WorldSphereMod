@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using WorldSphereMod.NewCamera;
 
@@ -17,6 +18,12 @@ namespace WorldSphereMod.Lighting
         Texture2D? _lutTexture;
         bool _hasApplied;
         bool _materialReady;
+        bool _initializing;
+
+        static Camera? ResolveMainCamera()
+        {
+            return CameraManager.MainCamera != null ? CameraManager.MainCamera : null;
+        }
 
         public static void EnsureCreated()
         {
@@ -28,9 +35,11 @@ namespace WorldSphereMod.Lighting
             {
                 return;
             }
-            Camera? mainCamera = CameraManager.MainCamera != null ? CameraManager.MainCamera : Camera.main;
+
+            Camera? mainCamera = ResolveMainCamera();
             if (mainCamera == null)
             {
+                Debug.LogWarning("[WSM3D] ColorGradingLUT deferred: main camera not ready yet.");
                 return;
             }
             if (mainCamera.GetComponent<ColorGradingLUT>() == null)
@@ -48,7 +57,7 @@ namespace WorldSphereMod.Lighting
                 return;
             }
 
-            Camera? mainCamera = CameraManager.MainCamera != null ? CameraManager.MainCamera : Camera.main;
+            Camera? mainCamera = ResolveMainCamera();
             if (mainCamera == null)
             {
                 return;
@@ -69,7 +78,10 @@ namespace WorldSphereMod.Lighting
                 return;
             }
             _instance = this;
-            TryInitialize();
+            if (!_initializing)
+            {
+                StartCoroutine(InitializeAsync());
+            }
         }
 
         void OnDestroy()
@@ -80,26 +92,34 @@ namespace WorldSphereMod.Lighting
             }
         }
 
-        void TryInitialize()
+        IEnumerator InitializeAsync()
         {
-            _lutTexture = Resources.Load<Texture2D>(LutTextureResourcePath);
+            _initializing = true;
+            ResourceRequest textureRequest = Resources.LoadAsync<Texture2D>(LutTextureResourcePath);
+            yield return textureRequest;
+            _lutTexture = textureRequest.asset as Texture2D;
             if (_lutTexture == null)
             {
                 Debug.LogWarning($"[WSM3D] ColorGradingLUT texture '{LutTextureResourcePath}' not found in Resources; color grading skipped.");
-                return;
+                _initializing = false;
+                yield break;
             }
             if (_lutTexture.width != 256 || _lutTexture.height != 16)
             {
                 Debug.LogWarning($"[WSM3D] ColorGradingLUT expects 256x16 texture, found {_lutTexture.width}x{_lutTexture.height}; skipping effect.");
-                return;
+                _initializing = false;
+                yield break;
             }
 
-            Shader? shader = Resources.Load<Shader>(LutShaderResourcePath);
+            ResourceRequest shaderRequest = Resources.LoadAsync<Shader>(LutShaderResourcePath);
+            yield return shaderRequest;
+            Shader? shader = shaderRequest.asset as Shader;
             shader ??= Shader.Find("Hidden/ColorGradingLUT");
             if (shader == null)
             {
                 Debug.LogWarning("[WSM3D] ColorGradingLUT shader not found; check Resources/Shaders/ColorGradingLUT and skip grading.");
-                return;
+                _initializing = false;
+                yield break;
             }
 
             _lutMaterial = new Material(shader) { name = "WSM3D.ColorGradingLUT" };
@@ -117,8 +137,10 @@ namespace WorldSphereMod.Lighting
             {
                 _lutMaterial.SetVector(LutParamsId, new Vector4(16f / 256f, 1f / 16f, 1f, 0f));
             }
+
             _hasApplied = true;
             _materialReady = _lutMaterial != null;
+            _initializing = false;
         }
 
         void OnRenderImage(RenderTexture source, RenderTexture destination)

@@ -12,9 +12,8 @@ namespace WorldSphereMod.Lighting
         static DefaultReflectionMode _previousDefaultReflectionMode;
         static float _previousReflectionIntensity;
         static bool _hasCapturedReflectionState;
+        static bool _loadInProgress;
         bool _applied;
-
-        static Camera? MainCamera => Camera.main;
 
         public static void EnsureCreated()
         {
@@ -54,7 +53,11 @@ namespace WorldSphereMod.Lighting
                 return;
             }
             _instance = this;
-            ApplySkyboxCubemap();
+            if (_loadInProgress)
+            {
+                return;
+            }
+            StartCoroutine(ApplySkyboxCubemapAsync());
         }
 
         void OnDestroy()
@@ -67,13 +70,17 @@ namespace WorldSphereMod.Lighting
             Debug.Log("[WSM3D] CubemapLighting disabled (custom reflection reset).");
         }
 
-        void ApplySkyboxCubemap()
+        System.Collections.IEnumerator ApplySkyboxCubemapAsync()
         {
-            Cubemap? skyCubemap = Resources.Load<Cubemap>(CubemapResourcePath);
+            _loadInProgress = true;
+            ResourceRequest request = Resources.LoadAsync<Cubemap>(CubemapResourcePath);
+            yield return request;
+            Cubemap? skyCubemap = request.asset as Cubemap;
             if (skyCubemap == null)
             {
                 Debug.LogWarning($"[WSM3D] Cubemap '{CubemapResourcePath}' not found in Resources; HDR reflection probe skipped.");
-                return;
+                _loadInProgress = false;
+                yield break;
             }
 
             CapturePreviousReflectionState();
@@ -82,6 +89,7 @@ namespace WorldSphereMod.Lighting
             RenderSettings.defaultReflectionMode = DefaultReflectionMode.Custom;
             RenderSettings.reflectionIntensity = 1f;
             _applied = true;
+            _loadInProgress = false;
         }
 
         void RestoreRenderSettings()

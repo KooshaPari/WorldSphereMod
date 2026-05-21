@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using WorldSphereMod.NewCamera;
 
@@ -21,10 +22,16 @@ namespace WorldSphereMod.PostFx
         static ScreenSpaceAO? _instance;
         static readonly Vector4[] Kernel = new Vector4[MaxSamples];
         Material? _material;
+        bool _initializing;
+
+        static Camera? ResolveMainCamera()
+        {
+            return CameraManager.MainCamera != null ? CameraManager.MainCamera : null;
+        }
 
         public static void ApplySetting(bool enabled)
         {
-            Camera? mainCamera = CameraManager.MainCamera != null ? CameraManager.MainCamera : Camera.main;
+            Camera? mainCamera = ResolveMainCamera();
             if (mainCamera == null)
             {
                 return;
@@ -51,7 +58,7 @@ namespace WorldSphereMod.PostFx
                 return;
             }
 
-            Camera? mainCamera = CameraManager.MainCamera != null ? CameraManager.MainCamera : Camera.main;
+            Camera? mainCamera = ResolveMainCamera();
             if (mainCamera == null)
             {
                 return;
@@ -77,7 +84,10 @@ namespace WorldSphereMod.PostFx
             }
             _instance = this;
             BuildKernel();
-            ConfigureMaterial();
+            if (!_initializing)
+            {
+                StartCoroutine(ConfigureMaterialAsync());
+            }
             EnableDepth();
         }
 
@@ -95,16 +105,21 @@ namespace WorldSphereMod.PostFx
             cam.depthTextureMode |= DepthTextureMode.Depth;
         }
 
-        void ConfigureMaterial()
+        IEnumerator ConfigureMaterialAsync()
         {
-            Shader? shader = Resources.Load<Shader>(ShaderResourcePath);
+            _initializing = true;
+            ResourceRequest request = Resources.LoadAsync<Shader>(ShaderResourcePath);
+            yield return request;
+            Shader? shader = request.asset as Shader;
             shader ??= Shader.Find(ShaderFallbackName);
             if (shader == null)
             {
                 Debug.LogWarning("[WSM3D] ScreenSpaceAO: shader not found (Resources/Shaders/ScreenSpaceAO or Hidden/ScreenSpaceAO)");
-                return;
+                _initializing = false;
+                yield break;
             }
             _material = new Material(shader);
+            _initializing = false;
         }
 
         void BuildKernel()

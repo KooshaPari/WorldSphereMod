@@ -264,7 +264,7 @@ def main() -> int:
         if normal_placements is not None:
             normal_png = normal_items.get(mc_name)
             if normal_png is not None:
-                mapping["normal_rect"] = normal_placements[normal_png[0]].__dict__
+                placement = normal_placements.get(normal_png[0]); mapping["normal_rect"] = placement.__dict__ if placement is not None else None
             else:
                 mapping["normal_rect"] = None
         else:
