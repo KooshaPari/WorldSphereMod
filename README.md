@@ -17,12 +17,12 @@ This fork lands a real 3D pipeline on top of that foundation:
 | Phase | Status | What changes |
 |---|---|---|
 | 0  | landed       | Fork metadata, build portability (`WORLDBOX_PATH`), CI, settings/API v2 |
-| 1  | code-complete (opt-in) | Voxelized actors + buildings (with greedy meshing); visibly rendering after Wave-14 root-cause resolution (v2.0.0-alpha.7, 2026-05-19) |
-| 2  | code-complete (opt-in) | Procedural building meshes (heuristic landed); visibly rendering in-game after `cullPos.To3DTileHeight` lift before FrustumCuller (2026-05-19, commit `3448c1f`, v2.0.0-alpha.5) — AutoTest telemetry: drawCalls=377 instances=37760 on save2 |
+| 1  | **landed (default ON)** | Voxelized actors + buildings — limbed colored voxel actors at v2.0.0-alpha.9, 2026-05-21 (opus vision verified). 7 cumulative material fixes + 12 Harmony transpiler guards + Y-lift + LOD threshold matched to VoxelScaleMultiplier=16 + emission re-enable. AutoTest peakDrawCalls=29,799 |
+| 2  | **landed (default ON)** | Procedural building meshes — voxel proc-mesh default ON at v2.0.0-alpha.9. `cullPos.To3DTileHeight` lift before FrustumCuller (commit `3448c1f`). AutoTest peakDrawCalls=28,349 instances on save2 |
 | 3  | code-complete | 3a trees/bushes/rocks crossed-quads + 3b surface overlays + walls as 3D prisms |
 | 4  | code-complete (opt-in, lite) | Mesh water — WaterGerstner shader source landed; AssetBundle bake deferred to Phase 5b |
 | 5  | code-complete (opt-in, SSAO pending) | Sun driver + shadow cascade config + procedural sky landed (full 360° cycle as of v2.0.0-alpha.6); SSAO not yet implemented. |
-| 6  | in-progress  | Skeletal pipeline scaffold (rig cache + segmented humanoid skinned-mesh path + driver hooks) is now visibly deforming actors; GPU skinning path is still deferred per ADR-0006; flag default OFF. |
+| 6  | **landed (default ON)** | Skeletal pipeline — rig cache + segmented humanoid skinned-mesh path + Y-lift now rendering limbed actors at v2.0.0-alpha.9 (opus verified: 'distinct head-cube + torso block + limb voxels visible'). GPU skinning path still deferred per ADR-0006. |
 | 7  | code-complete | Worldspace UI: nameplate, HP bar, damage popups, selection ring all landed; SelectionHooks wired via `SelectedUnit`. |
 | 8  | code-complete (opt-in, autonomous) | TimeOfDay autonomous driver + SunRig color gradient; ProceduralSky shader source landed; MapBox.world_time probe falls back since field absent. |
 | 9  | partial      | Particle bursts on 5 effect IDs ✅ + URP PostFX volume ✅; `DecalPool` is initialized + ticked + cleared but no `Emit()` call site exists in code → decals are effectively absent (task #143). |
