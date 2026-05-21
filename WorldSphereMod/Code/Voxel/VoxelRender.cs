@@ -75,6 +75,14 @@ namespace WorldSphereMod.Voxel
 
             string[] candidates =
             {
+                // Unlit/Color first: simplest possible shader, outputs solid _Color
+                // with no texture sample, no alpha-test, no deferred-pipeline pass
+                // ambiguity. If voxel meshes are invisible because of any of those
+                // shader-side issues, Unlit/Color rules them all out — geometry
+                // either renders as solid white blocks or there's a non-shader
+                // problem (frustum/Flush/scale).
+                "Unlit/Color",
+                "Unlit/Texture",
                 // Prefer Simple Lit first: it keeps per-vertex color routes active for
                 // tinting while still staying in a URP-lit pipeline.
                 "Universal Render Pipeline/Simple Lit",
