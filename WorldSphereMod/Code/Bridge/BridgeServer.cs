@@ -30,13 +30,17 @@ namespace WorldSphereMod.Bridge
 
         public static bool EnableFailed;
 
+        static UnityEngine.GameObject _rootHost;
         public static void EnsureCreated()
         {
-            if (Mod.Object == null) return;
             try
             {
-                if (Mod.Object.GetComponent<BridgeServer>() != null) return;
-                Mod.Object.AddComponent<BridgeServer>();
+                if (_rootHost != null && _rootHost.GetComponent<BridgeServer>() != null) return;
+                // Own root GameObject so DontDestroyOnLoad is honored (it silently
+                // no-ops on non-root nodes). Survives scene transitions cleanly.
+                _rootHost = new UnityEngine.GameObject("WSM3D.BridgeServer");
+                UnityEngine.Object.DontDestroyOnLoad(_rootHost);
+                _rootHost.AddComponent<BridgeServer>();
             }
             catch (Exception ex)
             {
