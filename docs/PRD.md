@@ -373,15 +373,19 @@ endpoint returning enabled + patchedTypes.
 
 ---
 
-### NFR-WSM-006: Non-Visual Validation Coverage
+### NFR-WSM-006: Non-Visual Validation Coverage — **MEETS 2026-05-21 (10/10 phase, 5+ FR bridge endpoints, 3 xUnit suites — see audit)**
 
 **Description:** Fraction of phase-correctness assertions that can be
 made via bridge endpoints (no screenshot).
 
 **Target:** ≥ 90%
-**Current:** partially adopted — `/phase` covers wire state, `/voxel/*`
-covers cache + queue, but mesh-geometry invariants endpoint
-(`/voxel/sprite?name=X`) still returns empty for some sprites.
+**Current:** ≥ 90% achieved:
+- 10/10 phases verifiable via /phase/<name> (FR-WSM-005..012 LANDED)
+- Mesh invariants via /voxel/sprite?name=X (FR-WSM-001/002 LANDED)
+- /voxel/stats + /voxel/queue + /telemetry (NFR-WSM-001/002 verified)
+- 3 xUnit suites (AssetShapeRegistry, SettingsPersistence, HumanoidRigBindPose) covering FR-WSM-003/008/013
+- AutoScreenshotDriver still captures supplementary visual diff
+
 
 ---
 
