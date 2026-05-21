@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 using WorldSphereMod.Voxel;
 
 namespace WorldSphereMod.LOD
@@ -26,6 +27,15 @@ namespace WorldSphereMod.LOD
         static Material? _material;
         static bool _materialAttempted;
         static bool _materialDebugLogged;
+        static readonly int _colorId = Shader.PropertyToID("_Color");
+        static readonly int _baseColorId = Shader.PropertyToID("_BaseColor");
+        static readonly int _mainTexId = Shader.PropertyToID("_MainTex");
+        static readonly int _baseMapId = Shader.PropertyToID("_BaseMap");
+        static readonly int _srcBlendId = Shader.PropertyToID("_SrcBlend");
+        static readonly int _dstBlendId = Shader.PropertyToID("_DstBlend");
+        static readonly int _zWriteId = Shader.PropertyToID("_ZWrite");
+        static readonly int _cutoffId = Shader.PropertyToID("_Cutoff");
+        static readonly int _cullId = Shader.PropertyToID("_Cull");
 
         public static Material? GetMaterial()
         {
@@ -62,6 +72,7 @@ namespace WorldSphereMod.LOD
                     continue;
                 }
 
+                ConfigureImpostorMaterial(mat, shaderName);
                 _material = mat;
                 LogImpostorMaterialPassDetails(_material, shaderName);
                 return _material;
@@ -94,6 +105,51 @@ namespace WorldSphereMod.LOD
             {
                 string passName = material.GetPassName(pass);
                 Debug.Log($"[WSM3D][MATERIAL] IMPOSTOR pass[{pass}] name='{passName}'");
+            }
+        }
+
+        public static Quaternion GetFacingRotation(Vector3 worldPos)
+        {
+            Camera? cam = Camera.main;
+            if (cam == null) return Quaternion.identity;
+            Vector3 toCam = cam.transform.position - worldPos;
+            if (toCam.sqrMagnitude < 0.000001f) return Quaternion.identity;
+            return Quaternion.LookRotation(toCam, Vector3.up);
+        }
+
+        static void ConfigureImpostorMaterial(Material material, string shaderName)
+        {
+            if (material == null) return;
+
+            material.enableInstancing = true;
+            material.renderQueue = (int)RenderQueue.Geometry + 1;
+            material.SetInt(_cullId, (int)CullMode.Off);
+            material.SetColor(_colorId, Color.white);
+            material.SetColor(_baseColorId, Color.white);
+
+            try
+            {
+                material.SetTexture(_mainTexId, Texture2D.whiteTexture);
+            }
+            catch { }
+            try
+            {
+                material.SetTexture(_baseMapId, Texture2D.whiteTexture);
+            }
+            catch { }
+
+            material.DisableKeyword("_ALPHABLEND_ON");
+            material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            material.DisableKeyword("_ALPHATEST_ON");
+            material.SetFloat(_cutoffId, 0f);
+            material.SetInt(_srcBlendId, (int)BlendMode.One);
+            material.SetInt(_dstBlendId, (int)BlendMode.Zero);
+            material.SetInt(_zWriteId, 1);
+            material.color = Color.white;
+
+            if (string.Equals(shaderName, "Sprites/Default", System.StringComparison.OrdinalIgnoreCase))
+            {
+                material.SetOverrideTag("RenderType", "Opaque");
             }
         }
 

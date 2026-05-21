@@ -250,7 +250,7 @@ namespace WorldSphereMod.Voxel
         }
 
         /// <summary>Return the cached voxel mesh for <paramref name="sprite"/>, building one if missing.</summary>
-        public static Mesh Get(Sprite sprite, int depth = -1)
+        public static Mesh Get(Sprite sprite, int depth = -1, bool forceSyncBuild = false)
         {
             if (sprite == null) return null;
             int key = sprite.GetInstanceID();
@@ -272,8 +272,72 @@ namespace WorldSphereMod.Voxel
             }
 
             System.Threading.Interlocked.Increment(ref _misses);
+            if (forceSyncBuild)
+            {
+                Mesh forced = BuildVoxelMeshSync(sprite, key, depth);
+                if (forced != null && forced.vertexCount > 0)
+                {
+                    return forced;
+                }
+            }
+
             EnqueueBuild(sprite, depth, key);
             return GetPlaceholderVoxelMesh();
+        }
+
+        static Mesh BuildVoxelMeshSync(Sprite sprite, int key, int depth)
+        {
+            BuildCompletion completion = BuildVoxelMeshAsync(new BuildRequest { Sprite = sprite, Key = key, Depth = depth });
+            if (completion.BuildFailed || completion.Mesh == null || completion.Mesh.vertexCount == 0)
+            {
+                return null;
+            }
+
+            Mesh mesh = completion.Mesh;
+            if (mesh != null && Core.savedSettings != null && Core.savedSettings.VoxelMeshSmoothing)
+            {
+                Mesh smoothed = MeshSmoother.Smooth(mesh, Core.savedSettings.SmoothingIterations);
+                if (smoothed != null && !ReferenceEquals(smoothed, mesh))
+                {
+                    UnityEngine.Object.Destroy(mesh);
+                    mesh = smoothed;
+                }
+            }
+
+            MeshSnapshot snapshot = completion.Snapshot;
+            if (snapshot == null && mesh != null)
+            {
+                snapshot = CreateSnapshot(completion.Sprite, mesh, mesh.vertices, mesh.colors32, mesh.triangles);
+            }
+
+            completion.Mesh = mesh;
+            completion.Snapshot = snapshot;
+
+            LogVoxelizedSprite(completion.Sprite, mesh, completion.InflationStyle);
+            lock (_lock)
+            {
+                if (_pendingBuilds.Remove(key))
+                {
+                    // no-op, keep existing cache placeholder lifetime behavior
+                }
+
+                if (_cache.TryGetValue(key, out var existing))
+                {
+                    if (existing.Mesh != null && !ReferenceEquals(existing.Mesh, _placeholderMesh))
+                    {
+                        _pendingDestroy.Enqueue(existing.Mesh);
+                    }
+                }
+
+                _cache[key] = new Entry { Mesh = mesh, Snapshot = snapshot, LastFrame = _frame };
+                if (sprite != null && !string.IsNullOrEmpty(sprite.name))
+                {
+                    _nameToSpriteId[sprite.name] = key;
+                }
+                if (_cache.Count > Capacity) Evict();
+            }
+
+            return mesh;
         }
 
         static void EnqueueBuild(Sprite sprite, int depth, int key)

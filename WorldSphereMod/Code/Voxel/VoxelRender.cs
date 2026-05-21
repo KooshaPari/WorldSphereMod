@@ -497,7 +497,7 @@ namespace WorldSphereMod.Voxel
                             imPos = imPos.To3DTileHeight(false);
                         }
                         LogActorSubmitDiagnostic("impostor", ref _actorImpostorDiagnosticLogged, a, sp, imPosBeforeLift, imPos, rd.colors[i]);
-                        Quaternion br = Tools.RotateToCamera(ref imPos);
+                        Quaternion br = WorldSphereMod.LOD.ImpostorBillboard.GetFacingRotation(imPos);
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
                         MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
                         submitted = true;
@@ -508,7 +508,7 @@ namespace WorldSphereMod.Voxel
                         continue;
                     }
 
-                    Mesh m = VoxelMeshCache.Get(sp);
+                    Mesh m = VoxelMeshCache.Get(sp, -1, true);
                     if (m == null || m.vertexCount == 0) continue;
 
                     Vector3 pos = rd.positions[i];
@@ -629,7 +629,7 @@ namespace WorldSphereMod.Voxel
                         {
                             imPos = imPos.To3DTileHeight(false);
                         }
-                        Quaternion br = Tools.RotateToCamera(ref imPos);
+                        Quaternion br = WorldSphereMod.LOD.ImpostorBillboard.GetFacingRotation(imPos);
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
                         MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
                         submitted = true;

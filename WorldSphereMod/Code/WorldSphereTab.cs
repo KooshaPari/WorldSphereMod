@@ -32,9 +32,12 @@ namespace WorldSphereMod.UI
         public static PowersTab Tab;
         public static Sprite ModIcon;
         const string FallbackIconPath = "WorldSphereMod/ModIcon";
+        const string PhasesWindowId = "3D Phases";
+        const string PhasesWindowTitle = "phases_window";
         static readonly Dictionary<string, Sprite?> IconCache = new Dictionary<string, Sprite?>();
         static GameObject Space;
         static GameObject Line;
+        static bool _isPhasesWindowSuppressionHooked;
         static void CreateTabTools()
         {
             Space = ResourcesFinder.FindResource<GameObject>("_space");
@@ -47,6 +50,8 @@ namespace WorldSphereMod.UI
             CreateTabTools();
             CreateTab();
             CreateButtons();
+            SuppressPhasesWindow();
+            EnsurePhasesWindowAutoCloseHook();
         }
         static void AddLine()
         {
@@ -206,7 +211,7 @@ namespace WorldSphereMod.UI
             // surfacing these here the user has no way to turn Phase 1's
             // voxel actors on, so sprites stay 2D and the fork looks like
             // a no-op compared to upstream.
-            CreateWindowButton("3D Phases", "WorldSphereMod/ModIcon", "phases_window", new List<ButtonData>()
+            CreateWindowButton(PhasesWindowId, "WorldSphereMod/ModIcon", PhasesWindowTitle, new List<ButtonData>()
             {
                 new ButtonData("voxel_entities",       "voxel_entities_description",       "WorldSphereMod/Round",        Core.savedSettings.VoxelEntities,       TogglePhase),
                 new ButtonData("procedural_buildings", "procedural_buildings_description", "WorldSphereMod/World",         Core.savedSettings.ProceduralBuildings, TogglePhase),
@@ -264,6 +269,102 @@ namespace WorldSphereMod.UI
                 Core.Sphere.RefreshColors();
             }
         }
+
+        static void EnsurePhasesWindowAutoCloseHook()
+        {
+            if (_isPhasesWindowSuppressionHooked)
+            {
+                return;
+            }
+
+            _isPhasesWindowSuppressionHooked = true;
+            MapBox.on_world_loaded += SuppressPhasesWindowOnWorldLoad;
+        }
+
+        static void SuppressPhasesWindowOnWorldLoad()
+        {
+            try
+            {
+                SuppressPhasesWindow();
+            }
+            catch (System.Exception ex)
+            {
+                global::UnityEngine.Debug.LogWarning($"[WSM3D] Failed to suppress 3D Phases modal on world load: {ex.Message}");
+            }
+            finally
+            {
+                MapBox.on_world_loaded -= SuppressPhasesWindowOnWorldLoad;
+            }
+        }
+
+        static void SuppressPhasesWindow()
+        {
+            bool configChanged = false;
+            if (!PlayerConfig.dict.TryGetValue(PhasesWindowId, out var optionData))
+            {
+                optionData = new PlayerOptionData(PhasesWindowId);
+                PlayerConfig.dict.Add(PhasesWindowId, optionData);
+                configChanged = true;
+            }
+
+            if (optionData.boolVal)
+            {
+                optionData.boolVal = false;
+                configChanged = true;
+            }
+
+            if (configChanged)
+            {
+                PlayerConfig.saveData();
+            }
+
+            ClosePhasesWindow();
+        }
+
+        static void ClosePhasesWindow()
+        {
+            TryHideWindowByName(PhasesWindowId);
+            TryCloseWindowViaReflection(PhasesWindowId);
+        }
+
+        static void TryHideWindowByName(string windowId)
+        {
+            GameObject windowRoot = GameObject.Find($"/Canvas Container Main/Canvas - Windows/windows/{windowId}");
+            if (windowRoot != null)
+            {
+                windowRoot.SetActive(false);
+            }
+        }
+
+        static void TryCloseWindowViaReflection(string windowId)
+        {
+            MethodInfo? hideMethod = typeof(Windows).GetMethod(
+                "HideWindow",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static
+            );
+
+            if (hideMethod == null)
+            {
+                hideMethod = typeof(Windows).GetMethod(
+                    "CloseWindow",
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static
+                );
+            }
+
+            if (hideMethod == null)
+            {
+                return;
+            }
+
+            ParameterInfo[] parameters = hideMethod.GetParameters();
+            if (parameters.Length != 1 || parameters[0].ParameterType != typeof(string))
+            {
+                return;
+            }
+
+            hideMethod.Invoke(null, new object[] { windowId });
+        }
+
         static bool TryResolvePhaseToggleField(string toggleId, out FieldInfo? settingField)
         {
             settingField = typeof(SavedSettings).GetField(toggleId);

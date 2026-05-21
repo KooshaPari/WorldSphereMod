@@ -188,6 +188,8 @@ namespace WorldSphereMod.Effects
     }
     class EffectPatches
     {
+        const float kScorchDecalTtl = 30f;
+
         [HarmonyPatch(typeof(BaseEffectController), nameof(BaseEffectController.GetObject))]
         [HarmonyPostfix]
         public static void SeperateSprite(BaseEffect __result)
@@ -234,6 +236,13 @@ namespace WorldSphereMod.Effects
         public static void ExplosionPatch(ExplosionFlash __instance)
         {
             BasePatch(__instance);
+            if (!Core.IsWorld3D || !Core.savedSettings.ParticleEffects || __instance == null)
+            {
+                return;
+            }
+
+            Quaternion rot = WorldSphereMod.Tools.GetRotation(__instance.transform.position.AsIntClamped());
+            WorldSphereMod.Fx.DecalPool.Emit(WorldSphereMod.Fx.DecalChannel.Scorch, __instance.transform.position, rot, kScorchDecalTtl);
         }
         [HarmonyPatch(typeof(EffectsLibrary), nameof(EffectsLibrary.spawnAt), new Type[] {typeof(string), typeof(Vector3), typeof(float) })]
         [HarmonyPrefix]

@@ -40,6 +40,7 @@ namespace WorldSphereMod.Fx
         const float kFootstepFade = 0.70f;
         const float kBloodGrow = 0.20f;
         const float kBloodFade = 0.65f;
+        const float kBloodDecalTtl = 20f;
 
         const float kLeafScale = 0.045f;
         const float kFireflyScale = 0.035f;
@@ -176,6 +177,18 @@ namespace WorldSphereMod.Fx
             VoxelParticleBurst.TryStart(bloodFx);
         }
 
+        public static void EmitBloodDecal(Actor actor)
+        {
+            if (!Core.IsWorld3D || !Core.savedSettings.ParticleEffects || actor == null)
+            {
+                return;
+            }
+
+            Vector3 pos = actor.current_position;
+            Quaternion rot = Tools.GetRotation(pos.AsIntClamped());
+            DecalPool.Emit(DecalChannel.Blood, pos, rot, kBloodDecalTtl);
+        }
+
         public static void Tick()
         {
             if (!Core.IsWorld3D || !Core.savedSettings.ParticleEffects)
@@ -309,6 +322,7 @@ namespace WorldSphereMod.Fx
         static void Postfix(Actor __instance)
         {
             Environmental.SpawnBlood(__instance);
+            Environmental.EmitBloodDecal(__instance);
         }
     }
 }
