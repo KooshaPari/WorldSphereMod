@@ -106,8 +106,11 @@ using WorldSphereMod;
 
 public void PostInit()
 {
-    Mod.Object.AddComponent<WorldSphereMod.AutoScreenshotDriver>();
         Core.PostInit();
+        if (Object != null && Object.GetComponent<WorldSphereMod.AutoScreenshotDriver>() == null)
+        {
+            Object.AddComponent<WorldSphereMod.AutoScreenshotDriver>();
+        }
         if (!IsAutoTest && Core.savedSettings != null && Core.savedSettings.AutoTest)
         {
             IsAutoTest = true;
