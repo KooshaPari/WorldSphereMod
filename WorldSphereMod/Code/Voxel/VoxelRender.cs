@@ -159,6 +159,19 @@ namespace WorldSphereMod.Voxel
                     m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Geometry + 1;
                 }
                 catch { /* shader doesn't have these props — fine */ }
+                // Belt+suspenders: always set _MainTex to a 1x1 white texture and
+                // _Color to white so ANY shader that samples _MainTex.a in its
+                // alpha-test / opaque path gets alpha=1 (passes any cutoff). Without
+                // this, Standard (and possibly URP Lit) shaders default _MainTex to
+                // null → tex2D returns alpha=0 → entire mesh discarded.
+                try
+                {
+                    m.SetTexture("_MainTex", UnityEngine.Texture2D.whiteTexture);
+                    m.SetColor("_Color", UnityEngine.Color.white);
+                    m.SetTexture("_BaseMap", UnityEngine.Texture2D.whiteTexture);
+                    m.SetColor("_BaseColor", UnityEngine.Color.white);
+                }
+                catch { }
                 ConfigureVoxelMaterial(m, name);
                 McPackLoader.ApplyToMaterial(m);
                 LogVoxelMaterialPassDetails(m, name);
