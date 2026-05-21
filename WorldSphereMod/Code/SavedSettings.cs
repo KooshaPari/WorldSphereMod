@@ -2,8 +2,12 @@ using System;
 namespace WorldSphereMod
 {
     [Serializable]
-    public class SavedSettings
-    {
+public class SavedSettings
+{
+    public bool AutoScreenshotEnabled = false;
+    public float AutoScreenshotIntervalSeconds = 30f;
+    public string AutoScreenshotPath = @"C:\Users\koosh\Dev\WorldSphereMod\docs\journeys\scratch\";
+
         public string Version = "2.2";
         public bool Is3D = true;
         public bool InvertedCameraMovement = false;

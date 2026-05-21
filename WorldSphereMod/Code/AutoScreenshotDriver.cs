@@ -1,46 +1,62 @@
-using System;
 using System.Collections;
-using System.Reflection;
+using System.IO;
 using UnityEngine;
 
-namespace WorldSphereMod
+namespace WorldSphereMod;
+
+public sealed class AutoScreenshotDriver : MonoBehaviour
 {
-    public class AutoScreenshotDriver : MonoBehaviour
+    private const int MaxScreenshots = 20;
+    private int _screenshotCount;
+    private const float DefaultIntervalSeconds = 30f;
+
+    private void Start()
     {
-        static MethodInfo _capture;
-
-        IEnumerator Start()
+        if (Core.savedSettings == null || !Core.savedSettings.AutoScreenshotEnabled)
         {
-            yield return new WaitForSeconds(15f);
-            int captures = 0;
-            while (captures < 10)
-            {
-                yield return new WaitForSeconds(20f);
-                string path = "C:/Users/koosh/Dev/WorldSphereMod/docs/journeys/scratch/in-mod-" +
-                              DateTime.Now.ToString("HHmmss") + ".png";
-                if (!Capture(path))
-                {
-                    Debug.LogWarning("[WSM3D] AutoScreenshot ScreenCapture API not found via reflection");
-                    yield break;
-                }
-                Debug.Log("[WSM3D] AutoScreenshot saved " + path);
-                captures++;
-            }
+            Destroy(this);
+            return;
         }
 
-        static bool Capture(string path)
+        StartCoroutine(CaptureLoop());
+    }
+
+    private IEnumerator CaptureLoop()
+    {
+        while (_screenshotCount < MaxScreenshots)
         {
-            if (_capture == null)
+            var interval = Core.savedSettings != null
+                ? Core.savedSettings.AutoScreenshotIntervalSeconds
+                : DefaultIntervalSeconds;
+
+            if (interval <= 0f)
             {
-                Type t = Type.GetType("UnityEngine.ScreenCapture, UnityEngine")
-                      ?? Type.GetType("UnityEngine.ScreenCapture, UnityEngine.CoreModule")
-                      ?? Type.GetType("UnityEngine.ScreenCapture, UnityEngine.ScreenCaptureModule");
-                if (t == null) return false;
-                _capture = t.GetMethod("CaptureScreenshot", new[] { typeof(string) });
-                if (_capture == null) return false;
+                interval = DefaultIntervalSeconds;
             }
-            _capture.Invoke(null, new object[] { path });
-            return true;
+
+            yield return new WaitForSeconds(interval);
+
+            var path = GetNextScreenshotPath();
+            if (path != null)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                ScreenCapture.CaptureScreenshot(path);
+                _screenshotCount++;
+            }
+            else
+            {
+                yield break;
+            }
         }
+    }
+
+    private string GetNextScreenshotPath()
+    {
+        var basePath = Core.savedSettings != null && !string.IsNullOrWhiteSpace(Core.savedSettings.AutoScreenshotPath)
+            ? Core.savedSettings.AutoScreenshotPath
+            : Application.persistentDataPath;
+
+        var fileName = $"in-mod-{Mathf.RoundToInt(Time.time * 1000f)}.png";
+        return Path.Combine(basePath, fileName);
     }
 }

@@ -135,4 +135,4 @@ public void PostInit()
     public static bool IsAutoTest;
     static ModDeclare declare;
 }
-
+ 
