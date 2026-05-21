@@ -45,9 +45,9 @@ public class SavedSettings
         // "lathe" (revolved 360° extrusion; depth is forced to sprite width),
         // "extruded" (alias for pertexel for backward compatibility).
         public string VoxelInflationStyle = "pertexel";
-        public float VoxelScaleMultiplier = 6.0f;
+        public float VoxelScaleMultiplier = 16.0f;
         public bool DebugVoxelOutline = false;
-        public bool DebugSanityCube = false;
+        public bool DebugSanityCube = true;
         public bool DebugSpawnBuildings = false;
         public bool AutoTest = true;
         // Phase 2: Procedural building meshes (vs. billboarded building sprites).
