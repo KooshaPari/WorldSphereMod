@@ -364,65 +364,77 @@ namespace WorldSphereMod.TileMapToSphere
         [HarmonyTranspiler]
         public static IEnumerable<CodeInstruction> WorldTranspiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
         {
-            CodeMatcher Matcher = new CodeMatcher(instructions, generator);
-            while (Matcher.FindNext(FindPixels))
-            {
-                Matcher.RemoveInstruction();
-                Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, GetPixel));
-                Matcher.Advance(-2);
-                CodeInstruction instruct = Matcher.Instruction;
-                Matcher.Insert(new CodeInstruction(OpCodes.Ldsfld, Pixels));
-                Tools.MoveLabels(instruct, Matcher.Instruction);
-                Matcher.MatchForward(false, FindStelem);
-                Matcher.RemoveInstruction();
-                Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, SetPixel));
-            }
-            return Matcher.Instructions();
+            try {
+                CodeMatcher Matcher = new CodeMatcher(instructions, generator);
+                while (Matcher.FindNext(FindPixels))
+                {
+                    Matcher.RemoveInstruction();
+                    Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, GetPixel));
+                    Matcher.Advance(-2);
+                    CodeInstruction instruct = Matcher.Instruction;
+                    Matcher.Insert(new CodeInstruction(OpCodes.Ldsfld, Pixels));
+                    Tools.MoveLabels(instruct, Matcher.Instruction);
+                    Matcher.MatchForward(false, FindStelem);
+                    if (Matcher.Pos < 0 || Matcher.IsInvalid) { global::UnityEngine.Debug.LogWarning("[WSM3D] WorldTranspiler: Stelem not found — partial transpile"); break; }
+                    Matcher.RemoveInstruction();
+                    Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, SetPixel));
+                }
+                return Matcher.Instructions();
+            } catch (System.Exception ex) { global::UnityEngine.Debug.LogWarning("[WSM3D] WorldTranspiler failed: " + ex.GetType().Name + " — returning original"); return instructions; }
         }
         //this transpiler replaces all references in a maplayer from its color array to a custom color array that tracks the changes made
         public static IEnumerable<CodeInstruction> MapLayerTranspiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
         {
-            CodeMatcher Matcher = new CodeMatcher(instructions, generator);
-            while (Matcher.FindNext(FindPixels))
-            {
+            try {
+                CodeMatcher Matcher = new CodeMatcher(instructions, generator);
+                while (Matcher.FindNext(FindPixels))
+                {
+                    Matcher.RemoveInstruction();
+                    Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, GetPixel));
+                    Matcher.Advance(-1);
+                    CodeInstruction instruct = Matcher.Instruction;
+                    Matcher.Insert(new CodeInstruction(OpCodes.Ldsfld, Pixels));
+                    Tools.MoveLabels(instruct, Matcher.Instruction);
+                    Matcher.MatchForward(false, FindStelem);
+                    if (Matcher.Pos < 0 || Matcher.IsInvalid) { global::UnityEngine.Debug.LogWarning("[WSM3D] MapLayerTranspiler: Stelem not found — partial transpile"); break; }
+                    Matcher.RemoveInstruction();
+                    Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, SetPixel));
+                }
+                return Matcher.Instructions();
+            } catch (System.Exception ex) { global::UnityEngine.Debug.LogWarning("[WSM3D] MapLayerTranspiler failed: " + ex.GetType().Name + " — returning original"); return instructions; }
+        }
+        //why maxim
+        public static IEnumerable<CodeInstruction> ZoneLayerTranspiler(IEnumerable<CodeInstruction> instructions)
+        {
+            try {
+                CodeMatcher Matcher = new CodeMatcher(instructions);
+                Matcher.MatchForward(false, FindPixels);
+                if (Matcher.Pos < 0 || Matcher.IsInvalid) { global::UnityEngine.Debug.LogWarning("[WSM3D] ZoneLayerTranspiler: pixels field not found — skipping"); return instructions; }
                 Matcher.RemoveInstruction();
                 Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, GetPixel));
                 Matcher.Advance(-1);
                 CodeInstruction instruct = Matcher.Instruction;
                 Matcher.Insert(new CodeInstruction(OpCodes.Ldsfld, Pixels));
                 Tools.MoveLabels(instruct, Matcher.Instruction);
-                Matcher.MatchForward(false, FindStelem);
-                Matcher.RemoveInstruction();
-                Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, SetPixel));
-            }
-            return Matcher.Instructions();
-        }
-        //why maxim
-        public static IEnumerable<CodeInstruction> ZoneLayerTranspiler(IEnumerable<CodeInstruction> instructions)
-        {
-            CodeMatcher Matcher = new CodeMatcher(instructions);
-            Matcher.MatchForward(false, FindPixels);
-            Matcher.RemoveInstruction();
-            Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, GetPixel));
-            Matcher.Advance(-1);
-            CodeInstruction instruct = Matcher.Instruction;
-            Matcher.Insert(new CodeInstruction(OpCodes.Ldsfld, Pixels));
-            Tools.MoveLabels(instruct, Matcher.Instruction);
-            while (Matcher.FindNext(FindStelem))
-            {
-                Matcher.RemoveInstruction();
-                Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, SetPixel));
-            }
-            return Matcher.Instructions();
+                while (Matcher.FindNext(FindStelem))
+                {
+                    Matcher.RemoveInstruction();
+                    Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, SetPixel));
+                }
+                return Matcher.Instructions();
+            } catch (System.Exception ex) { global::UnityEngine.Debug.LogWarning("[WSM3D] ZoneLayerTranspiler failed: " + ex.GetType().Name + " — returning original"); return instructions; }
         }
         //why the fuck maxim
         public static IEnumerable<CodeInstruction> AVerySpecificTranspiler(IEnumerable<CodeInstruction> instructions)
         {
-            CodeMatcher Matcher = new CodeMatcher(instructions);
-            Matcher.MatchForward(false, new CodeMatch(OpCodes.Ldelem));
-            Matcher.RemoveInstruction();
-            Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(PixelArray), "get_Item")));
-            return Matcher.Instructions();
+            try {
+                CodeMatcher Matcher = new CodeMatcher(instructions);
+                Matcher.MatchForward(false, new CodeMatch(OpCodes.Ldelem));
+                if (Matcher.Pos < 0 || Matcher.IsInvalid) { global::UnityEngine.Debug.LogWarning("[WSM3D] AVerySpecificTranspiler: Ldelem not found — skipping"); return instructions; }
+                Matcher.RemoveInstruction();
+                Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(PixelArray), "get_Item")));
+                return Matcher.Instructions();
+            } catch (System.Exception ex) { global::UnityEngine.Debug.LogWarning("[WSM3D] AVerySpecificTranspiler failed: " + ex.GetType().Name + " — returning original"); return instructions; }
         }
         [HarmonyPatch(typeof(MapLayer), nameof(MapLayer.clear))]
         [HarmonyPrefix]
