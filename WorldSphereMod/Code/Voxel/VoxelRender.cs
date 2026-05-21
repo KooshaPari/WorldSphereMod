@@ -170,6 +170,16 @@ namespace WorldSphereMod.Voxel
                     m.SetColor("_Color", UnityEngine.Color.white);
                     m.SetTexture("_BaseMap", UnityEngine.Texture2D.whiteTexture);
                     m.SetColor("_BaseColor", UnityEngine.Color.white);
+                    // FORCE EMISSION = white. Standard shader is LIT — without
+                    // ambient/directional light hitting these meshes, they render
+                    // BLACK regardless of _Color. Emission bypasses lighting:
+                    // pixels emit the _EmissionColor value directly into the
+                    // framebuffer. Combined with the _MainTex=white above,
+                    // every voxel renders as pure white = visible against any
+                    // background.
+                    m.EnableKeyword("_EMISSION");
+                    m.SetColor("_EmissionColor", UnityEngine.Color.white);
+                    m.globalIlluminationFlags = UnityEngine.MaterialGlobalIlluminationFlags.RealtimeEmissive;
                 }
                 catch { }
                 ConfigureVoxelMaterial(m, name);
