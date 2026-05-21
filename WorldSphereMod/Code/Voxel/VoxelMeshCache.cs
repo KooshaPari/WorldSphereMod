@@ -246,7 +246,16 @@ namespace WorldSphereMod.Voxel
             }
 
             var request = new BuildRequest { Sprite = sprite, Key = key, Depth = depth };
-            System.Threading.Tasks.Task.Run(() => BuildVoxelMeshAsync(request))
+            // CRASH FIX: SpriteVoxelizer.Build* creates UnityEngine.Mesh via 'new Mesh()'
+            // which REQUIRES the main thread. Task.Run on ThreadPool blew up with
+            // 'Graphics device is null'. Run synchronously inline (caller is main thread).
+            // Cost: cache miss blocks 1-50ms once per unique sprite. Amortized fine.
+            // Future: refactor worker to emit raw vertex/index arrays, dispatch Mesh ctor
+            // via main-thread queue to restore truly-async loading.
+            var completion = BuildVoxelMeshAsync(request);
+            _completedBuilds.Enqueue(completion);
+            System.Threading.Tasks.Task<BuildCompletion> completedTaskShim = System.Threading.Tasks.Task.FromResult(completion);
+            completedTaskShim
                 .ContinueWith(task =>
                 {
                     if (task == null || !task.IsCompleted)
