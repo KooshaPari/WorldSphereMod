@@ -180,7 +180,8 @@ namespace WorldSphereMod.UI
             CreateWindowButton("Sprite Settings", "WorldSphereMod/Rotate", "sprite_settings_window", new List<ButtonData>()
             {
                ///new ButtonData("sprites_rotate_to_camera", "sprites_rotate_to_camera_description", "WorldSphereMod/Rotate", Core.savedSettings.RotateStuffToCamera, ToggleRotations),
-               new ButtonData("sprites_rotate_to_camera", "sprites_rotate_to_camera_description", "WorldSphereMod/Rotate", Core.savedSettings.RotateStuffToCamera, ToggleRotations)
+               new ButtonData("sprites_rotate_to_camera", "sprites_rotate_to_camera_description", "WorldSphereMod/Rotate", Core.savedSettings.RotateStuffToCamera, ToggleRotations),
+               new ButtonData("building_style_procgen", "building_style_procgen_description", "WorldSphereMod/World", Core.savedSettings.BuildingStyleProcgen, ToggleBuildingStyleProcgen)
             }
             );
             GenerateSlider("building_size", 0.1f, 5f, Core.savedSettings.BuildingSize, (float val) => { Core.savedSettings.BuildingSize = val; Core.SaveSettings(); }, "Sprite Settings");
@@ -315,6 +316,11 @@ namespace WorldSphereMod.UI
         static void ToggleRotations(string _)
         {
             Core.savedSettings.RotateStuffToCamera = !Core.savedSettings.RotateStuffToCamera;
+            Core.SaveSettings();
+        }
+        static void ToggleBuildingStyleProcgen(string _)
+        {
+            Core.savedSettings.BuildingStyleProcgen = !Core.savedSettings.BuildingStyleProcgen;
             Core.SaveSettings();
         }
         static void ToggleFirtPerson(string _)

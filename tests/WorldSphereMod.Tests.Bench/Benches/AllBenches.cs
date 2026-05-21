@@ -69,6 +69,7 @@ public class AllBenches
             CurrentShape = 1,
             VoxelEntities = false,
             ProceduralBuildings = false,
+            BuildingStyleProcgen = false,
             CrossedQuadFoliage = true,
             MeshWater = false,
             HighShadows = false,
@@ -114,6 +115,7 @@ public class SavedSettings
     public int CurrentShape = 1;
     public bool VoxelEntities = false;
     public bool ProceduralBuildings = false;
+    public bool BuildingStyleProcgen = false;
     public bool CrossedQuadFoliage = true;
     public bool MeshWater = false;
     public bool HighShadows = false;

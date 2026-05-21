@@ -85,6 +85,15 @@ namespace WorldSphereMod
             {
                 WorldSphereMod.Lighting.SunDriver.ApplyShadowSettings();
             }
+            if (flagName == nameof(SavedSettings.WorldspaceUI) && newValue)
+            {
+                WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated();
+            }
+            if (flagName == nameof(SavedSettings.DayNightCycle) && newValue)
+            {
+                WorldSphereMod.Lighting.TimeOfDay.EnsureCreated();
+                WorldSphereMod.Lighting.ProceduralSky.EnsureCreated();
+            }
         }
 
         static void DoSomeOtherStuff()

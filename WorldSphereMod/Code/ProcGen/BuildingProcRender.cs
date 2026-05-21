@@ -102,6 +102,8 @@ namespace WorldSphereMod.ProcGen
                             Vector3 scl = rd.scales[i];
                             if (rd.flip_x_states[i]) scl.x = -scl.x;
                             scl.z = scl.x;
+                            Sprite? sp = rd.main_sprites[i];
+                            if (sp == null) continue;
 
                             if (rules.Shape == BuildingShape.CrossedQuad || rules.Shape == BuildingShape.Single)
                             {
@@ -113,8 +115,6 @@ namespace WorldSphereMod.ProcGen
                                 }
                                 Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
                                 if (!FoliageMaterial.EnsureMaterial()) continue;
-                                Sprite? sp = rd.main_sprites[i];
-                                if (sp == null) continue;
                                 Mesh? fm = CrossedQuadMeshCache.GetOrBuild(sp, rules.Shape, rules.SwayAmplitude, b.asset.id);
                                 if (fm == null) continue;
                                 Material? mat = FoliageMaterial.Get();
@@ -127,14 +127,28 @@ namespace WorldSphereMod.ProcGen
                             }
                             else
                             {
-                                scl *= Core.savedSettings.VoxelScaleMultiplier;
-                                LogFirstBuildingPos(rawPos, pos, scl);
-                                Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
-                                Mesh m = ProcGenCache.GetOrGenerate(b.asset, rules);
-                                if (m == null) continue;
-                                if (VoxelRender.Submit(m, trs, rd.colors[i]))
+                                if (Core.savedSettings.BuildingStyleProcgen)
                                 {
-                                    submitted = true;
+                                    scl *= Core.savedSettings.VoxelScaleMultiplier;
+                                    LogFirstBuildingPos(rawPos, pos, scl);
+                                    Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
+                                    Mesh m = ProcGenCache.GetOrGenerate(b.asset, rules);
+                                    if (m == null) continue;
+                                    if (VoxelRender.Submit(m, trs, rd.colors[i]))
+                                    {
+                                        submitted = true;
+                                    }
+                                }
+                                else
+                                {
+                                    LogFirstBuildingPos(rawPos, pos, scl);
+                                    Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
+                                    Mesh m = VoxelMeshCache.Get(sp);
+                                    if (m == null || m.vertexCount == 0) continue;
+                                    if (VoxelRender.Submit(m, trs, rd.colors[i]))
+                                    {
+                                        submitted = true;
+                                    }
                                 }
                             }
                         }

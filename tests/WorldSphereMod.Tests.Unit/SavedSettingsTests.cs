@@ -45,6 +45,18 @@ public class SavedSettingsTests
     }
 
     [Fact]
+    public void SavedSettings_declares_BuildingStyleProcgen_field_with_initial_value_false()
+    {
+        var source = ReadSavedSettingsSource();
+
+        var pattern = @"public\s+bool\s+BuildingStyleProcgen\s*=\s*false";
+        var match = Regex.Match(source, pattern);
+
+        match.Success.Should().BeTrue(
+            "SavedSettings must declare: public bool BuildingStyleProcgen = false;");
+    }
+
+    [Fact]
     public void SavedSettings_declares_all_ten_v2_phase_fields()
     {
         var source = ReadSavedSettingsSource();
