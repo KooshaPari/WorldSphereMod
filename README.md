@@ -22,7 +22,7 @@ This fork lands a real 3D pipeline on top of that foundation:
 | 3  | code-complete | 3a trees/bushes/rocks crossed-quads + 3b surface overlays + walls as 3D prisms |
 | 4  | code-complete (opt-in, lite) | Mesh water — WaterGerstner shader source landed; AssetBundle bake deferred to Phase 5b |
 | 5  | code-complete (opt-in, SSAO pending) | Sun driver + shadow cascade config + procedural sky landed (full 360° cycle as of v2.0.0-alpha.6); SSAO not yet implemented. |
-| 6  | in-progress  | Skeletal pipeline scaffold (rig cache + segmented CPU fallback + driver hooks) wired but GPU skinning path intentionally bypassed per ADR-0006; flag default OFF. |
+| 6  | in-progress  | Skeletal pipeline scaffold (rig cache + segmented humanoid skinned-mesh path + driver hooks) is now visibly deforming actors; GPU skinning path is still deferred per ADR-0006; flag default OFF. |
 | 7  | code-complete | Worldspace UI: nameplate, HP bar, damage popups, selection ring all landed; SelectionHooks wired via `SelectedUnit`. |
 | 8  | code-complete (opt-in, autonomous) | TimeOfDay autonomous driver + SunRig color gradient; ProceduralSky shader source landed; MapBox.world_time probe falls back since field absent. |
 | 9  | partial      | Particle bursts on 5 effect IDs ✅ + URP PostFX volume ✅; `DecalPool` is initialized + ticked + cleared but no `Emit()` call site exists in code → decals are effectively absent (task #143). |

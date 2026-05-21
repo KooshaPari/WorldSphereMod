@@ -94,6 +94,14 @@ namespace WorldSphereMod
                 WorldSphereMod.Lighting.TimeOfDay.EnsureCreated();
                 WorldSphereMod.Lighting.ProceduralSky.EnsureCreated();
             }
+            if (flagName == nameof(SavedSettings.HdrSkybox))
+            {
+                WorldSphereMod.Lighting.CubemapLighting.ApplySetting(newValue);
+            }
+            if (flagName == nameof(SavedSettings.ColorGradingLut))
+            {
+                WorldSphereMod.Lighting.ColorGradingLUT.ApplySetting(newValue);
+            }
         }
 
         static void DoSomeOtherStuff()
@@ -266,6 +274,8 @@ namespace WorldSphereMod
         {
             Sphere.Begin();
             CameraManager.MakeCamera3D();
+            WorldSphereMod.Lighting.CubemapLighting.EnsureCreated();
+            WorldSphereMod.Lighting.ColorGradingLUT.EnsureCreated();
             Do3DStuff();
         }
         static void Do3DStuff()
@@ -641,3 +651,4 @@ namespace WorldSphereMod
         }
     }
 }
+

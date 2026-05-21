@@ -1,4 +1,4 @@
-﻿using CompoundSpheres;
+using CompoundSpheres;
 using NeoModLoader.api;
 using NeoModLoader.constants;
 using System.IO;
@@ -81,6 +81,14 @@ using WorldSphereMod;
         {
             WorldSphereMod.Lighting.ProceduralSky.EnsureCreated();
         });
+        InitProfiler.Measure("EnsureCreated: CubemapLighting", () =>
+        {
+            WorldSphereMod.Lighting.CubemapLighting.EnsureCreated();
+        });
+        InitProfiler.Measure("EnsureCreated: ColorGradingLUT", () =>
+        {
+            WorldSphereMod.Lighting.ColorGradingLUT.EnsureCreated();
+        });
     }
 
     public void PostInit()
@@ -110,3 +118,4 @@ using WorldSphereMod;
     public static bool IsAutoTest;
     static ModDeclare declare;
 }
+

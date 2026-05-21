@@ -66,6 +66,7 @@ public class SavedSettingsTests
             ("VoxelEntities", false),
             ("ProceduralBuildings", false),
             ("CrossedQuadFoliage", true),
+            ("BiomeBlending", false),
             ("MeshWater", false),
             ("HighShadows", false),
             ("SkeletalAnimation", false),
@@ -96,6 +97,7 @@ public class SavedSettingsTests
             "VoxelEntities",
             "ProceduralBuildings",
             "CrossedQuadFoliage",
+            "BiomeBlending",
             "MeshWater",
             "HighShadows",
             "SkeletalAnimation",
@@ -127,6 +129,7 @@ public class SavedSettingsTests
             ("VoxelEntities", "Phase 1"),
             ("ProceduralBuildings", "Phase 2"),
             ("CrossedQuadFoliage", "Phase 3"),
+            ("BiomeBlending", "biome blending"),
             ("MeshWater", "Phase 4"),
             ("HighShadows", "Phase 5"),
             ("SkeletalAnimation", "Phase 6"),
@@ -152,6 +155,7 @@ public class SavedSettingsTests
     [InlineData("VoxelEntities", "false")]
     [InlineData("ProceduralBuildings", "false")]
     [InlineData("CrossedQuadFoliage", "true")]
+    [InlineData("BiomeBlending", "false")]
     [InlineData("MeshWater", "false")]
     [InlineData("HighShadows", "false")]
     [InlineData("SkeletalAnimation", "false")]
@@ -179,6 +183,7 @@ public class SavedSettingsTests
             "VoxelEntities",
             "ProceduralBuildings",
             "CrossedQuadFoliage",
+            "BiomeBlending",
             "MeshWater",
             "HighShadows",
             "SkeletalAnimation",

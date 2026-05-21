@@ -154,6 +154,69 @@ namespace WorldSphereMod.Rig
             return BuildHierarchy(false, scale, prone, armSwing, legStride, headPitch, attackSwing);
         }
 
+        public static Matrix4x4[] GetBindPoses()
+        {
+            return (Matrix4x4[])_restWorldInverse.Clone();
+        }
+
+        /// <summary>
+        /// Fill the local bone rotations for a live skinned mesh hierarchy. When the
+        /// engine frame data does not expose a usable walk cycle, a time-based fallback
+        /// keeps the actor visibly animated while walking.
+        /// </summary>
+        public static void FillLocalRotations(Actor actor, float walkPhase, Quaternion[] localRotations)
+        {
+            if (localRotations == null || localRotations.Length < Bones.Length)
+            {
+                return;
+            }
+
+            AnimationFrameData? fd = null;
+            try
+            {
+                fd = actor != null ? actor.getAnimationFrameData() : null;
+            }
+            catch
+            {
+                fd = null;
+            }
+
+            float armSwing = ReadFloat(fd, 0f, "arm_swing", "armSwing", "swing");
+            float legStride = ReadFloat(fd, 0f, "leg_stride", "legStride", "stride");
+            float headPitch = ReadFloat(fd, 0f, "head_pitch", "headPitch", "neck_pitch", "neckPitch");
+            float attackSwing = ReadFloat(fd, 0f, "attack_swing", "attackSwing", "attack", "attack_progress");
+            Vector2 size = ReadVector2(fd, "size_unit");
+            bool prone = size.x > 0.001f && size.y / size.x < 0.6f;
+
+            float walkAmount = 0f;
+            try
+            {
+                if (actor != null)
+                {
+                    Vector3 current = actor.current_position;
+                    Vector3 next = actor.next_step_position;
+                    walkAmount = Mathf.Clamp01(Vector3.Distance(current, next));
+                }
+            }
+            catch
+            {
+                walkAmount = 0f;
+            }
+
+            if (walkAmount > 0f)
+            {
+                float cycle = Mathf.Sin(walkPhase * Mathf.PI * 2f) * walkAmount;
+                if (Mathf.Abs(armSwing) < 0.001f) armSwing = -cycle;
+                if (Mathf.Abs(legStride) < 0.001f) legStride = cycle;
+                if (Mathf.Abs(headPitch) < 0.001f) headPitch = Mathf.Sin(walkPhase * Mathf.PI) * 0.12f * walkAmount;
+            }
+
+            for (int i = 0; i < Bones.Length; i++)
+            {
+                localRotations[i] = GetBoneRotation((BoneId)i, prone, armSwing, legStride, headPitch, attackSwing);
+            }
+        }
+
         static Matrix4x4[] BuildHierarchy(bool identityPose, float scale, bool prone, float armSwing, float legStride, float headPitch, float attackSwing)
         {
             var local = new Matrix4x4[Bones.Length];
@@ -161,46 +224,7 @@ namespace WorldSphereMod.Rig
 
             for (int i = 0; i < Bones.Length; i++)
             {
-                Quaternion rot = Quaternion.identity;
-                switch ((BoneId)i)
-                {
-                    case BoneId.Root:
-                        if (prone)
-                        {
-                            rot = Quaternion.Euler(-90f, 0f, 0f);
-                        }
-                        break;
-                    case BoneId.Spine:
-                        rot = Quaternion.Euler(0f, 0f, Mathf.Clamp(attackSwing * 3f, -10f, 10f));
-                        break;
-                    case BoneId.Head:
-                        rot = Quaternion.Euler(Mathf.Clamp(headPitch * 20f + attackSwing * 8f, -25f, 25f), 0f, 0f);
-                        break;
-                    case BoneId.LArmUpper:
-                        rot = Quaternion.Euler(0f, Mathf.Clamp((armSwing * 55f) + (attackSwing * 25f), -90f, 90f), 0f);
-                        break;
-                    case BoneId.RArmUpper:
-                        rot = Quaternion.Euler(0f, Mathf.Clamp((-armSwing * 55f) + (attackSwing * 25f), -90f, 90f), 0f);
-                        break;
-                    case BoneId.LArmLower:
-                        rot = Quaternion.Euler(0f, Mathf.Clamp((armSwing * 18f) + (attackSwing * 10f), -65f, 65f), 0f);
-                        break;
-                    case BoneId.RArmLower:
-                        rot = Quaternion.Euler(0f, Mathf.Clamp((-armSwing * 18f) + (attackSwing * 10f), -65f, 65f), 0f);
-                        break;
-                    case BoneId.LLegUpper:
-                        rot = Quaternion.Euler(0f, Mathf.Clamp(legStride * 35f, -55f, 55f), 0f);
-                        break;
-                    case BoneId.RLegUpper:
-                        rot = Quaternion.Euler(0f, Mathf.Clamp(-legStride * 35f, -55f, 55f), 0f);
-                        break;
-                    case BoneId.LLegLower:
-                        rot = Quaternion.Euler(0f, Mathf.Clamp(legStride * 17.5f, -35f, 35f), 0f);
-                        break;
-                    case BoneId.RLegLower:
-                        rot = Quaternion.Euler(0f, Mathf.Clamp(-legStride * 17.5f, -35f, 35f), 0f);
-                        break;
-                }
+                Quaternion rot = GetBoneRotation((BoneId)i, prone, armSwing, legStride, headPitch, attackSwing);
 
                 Vector3 bind = Bones[i].BindPoseOffset * scale;
                 local[i] = Matrix4x4.TRS(bind, rot, Vector3.one);
@@ -219,6 +243,52 @@ namespace WorldSphereMod.Rig
                 skin[i] = world[i] * _restWorldInverse[i];
             }
             return skin;
+        }
+
+        static Quaternion GetBoneRotation(BoneId bone, bool prone, float armSwing, float legStride, float headPitch, float attackSwing)
+        {
+            Quaternion rot = Quaternion.identity;
+            switch (bone)
+            {
+                case BoneId.Root:
+                    if (prone)
+                    {
+                        rot = Quaternion.Euler(-90f, 0f, 0f);
+                    }
+                    break;
+                case BoneId.Spine:
+                    rot = Quaternion.Euler(0f, 0f, Mathf.Clamp(attackSwing * 3f, -10f, 10f));
+                    break;
+                case BoneId.Head:
+                    rot = Quaternion.Euler(Mathf.Clamp(headPitch * 20f + attackSwing * 8f, -25f, 25f), 0f, 0f);
+                    break;
+                case BoneId.LArmUpper:
+                    rot = Quaternion.Euler(0f, Mathf.Clamp((armSwing * 55f) + (attackSwing * 25f), -90f, 90f), 0f);
+                    break;
+                case BoneId.RArmUpper:
+                    rot = Quaternion.Euler(0f, Mathf.Clamp((-armSwing * 55f) + (attackSwing * 25f), -90f, 90f), 0f);
+                    break;
+                case BoneId.LArmLower:
+                    rot = Quaternion.Euler(0f, Mathf.Clamp((armSwing * 18f) + (attackSwing * 10f), -65f, 65f), 0f);
+                    break;
+                case BoneId.RArmLower:
+                    rot = Quaternion.Euler(0f, Mathf.Clamp((-armSwing * 18f) + (attackSwing * 10f), -65f, 65f), 0f);
+                    break;
+                case BoneId.LLegUpper:
+                    rot = Quaternion.Euler(0f, Mathf.Clamp(legStride * 35f, -55f, 55f), 0f);
+                    break;
+                case BoneId.RLegUpper:
+                    rot = Quaternion.Euler(0f, Mathf.Clamp(-legStride * 35f, -55f, 55f), 0f);
+                    break;
+                case BoneId.LLegLower:
+                    rot = Quaternion.Euler(0f, Mathf.Clamp(legStride * 17.5f, -35f, 35f), 0f);
+                    break;
+                case BoneId.RLegLower:
+                    rot = Quaternion.Euler(0f, Mathf.Clamp(-legStride * 17.5f, -35f, 35f), 0f);
+                    break;
+            }
+
+            return rot;
         }
 
         static float ReadFloat(object? fd, float fallback, params string[] names)

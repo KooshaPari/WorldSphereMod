@@ -1,4 +1,4 @@
-﻿using NeoModLoader.General;
+using NeoModLoader.General;
 using NeoModLoader.General.UI.Tab;
 using UnityEngine;
 using UnityEngine.UI;
@@ -214,6 +214,8 @@ namespace WorldSphereMod.UI
                 new ButtonData("biome_blending",       "biome_blending_description",       "WorldSphereMod/World",         Core.savedSettings.BiomeBlending,       ToggleBiomeBlending),
                 new ButtonData("mesh_water",           "mesh_water_description",           "WorldSphereMod/PerlinNoise",   Core.savedSettings.MeshWater,           TogglePhase_MeshWater),
                 new ButtonData("high_shadows",         "high_shadows_description",         "WorldSphereMod/SkyBox",        Core.savedSettings.HighShadows,         TogglePhase_HighShadows),
+                new ButtonData("hdr_skybox",           "hdr_skybox_description",           "WorldSphereMod/SkyBox",        Core.savedSettings.HdrSkybox,           TogglePhase_HdrSkybox),
+                new ButtonData("color_grading_lut",    "color_grading_lut_description",    "WorldSphereMod/ModIcon",       Core.savedSettings.ColorGradingLut,      TogglePhase_ColorGradingLut),
                 new ButtonData("skeletal_animation",   "skeletal_animation_description",   "WorldSphereMod/Rotate",        Core.savedSettings.SkeletalAnimation,   TogglePhase_SkeletalAnimation),
                 new ButtonData("worldspace_ui",        "worldspace_ui_description",        "WorldSphereMod/Camera",        Core.savedSettings.WorldspaceUI,        TogglePhase_WorldspaceUI),
                 new ButtonData("day_night_cycle",      "day_night_cycle_description",      "WorldSphereMod/SkyBox",        Core.savedSettings.DayNightCycle,       TogglePhase_DayNightCycle),
@@ -245,6 +247,8 @@ namespace WorldSphereMod.UI
         }
         static void TogglePhase_MeshWater(string _)           { Core.savedSettings.MeshWater           = !Core.savedSettings.MeshWater;           Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.MeshWater),           Core.savedSettings.MeshWater); }
         static void TogglePhase_HighShadows(string _)         { Core.savedSettings.HighShadows         = !Core.savedSettings.HighShadows;         Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.HighShadows),         Core.savedSettings.HighShadows); }
+        static void TogglePhase_HdrSkybox(string _)          { Core.savedSettings.HdrSkybox          = !Core.savedSettings.HdrSkybox;          Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.HdrSkybox),          Core.savedSettings.HdrSkybox); }
+        static void TogglePhase_ColorGradingLut(string _)     { Core.savedSettings.ColorGradingLut     = !Core.savedSettings.ColorGradingLut;     Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.ColorGradingLut),     Core.savedSettings.ColorGradingLut); }
         static void TogglePhase_SkeletalAnimation(string _)   { Core.savedSettings.SkeletalAnimation   = !Core.savedSettings.SkeletalAnimation;   Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.SkeletalAnimation),   Core.savedSettings.SkeletalAnimation); }
         static void TogglePhase_WorldspaceUI(string _)        { Core.savedSettings.WorldspaceUI        = !Core.savedSettings.WorldspaceUI;        Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.WorldspaceUI),        Core.savedSettings.WorldspaceUI); }
         static void TogglePhase_DayNightCycle(string _)       { Core.savedSettings.DayNightCycle       = !Core.savedSettings.DayNightCycle;       Core.SaveSettings(); Core.ApplyPhaseToggle(nameof(SavedSettings.DayNightCycle),       Core.savedSettings.DayNightCycle); }
@@ -264,6 +268,8 @@ namespace WorldSphereMod.UI
             bool previousBiomeBlending = Core.savedSettings.BiomeBlending;
             bool previousMeshWater = Core.savedSettings.MeshWater;
             bool previousHighShadows = Core.savedSettings.HighShadows;
+            bool previousHdrSkybox = Core.savedSettings.HdrSkybox;
+            bool previousColorGradingLut = Core.savedSettings.ColorGradingLut;
             bool previousSkeletalAnimation = Core.savedSettings.SkeletalAnimation;
             bool previousWorldspaceUI = Core.savedSettings.WorldspaceUI;
             bool previousDayNightCycle = Core.savedSettings.DayNightCycle;
@@ -279,6 +285,8 @@ namespace WorldSphereMod.UI
             if (previousBiomeBlending != Core.savedSettings.BiomeBlending && Core.IsWorld3D) Core.Sphere.RefreshColors();
             if (previousMeshWater != Core.savedSettings.MeshWater)                       Core.ApplyPhaseToggle(nameof(SavedSettings.MeshWater),           Core.savedSettings.MeshWater);
             if (previousHighShadows != Core.savedSettings.HighShadows)                   Core.ApplyPhaseToggle(nameof(SavedSettings.HighShadows),         Core.savedSettings.HighShadows);
+            if (previousHdrSkybox != Core.savedSettings.HdrSkybox)                       Core.ApplyPhaseToggle(nameof(SavedSettings.HdrSkybox),           Core.savedSettings.HdrSkybox);
+            if (previousColorGradingLut != Core.savedSettings.ColorGradingLut)         Core.ApplyPhaseToggle(nameof(SavedSettings.ColorGradingLut),      Core.savedSettings.ColorGradingLut);
             if (previousSkeletalAnimation != Core.savedSettings.SkeletalAnimation)       Core.ApplyPhaseToggle(nameof(SavedSettings.SkeletalAnimation),   Core.savedSettings.SkeletalAnimation);
             if (previousWorldspaceUI != Core.savedSettings.WorldspaceUI)                 Core.ApplyPhaseToggle(nameof(SavedSettings.WorldspaceUI),        Core.savedSettings.WorldspaceUI);
             if (previousDayNightCycle != Core.savedSettings.DayNightCycle)               Core.ApplyPhaseToggle(nameof(SavedSettings.DayNightCycle),       Core.savedSettings.DayNightCycle);
@@ -513,3 +521,7 @@ namespace WorldSphereMod.UI
         }
     }
 }
+
+
+
+

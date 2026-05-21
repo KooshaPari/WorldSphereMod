@@ -69,4 +69,14 @@ public sealed class Phase6RigRegistryTests
 
         source.Should().Contain("VoxelMeshCache.BuildWithBoneWeights(sprite, rigType)");
     }
+
+    [Fact]
+    public void RigDriver_uses_skinned_mesh_renderers_for_humanoids()
+    {
+        var source = ReadSource(@"WorldSphereMod/Code/Rig/RigDriver.cs");
+
+        source.Should().Contain("SkinnedMeshRenderer");
+        source.Should().Contain("HumanoidRig.FillLocalRotations");
+        source.Should().Contain("RigDriver.Update()");
+    }
 }

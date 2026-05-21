@@ -628,6 +628,7 @@ namespace WorldSphereMod.Voxel
 
             WorldSphereMod.Rig.RigCache.Tick();
             WorldSphereMod.Rig.RigCache.DrainPendingDestroy();
+            WorldSphereMod.Rig.RigDriver.Update();
 
             if (MeshInstanceBatcher.HasPendingSubmissions)
             {

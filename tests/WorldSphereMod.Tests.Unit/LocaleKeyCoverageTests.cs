@@ -119,14 +119,15 @@ public class LocaleKeyCoverageTests
         var buttonDataPattern = @"new\s+ButtonData\(\s*""([a-z_]+)""";
         var buttonMatches = Regex.Matches(phasesWindowBlock, buttonDataPattern);
 
-        buttonMatches.Should().HaveCount(11,
-            "WorldSphereTab 3D Phases window defines 10 phase toggles + sanity_cube debug toggle");
+        buttonMatches.Should().HaveCount(12,
+            "WorldSphereTab 3D Phases window defines 11 phase toggles + sanity_cube debug toggle");
 
         var expectedPhases = new[]
         {
             "voxel_entities",
             "procedural_buildings",
             "crossed_quad_foliage",
+            "biome_blending",
             "mesh_water",
             "high_shadows",
             "skeletal_animation",
@@ -181,6 +182,7 @@ public class LocaleKeyCoverageTests
             "voxel_entities",
             "procedural_buildings",
             "crossed_quad_foliage",
+            "biome_blending",
             "mesh_water",
             "high_shadows",
             "skeletal_animation",

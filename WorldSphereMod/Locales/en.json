@@ -46,6 +46,8 @@
     "procedural_buildings_description": "Replace building sprites with procedural mesh + heuristic roof inference.",
     "crossed_quad_foliage": "Crossed-Quad Foliage (Phase 3)",
     "crossed_quad_foliage_description": "Trees / bushes / rocks render as crossed quads with wind sway instead of flat billboards.",
+    "biome_blending": "Biome Blending",
+    "biome_blending_description": "Smooth terrain vertex colors across biome edges so grass, sand, and water transition over a few tiles.",
     "mesh_water": "Mesh Water (Phase 4)",
     "mesh_water_description": "Gerstner-wave water surface overlaid on terrain with depth tint + shoreline foam.",
     "high_shadows": "Directional Sun + Shadows (Phase 5)",

@@ -55,7 +55,7 @@ Unity-free API project.
 | 3b Surface overlays + walls            | ✅ | `WorldTilemap.renderTile` Prefix + `drawWallType` Prefix wired |
 | 4  Mesh water                          | ✅ | Gerstner surface + mask buffer + lifecycle Postfix; flag default OFF |
 | 5  Sun + cascaded shadows              | 🔄 | `SunDriver`/`SunRig`/`ShadowCascadeConfig` landed; **lit shader (`VoxelLit.shader`) requires Unity 2022.3 AssetBundle bake** — flag OFF |
-| 6  Skeletal animation                  | ⚠️  | Humanoid/quadruped rigs + `RigDriver` + CPU fallback shipped; GPU compute (`VoxelSkin.compute`) **gated off** — ADR-0006 documents DrawProceduralIndirect rewrite path forward; flag default OFF |
+| 6  Skeletal animation                  | ⚠️  | Humanoid skinned-mesh actor path + `RigDriver` live update loop shipped; GPU compute (`VoxelSkin.compute`) **gated off** — ADR-0006 documents DrawProceduralIndirect rewrite path forward; flag default OFF |
 | 7  Worldspace UI                       | ✅ | Nameplate + HP bar + damage popups; selection ring stub awaits `SelectionManager` hook; flag default ON |
 | 8  Day/night + sky + fog               | 🔄 | Autonomous TOD driver + sun gradient + ProceduralSky landed; `MapBox.world_time` probe falls back gracefully; flag default OFF |
 | 9  Particles + decals + PostFX         | ✅ | 5 effect IDs bursted; 3-channel `DecalPool`; URP PostFX volume; particles ON, PostFX OFF |
@@ -118,7 +118,7 @@ Short form:
 ## Recommended next steps
 
 1. Smoke-test Phase 2 procedural buildings the same way Phase 1 was proven: toggle `ProceduralBuildings`, capture screenshots, and diff against canonical output.
-2. Implement ADR-0006 (Phase 6 Step 9 DrawProceduralIndirect skinning) — 2–3 day estimate.
+2. Implement ADR-0006 (Phase 6 Step 9 DrawProceduralIndirect skinning) — 2–3 day estimate if we decide to replace the visible skinned-mesh path with GPU-resident batching later.
 3. Install Unity 2022.3 + clone `Compound-Spheres-3D` submodule; bake the four shaders into platform AssetBundles under `WorldSphereMod/AssetBundles/{win,linux,osx}/worldsphere`.
 4. Conditional Harmony patch dispatch (if wave-5 lands the ADR-0007 work).
 
