@@ -132,8 +132,15 @@ namespace WorldSphereMod.Voxel
                     m.SetInt("_ZWrite", 1);
                     m.DisableKeyword("_ALPHABLEND_ON");
                     m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-                    m.EnableKeyword("_ALPHATEST_ON");
-                    m.SetFloat("_Cutoff", 0.5f);
+                    // CRITICAL: Standard shader's alpha-test branch samples
+                    // tex2D(_MainTex, uv).a × _Color.a. _MainTex is NOT set on
+                    // this material → tex2D returns alpha=0 → every fragment
+                    // fails the Cutoff=0.5 test → 100% invisible.
+                    // Now that renderQueue is Geometry+1 (opaque pass) we don't
+                    // need AlphaTest — disable the keyword so fragments aren't
+                    // discarded for lacking a _MainTex they don't need.
+                    m.DisableKeyword("_ALPHATEST_ON");
+                    m.SetFloat("_Cutoff", 0.0f);
                     // Opaque-Geometry + 1 (queue 2001) instead of AlphaTest (2450)
                     // so voxel meshes render in the OPAQUE pass right after terrain
                     // (queue 2000). At AlphaTest queue we were rendering AFTER all
