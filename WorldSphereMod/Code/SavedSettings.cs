@@ -72,7 +72,11 @@ public class SavedSettings
         public bool HdrSkybox = false;
         public bool ColorGradingLut = false;
         // Phase 6: Skeletal animation driver for voxel actors.
-        public bool SkeletalAnimation = false;
+        // ON by default: without it the per-texel voxel path renders as a
+        // sparse tri-dot mesh (sub-pixel fragments instead of proper limbed
+        // humanoid silhouettes). HumanoidRig + SegmentVoxels path gives real
+        // body shape with head/torso/arms/legs bones.
+        public bool SkeletalAnimation = true;
         // Phase 7: Worldspace UI (nameplates, health bars, selection rings).
         public bool WorldspaceUI = true;
         // Phase 7: optional worldspace 3D text labels instead of upstream NameplateText.
