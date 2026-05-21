@@ -463,6 +463,14 @@ namespace WorldSphereMod.Voxel
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
                     scl.z = scl.x;
                     scl *= Core.savedSettings.VoxelScaleMultiplier;
+                    // Lift the mesh CENTER up by half the world-space mesh height so the
+                    // mesh BOTTOM sits ON the terrain surface instead of being embedded
+                    // inside the terrain/water voxel cube (which sits at y~2-3, exactly
+                    // where Tools.To3DTileHeight(false) puts the actor center). Without
+                    // this, half the actor mesh is hidden inside the cube and at
+                    // strategy-zoom altitudes it reads as 100% invisible.
+                    float halfHeight = m.bounds.size.y * 0.5f * scl.y;
+                    pos.y += halfHeight;
                     LogFirstActorPos(posBeforeLift, pos, scl);
                     // Z/X axes encode sprite-billboard lean; on a 3D mesh they topple the body. Yaw only here; lean returns in Phase 6 as a spine-bone tilt.
                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
@@ -583,6 +591,11 @@ namespace WorldSphereMod.Voxel
                     Vector3 scl = rd.scales[i];
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
                     scl.z = scl.x;
+                    // Lift mesh center up by half world-space height (same fix as
+                    // ActorVoxelEmit): without it, mesh center sits at To3DTileHeight,
+                    // which embeds half the mesh inside the terrain/foundation voxel.
+                    float bldHalfHeight = m.bounds.size.y * 0.5f * scl.y;
+                    pos.y += bldHalfHeight;
                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
                     // BuildingRenderData has no has_normal_render. Suppressing via scales[i]=0
                     // hides the sprite quad without nulling main_sprites (downstream
