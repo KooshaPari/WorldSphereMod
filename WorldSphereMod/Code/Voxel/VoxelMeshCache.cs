@@ -75,6 +75,7 @@ namespace WorldSphereMod.Voxel
 
         static readonly object _lock = new object();
         static readonly Dictionary<int, Entry> _cache = new Dictionary<int, Entry>(1024);
+        static readonly Dictionary<string, int> _nameToSpriteId = new Dictionary<string, int>();
         static readonly HashSet<int> _diagnosedSprites = new HashSet<int>();
         static readonly HashSet<string> _invalidVoxelStyles = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
         static readonly ConcurrentQueue<BuildCompletion> _completedBuilds = new ConcurrentQueue<BuildCompletion>();
@@ -108,6 +109,20 @@ namespace WorldSphereMod.Voxel
         public static int Count
         {
             get { lock (_lock) return _cache.Count; }
+        }
+
+        public static bool TryDescribe(string spriteName, out MeshSnapshot snapshot)
+        {
+            snapshot = null;
+            if (string.IsNullOrEmpty(spriteName)) return false;
+            int key;
+            lock (_lock)
+            {
+                if (!_nameToSpriteId.TryGetValue(spriteName, out key)) return false;
+                if (!_cache.TryGetValue(key, out Entry e) || e.Snapshot == null) return false;
+                snapshot = e.Snapshot;
+                return true;
+            }
         }
 
         public static bool TryDescribe(Sprite sprite, out MeshSnapshot snapshot)
@@ -220,6 +235,7 @@ namespace WorldSphereMod.Voxel
                     }
                     e.LastFrame = _frame;
                     _cache[key] = e;
+                    if (sprite != null && !string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = key;
                     System.Threading.Interlocked.Increment(ref _hits);
                     return e.Mesh;
                 }
@@ -240,6 +256,7 @@ namespace WorldSphereMod.Voxel
                 }
 
                 _cache[key] = new Entry { Mesh = GetPlaceholderVoxelMesh(), Snapshot = null, LastFrame = _frame };
+                if (sprite != null && !string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = key;
                 _pendingBuilds.Add(key);
                 Interlocked.Increment(ref _totalBuilds);
                 if (_cache.Count > Capacity) Evict();

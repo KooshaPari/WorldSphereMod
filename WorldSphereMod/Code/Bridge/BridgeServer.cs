@@ -264,7 +264,13 @@ namespace WorldSphereMod.Bridge
             }
 
             WorldSphereMod.Voxel.VoxelMeshCache.Get(sprite);
-            if (!WorldSphereMod.Voxel.VoxelMeshCache.TryDescribe(sprite, out WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot snapshot) || snapshot == null)
+            // Try name index first (new), fall back to sprite-ref lookup for back-compat.
+            bool found = WorldSphereMod.Voxel.VoxelMeshCache.TryDescribe(spriteName, out WorldSphereMod.Voxel.VoxelMeshCache.MeshSnapshot snapshot);
+            if (!found || snapshot == null)
+            {
+                found = WorldSphereMod.Voxel.VoxelMeshCache.TryDescribe(sprite, out snapshot);
+            }
+            if (!found || snapshot == null)
             {
                 statusCode = HttpStatusCode.NotFound;
                 return new { ok = false, error = "mesh_not_cached", name = spriteName, spriteId = sprite.GetInstanceID() };
