@@ -191,8 +191,10 @@ namespace WorldSphereMod.General
     {
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
+            try {
             CodeMatcher Matcher = new CodeMatcher(instructions);
             Matcher.MatchForward(false, new CodeMatch((CodeInstruction instruct) => instruct.opcode == OpCodes.Call && instruct.operand is MethodInfo info && info.Name == "MoveTowards"));
+            if (Matcher.Pos < 0 || Matcher.IsInvalid) { global::UnityEngine.Debug.LogWarning("[WSM3D] Move3D transpiler: MoveTowards Call not found — skipping"); return instructions; }
             if ((Matcher.Operand as MethodInfo).DeclaringType == typeof(Vector2))
             {
                 Matcher.RemoveInstruction();
@@ -204,6 +206,7 @@ namespace WorldSphereMod.General
                 Matcher.Insert(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Tools), nameof(Tools.MoveTowardsV3))));
             }
             return Matcher.Instructions();
+            } catch (System.Exception ex) { global::UnityEngine.Debug.LogWarning("[WSM3D] Move3D transpiler failed: " + ex.GetType().Name + " — returning original"); return instructions; }
         }
     }
     [HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.getMousePos))]
