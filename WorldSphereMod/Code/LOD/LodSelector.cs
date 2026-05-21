@@ -37,7 +37,8 @@ namespace WorldSphereMod.LOD
         // at vanilla strategy-view altitude). Pre-multiplying entityHeight here keeps
         // the LOD math in sync with the actual rendered size without forcing the user
         // to set LODScale=8 manually.
-        const float _entityHeight = 0.5f * 8.0f;
+        // Bumped 8→16 at alpha.8 to match VoxelScaleMultiplier=16 (commit 698883e).
+        const float _entityHeight = 0.5f * 16.0f;
 
         public static LodTier Select(Vector3 worldPos, int instanceId)
         {

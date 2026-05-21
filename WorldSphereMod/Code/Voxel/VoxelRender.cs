@@ -177,14 +177,18 @@ namespace WorldSphereMod.Voxel
                     // framebuffer. Combined with the _MainTex=white above,
                     // every voxel renders as pure white = visible against any
                     // background.
-                    // Don't force emission to white anymore — overrides per-actor
-                    // vertex color tints. Voxel meshes have per-vertex Color32 set
-                    // by SpriteVoxelizer. Standard shader doesn't consume vertex
-                    // colors by default, but the per-instance _Color set via
-                    // MaterialPropertyBlock in MeshInstanceBatcher.Submit drives
-                    // tint. Just enable basic emission with low value so meshes
-                    // are still visible in dim scenes but respect per-actor color.
-                    m.DisableKeyword("_EMISSION");
+                    // RE-ENABLE EMISSION at 0.5 brightness. User screenshot at
+                    // alpha.8 close-zoom showed actors rendering BLACK (Standard
+                    // shader unlit because WorldBox scene has no directional/ambient
+                    // light reaching the voxel layer). Without emission they're
+                    // invisible-against-grass-tile-dark. With emission=white they
+                    // override per-actor color. 0.5 grey emission is the compromise:
+                    // self-emit enough light to see against grass, but leave headroom
+                    // for per-instance _Color tints via MaterialPropertyBlock to
+                    // actually shift the visible color.
+                    m.EnableKeyword("_EMISSION");
+                    m.SetColor("_EmissionColor", new UnityEngine.Color(0.6f, 0.6f, 0.6f, 1f));
+                    m.globalIlluminationFlags = UnityEngine.MaterialGlobalIlluminationFlags.RealtimeEmissive;
                 }
                 catch { }
                 ConfigureVoxelMaterial(m, name);
