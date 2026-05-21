@@ -275,7 +275,7 @@ via VoxelParticleBurst lifecycle (spawn → grow → fade alpha).
 
 ---
 
-### FR-WSM-013: Settings Persistence Across Launches
+### FR-WSM-013: Settings Persistence Across Launches — **LANDED 2026-05-21 (SettingsPersistenceTests 3/3 pass)**
 
 **Description:** SavedSettings + PlayerConfig.dict mirror each other
 at toggle registration time; phase flags survive kill+launch.
