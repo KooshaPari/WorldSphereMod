@@ -93,8 +93,8 @@ namespace WorldSphereMod.Voxel
                 // Sprites/Default+opaque-cutout as the dependable last-resort.
                 "Particles/Standard Surface",
                 "Particles/Standard Unlit",
-                "Sprites/Default",
-                "Standard",
+            "Standard",
+            "Sprites/Default",
             };
             // First try a custom inline opaque-vertex-color shader. Built-in
             // candidates that DON'T consume vertex colors (Standard) leave voxel
