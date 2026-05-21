@@ -21,7 +21,7 @@ namespace WorldSphereMod.Bridge
         static readonly BindingFlags SettingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase;
         const string VoxelDumpRoot = @"C:\Users\koosh\.claude\jobs\b012a2c2";
 
-        readonly ConcurrentQueue<Action> _mainThreadQueue = new ConcurrentQueue<Action>();
+        static readonly ConcurrentQueue<Action> _mainThreadQueue = new ConcurrentQueue<Action>();
         HttpListener? _listener;
         Thread? _listenerThread;
         volatile bool _running;
