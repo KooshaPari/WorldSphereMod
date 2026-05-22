@@ -704,9 +704,18 @@ namespace WorldSphereMod.Voxel
             WorldSphereMod.Lighting.SunDriver.BindMainCamera(CameraManager.MainCamera);
         }
 
+        static float _telemetryLastTime;
         void LateUpdate()
         {
             if (!Core.IsWorld3D) return;
+            // Log-based telemetry every 10s — bypasses bridge for steady-state observability
+            // even when bridge is in scene-transition known-issue state.
+            float now = Time.realtimeSinceStartup;
+            if (now - _telemetryLastTime > 10f)
+            {
+                _telemetryLastTime = now;
+                Debug.Log($"[WSM3D][Telemetry] frameMs={Time.unscaledDeltaTime*1000:F2} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} cacheSize={VoxelMeshCache.Count} cacheHits={VoxelMeshCache.HitCount} cacheMisses={VoxelMeshCache.MissCount} gcMB={(System.GC.GetTotalMemory(false) / 1048576f):F1}");
+            }
 
             WorldSphereMod.Voxel.VoxelMeshCache.BeginFrame();
             WorldSphereMod.LOD.ImpostorBillboard.Tick();
