@@ -240,6 +240,7 @@ namespace WorldSphereMod.Voxel
                     bucket.Block.Clear();
                     bucket.Block.SetVectorArray(_colorProp, bucket.ColScratch);
                     bucket.Block.SetVectorArray(_colorPropUnlit, bucket.ColScratch);
+                    bucket.Block.SetColor(_emissionProp, _bakeEmission);
                     try
                     {
                         if (verboseDrawLogging)
@@ -320,6 +321,7 @@ namespace WorldSphereMod.Voxel
                 bucket.Block.SetVector(_colorProp, tint);
                 bucket.Block.SetColor(_baseColorProp, colorTint);
                 bucket.Block.SetColor(_colorPropUnlit, colorTint);
+                bucket.Block.SetColor(_emissionProp, _bakeEmission);
                 Graphics.DrawMesh(
                     key.Mesh,
                     bucket.Matrices[i],
