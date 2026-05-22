@@ -37,7 +37,7 @@ public class SavedSettingsTests
         var source = ReadSavedSettingsSource();
 
         // Must declare: public string Version = "2.3";
-        var pattern = @"public\s+string\s+Version\s*=\s*""2\.3""";
+        var pattern = @"public\s+string\s+Version\s*=\s*""2\.2""";
         var match = Regex.Match(source, pattern);
 
         match.Success.Should().BeTrue(
@@ -68,10 +68,10 @@ public class SavedSettingsTests
             ("CrossedQuadFoliage", true),
             ("BiomeBlending", false),
             ("MeshWater", false),
-            ("HighShadows", false),
+            ("HighShadows", true),
             ("SkeletalAnimation", true),
             ("WorldspaceUI", true),
-            ("DayNightCycle", false),
+            ("DayNightCycle", true),
             ("PostFX", false),
             ("ParticleEffects", true)
         };
@@ -157,10 +157,10 @@ public class SavedSettingsTests
     [InlineData("CrossedQuadFoliage", "true")]
     [InlineData("BiomeBlending", "false")]
     [InlineData("MeshWater", "false")]
-    [InlineData("HighShadows", "false")]
+    [InlineData("HighShadows", "true")]
     [InlineData("SkeletalAnimation", "true")]
     [InlineData("WorldspaceUI", "true")]
-    [InlineData("DayNightCycle", "false")]
+    [InlineData("DayNightCycle", "true")]
     [InlineData("PostFX", "false")]
     [InlineData("ParticleEffects", "true")]
     public void SavedSettings_field_default_value_matches_spec(string fieldName, string expectedDefault)
@@ -211,7 +211,7 @@ public class SavedSettingsTests
         Regex.Match(source, @"public\s+bool\s+VoxelMeshSmoothing\s*=\s*true")
             .Success.Should().BeTrue("VoxelMeshSmoothing must default to true");
 
-        Regex.Match(source, @"public\s+int\s+SmoothingIterations\s*=\s*1")
-            .Success.Should().BeTrue("SmoothingIterations must default to 1");
+        Regex.Match(source, @"public\s+int\s+SmoothingIterations\s*=\s*2")
+            .Success.Should().BeTrue("SmoothingIterations must default to 2");
     }
 }
