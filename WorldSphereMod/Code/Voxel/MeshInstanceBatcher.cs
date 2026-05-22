@@ -133,16 +133,13 @@ namespace WorldSphereMod.Voxel
 
             if (mesh == null || mat == null) return;
 
-            // Mesh integrity guard: drop meshes with no vertices, malformed
-            // triangle list, or triangle indices out of vertex range. Without
-            // this, a partially-built/corrupted mesh (e.g. from a racy prewarm
-            // coroutine yielding between SetVertices and SetTriangles) renders
-            // as triangle-soup garbage filling the screen. Cheap O(1) check
-            // (we trust .triangles.Length without scanning all indices).
-            int vc = mesh.vertexCount;
-            if (vc <= 0) return;
-            uint triCount = mesh.GetIndexCount(0);
-            if (triCount == 0 || (triCount % 3) != 0) return;
+            // Empty-mesh guard ONLY: drop meshes with zero vertices (e.g. cache
+            // miss returning placeholder before voxelization completes). The
+            // earlier stricter triangle-count guard (commit 1ac068d) was too
+            // aggressive — it dropped legitimate meshes too, causing fallback
+            // to 2D sprite billboards. Trust upstream mesh validity beyond
+            // the vertexCount check.
+            if (mesh.vertexCount <= 0) return;
 
             if (Core.savedSettings.ProfilerDump && !_verboseDrawLoggingArmed && !_verboseDrawLoggingConsumed)
             {
