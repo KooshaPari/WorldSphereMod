@@ -7,7 +7,8 @@ namespace WorldSphereMod.LOD
 {
     public static class ImpostorBillboard
     {
-        public static int Capacity = 8192;
+        public const int MAX_ENTRIES = 256;
+        public static int Capacity => MAX_ENTRIES;
 
         struct Entry
         {
@@ -221,23 +222,37 @@ namespace WorldSphereMod.LOD
 
         static void Evict()
         {
-            if (_atlas.Count == 0) return;
-
-            var keys = new List<int>(_atlas.Keys);
-            keys.Sort((a, b) => _atlas[a].LastFrame.CompareTo(_atlas[b].LastFrame));
-
-            int removeCount = keys.Count / 10;
-            if (removeCount <= 0) removeCount = 1;
-            if (removeCount > keys.Count) removeCount = keys.Count;
-
-            for (int i = 0; i < removeCount; i++)
+            // Caller does not hold a lock. Remove least-recently-used entries until capped.
+            if (_atlas.Count <= MAX_ENTRIES)
             {
-                int key = keys[i];
-                if (_atlas.TryGetValue(key, out var entry) && entry.Mesh != null)
+                return;
+            }
+
+            while (_atlas.Count > MAX_ENTRIES)
+            {
+                int lruKey = -1;
+                ulong lruFrame = ulong.MaxValue;
+                foreach (var kv in _atlas)
                 {
-                    Object.Destroy(entry.Mesh);
+                    if (kv.Value.LastFrame < lruFrame)
+                    {
+                        lruFrame = kv.Value.LastFrame;
+                        lruKey = kv.Key;
+                    }
                 }
-                _atlas.Remove(key);
+
+                if (lruKey < 0)
+                {
+                    break;
+                }
+
+                var lruEntry = _atlas[lruKey];
+                if (lruEntry.Mesh != null)
+                {
+                    Object.Destroy(lruEntry.Mesh);
+                }
+
+                _atlas.Remove(lruKey);
             }
         }
     }

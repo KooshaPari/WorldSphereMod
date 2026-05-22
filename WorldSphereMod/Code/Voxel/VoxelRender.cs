@@ -513,7 +513,7 @@ namespace WorldSphereMod.Voxel
                         LogActorSubmitDiagnostic("impostor", ref _actorImpostorDiagnosticLogged, a, sp, imPosBeforeLift, imPos, rd.colors[i]);
                         Quaternion br = WorldSphereMod.LOD.ImpostorBillboard.GetFacingRotation(imPos);
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
-                        MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
+                        MeshInstanceBatcher.Submit(im, imMat, imTrs, Color.white);
                         submitted = true;
                         if (submitted)
                         {
@@ -645,7 +645,7 @@ namespace WorldSphereMod.Voxel
                         }
                         Quaternion br = WorldSphereMod.LOD.ImpostorBillboard.GetFacingRotation(imPos);
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
-                        MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
+                        MeshInstanceBatcher.Submit(im, imMat, imTrs, Color.white);
                         submitted = true;
                         if (submitted)
                         {
@@ -720,9 +720,18 @@ namespace WorldSphereMod.Voxel
         }
 
         static float _telemetryLastTime;
+        static int _instancingTelemetryFrame;
         void LateUpdate()
         {
             if (!Core.IsWorld3D) return;
+
+            _instancingTelemetryFrame++;
+            if (_instancingTelemetryFrame >= 60)
+            {
+                _instancingTelemetryFrame = 0;
+                Debug.Log($"[WSM3D][Telemetry] InstancingEfficiency={MeshInstanceBatcher.InstancingEfficiency:F4} FrameBucketCount={MeshInstanceBatcher.FrameBucketCount} FrameInstances={MeshInstanceBatcher.FrameInstances}");
+            }
+
             // Log-based telemetry every 10s — bypasses bridge for steady-state observability
             // even when bridge is in scene-transition known-issue state.
             float now = Time.realtimeSinceStartup;

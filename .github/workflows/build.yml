@@ -15,6 +15,11 @@ jobs:
         with:
           dotnet-version: 5.0.x
 
+      - name: Setup .NET SDK for tests
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
       # The WorldBox install is not available in CI. We stub the required reference
       # assemblies so the build can run for syntax/compile validation. Real binaries
       # come from a local WorldBox install when contributors build for distribution.
@@ -71,3 +76,14 @@ jobs:
       - name: Build mod (best-effort, allowed to fail)
         continue-on-error: true
         run: dotnet build WorldSphereMod.csproj -c Release
+
+      - name: Discover coverage-focused E2E tests
+        run: |
+          dotnet test tests/WorldSphereMod.Tests.E2E/WorldSphereMod.Tests.E2E.csproj \
+            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests" \
+            --list-tests
+
+      - name: Run coverage-focused E2E tests
+        run: |
+          dotnet test tests/WorldSphereMod.Tests.E2E/WorldSphereMod.Tests.E2E.csproj \
+            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests"

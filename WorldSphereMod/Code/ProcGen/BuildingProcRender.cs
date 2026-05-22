@@ -72,7 +72,7 @@ namespace WorldSphereMod.ProcGen
                             Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
                             if (!MeshInstanceBatcher.InstancingBroken)
                             {
-                                MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
+                                MeshInstanceBatcher.Submit(im, imMat, imTrs, Color.white);
                                 submitted = true;
                             }
                         }
@@ -122,7 +122,7 @@ namespace WorldSphereMod.ProcGen
                                 if (mat == null) continue;
                                 if (!MeshInstanceBatcher.InstancingBroken)
                                 {
-                                    MeshInstanceBatcher.Submit(fm, mat, trs, rd.colors[i]);
+                                    MeshInstanceBatcher.Submit(fm, mat, trs, Color.white);
                                     submitted = true;
                                 }
                             }
@@ -134,7 +134,7 @@ namespace WorldSphereMod.ProcGen
                                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
                                     Mesh m = ProcGenCache.GetOrGenerate(b.asset, rules);
                                     if (m == null) continue;
-                                    if (VoxelRender.Submit(m, trs, rd.colors[i]))
+                                    if (VoxelRender.Submit(m, trs, Color.white))
                                     {
                                         submitted = true;
                                     }
@@ -145,7 +145,7 @@ namespace WorldSphereMod.ProcGen
                                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
                                     Mesh m = VoxelMeshCache.Get(sp);
                                     if (m == null || m.vertexCount == 0) continue;
-                                    if (VoxelRender.Submit(m, trs, rd.colors[i]))
+                                    if (VoxelRender.Submit(m, trs, Color.white))
                                     {
                                         submitted = true;
                                     }

@@ -23,7 +23,17 @@ namespace WorldSphereMod.Water
                 WaterMaskBuffer.RebuildMask();
                 Transform? capsule = Core.Sphere.CenterCapsule;
                 if (capsule != null && capsule.parent != null)
-                    WaterSurface.Create(capsule.parent);
+                {
+                    WaterSurface? surface = WaterSurface.Create(capsule.parent);
+                    if (surface != null)
+                    {
+                        LogResolvedShader(surface, "UpdateLifecycle");
+                    }
+                    else
+                    {
+                        Debug.LogWarning("[WSM3D] WaterSurface.Create failed; no material/shader resolved at runtime.");
+                    }
+                }
             }
             else
             {
@@ -44,7 +54,15 @@ namespace WorldSphereMod.Water
                 // Manager is private; CenterCapsule is its first child, so .parent is Manager.transform.
                 Transform? capsule = Core.Sphere.CenterCapsule;
                 if (capsule == null || capsule.parent == null) return;
-                WaterSurface.Create(capsule.parent);
+                WaterSurface? surface = WaterSurface.Create(capsule.parent);
+                if (surface != null)
+                {
+                    LogResolvedShader(surface, "Sphere.Begin");
+                }
+                else
+                {
+                    Debug.LogWarning("[WSM3D] WaterSurface.Create failed; no material/shader resolved at runtime.");
+                }
                 _lastMeshWater = true;
             }
         }
@@ -104,6 +122,14 @@ namespace WorldSphereMod.Water
                 WaterMaskBuffer.RebuildMask();
                 WaterSurface.Instance.RebuildMesh();
             }
+        }
+
+        static void LogResolvedShader(WaterSurface surface, string source)
+        {
+            var sharedMaterial = surface._renderer?.sharedMaterial;
+            string materialName = sharedMaterial?.name ?? "<null>";
+            string shaderName = sharedMaterial?.shader?.name ?? "<null>";
+            Debug.Log($"[WSM3D] Water material resolved ({source}): material='{materialName}' shader='{shaderName}'.");
         }
     }
 }
