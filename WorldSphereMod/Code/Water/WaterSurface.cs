@@ -292,6 +292,22 @@ namespace WorldSphereMod.Water
                 }
             }
 
+            // Force emission to the water tint -- Standard shader is lit; in this
+            // scene the water layer receives ~0 directional/ambient light so the lit
+            // base color computes to ~0 -> opaque black mesh. Adding emission ==
+            // waterTint guarantees pixels light up regardless of scene lighting.
+            try
+            {
+                material.EnableKeyword("_EMISSION");
+                int emissionId = Shader.PropertyToID("_EmissionColor");
+                if (material.HasProperty(emissionId))
+                {
+                    material.SetColor(emissionId, new Color(waterTint.r * 1.5f, waterTint.g * 1.5f, waterTint.b * 1.5f, 1f));
+                }
+                material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            }
+            catch { }
+
             // Opaque queue (was 3000 = Transparent). Standard shader fallback for water
             // renders OPAQUE BLACK at the Transparent queue without explicit blend mode
             // config -> the 'MeshWater creates blackworld' regression. Continuum/
