@@ -57,7 +57,7 @@ namespace WorldSphereMod.Bridge
             StartListener();
         }
 
-        void Update()
+        static void DrainQueueOnce()
         {
             while (_mainThreadQueue.TryDequeue(out Action? work))
             {
@@ -65,6 +65,10 @@ namespace WorldSphereMod.Bridge
                 catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] main-thread work failed: " + ex.Message); }
             }
         }
+
+        void Update() => DrainQueueOnce();
+        void LateUpdate() => DrainQueueOnce();
+        void FixedUpdate() => DrainQueueOnce();
 
         void OnDestroy() => StopListener();
 
