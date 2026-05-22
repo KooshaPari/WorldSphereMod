@@ -57,3 +57,24 @@ This isn't a simple "make it root" problem. WorldBox's scene transition appears 
 
 For now: bridge + log telemetry both unreliable post-save-load. Functional features (voxel rendering, phase toggles) still work — observability is the failing layer.
 
+
+## Final attempt: Harmony Postfix on MapBox.renderStuff (commit 4d6a7de)
+
+Even with explicit Patcher.PatchAll(typeof(BridgePerFrameTick)) registered alongside the ~20 other patches in Core.cs, the Postfix isn't logging. Either:
+- MapBox.renderStuff isn't called when WorldBox is in 3D mode
+- Patch silently fails to apply
+- Something else
+
+After 6 layered fixes (MonoBehaviour DDoL on existing parent → new root → SetParent(null) → triple-callback drain → static queue → Harmony Postfix on vanilla), still 1 telemetry entry per session post-world-load.
+
+## Status: PARKED
+
+Mod features work (PostFxController + voxel render proven via prior screenshots).
+Observability degraded post-save-load.
+Bridge + log telemetry both fail after world transitions to game scene.
+
+Next session candidates:
+- Try MapBox.Update instead of renderStuff
+- Try Postfix on ActorManager.update_actors (definitely per-frame)
+- Move observability into the existing Postfix chain that we KNOW fires (BuildingProcRender.EmitMeshes, etc — these increment FrameDrawCalls per the telemetry that DID work before save load)
+
