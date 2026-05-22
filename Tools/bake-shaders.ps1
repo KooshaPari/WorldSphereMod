@@ -2,10 +2,8 @@
 # WSM3D Shader AssetBundle Bake — fully automated, no UI clicks.
 # Requires Unity 6.3 installed via Unity Hub.
 
-[CmdletBinding()]
 param(
-    [string]$UnityExe = "",
-    [switch]$Verbose
+    [string]$UnityExe = ""
 )
 
 $ErrorActionPreference = 'Stop'
