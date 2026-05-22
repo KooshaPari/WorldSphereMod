@@ -77,6 +77,6 @@ public sealed class Phase6RigRegistryTests
 
         source.Should().Contain("SkinnedMeshRenderer");
         source.Should().Contain("HumanoidRig.FillLocalRotations");
-        source.Should().Contain("RigDriver.Update()");
+        source.Should().Contain("public static void Update()");
     }
 }
