@@ -84,7 +84,8 @@ namespace WorldSphereMod.Foliage
 
             // Build outside the lock — Unity Mesh construction is main-thread and
             // shouldn't be held under a lock, matching the VoxelMeshCache pattern.
-            Mesh m = CrossedQuadMesher.Build(sprite, shape, swayAmplitude, key.Variant);
+            Mesh? m = CrossedQuadMesher.Build(sprite, shape, swayAmplitude, key.Variant);
+            if (m == null) return null;
 
             lock (_lock)
             {

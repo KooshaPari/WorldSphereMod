@@ -22,8 +22,17 @@ namespace WorldSphereMod.Foliage
     /// </summary>
     public static class CrossedQuadMesher
     {
-        internal static Mesh Build(Sprite sprite, BuildingShape shape, float swayAmplitude, CrossedQuadVariant variant)
+        internal const int MaxTilesPerFrame = 5000;
+        static int _budgetFrame = -1;
+        static int _tilesBuiltThisFrame;
+
+        internal static Mesh? Build(Sprite sprite, BuildingShape shape, float swayAmplitude, CrossedQuadVariant variant)
         {
+            if (!CanBuildThisFrame())
+            {
+                return null;
+            }
+
             if (sprite == null) return CreateEmpty();
             // Defensive: the upstream SpriteVoxelizer crashed on non-readable atlases.
             // Crossed-quad emission is UV-only so reads aren't strictly required, but
@@ -140,6 +149,29 @@ namespace WorldSphereMod.Foliage
         }
 
         static Mesh CreateEmpty() => new Mesh { name = "crossquad:empty" };
+
+        static bool CanBuildThisFrame()
+        {
+            if (Core.savedSettings == null || !Core.savedSettings.CrossedQuadFoliage || !Core.savedSettings.BiomeBlending)
+            {
+                return true;
+            }
+
+            int frame = Time.frameCount;
+            if (frame != _budgetFrame)
+            {
+                _budgetFrame = frame;
+                _tilesBuiltThisFrame = 0;
+            }
+
+            if (_tilesBuiltThisFrame >= MaxTilesPerFrame)
+            {
+                return false;
+            }
+
+            _tilesBuiltThisFrame++;
+            return true;
+        }
 
         static void GetProfile(BuildingShape shape, CrossedQuadVariant variant, out float baseWidthScale, out float topWidthScale, out float heightScale, out float baseLift)
         {
