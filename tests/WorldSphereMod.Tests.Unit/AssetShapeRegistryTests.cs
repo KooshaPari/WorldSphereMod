@@ -25,10 +25,10 @@ public class AssetShapeRegistryTests
             "WorldSphereMod", "Code", "Voxel", "AssetShapeRegistry.cs"));
 
     [Theory]
-    [InlineData("human", "Cylinder")]
+    [InlineData("human", "Flat")]
     [InlineData("tree", "Cylinder")]
     [InlineData("bush", "Cylinder")]
-    [InlineData("wolf", "Cylinder")]
+    [InlineData("wolf", "Flat")]
     [InlineData("wall", "LongX")]
     [InlineData("bunker", "LongX")]
     [InlineData("tower", "Tall")]
