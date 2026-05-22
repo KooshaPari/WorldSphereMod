@@ -553,7 +553,7 @@ namespace WorldSphereMod.Voxel
                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
                     RecordActorVoxelTrs(trs);
                     // Hide the sprite quad for this actor — we drew the 3D mesh instead.
-                    if (Submit(m, trs, rd.colors[i]))
+                    if (Submit(m, trs, Color.white))
                     {
                         rd.has_normal_render[i] = false;
                         TraceActorColorSample("voxel", i, rd.colors[i], a, sp, posBeforeLift, pos, rot, scl);
