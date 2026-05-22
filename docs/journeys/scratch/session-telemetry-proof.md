@@ -78,3 +78,22 @@ resolves the previously-known scene-transition death.
 
 Unit suite: 67 pass / 3 skip / 0 fail.
 
+
+## Cache miss interpretation note
+
+Observed: `cache.size=131` but `cache.misses=37004` after ~10min steady-state.
+
+This is NOT eviction churn. The 37k count includes duplicate requests
+during the lazy-build window: when sprite X is first encountered,
+miss++ + placeholder returned + build queued. Subsequent actors
+requesting the same sprite before the build completes also count as
+miss (the cache hasn't been updated yet). Once build completes,
+cache.size++ but the burst of duplicate misses persists in the counter.
+
+So `cache.size` = unique sprites cached
+   `cache.misses` = total cache-miss events (includes pre-build duplicates)
+   `cache.hits` = total post-cache successful lookups (the heavy traffic)
+
+Hit-rate calculation `hits / (hits+misses)` is still meaningful:
+1.89M / (1.89M + 37k) = 98.07% — matches `/telemetry voxelCacheHit`.
+
