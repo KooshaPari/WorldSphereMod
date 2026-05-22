@@ -167,6 +167,19 @@ namespace WorldSphereMod
         public static void ApplyPhaseToggle(string flagName, bool newValue)
         {
             PhasePatchManager.ApplyPhaseToggle(flagName, newValue);
+            // Invalidate voxel cache + material when render-affecting flags change.
+            // Without this, toggling VoxelEntities / ProceduralBuildings / etc has no
+            // visible delta because cached meshes + materials persist across the
+            // setting change (user-reported "all switches activate nothing").
+            if (flagName == nameof(SavedSettings.VoxelEntities) ||
+                flagName == nameof(SavedSettings.ProceduralBuildings) ||
+                flagName == nameof(SavedSettings.CrossedQuadFoliage) ||
+                flagName == nameof(SavedSettings.MeshWater) ||
+                flagName == nameof(SavedSettings.SkeletalAnimation))
+            {
+                try { WorldSphereMod.Voxel.VoxelMeshCache.Clear(); } catch { }
+                try { WorldSphereMod.Voxel.VoxelRender.Reset(); } catch { }
+            }
             if (flagName == nameof(SavedSettings.HighShadows))
             {
                 WorldSphereMod.Lighting.SunDriver.ApplyShadowSettings();
