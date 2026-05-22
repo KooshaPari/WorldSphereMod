@@ -319,6 +319,13 @@ namespace WorldSphereMod.Rig
             {
                 return;
             }
+            // Pause-aware: when game is paused (Time.timeScale=0), keep current
+            // pose frozen instead of advancing the walk-phase from wall-clock
+            // Time.time. User flagged that limbs continued to sway during pause.
+            if (Time.timeScale <= 0f)
+            {
+                return;
+            }
 
             float walkPhase = Time.time + rig.PhaseSeed;
             float walkAmount = 0f;

@@ -13,6 +13,10 @@ namespace WorldSphereMod.Foliage
 
         void LateUpdate()
         {
+            // Respect game pause — sway must freeze when Time.timeScale=0. Wall-
+            // clock animation during pause makes the world look alive when the
+            // simulation isn't, which the user flagged as confusing/buggy.
+            if (Time.timeScale <= 0f) return;
             // Slowly rotate the wind direction over time — gives the foliage a believable
             // ambient drift without requiring per-instance phase data.
             _dirAngle += Time.deltaTime * 0.05f;
