@@ -36,8 +36,8 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        // Must declare: public string Version = "2.0";
-        var pattern = @"public\s+string\s+Version\s*=\s*""2\.0""";
+        // Must declare: public string Version = "2.3";
+        var pattern = @"public\s+string\s+Version\s*=\s*""2\.3""";
         var match = Regex.Match(source, pattern);
 
         match.Success.Should().BeTrue(
@@ -63,13 +63,13 @@ public class SavedSettingsTests
 
         var phaseFields = new[]
         {
-            ("VoxelEntities", false),
-            ("ProceduralBuildings", false),
+            ("VoxelEntities", true),
+            ("ProceduralBuildings", true),
             ("CrossedQuadFoliage", true),
             ("BiomeBlending", false),
             ("MeshWater", false),
             ("HighShadows", false),
-            ("SkeletalAnimation", false),
+            ("SkeletalAnimation", true),
             ("WorldspaceUI", true),
             ("DayNightCycle", false),
             ("PostFX", false),
@@ -152,13 +152,13 @@ public class SavedSettingsTests
     }
 
     [Theory]
-    [InlineData("VoxelEntities", "false")]
-    [InlineData("ProceduralBuildings", "false")]
+    [InlineData("VoxelEntities", "true")]
+    [InlineData("ProceduralBuildings", "true")]
     [InlineData("CrossedQuadFoliage", "true")]
     [InlineData("BiomeBlending", "false")]
     [InlineData("MeshWater", "false")]
     [InlineData("HighShadows", "false")]
-    [InlineData("SkeletalAnimation", "false")]
+    [InlineData("SkeletalAnimation", "true")]
     [InlineData("WorldspaceUI", "true")]
     [InlineData("DayNightCycle", "false")]
     [InlineData("PostFX", "false")]
@@ -208,8 +208,8 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+VoxelMeshSmoothing\s*=\s*false")
-            .Success.Should().BeTrue("VoxelMeshSmoothing must default to false");
+        Regex.Match(source, @"public\s+bool\s+VoxelMeshSmoothing\s*=\s*true")
+            .Success.Should().BeTrue("VoxelMeshSmoothing must default to true");
 
         Regex.Match(source, @"public\s+int\s+SmoothingIterations\s*=\s*1")
             .Success.Should().BeTrue("SmoothingIterations must default to 1");

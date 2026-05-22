@@ -20,7 +20,8 @@ namespace WorldSphereMod.Voxel
     public static class VoxelMeshCache
     {
         public const int SampleLimit = 100;
-        public static int Capacity = 8192;
+        public const int MAX_ENTRIES = 512;
+        public static int Capacity => MAX_ENTRIES;
 
         public sealed class MeshBoundsSnapshot
         {
@@ -663,25 +664,39 @@ namespace WorldSphereMod.Voxel
 
         static void Evict()
         {
-            // Caller holds _lock. O(N) two-pass eviction — find frame range, drop bottom decile.
-            if (_cache.Count == 0) return;
-            ulong minFrame = ulong.MaxValue, maxFrame = 0;
-            foreach (var v in _cache.Values)
+            // Caller holds _lock. Remove least-recently-used entries until capped.
+            if (_cache.Count <= MAX_ENTRIES)
             {
-                if (v.LastFrame < minFrame) minFrame = v.LastFrame;
-                if (v.LastFrame > maxFrame) maxFrame = v.LastFrame;
+                return;
             }
-            if (maxFrame == minFrame) return;
-            ulong threshold = minFrame + (maxFrame - minFrame) / 10;
-            var toRemove = new List<int>();
-            foreach (var kv in _cache)
+
+            int toRemoveCount = _cache.Count - MAX_ENTRIES;
+            while (_cache.Count > MAX_ENTRIES && toRemoveCount > 0)
             {
-                if (kv.Value.LastFrame <= threshold) toRemove.Add(kv.Key);
-            }
-            foreach (var key in toRemove)
-            {
-                if (_cache[key].Mesh != null) _pendingDestroy.Enqueue(_cache[key].Mesh);
-                _cache.Remove(key);
+                int lruKey = -1;
+                ulong lruFrame = ulong.MaxValue;
+                foreach (var kv in _cache)
+                {
+                    if (kv.Value.LastFrame < lruFrame)
+                    {
+                        lruFrame = kv.Value.LastFrame;
+                        lruKey = kv.Key;
+                    }
+                }
+
+                if (lruKey < 0)
+                {
+                    break;
+                }
+
+                Entry lruEntry = _cache[lruKey];
+                if (lruEntry.Mesh != null && !ReferenceEquals(lruEntry.Mesh, _placeholderMesh))
+                {
+                    _pendingDestroy.Enqueue(lruEntry.Mesh);
+                }
+
+                _cache.Remove(lruKey);
+                toRemoveCount--;
             }
         }
 

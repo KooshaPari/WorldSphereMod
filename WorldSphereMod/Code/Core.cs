@@ -73,10 +73,12 @@ namespace WorldSphereMod
                 ApplySchemaVersionMigration(loadedData);
                 loadedData.Version = SettingsVersion;
                 savedSettings = loadedData;
+                LogPhaseFlagDefaults(savedSettings);
                 SaveSettings();
                 return true;
             }
             savedSettings = loadedData;
+            LogPhaseFlagDefaults(savedSettings);
             return true;
         }
 
@@ -104,6 +106,35 @@ namespace WorldSphereMod
                 }
 
                 field.SetValue(loadedData, field.GetValue(currentDefaults));
+            }
+        }
+
+        static void LogPhaseFlagDefaults(SavedSettings loadedData)
+        {
+            var currentDefaults = new SavedSettings();
+            var phaseFlags = typeof(PhaseAttribute).Assembly
+                .GetTypes()
+                .Select(type => type.GetCustomAttribute<PhaseAttribute>())
+                .Where(phaseAttr => phaseAttr != null)
+                .Select(phaseAttr => phaseAttr!.SettingsFlagName)
+                .Distinct();
+
+            foreach (var phaseFlag in phaseFlags)
+            {
+                if (string.IsNullOrWhiteSpace(phaseFlag))
+                {
+                    continue;
+                }
+
+                var field = typeof(SavedSettings).GetField(phaseFlag);
+                if (field == null || field.FieldType != typeof(bool))
+                {
+                    continue;
+                }
+
+                bool loaded = (bool)field.GetValue(loadedData)!;
+                bool defaults = (bool)field.GetValue(currentDefaults)!;
+                Debug.Log($"[WSM3D] Settings sanity: {phaseFlag} loaded={loaded} default={defaults}");
             }
         }
 

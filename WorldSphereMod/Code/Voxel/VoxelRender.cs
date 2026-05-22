@@ -27,6 +27,7 @@ namespace WorldSphereMod.Voxel
     {
         static Material? _material;
         static bool _materialAttempted;
+        static bool _materialProbeLogged;
         static bool _materialDebugLogged;
         static bool _firstActorPosLogged;
         static bool _actorVoxelDiagnosticLogged;
@@ -46,6 +47,7 @@ namespace WorldSphereMod.Voxel
             if (_material != null) Object.Destroy(_material);
             _material = null;
             _materialAttempted = false;
+            _materialProbeLogged = false;
             SanityTestCube.Reset();
             _materialDebugLogged = false;
             _firstActorPosLogged = false;
@@ -92,9 +94,9 @@ namespace WorldSphereMod.Voxel
                 // OPAQUE vertex-color shaders. Sprites/Default IS vertex-color aware
                 // but is TRANSPARENT (renderQueue=3000), which makes voxel cubes
                 // render see-through with all inner faces visible — looks like an
-                // open box. Use Particles/Standard Surface or VertexLit which are
-                // opaque AND consume vertex colors as albedo. Sprites/Default kept
-                // last (after Standard) as 'visible but wrong' fallback only.
+                // open box. Use Particles/Standard Surface or Particles/Standard Unlit
+                // (which consume vertex colors as albedo) above Standard. Sprites/Default
+                // kept last (after Standard) as 'visible but wrong' fallback only.
                 // Sprites/Default is vertex-color aware but transparent by default.
                 // We force it to alpha-cutout opaque via material properties below.
                 // Order: try the more sophisticated ones first; fall through to
@@ -104,6 +106,17 @@ namespace WorldSphereMod.Voxel
                 "Standard",
                 "Sprites/Default",
             };
+            var shaderLookup = new Dictionary<string, Shader>();
+            foreach (var name in candidates)
+            {
+                Shader s = Shader.Find(name);
+                shaderLookup[name] = s;
+                if (!_materialProbeLogged)
+                {
+                    Debug.Log($"[WSM3D][MATERIAL] Shader probe: '{name}' {(s != null ? "FOUND" : "MISSING")}");
+                }
+            }
+            _materialProbeLogged = true;
             // First try a custom inline opaque-vertex-color shader. Built-in
             // candidates that DON'T consume vertex colors (Standard) leave voxel
             // meshes gray/black; ones that DO are typically transparent
@@ -120,7 +133,7 @@ namespace WorldSphereMod.Voxel
 
             foreach (var name in candidates)
             {
-                Shader? s = Shader.Find(name);
+                Shader? s = shaderLookup.TryGetValue(name, out Shader? resolved) ? resolved : null;
                 if (s == null) continue;
                 Material m = new Material(s) { name = "WSM3D.Voxel.Placeholder" };
                 m.enableInstancing = true;

@@ -75,7 +75,7 @@ public class SavedSettings
         // blocky terrain around cliff and ridge transitions.
         public bool MountainSlopeSmoothing = false;
         // Phase 5: Directional sun + cascaded shadow maps.
-        public bool HighShadows = false;
+        public bool HighShadows = true;
         // Phase 5b: optional HDR skybox reflections and 256x16 LUT color grading.
         public bool HdrSkybox = false;
         public bool ColorGradingLut = false;
@@ -90,12 +90,12 @@ public class SavedSettings
         // Phase 7: optional worldspace 3D text labels instead of upstream NameplateText.
         public bool WorldspaceLabel3D = false;
         // Phase 8: Day/night cycle + procedural sky + fog.
-        public bool DayNightCycle = false;
+        public bool DayNightCycle = true;
         public float FogDensity = 0.0f;
         // Phase 9: URP post-processing (bloom, color grading, vignette).
         public bool PostFX = false;
         // Phase 9: Built-in pipeline screen-space ambient occlusion (SSAO) pass.
-        public bool SSAOEnabled = false;
+        public bool SSAOEnabled = true;
         // Phase 9: Built-in pipeline screen-space global illumination (SSGI) pass.
         public bool SSGIEnabled = false;
         public bool ParticleEffects = true;
