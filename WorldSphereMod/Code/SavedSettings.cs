@@ -91,7 +91,7 @@ public class SavedSettings
         public bool WorldspaceLabel3D = true;
         // Phase 8: Day/night cycle + procedural sky + fog.
         public bool DayNightCycle = true;
-        public float FogDensity = 0.0f;
+        public float FogDensity = 0.05f;
         // Phase 9: URP post-processing (bloom, color grading, vignette).
         public bool PostFX = true;
         // Phase 9: Built-in pipeline screen-space ambient occlusion (SSAO) pass.

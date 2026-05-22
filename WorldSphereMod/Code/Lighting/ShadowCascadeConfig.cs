@@ -22,9 +22,10 @@ namespace WorldSphereMod.Lighting
         static float _origDepthBias;
         static float _origNormalBias;
 
-        const float kShadowDistance = 50f;
+        const float kShadowDistance = 30f;
+        const int kMaxShadowCascades = 2;
         const int kLowShadowCascades = 2;
-        const int kHighShadowCascades = 4;
+        const int kHighShadowCascades = 2;
 
         const string UrpAssetTypeName = "UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset";
 
@@ -84,8 +85,11 @@ namespace WorldSphereMod.Lighting
                 _hasQualityOriginals = true;
             }
 
+            int requestedCascades = highShadows ? kHighShadowCascades : kLowShadowCascades;
+            int cascades = requestedCascades > kMaxShadowCascades ? kMaxShadowCascades : requestedCascades;
+
             QualitySettings.shadowDistance = kShadowDistance;
-            QualitySettings.shadowCascades = highShadows ? kHighShadowCascades : kLowShadowCascades;
+            QualitySettings.shadowCascades = cascades;
 
             Type? urpType = GetUrpAssetType();
             if (urpType == null)
@@ -113,7 +117,7 @@ namespace WorldSphereMod.Lighting
                 _hasOriginals = true;
             }
 
-            if (highShadows)
+            if (cascades > 2)
             {
                 WriteProp(urp, urpType, "shadowCascadeCount", 4);
                 WriteProp(urp, urpType, "cascade4Split", new Vector3(0.067f, 0.2f, 0.467f));

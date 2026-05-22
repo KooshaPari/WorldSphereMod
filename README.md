@@ -28,6 +28,8 @@ This fork lands a real 3D pipeline on top of that foundation:
 | 9  | partial      | Particle bursts on 5 effect IDs ✅ + URP PostFX volume ✅; `DecalPool` is initialized + ticked + cleared but no `Emit()` call site exists in code → decals are effectively absent (task #143). |
 | 10 | code-complete (no proxy) | FrustumCuller + LodSelector + ImpostorBillboard + softened hardware gate; Proxy tier still routes to Voxel. |
 
+`v2.0.0-beta.0` marks the start of beta: all 10 phases are code-complete, default-on behavior is active, and visible 3D rendering is now fully in place.
+
 The full plan, including file-by-file changes and verification steps, lives
 at `docs/PLAN.md`.
 
