@@ -54,7 +54,7 @@ public class LocaleKeyCoverageTests
         // The pattern looks for: new ButtonData("<key>", "<desc_key>", ...)
         // where <key> is a locale key like "voxel_entities".
 
-        var phasesWindowPattern = @"CreateWindowButton\(""3D Phases""[\s\S]*?\}\s*\);";
+        var phasesWindowPattern = @"CreateWindowButton\((?:""3D Phases""|PhasesWindowId)[\s\S]*?\}\s*\);";
         var match = Regex.Match(tabSource, phasesWindowPattern);
 
         match.Success.Should().BeTrue("WorldSphereTab must define the 3D Phases window");
@@ -110,7 +110,7 @@ public class LocaleKeyCoverageTests
         var tabSource = ReadSourceFile("WorldSphereMod/Code/WorldSphereTab.cs");
 
         // Extract all ButtonData calls within the "3D Phases" CreateWindowButton block.
-        var phasesWindowPattern = @"CreateWindowButton\(""3D Phases""[\s\S]*?\}\s*\);";
+        var phasesWindowPattern = @"CreateWindowButton\((?:""3D Phases""|PhasesWindowId)[\s\S]*?\}\s*\);";
         var match = Regex.Match(tabSource, phasesWindowPattern);
 
         match.Success.Should().BeTrue("WorldSphereTab must define the 3D Phases window");
@@ -119,8 +119,8 @@ public class LocaleKeyCoverageTests
         var buttonDataPattern = @"new\s+ButtonData\(\s*""([a-z_]+)""";
         var buttonMatches = Regex.Matches(phasesWindowBlock, buttonDataPattern);
 
-        buttonMatches.Should().HaveCount(12,
-            "WorldSphereTab 3D Phases window defines 11 phase toggles + sanity_cube debug toggle");
+        buttonMatches.Should().HaveCount(20,
+            "WorldSphereTab 3D Phases window defines 19 phase toggles + sanity_cube debug toggle");
 
         var expectedPhases = new[]
         {
@@ -133,6 +133,14 @@ public class LocaleKeyCoverageTests
             "skeletal_animation",
             "worldspace_ui",
             "day_night_cycle",
+            "mountain_slope_smoothing",
+            "hdr_skybox",
+            "color_grading_lut",
+            "ssao_enabled",
+            "ssgi_enabled",
+            "weather_rain",
+            "weather_snow",
+            "weather_lightning",
             "post_fx",
             "particle_effects",
             "sanity_cube"
@@ -159,7 +167,7 @@ public class LocaleKeyCoverageTests
         var enJson = JObject.Parse(enJsonText);
 
         // Extract all ButtonData locale keys from the 3D Phases window.
-        var phasesWindowPattern = @"CreateWindowButton\(""3D Phases""[\s\S]*?\}\s*\);";
+        var phasesWindowPattern = @"CreateWindowButton\((?:""3D Phases""|PhasesWindowId)[\s\S]*?\}\s*\);";
         var match = Regex.Match(tabSource, phasesWindowPattern);
 
         match.Success.Should().BeTrue();
@@ -188,6 +196,14 @@ public class LocaleKeyCoverageTests
             "skeletal_animation",
             "worldspace_ui",
             "day_night_cycle",
+            "mountain_slope_smoothing",
+            "hdr_skybox",
+            "color_grading_lut",
+            "ssao_enabled",
+            "ssgi_enabled",
+            "weather_rain",
+            "weather_snow",
+            "weather_lightning",
             "post_fx",
             "particle_effects",
             "sanity_cube"
