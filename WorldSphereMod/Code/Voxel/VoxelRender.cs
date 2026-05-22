@@ -700,7 +700,10 @@ namespace WorldSphereMod.Voxel
     {
         static bool _lastSkeletalState = false;
         const float kCameraLookupInterval = 0.05f;
+        const int kPerfSampleWindowFrames = 60;
         float _nextCameraLookup = 0f;
+        static int _perfFrameCounter;
+        static float _perfDeltaTimeSum;
 
         void OnEnable()
         {
@@ -724,6 +727,18 @@ namespace WorldSphereMod.Voxel
         void LateUpdate()
         {
             if (!Core.IsWorld3D) return;
+
+            float deltaTime = Time.deltaTime;
+            _perfFrameCounter++;
+            _perfDeltaTimeSum += deltaTime;
+            if (_perfFrameCounter >= kPerfSampleWindowFrames)
+            {
+                float avgFrameTime = _perfDeltaTimeSum / kPerfSampleWindowFrames;
+                float avgFps = avgFrameTime > 0f ? 1f / avgFrameTime : 0f;
+                Debug.Log($"[WSM3D][Perf] frameDeltaMs={deltaTime * 1000f:F2} avg60FrameDeltaMs={avgFrameTime * 1000f:F2} avg60Fps={avgFps:F1}");
+                _perfFrameCounter = 0;
+                _perfDeltaTimeSum = 0f;
+            }
 
             _instancingTelemetryFrame++;
             if (_instancingTelemetryFrame >= 60)

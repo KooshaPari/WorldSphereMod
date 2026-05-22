@@ -97,7 +97,7 @@ public class SavedSettings
         // Phase 9: Built-in pipeline screen-space ambient occlusion (SSAO) pass.
         public bool SSAOEnabled = true;
         // Phase 9: Built-in pipeline screen-space global illumination (SSGI) pass.
-        public bool SSGIEnabled = true;
+        public bool SSGIEnabled = false;
         public bool ParticleEffects = true;
         public bool WeatherRain = true;
         public bool WeatherSnow = false;
