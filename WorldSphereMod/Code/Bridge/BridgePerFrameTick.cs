@@ -9,7 +9,7 @@ namespace WorldSphereMod.Bridge
     /// queue + emits telemetry — bypasses our MonoBehaviour entirely, which dies on
     /// scene transition per docs/journeys/scratch/bridge-scene-transition-known-issue.md.
     /// </summary>
-    [HarmonyPatch(typeof(MapBox), nameof(MapBox.renderStuff))]
+    [HarmonyPatch(typeof(ActorManager), nameof(ActorManager.precalculateRenderDataParallel))]
     public static class BridgePerFrameTick
     {
         static float _lastTelemetryLog;
