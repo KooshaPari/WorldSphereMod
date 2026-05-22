@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Object = UnityEngine.Object;
 using UnityEngine;
 using UnityEngine.Rendering;
 using WorldSphereMod.Voxel;
@@ -7,7 +8,7 @@ namespace WorldSphereMod.LOD
 {
     public static class ImpostorBillboard
     {
-        public const int MAX_ENTRIES = 256;
+        public const int MAX_ENTRIES = 512;
         public static int Capacity => MAX_ENTRIES;
 
         struct Entry
@@ -182,7 +183,7 @@ namespace WorldSphereMod.LOD
 
         public static void Clear()
         {
-            foreach (var e in _atlas.Values) if (e.Mesh != null) Object.Destroy(e.Mesh);
+            foreach (var e in _atlas.Values) if (e.Mesh != null) Object.DestroyImmediate(e.Mesh);
             _atlas.Clear();
             System.Threading.Interlocked.Exchange(ref _hits, 0);
             System.Threading.Interlocked.Exchange(ref _misses, 0);
@@ -190,7 +191,7 @@ namespace WorldSphereMod.LOD
 
         public static void Reset()
         {
-            if (_material != null) Object.Destroy(_material);
+            if (_material != null) Object.DestroyImmediate(_material);
             _material = null;
             _materialAttempted = false;
             _materialDebugLogged = false;
@@ -249,7 +250,7 @@ namespace WorldSphereMod.LOD
                 var lruEntry = _atlas[lruKey];
                 if (lruEntry.Mesh != null)
                 {
-                    Object.Destroy(lruEntry.Mesh);
+                    Object.DestroyImmediate(lruEntry.Mesh);
                 }
 
                 _atlas.Remove(lruKey);

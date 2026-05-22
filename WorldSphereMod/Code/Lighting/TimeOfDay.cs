@@ -16,6 +16,7 @@ namespace WorldSphereMod.Lighting
         float _lastWorldTime;
         float _lastWorldTimeSampleAt;
         float _worldTimeRate = 0.001f;
+        const float _worldTimeLerpSpeed = 14f;
 
         public static void EnsureCreated()
         {
@@ -63,12 +64,16 @@ namespace WorldSphereMod.Lighting
                         float delta = Mathf.DeltaAngle(_lastWorldTime * 360f, worldTime * 360f) / 360f;
                         if (sampleAge > 0f && Mathf.Abs(delta) > Mathf.Epsilon)
                         {
-                            _worldTimeRate = delta / sampleAge;
+                            float targetRate = delta / sampleAge;
+                            float catchup = 1f - Mathf.Exp(-_worldTimeLerpSpeed * sampleAge);
+                            _worldTimeRate = Mathf.Lerp(_worldTimeRate, targetRate, catchup);
                             _lastWorldTime = worldTime;
                             _lastWorldTimeSampleAt = Time.unscaledTime;
                         }
                     }
-                    Current = Mathf.Repeat(Current + Time.deltaTime * _worldTimeRate, 1f);
+                    float worldDriven = Mathf.Repeat(Current + Time.deltaTime * _worldTimeRate, 1f);
+                    float t = 1f - Mathf.Exp(-_worldTimeLerpSpeed * Time.deltaTime);
+                    Current = Mathf.Repeat(Mathf.LerpAngle(worldDriven * 360f, worldTime * 360f, t) / 360f, 1f);
                 }
                 else
                 {

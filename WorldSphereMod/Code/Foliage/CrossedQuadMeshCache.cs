@@ -14,7 +14,7 @@ namespace WorldSphereMod.Foliage
     /// </summary>
     public static class CrossedQuadMeshCache
     {
-        public static int Capacity = 1024;
+        public const int Capacity = 512;
 
         struct CacheKey
         {
@@ -137,7 +137,7 @@ namespace WorldSphereMod.Foliage
                 while (_pendingDestroy.Count > 0)
                 {
                     var m = _pendingDestroy.Dequeue();
-                    if (m != null) Object.Destroy(m);
+                    if (m != null) Object.DestroyImmediate(m);
                 }
             }
         }
@@ -145,19 +145,16 @@ namespace WorldSphereMod.Foliage
         static void Evict()
         {
             // Caller holds _lock. O(N) two-pass eviction — find frame range, drop bottom decile.
-            if (_cache.Count == 0) return;
-            ulong minFrame = ulong.MaxValue, maxFrame = 0;
-            foreach (var v in _cache.Values)
-            {
-                if (v.LastFrame < minFrame) minFrame = v.LastFrame;
-                if (v.LastFrame > maxFrame) maxFrame = v.LastFrame;
-            }
-            if (maxFrame == minFrame) return;
-            ulong threshold = minFrame + (maxFrame - minFrame) / 10;
+            if (_cache.Count <= Capacity) return;
+            int removeCount = _cache.Count - Capacity;
+            if (removeCount <= 0) return;
+
+            var keys = new List<CacheKey>(_cache.Keys);
+            keys.Sort((a, b) => _cache[a].LastFrame.CompareTo(_cache[b].LastFrame));
             var toRemove = new List<CacheKey>();
-            foreach (var kv in _cache)
+            for (int i = 0; i < removeCount && i < keys.Count; i++)
             {
-                if (kv.Value.LastFrame <= threshold) toRemove.Add(kv.Key);
+                toRemove.Add(keys[i]);
             }
             foreach (var key in toRemove)
             {

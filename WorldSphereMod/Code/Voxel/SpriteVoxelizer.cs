@@ -28,6 +28,8 @@ namespace WorldSphereMod.Voxel
         static readonly HashSet<string> _unreadableSpriteWarnings = new HashSet<string>();
         static int _buildPerTexelDiagCount;
         static readonly object _buildPerTexelDiagLock = new object();
+        static int _buildGreedyDiagCount;
+        static readonly object _buildGreedyDiagLock = new object();
 
         // Per-texture pixel cache. Sprite atlases share one underlying Texture2D across many
         // sprites; without this, each sprite voxelization re-paid the cost of decoding the
@@ -217,6 +219,21 @@ namespace WorldSphereMod.Voxel
                 RenderTexture.ReleaseTemporary(fallbackRt);
             }
             snapshot = VoxelMeshCache.CreateSnapshot(sprite, mesh, verts, cols, tris);
+            bool logBuild = false;
+            int diagIndex = 0;
+            lock (_buildGreedyDiagLock)
+            {
+                if (_buildGreedyDiagCount < 5)
+                {
+                    _buildGreedyDiagCount++;
+                    diagIndex = _buildGreedyDiagCount;
+                    logBuild = true;
+                }
+            }
+            if (logBuild)
+            {
+                Debug.Log($"[WSM3D][DIAG] BuildGreedy #{diagIndex}: sprite=\"{sprite.name}\" w={w} h={h} depth={depth} verts={mesh.vertexCount} tris={tris.Count / 3} bounds={mesh.bounds}");
+            }
             // Hint to Unity that we don't write the mesh again; lets it free
             // CPU-side copy after upload.
             mesh.UploadMeshData(true);

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 using WorldSphereMod.Voxel;
@@ -37,6 +38,10 @@ namespace WorldSphereMod.Rig
         static readonly Dictionary<long, ActorRigInstance> _actorRigs = new Dictionary<long, ActorRigInstance>();
         static readonly List<long> _scratchRemove = new List<long>();
         static Transform? _root;
+        const int kPerfLogIntervalFrames = 60;
+        static int _perfFrameCounter;
+        static double _perfWindowMs;
+        static int _perfSamples;
 
         public static bool SubmitSkinnedActor(
             Actor a, Vector3 pos, Quaternion rot, Vector3 scl, Color tint,
@@ -89,8 +94,13 @@ namespace WorldSphereMod.Rig
         /// </summary>
         public static void Update()
         {
+            double frameElapsedMs = 0.0;
+            long startTimestamp = Stopwatch.GetTimestamp();
+
             if (_actorRigs.Count == 0)
             {
+                frameElapsedMs = (Stopwatch.GetTimestamp() - startTimestamp) * 1000.0 / Stopwatch.Frequency;
+                MaybeLogPerfStats(_actorRigs.Count, frameElapsedMs);
                 return;
             }
 
@@ -120,6 +130,25 @@ namespace WorldSphereMod.Rig
             {
                 RemoveRig(_scratchRemove[i]);
             }
+
+            frameElapsedMs = (Stopwatch.GetTimestamp() - startTimestamp) * 1000.0 / Stopwatch.Frequency;
+            MaybeLogPerfStats(_actorRigs.Count, frameElapsedMs);
+        }
+
+        static void MaybeLogPerfStats(int activeRigCount, double frameElapsedMs)
+        {
+            _perfFrameCounter++;
+            _perfWindowMs += frameElapsedMs;
+            if (_perfFrameCounter < kPerfLogIntervalFrames)
+            {
+                return;
+            }
+
+            double avgFrameMs = _perfSamples > 0 ? _perfWindowMs / _perfSamples : frameElapsedMs;
+            _perfSamples = 0;
+            _perfWindowMs = 0.0;
+            _perfFrameCounter = 0;
+            Debug.Log($"[WSM3D][Perf] RigDriver.Update avg60FrameMs={avgFrameMs:F3}ms frameSkinnedActors={activeRigCount}");
         }
 
         public static void Clear()

@@ -49,7 +49,7 @@ public class SavedSettings
         public string VoxelInflationStyle = "pertexel";
         public float VoxelScaleMultiplier = 16.0f;
         public bool DebugVoxelOutline = false;
-        public bool DebugSanityCube = true;
+        public bool DebugSanityCube = false;
         public bool DebugSpawnBuildings = false;
         // AutoTest set false now that Phase 1+6+10 confirmed via opus —
         // AutoTest's flag-flip cycle leaves the game in non-default state on
@@ -107,9 +107,8 @@ public class SavedSettings
         public float LODScale = 0.5f;
         public float WaterDetail = 1.0f;
         public float FoliageDensity = 1.0f;
-        // Diagnostic only: dump per-system frame budget to console once per second.
-        // Keep OFF by default; flip ON only when log volume is acceptable for
-        // local profiling sessions.
-        public bool ProfilerDump = false;
+        // Runtime diagnostics overlay (FPS + draw calls + phase-level telemetry).
+        // Keep enabled by default for phase 7 runtime visibility in-game.
+        public bool ProfilerDump = true;
     }
 }

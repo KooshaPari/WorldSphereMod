@@ -224,6 +224,7 @@ namespace WorldSphereMod.Voxel
 
                     bucket.Block.Clear();
                     bucket.Block.SetVectorArray(_colorProp, bucket.ColScratch);
+                    bucket.Block.SetVectorArray(_colorPropUnlit, bucket.ColScratch);
                     try
                     {
                         if (verboseDrawLogging)

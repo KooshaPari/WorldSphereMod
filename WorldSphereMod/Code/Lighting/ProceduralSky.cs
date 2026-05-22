@@ -7,13 +7,22 @@ namespace WorldSphereMod.Lighting
     public sealed class ProceduralSky : MonoBehaviour
     {
         static ProceduralSky? Instance;
+        const string kSkyShaderPath = "Shaders/ContinuumSkybox";
+        const string kSkyShaderFallbackPath = "Shaders/ProceduralSky";
         Material? _skyMat;
         RenderTexture? _skyCubemap;
         Camera? _bakeCamera;
         float _lastRenderedT = -1f;
+        bool _addedCameraSkybox;
 
         const int kSkyCubemapSize = 128;
         const float kDirtyThreshold = 0.005f;
+
+        static Material? s_previousSkybox;
+        static bool s_previousSkyboxCaptured;
+        static Material? s_previousCameraSkybox;
+        static bool s_previousCameraSkyboxCaptured;
+        static bool s_overrodeGlobalSkybox;
 
         static readonly int _zenith = Shader.PropertyToID("_ZenithColor");
         static readonly int _horizon = Shader.PropertyToID("_HorizonColor");
@@ -41,13 +50,54 @@ namespace WorldSphereMod.Lighting
             Mod.Object.AddComponent<ProceduralSky>();
         }
 
+        public static void ApplySetting(bool enabled)
+        {
+            if (enabled)
+            {
+                EnsureCreated();
+                return;
+            }
+            if (Instance != null)
+            {
+                Destroy(Instance);
+            }
+            else
+            {
+                RestoreVanillaSky();
+            }
+        }
+
+        static Shader? ResolveSkyShader()
+        {
+            Shader? shader = Resources.Load<Shader>(kSkyShaderPath);
+            if (shader != null)
+            {
+                Debug.Log($"[WSM3D] ProceduralSky shader resolved from {kSkyShaderPath}.");
+                return shader;
+            }
+            Debug.LogWarning($"[WSM3D] ProceduralSky shader fallback: '{kSkyShaderPath}' missing, trying '{kSkyShaderFallbackPath}'.");
+            shader = Resources.Load<Shader>(kSkyShaderFallbackPath);
+            if (shader != null)
+            {
+                Debug.Log($"[WSM3D] ProceduralSky shader fallback resolved from {kSkyShaderFallbackPath}.");
+            }
+            return shader;
+        }
+
         void Awake()
         {
             Instance = this;
-            Shader? s = Resources.Load<Shader>("Shaders/ContinuumSkybox");
-            if (s == null) s = Resources.Load<Shader>("Shaders/ProceduralSky");
-            if (s == null) { Debug.LogWarning("[WSM3D] ProceduralSky shader not found; skybox unchanged."); return; }
-            _skyMat = new Material(s) { name = "WSM3D.ProceduralSky" };
+            CaptureOriginalSkyboxState();
+
+            Shader? shader = ResolveSkyShader();
+            if (shader == null)
+            {
+                Debug.LogWarning("[WSM3D] ProceduralSky shader unresolved; falling back to vanilla skybox.");
+                return;
+            }
+
+            _skyMat = new Material(shader) { name = "WSM3D.ProceduralSky" };
+            s_overrodeGlobalSkybox = true;
             RenderSettings.skybox = _skyMat;
             SyncSkyboxComponent();
             EnsureCubemap();
@@ -55,10 +105,61 @@ namespace WorldSphereMod.Lighting
 
         void OnDestroy()
         {
+            RestoreVanillaSky();
             if (Instance == this) Instance = null;
             if (_skyMat != null) Object.Destroy(_skyMat);
             if (_skyCubemap != null) Object.Destroy(_skyCubemap);
             if (_bakeCamera != null) Object.Destroy(_bakeCamera.gameObject);
+        }
+
+        static void CaptureOriginalSkyboxState()
+        {
+            if (!s_previousSkyboxCaptured)
+            {
+                s_previousSkybox = RenderSettings.skybox;
+                s_previousSkyboxCaptured = true;
+            }
+        }
+
+        static void RestoreVanillaSky()
+        {
+            if (s_overrodeGlobalSkybox)
+            {
+                RenderSettings.skybox = s_previousSkybox;
+                s_overrodeGlobalSkybox = false;
+            }
+            Camera? mainCamera = CameraManager.MainCamera;
+            if (mainCamera == null) return;
+            Skybox? skybox = mainCamera.GetComponent<Skybox>();
+            if (skybox == null) return;
+
+            if (!s_previousCameraSkyboxCaptured)
+            {
+                return;
+            }
+            if (s_previousCameraSkybox == null && skybox != null && (skybox.name == "WSM3D.ProceduralSky" || skybox.material == null))
+            {
+                Object.Destroy(skybox);
+            }
+            else
+            {
+                skybox.material = s_previousCameraSkybox;
+            }
+        }
+
+        static void CaptureOriginalCameraSkybox()
+        {
+            if (s_previousCameraSkyboxCaptured)
+            {
+                return;
+            }
+            if (CameraManager.MainCamera == null)
+            {
+                return;
+            }
+            Skybox? skybox = CameraManager.MainCamera.GetComponent<Skybox>();
+            s_previousCameraSkybox = skybox?.material;
+            s_previousCameraSkyboxCaptured = true;
         }
 
         void LateUpdate()
@@ -106,8 +207,13 @@ namespace WorldSphereMod.Lighting
         void SyncSkyboxComponent()
         {
             if (CameraManager.MainCamera == null) return;
+            CaptureOriginalCameraSkybox();
             Skybox? skybox = CameraManager.MainCamera.GetComponent<Skybox>();
-            if (skybox == null) skybox = CameraManager.MainCamera.gameObject.AddComponent<Skybox>();
+            if (skybox == null)
+            {
+                skybox = CameraManager.MainCamera.gameObject.AddComponent<Skybox>();
+                _addedCameraSkybox = true;
+            }
             skybox.material = _skyMat;
         }
 

@@ -5,6 +5,7 @@ using System.Threading;
 using UnityEngine;
 using WorldSphereMod;
 using WorldSphereMod.Rig;
+using Object = UnityEngine.Object;
 using Debug = UnityEngine.Debug;
 
 namespace WorldSphereMod.Voxel
@@ -292,7 +293,7 @@ namespace WorldSphereMod.Voxel
                 Mesh smoothed = MeshSmoother.Smooth(mesh, Core.savedSettings.SmoothingIterations);
                 if (smoothed != null && !ReferenceEquals(smoothed, mesh))
                 {
-                    UnityEngine.Object.Destroy(mesh);
+                    Object.DestroyImmediate(mesh);
                     mesh = smoothed;
                 }
             }
@@ -430,7 +431,7 @@ namespace WorldSphereMod.Voxel
                     Mesh smoothed = MeshSmoother.Smooth(mesh, Core.savedSettings.SmoothingIterations);
                     if (smoothed != null && !ReferenceEquals(smoothed, mesh))
                     {
-                        UnityEngine.Object.Destroy(mesh);
+                        Object.DestroyImmediate(mesh);
                         mesh = smoothed;
                         completion.Snapshot = CreateSnapshot(completion.Sprite, mesh, mesh.vertices, mesh.colors32, mesh.triangles);
                     }
@@ -620,7 +621,7 @@ namespace WorldSphereMod.Voxel
             {
                 foreach (var e in _cache.Values)
                 {
-                    if (e.Mesh != null) UnityEngine.Object.Destroy(e.Mesh);
+                    if (e.Mesh != null) Object.DestroyImmediate(e.Mesh);
                 }
                 _cache.Clear();
                 _diagnosedSprites.Clear();
@@ -634,7 +635,7 @@ namespace WorldSphereMod.Voxel
             }
             if (_placeholderMesh != null)
             {
-                UnityEngine.Object.Destroy(_placeholderMesh);
+                Object.DestroyImmediate(_placeholderMesh);
                     _placeholderMesh = null;
                 }
             }
@@ -658,7 +659,7 @@ namespace WorldSphereMod.Voxel
                 while (_pendingDestroy.Count > 0)
                 {
                     var m = _pendingDestroy.Dequeue();
-                    if (m != null) UnityEngine.Object.Destroy(m);
+                    if (m != null) UnityEngine.Object.DestroyImmediate(m);
                 }
             }
         }
@@ -743,8 +744,25 @@ namespace WorldSphereMod.Voxel
                 return SpriteVoxelizer.BuildLathe(sprite, depth, out vertexToTexel);
             }
 
+            if (string.Equals(inflationStyle, "legacy-pertexel", System.StringComparison.OrdinalIgnoreCase))
+            {
+                vertexToTexel = System.Array.Empty<int>();
+                return SpriteVoxelizer.BuildPerTexel(sprite, depth, out vertexToTexel);
+            }
+
+            if (string.Equals(inflationStyle, "pertexel", System.StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(inflationStyle, "per-texel", System.StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(inflationStyle, "extruded", System.StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(inflationStyle, "extrude", System.StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(inflationStyle, "greedy", System.StringComparison.OrdinalIgnoreCase))
+            {
+                vertexToTexel = System.Array.Empty<int>();
+                inflationStyle = "greedy_pertexel";
+                return SpriteVoxelizer.Build(sprite, out MeshSnapshot _, depth);
+            }
+
             vertexToTexel = System.Array.Empty<int>();
-            return SpriteVoxelizer.BuildPerTexel(sprite, depth, out vertexToTexel);
+            return SpriteVoxelizer.Build(sprite, out MeshSnapshot _, depth);
         }
 
         static string ResolveVoxelInflationStyle()
@@ -759,6 +777,16 @@ namespace WorldSphereMod.Voxel
             if (style == "pertexel" || style == "per-texel" || style == "extruded" || style == "extrude")
             {
                 return "pertexel";
+            }
+
+            if (style == "greedy")
+            {
+                return "greedy";
+            }
+
+            if (style == "legacy-pertexel" || style == "pertexel-legacy")
+            {
+                return "legacy-pertexel";
             }
 
             if (style == "balloon" || style == "ballooned")
@@ -779,7 +807,7 @@ namespace WorldSphereMod.Voxel
 
             if (_invalidVoxelStyles.Add(rawStyle))
             {
-                Debug.LogWarning($"[WSM3D] Unsupported VoxelInflationStyle '{rawStyle}'. Using per-texel fallback.");
+                Debug.LogWarning($"[WSM3D] Unsupported VoxelInflationStyle '{rawStyle}'. Using greedy/default per-texel fallback.");
             }
 
             return "pertexel";

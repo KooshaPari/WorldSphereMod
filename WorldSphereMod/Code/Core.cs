@@ -191,6 +191,10 @@ namespace WorldSphereMod
                 WorldSphereMod.Lighting.TimeOfDay.EnsureCreated();
                 WorldSphereMod.Lighting.ProceduralSky.EnsureCreated();
             }
+            if (flagName == nameof(SavedSettings.DayNightCycle) && !newValue)
+            {
+                WorldSphereMod.Lighting.ProceduralSky.ApplySetting(false);
+            }
             if (flagName == nameof(SavedSettings.HdrSkybox))
             {
                 WorldSphereMod.Lighting.CubemapLighting.ApplySetting(newValue);

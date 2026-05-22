@@ -80,32 +80,19 @@ namespace WorldSphereMod.Voxel
 
             string[] candidates =
             {
-                // Unlit/Color first: simplest possible shader, outputs solid _Color
-                // with no texture sample, no alpha-test, no deferred-pipeline pass
-                // ambiguity. If voxel meshes are invisible because of any of those
-                // shader-side issues, Unlit/Color rules them all out — geometry
-                // either renders as solid white blocks or there's a non-shader
-                // problem (frustum/Flush/scale).
-                "Unlit/Color",
-                "Unlit/Texture",
-                // Prefer Simple Lit first: it keeps per-vertex color routes active for
-                // tinting while still staying in a URP-lit pipeline.
+                // Particle shaders can consume Mesh COLOR output when _VERTEX_COLOR_ON
+                // is enabled, so try them first for per-vertex tint fidelity.
+                "Particles/Standard Surface",
+                "Particles/Standard Unlit",
+                // URP variants are clean opaque fallbacks and avoid legacy sprite
+                // transparency ordering issues.
                 "Universal Render Pipeline/Simple Lit",
                 "Universal Render Pipeline/Lit",
                 "Universal Render Pipeline/Unlit",
                 "Universal Render Pipeline/Particles/Unlit",
-                // OPAQUE vertex-color shaders. Sprites/Default IS vertex-color aware
-                // but is TRANSPARENT (renderQueue=3000), which makes voxel cubes
-                // render see-through with all inner faces visible — looks like an
-                // open box. Use Particles/Standard Surface or Particles/Standard Unlit
-                // (which consume vertex colors as albedo) above Standard. Sprites/Default
-                // kept last (after Standard) as 'visible but wrong' fallback only.
-                // Sprites/Default is vertex-color aware but transparent by default.
-                // We force it to alpha-cutout opaque via material properties below.
-                // Order: try the more sophisticated ones first; fall through to
-                // Sprites/Default+opaque-cutout as the dependable last-resort.
-                "Particles/Standard Surface",
-                "Particles/Standard Unlit",
+                // Legacy fallback path (if SRP fallback happens at runtime).
+                "Unlit/Texture",
+                "Unlit/Color",
                 "Standard",
                 "Sprites/Default",
             };
@@ -126,13 +113,13 @@ namespace WorldSphereMod.Voxel
             // (Sprites/Default) — the open-box-see-through bug. This inline
             // shader is opaque AND consumes vertex colors as the only albedo.
             Material? inlineMat = TryCompileInlineVoxelShader();
-            if (inlineMat != null)
-            {
-                _material = inlineMat;
-                McPackLoader.ApplyToMaterial(_material);
-                Debug.Log("[WSM3D] Voxel material resolved via inline 'WSM3D/OpaqueVertexColor'.");
-                return true;
-            }
+                if (inlineMat != null)
+                {
+                    _material = inlineMat;
+                    McPackLoader.ApplyToMaterial(_material);
+                    Debug.Log("[WSM3D] Voxel material resolved via inline 'WSM3D/OpaqueVertexColor'.");
+                    return true;
+                }
 
             foreach (var name in candidates)
             {
@@ -208,6 +195,7 @@ namespace WorldSphereMod.Voxel
                 }
                 catch { }
                 ConfigureVoxelMaterial(m, name);
+                ConfigureVertexColorShaderMode(m, name);
                 McPackLoader.ApplyToMaterial(m);
                 LogVoxelMaterialPassDetails(m, name);
                 _material = m;
@@ -231,6 +219,7 @@ namespace WorldSphereMod.Voxel
                 {
                     Material inlineMaterial = new Material(existing) { name = "WSM3D.Voxel.OpaqueVertexColor" };
                     ConfigureVoxelMaterial(inlineMaterial, "WSM3D/OpaqueVertexColor");
+                    ConfigureVertexColorShaderMode(inlineMaterial, "WSM3D/OpaqueVertexColor");
                     McPackLoader.ApplyToMaterial(inlineMaterial);
                     return inlineMaterial;
                 }
@@ -295,6 +284,20 @@ namespace WorldSphereMod.Voxel
 
             // Keep non-URP fallbacks clean and deterministic: don't assume URP-lit property names.
             material.color = Color.white;
+        }
+
+        static void ConfigureVertexColorShaderMode(Material material, string shaderName)
+        {
+            if (material == null || material.shader == null) return;
+
+            if (shaderName == "Particles/Standard Surface" ||
+                shaderName == "Particles/Standard Unlit")
+            {
+                material.EnableKeyword("_VERTEX_COLOR_ON");
+                return;
+            }
+
+            material.DisableKeyword("_VERTEX_COLOR_ON");
         }
 
         static void LogVoxelMaterialPassDetails(Material material, string shaderName)
@@ -515,7 +518,7 @@ namespace WorldSphereMod.Voxel
                         LogActorSubmitDiagnostic("impostor", ref _actorImpostorDiagnosticLogged, a, sp, imPosBeforeLift, imPos, rd.colors[i]);
                         Quaternion br = WorldSphereMod.LOD.ImpostorBillboard.GetFacingRotation(imPos);
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
-                        MeshInstanceBatcher.Submit(im, imMat, imTrs, Color.white);
+                        MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
                         submitted = true;
                         if (submitted)
                         {
@@ -553,7 +556,7 @@ namespace WorldSphereMod.Voxel
                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
                     RecordActorVoxelTrs(trs);
                     // Hide the sprite quad for this actor — we drew the 3D mesh instead.
-                    if (Submit(m, trs, Color.white))
+                    if (Submit(m, trs, rd.colors[i]))
                     {
                         rd.has_normal_render[i] = false;
                         TraceActorColorSample("voxel", i, rd.colors[i], a, sp, posBeforeLift, pos, rot, scl);
@@ -670,7 +673,7 @@ namespace WorldSphereMod.Voxel
                         }
                         Quaternion br = WorldSphereMod.LOD.ImpostorBillboard.GetFacingRotation(imPos);
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
-                        MeshInstanceBatcher.Submit(im, imMat, imTrs, Color.white);
+                        MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
                         submitted = true;
                         if (submitted)
                         {
@@ -712,7 +715,7 @@ namespace WorldSphereMod.Voxel
                     // hides the sprite quad without nulling main_sprites (downstream
                     // calculateColoredSprite() chokes on null). Shadow sprite still draws as a
                     // ground decal under the 3D mesh — fine until Phase 5 ships real shadows.
-                    if (Submit(m, trs, Color.white))
+                    if (Submit(m, trs, rd.colors[i]))
                     {
                         rd.scales[i] = Vector3.zero;
                     }
