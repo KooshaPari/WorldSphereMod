@@ -860,7 +860,19 @@ namespace WorldSphereMod.Voxel
 
             WorldSphereMod.Fx.Environmental.Tick();
 
-            WorldSphereMod.Fx.PostFxController.ApplySetting(Core.savedSettings.PostFX);
+            // CRITICAL: do NOT call ApplySetting every frame -- it logs 'ApplySetting(X)' on each
+            // invocation, which at 60 FPS spams Player.log with ~60 lines/sec of synchronous file
+            // writes -> game load freezes at the preload step. Track last applied value + only
+            // call when it CHANGES. ApplyPhaseToggle paths already invoke ApplySetting on real
+            // setting changes; this LateUpdate call is a redundant reconciler.
+            bool currentPostFX = Core.savedSettings.PostFX;
+            if (currentPostFX != _lastAppliedPostFX)
+            {
+                _lastAppliedPostFX = currentPostFX;
+                WorldSphereMod.Fx.PostFxController.ApplySetting(currentPostFX);
+            }
         }
+
+        static bool _lastAppliedPostFX = false;
     }
 }
