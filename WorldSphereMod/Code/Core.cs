@@ -395,11 +395,20 @@ namespace WorldSphereMod
         } 
         public static void Become3D()
         {
-            Sphere.Begin();
-            CameraManager.MakeCamera3D();
-            WorldSphereMod.Lighting.CubemapLighting.EnsureCreated();
-            WorldSphereMod.Lighting.ColorGradingLUT.EnsureCreated();
-            Do3DStuff();
+            // Wrap each step in try/catch so a NRE in any single subsystem (notably
+            // CompoundSpheres.SphereManager.Init at line 107 — Melvin's library
+            // throws when called too early or with stale state) does not break the
+            // SmoothLoader retry loop.
+            try { Sphere.Begin(); }
+            catch (System.Exception ex) { UnityEngine.Debug.LogError("[WSM3D] Sphere.Begin failed: " + ex); }
+            try { CameraManager.MakeCamera3D(); }
+            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] MakeCamera3D failed: " + ex.Message); }
+            try { WorldSphereMod.Lighting.CubemapLighting.EnsureCreated(); }
+            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] CubemapLighting failed: " + ex.Message); }
+            try { WorldSphereMod.Lighting.ColorGradingLUT.EnsureCreated(); }
+            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] ColorGradingLUT failed: " + ex.Message); }
+            try { Do3DStuff(); }
+            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] Do3DStuff failed: " + ex.Message); }
         }
         static void Do3DStuff()
         {
