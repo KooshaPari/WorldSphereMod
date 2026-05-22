@@ -65,7 +65,7 @@ namespace WorldSphereMod.Bridge
             StartListener();
         }
 
-        static void DrainQueueOnce()
+        public static void DrainStaticQueue()
         {
             while (_mainThreadQueue.TryDequeue(out Action? work))
             {
@@ -74,9 +74,9 @@ namespace WorldSphereMod.Bridge
             }
         }
 
-        void Update() => DrainQueueOnce();
-        void LateUpdate() => DrainQueueOnce();
-        void FixedUpdate() => DrainQueueOnce();
+        void Update() => DrainStaticQueue();
+        void LateUpdate() => DrainStaticQueue();
+        void FixedUpdate() => DrainStaticQueue();
 
         void OnDestroy() => StopListener();
 
