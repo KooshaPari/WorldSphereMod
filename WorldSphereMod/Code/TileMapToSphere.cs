@@ -440,15 +440,25 @@ namespace WorldSphereMod.TileMapToSphere
         [HarmonyPrefix]
         static bool ClearPatch(MapLayer __instance)
         {
-            if (__instance.pixels != null)
+            // Null-guards: clearWorld fires during world generation BEFORE
+            // Core.Sphere + CachedColors are initialized. Without these guards
+            // an NRE here blocks the load sequence ('005: Becoming 2D!' loop).
+            if (__instance == null || __instance.pixels == null) return false;
+            if (Core.Sphere.CachedColors == null) return true;
+            PixelArray buf;
+            if (!Core.Sphere.CachedColors.TryGetValue(__instance, out buf) || buf == null) return true;
+            try
             {
-                __instance.pixels_to_update.Clear();
-                Color32 color = Color.clear;
-                for (int i = 0; i < __instance.pixels.Length; i++)
-                {
-                    Core.Sphere.CachedColors[__instance][i] = color;
-                }
+                if (__instance.pixels_to_update != null) __instance.pixels_to_update.Clear();
+                UnityEngine.Color32 color = UnityEngine.Color.clear;
+                int n = __instance.pixels.Length;
+                for (int i = 0; i < n; i++) buf[i] = color;
                 __instance.updatePixels();
+            }
+            catch (System.Exception ex)
+            {
+                UnityEngine.Debug.LogWarning("[WSM3D] ClearPatch: " + ex.Message + " - falling back to vanilla");
+                return true;
             }
             return false;
         }
