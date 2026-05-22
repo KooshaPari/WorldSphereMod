@@ -66,13 +66,13 @@ public class SavedSettingsTests
             ("VoxelEntities", true),
             ("ProceduralBuildings", true),
             ("CrossedQuadFoliage", true),
-            ("BiomeBlending", false),
-            ("MeshWater", false),
+            ("BiomeBlending", true),
+            ("MeshWater", true),
             ("HighShadows", true),
             ("SkeletalAnimation", true),
             ("WorldspaceUI", true),
             ("DayNightCycle", true),
-            ("PostFX", false),
+            ("PostFX", true),
             ("ParticleEffects", true)
         };
 
@@ -155,13 +155,13 @@ public class SavedSettingsTests
     [InlineData("VoxelEntities", "true")]
     [InlineData("ProceduralBuildings", "true")]
     [InlineData("CrossedQuadFoliage", "true")]
-    [InlineData("BiomeBlending", "false")]
-    [InlineData("MeshWater", "false")]
+    [InlineData("BiomeBlending", "true")]
+    [InlineData("MeshWater", "true")]
     [InlineData("HighShadows", "true")]
     [InlineData("SkeletalAnimation", "true")]
     [InlineData("WorldspaceUI", "true")]
     [InlineData("DayNightCycle", "true")]
-    [InlineData("PostFX", "false")]
+    [InlineData("PostFX", "true")]
     [InlineData("ParticleEffects", "true")]
     public void SavedSettings_field_default_value_matches_spec(string fieldName, string expectedDefault)
     {
@@ -171,6 +171,75 @@ public class SavedSettingsTests
 
         match.Success.Should().BeTrue(
             $"SavedSettings.{fieldName} must initialize to {expectedDefault}");
+    }
+
+    [Fact]
+    public void SavedSettings_phase3_defaults_match_code()
+    {
+        var source = ReadSavedSettingsSource();
+
+        Regex.Match(source, @"public\s+bool\s+CrossedQuadFoliage\s*=\s*true")
+            .Success.Should().BeTrue("Phase 3 should default CrossedQuadFoliage to true");
+    }
+
+    [Fact]
+    public void SavedSettings_phase4_defaults_match_code()
+    {
+        var source = ReadSavedSettingsSource();
+
+        Regex.Match(source, @"public\s+bool\s+MeshWater\s*=\s*true")
+            .Success.Should().BeTrue("Phase 4 should default MeshWater to true");
+    }
+
+    [Fact]
+    public void SavedSettings_phase5_defaults_match_code()
+    {
+        var source = ReadSavedSettingsSource();
+
+        Regex.Match(source, @"public\s+bool\s+HighShadows\s*=\s*true")
+            .Success.Should().BeTrue("Phase 5 should default HighShadows to true");
+    }
+
+    [Fact]
+    public void SavedSettings_phase5b_defaults_match_code()
+    {
+        var source = ReadSavedSettingsSource();
+
+        Regex.Match(source, @"public\s+bool\s+HdrSkybox\s*=\s*true")
+            .Success.Should().BeTrue("Phase 5b should default HdrSkybox to true");
+        Regex.Match(source, @"public\s+bool\s+ColorGradingLut\s*=\s*true")
+            .Success.Should().BeTrue("Phase 5b should default ColorGradingLut to true");
+    }
+
+    [Fact]
+    public void SavedSettings_phase6_defaults_match_code()
+    {
+        var source = ReadSavedSettingsSource();
+
+        Regex.Match(source, @"public\s+bool\s+SkeletalAnimation\s*=\s*true")
+            .Success.Should().BeTrue("Phase 6 should default SkeletalAnimation to true");
+    }
+
+    [Fact]
+    public void SavedSettings_phase8_defaults_match_code()
+    {
+        var source = ReadSavedSettingsSource();
+
+        Regex.Match(source, @"public\s+bool\s+DayNightCycle\s*=\s*true")
+            .Success.Should().BeTrue("Phase 8 should default DayNightCycle to true");
+    }
+
+    [Fact]
+    public void SavedSettings_phase9_defaults_match_code()
+    {
+        var source = ReadSavedSettingsSource();
+
+        Regex.Match(source, @"public\s+bool\s+PostFX\s*=\s*true")
+            .Success.Should().BeTrue("Phase 9 should default PostFX to true");
+        Regex.Match(source, @"public\s+bool\s+SSAOEnabled\s*=\s*true")
+            .Success.Should().BeTrue("Phase 9 should default SSAOEnabled to true");
+        Regex.Match(source, @"public\s+bool\s+SSGIEnabled\s*=\s*false")
+            .Success.Should().BeTrue("Phase 9 should default SSGIEnabled to false");
     }
 
     [Fact]

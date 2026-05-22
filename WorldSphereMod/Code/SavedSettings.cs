@@ -97,17 +97,19 @@ public class SavedSettings
         // Phase 9: Built-in pipeline screen-space ambient occlusion (SSAO) pass.
         public bool SSAOEnabled = true;
         // Phase 9: Built-in pipeline screen-space global illumination (SSGI) pass.
-        public bool SSGIEnabled = false;
+        public bool SSGIEnabled = true;
         public bool ParticleEffects = true;
-        public bool WeatherRain = false;
+        public bool WeatherRain = true;
         public bool WeatherSnow = false;
         public bool WeatherLightning = false;
 
         // Phase 10: LOD ladder + impostor fallback.
-        public float LODScale = 1.0f;
+        public float LODScale = 0.5f;
         public float WaterDetail = 1.0f;
         public float FoliageDensity = 1.0f;
-        // Diagnostic: dump per-system frame budget to console once per second.
+        // Diagnostic only: dump per-system frame budget to console once per second.
+        // Keep OFF by default; flip ON only when log volume is acceptable for
+        // local profiling sessions.
         public bool ProfilerDump = false;
     }
 }
