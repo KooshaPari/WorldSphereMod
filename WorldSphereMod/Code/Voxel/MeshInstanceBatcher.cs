@@ -111,6 +111,19 @@ namespace WorldSphereMod.Voxel
 
         public static void Submit(Mesh mesh, Material mat, Matrix4x4 matrix, Color tint)
         {
+            // Black-actor regression guard: WorldBox render_data.colors can be
+            // near-zero for shadowed/night actors. Per-instance _Color multiplies
+            // the voxel mesh's baked vertex colors -- a black tint forces every
+            // pixel to (0,0,0) regardless of sprite content. Clamp to a minimum
+            // brightness so the baked colors always come through.
+            // Reverted callsite-by-callsite in waves 27 and 29; this guard is
+            // here at the chokepoint so future parallel-session edits cannot
+            // re-introduce the regression.
+            float brightness = tint.r + tint.g + tint.b;
+            if (brightness < 0.6f)
+            {
+                tint = Color.white;
+            }
             if (UseBrg && MeshInstanceBatcherBRG.TrySubmit(mesh, mat, matrix, tint))
             {
                 return;
