@@ -37,9 +37,6 @@
     <Reference Include="Assembly-CSharp">
       <HintPath>$(WorldBoxNML)/Assembly-CSharp-Publicized.dll</HintPath>
     </Reference>
-    <Reference Include="CompoundSpheres">
-      <HintPath>WorldSphereMod\Assemblies\CompoundSpheres.dll</HintPath>
-    </Reference>
     <Reference Include="Facepunch.Steamworks.Posix">
       <HintPath>$(WorldBoxNMLAssemblies)/Facepunch.Steamworks.Posix.dll</HintPath>
     </Reference>
@@ -114,6 +111,11 @@
     </Reference>
     <Reference Include="YamlDotNet">
       <HintPath>$(WorldBoxNMLAssemblies)/YamlDotNet.dll</HintPath>
+    </Reference>
+    <!-- ProjectReference removed 2026-05-22: External/Compound-Spheres submodule
+         not present locally. Reverted to vendored CompoundSpheres.dll. -->
+    <Reference Include="CompoundSpheres">
+      <HintPath>WorldSphereMod\Assemblies\CompoundSpheres.dll</HintPath>
     </Reference>
   </ItemGroup>
 
