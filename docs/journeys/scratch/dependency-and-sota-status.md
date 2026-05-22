@@ -12,9 +12,9 @@ SOTA/wrap-vs-buy research" follow-ups.
 | Origin | Melvin Shwuaner (upstream WorldSphereMod author) |
 | File | `WorldSphereMod/Assemblies/CompoundSpheres.dll` (23 KB) |
 | What it does | 2D grid → 3D sphere mapping at high efficiency |
-| Source available? | No — closed-source DLL |
+| Source available? | **YES** — https://github.com/MelvinShwuaner/Compound-Spheres (7 C# files: BufferUtils, CompoundSpheres.csproj, DefaultSettings, SphereManager+Settings, SphereRow, SphereTile) |
 | Used by | `Mod.cs`, `Tools.cs`, `Core.cs`, `WaterRender.cs`, `TileMapToSphere.cs`, `CompoundSphereScripts.cs` (6 files, ~60 `using CompoundSpheres;` references) |
-| Fork decision | **No fork.** Source not available; behavior stable; replacing the surface would mean re-implementing the entire CompoundSphere wrapping logic from scratch, which is exactly what upstream Mod did 4 years of work on |
+| Fork decision | **Fork CANDIDATE** — source now confirmed available at MelvinShwuaner/Compound-Spheres. We can clone it as a submodule under WorldSphereMod/External/Compound-Spheres/, contribute fixes upstream, or fork to our own Phenotype-org for divergent helpers. Action: spawn agent to clone + integrate as build-time dep. |
 | Risk | If Melvin's DLL has bugs / breaks on a WB update, we're stuck without source. CLAUDE.md flags: "CompoundSpheres.dll is a runtime dep, not stale. Must stay shipped" |
 
 **Complement library plan (not built):** considered building a thin
