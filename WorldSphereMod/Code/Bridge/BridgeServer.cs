@@ -35,12 +35,20 @@ namespace WorldSphereMod.Bridge
         {
             try
             {
-                if (_rootHost != null && _rootHost.GetComponent<BridgeServer>() != null) return;
-                // Own root GameObject so DontDestroyOnLoad is honored (it silently
-                // no-ops on non-root nodes). Survives scene transitions cleanly.
+                // Unity's DontDestroyOnLoad can fail if WorldBox uses
+                // LoadSceneMode.Single — root GameObject still dies. Handle the
+                // null-after-transition case by recreating cleanly.
+                bool needsCreate = _rootHost == null;
+                if (!needsCreate)
+                {
+                    try { needsCreate = _rootHost.GetComponent<BridgeServer>() == null; }
+                    catch { needsCreate = true; } // accessing destroyed object throws
+                }
+                if (!needsCreate) return;
                 _rootHost = new UnityEngine.GameObject("WSM3D.BridgeServer");
                 UnityEngine.Object.DontDestroyOnLoad(_rootHost);
                 _rootHost.AddComponent<BridgeServer>();
+                Debug.Log("[WSM3D][Bridge] (re)created root host + BridgeServer component");
             }
             catch (Exception ex)
             {
