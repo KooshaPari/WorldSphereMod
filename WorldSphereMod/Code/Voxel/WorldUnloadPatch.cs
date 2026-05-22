@@ -12,7 +12,11 @@ namespace WorldSphereMod.Voxel
     [HarmonyPatch(typeof(Core.Sphere), nameof(Core.Sphere.Finish))]
     public static class WorldUnloadPatch
     {
-        // TODO: three-Postfix ordering with other unload sinks is currently non-deterministic but harmless because cache contents are disjoint.
+        // Ordering: HarmonyPriority.Last so this Prefix runs AFTER any other mod's
+        // Prefixes on Core.Sphere.Finish. Cache contents are disjoint with vanilla
+        // unload paths so order doesn't actually matter for correctness, but
+        // determinism makes debugging cleaner.
+        [HarmonyPriority(Priority.Last)]
         [HarmonyPrefix]
         public static void OnFinish()
         {

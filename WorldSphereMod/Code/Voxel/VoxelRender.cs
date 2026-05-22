@@ -41,8 +41,7 @@ namespace WorldSphereMod.Voxel
         /// Destroy the cached material and clear the resolve-attempted latch. Call when
         /// the world reloads — static fields outlive Unity's scene teardown and the
         /// underlying Material may have been invalidated.
-        /// TODO: wire from a world-reload Postfix once one exists in Core. Until then
-        /// only matters across multiple in-session world generations.
+        /// Wired from WorldUnloadPatch.OnFinish (Core.Sphere.Finish Prefix).
         /// </summary>
         public static void Reset()
         {
@@ -230,9 +229,11 @@ namespace WorldSphereMod.Voxel
                     McPackLoader.ApplyToMaterial(inlineMaterial);
                     return inlineMaterial;
                 }
-                // Unity 2022 doesn't have a public runtime ShaderLab compile API,
-                // so the inline-shader path is a no-op unless a baked shader of
-                // our name is shipped in an AssetBundle (Phase 5 TODO).
+                // Unity 2022 doesn't have a public runtime ShaderLab compile API.
+                // The .shader source lives at WorldSphereMod/AssetBundles/Shaders/
+                // OpaqueVertexColor.shader. Bake step: open Unity 2022.3 project,
+                // import that .shader, build AssetBundle 'worldsphere' platform-aware.
+                // Until baked, falls through to Standard + emission boost (visible).
                 return null;
             }
             catch { return null; }

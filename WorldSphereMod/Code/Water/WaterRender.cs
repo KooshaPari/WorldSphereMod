@@ -96,8 +96,11 @@ namespace WorldSphereMod.Water
             }
         }
 
-        // Tile-change invalidation. Full mask rebuild + full mesh rebuild for now.
-        // TODO Phase 4 polish: dirty-track per-tile, update only the changed cell.
+        // Tile-change invalidation. Full mask rebuild + full mesh rebuild on each
+        // UpdateBaseLayer postfix. Acceptable: UpdateBaseLayer fires on tile-edit
+        // events only (not per-frame), and mesh size is bounded by world dimensions
+        // (max ~256x256 quads). Per-tile dirty tracking deferred to Phase 4 polish
+        // when there is a measurable perf regression to justify the bookkeeping.
         [Phase(nameof(SavedSettings.MeshWater))]
         [HarmonyPatch(typeof(Core.Sphere), nameof(Core.Sphere.UpdateBaseLayer))]
         public static class UpdateBaseLayerPostfix
