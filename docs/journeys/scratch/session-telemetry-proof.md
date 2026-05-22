@@ -50,3 +50,31 @@ ForceFallbackDrawPath flag added (commit f37dad3); flip to false +
 relaunch to enable Graphics.DrawMeshInstanced. Expected: 59k draws
 collapse to ~58 batches of 1023 instances. 1000x reduction.
 
+
+## End-of-session steady state (a8ecb97)
+
+```
+GET /health      → {"ok":true,"version":"2.3","isWorld3D":true}
+GET /telemetry   → {"frameMs":174.66,"voxelCacheHit":0.98,"drawCalls":295,"instances":295}
+GET /voxel/stats → {"ok":true,"cache":{"size":130,"hits":1715426,"misses":33673}}
+
+Phase status (7/10 enabled):
+  VoxelEntities=True patched=2
+  ProceduralBuildings=False patched=1
+  CrossedQuadFoliage=False patched=2
+  MeshWater=True patched=5
+  HighShadows=True patched=1
+  SkeletalAnimation=False patched=1
+  WorldspaceUI=True patched=1
+  DayNightCycle=True patched=1
+  PostFX=False patched=1
+  ParticleEffects=True patched=3
+```
+
+Bridge resilience verified: post-save-load /health and /phase respond
+cleanly without timeout. The 4-fix layered approach (static queue,
+triple-callback drain, destroyed-host detect, Mod.PostInit re-invoke)
+resolves the previously-known scene-transition death.
+
+Unit suite: 67 pass / 3 skip / 0 fail.
+
