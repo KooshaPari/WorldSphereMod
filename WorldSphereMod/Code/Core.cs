@@ -286,6 +286,7 @@ namespace WorldSphereMod
                 }
             }
 
+            Patcher.PatchAll(typeof(WorldSphereMod.Bridge.BridgePerFrameTick));
             Patcher.PatchAll(typeof(SphereControl));
             Patcher.PatchAll(typeof(Dist3D));
             Patcher.PatchAll(typeof(EffectPatches));
