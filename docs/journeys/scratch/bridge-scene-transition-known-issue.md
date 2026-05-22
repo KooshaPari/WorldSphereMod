@@ -78,3 +78,19 @@ Next session candidates:
 - Try Postfix on ActorManager.update_actors (definitely per-frame)
 - Move observability into the existing Postfix chain that we KNOW fires (BuildingProcRender.EmitMeshes, etc — these increment FrameDrawCalls per the telemetry that DID work before save load)
 
+
+## Status update 0d74a41: Telemetry log PARTIAL recovery
+
+Switched Postfix target ActorManager.precalculateRenderDataParallel — entries are NOW GROWING:
+
+```
+[WSM3D][Telemetry] frameMs=16.67 ... gcMB=405.8
+[WSM3D][Telemetry] frameMs=16.66 ... gcMB=415.3
+```
+
+2 entries after world load + 45s wait. The Postfix fires when actor processing runs (not strictly per-frame; depends on game state). Acceptable cadence for steady-state observability.
+
+Bridge endpoints still time out (queue not draining via this hook either — DrainStaticQueue called but actions queued by listener thread maybe not flushing if main-thread context differs). But log telemetry is the resilient channel.
+
+NFR-WSM-006 partial recovery: bridge pre-save-load, log post-save-load.
+
