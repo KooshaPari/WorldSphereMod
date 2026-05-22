@@ -354,12 +354,12 @@ ForceFallbackDrawPath=false; verify with `/telemetry.drawCalls << instances`.
 
 ---
 
-### NFR-WSM-004: Memory Footprint
+### NFR-WSM-004: Memory Footprint — **measurement available via /memory (commit e5385f5); 30-min target validation pending**
 
 **Description:** Memory delta after 30 min of strategy view.
 
-**Target:** < 2 GB
-**Current:** unmeasured
+**Target:** < 2 GB delta after 30 min
+**Current:** measurable via {"ok":true,"gcBytes":291794944,"gcMB":278.27734375,"processBytes":0,"processMB":0.0,"generation0CollectCount":152,"generation1CollectCount":152,"generation2CollectCount":152} returns 
 
 ---
 
