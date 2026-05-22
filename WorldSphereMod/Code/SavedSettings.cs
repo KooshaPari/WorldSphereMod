@@ -75,7 +75,7 @@ public class SavedSettings
         // Terrain polish: blend biome colors across tile boundaries.
         public bool BiomeBlending = true;
         // Phase 4: Mesh water surface (vs. flat tile color).
-        public bool MeshWater = true;
+        public bool MeshWater = false;
         // Worldspace health bar style: true => 3D mesh bars, false => legacy billboard quads.
         public bool WorldspaceHealth3D = true;
         // Mountain slope smoothing: smooth overlay mesh that blends the upstream

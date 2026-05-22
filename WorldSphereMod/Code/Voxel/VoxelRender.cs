@@ -90,16 +90,16 @@ namespace WorldSphereMod.Voxel
                 "Universal Render Pipeline/Unlit",
                 "Universal Render Pipeline/Particles/Unlit",
                 // Legacy fallback path (if SRP fallback happens at runtime).
-                // Sprites/Default reads per-vertex COLOR + outputs WITHOUT lighting
-                // attenuation -- the ONE built-in shader that guarantees vertex
-                // colors are visible. Put FIRST in built-in list since Standard
-                // (lit) consistently outputs black when scene has no directional/
-                // ambient light reaching the voxel layer (observed across multiple
-                // emission/clamp fixes).
-                "Sprites/Default",
+                // Sprites/Default LAST -- it produces open-box 2.5D transparent
+                // rendering (single-sided faces, alpha-blended). c1abc6b promoted
+                // it to first hoping to get vertex colors through; user-reported
+                // regression was visible-only-front-faces. Standard back at higher
+                // priority despite black-output risk since the per-instance emission
+                // override (c7be9bd) + clamp (8ee4549) should mitigate.
                 "Unlit/Texture",
                 "Unlit/Color",
                 "Standard",
+                "Sprites/Default",
             };
             var shaderLookup = new Dictionary<string, Shader>();
             foreach (var name in candidates)
