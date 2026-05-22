@@ -201,6 +201,11 @@ namespace WorldSphereMod.Bridge
                         WriteJson(context.Response, InvokeOnMainThread(BuildVoxelQueuePayload));
                         return;
                     }
+                    if (string.Equals(path, "/memory", StringComparison.OrdinalIgnoreCase))
+                    {
+                        WriteJson(context.Response, InvokeOnMainThread(BuildMemoryPayload));
+                        return;
+                    }
                     if (string.Equals(path, "/voxel/actor", StringComparison.OrdinalIgnoreCase))
                     {
                         string indexText = context.Request.QueryString["index"] ?? "0";
@@ -332,6 +337,25 @@ namespace WorldSphereMod.Bridge
                 misses = WorldSphereMod.Voxel.VoxelMeshCache.MissCount
             }
         };
+
+
+        object BuildMemoryPayload()
+        {
+            long gc = System.GC.GetTotalMemory(forceFullCollection: false);
+            long alloc = 0;
+            try { alloc = System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64; } catch { }
+            return new
+            {
+                ok = true,
+                gcBytes = gc,
+                gcMB = gc / (1024.0 * 1024.0),
+                processBytes = alloc,
+                processMB = alloc / (1024.0 * 1024.0),
+                generation0CollectCount = System.GC.CollectionCount(0),
+                generation1CollectCount = System.GC.CollectionCount(1),
+                generation2CollectCount = System.GC.CollectionCount(2)
+            };
+        }
 
         object BuildVoxelQueuePayload() => new
         {
