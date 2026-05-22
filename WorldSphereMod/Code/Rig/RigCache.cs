@@ -11,7 +11,8 @@ namespace WorldSphereMod.Rig
     /// </summary>
     public static class RigCache
     {
-        public static int Capacity = 2048;
+        public const int MAX_ENTRIES = 128;
+        public static int Capacity => MAX_ENTRIES;
 
         struct Entry
         {
@@ -115,39 +116,38 @@ namespace WorldSphereMod.Rig
 
         static void Evict()
         {
-            if (_cache.Count == 0)
+            if (_cache.Count <= MAX_ENTRIES)
             {
                 return;
             }
 
-            ulong minFrame = ulong.MaxValue, maxFrame = 0;
-            foreach (var v in _cache.Values)
+            int toRemoveCount = _cache.Count - MAX_ENTRIES;
+            while (_cache.Count > MAX_ENTRIES && toRemoveCount > 0)
             {
-                if (v.LastFrame < minFrame) minFrame = v.LastFrame;
-                if (v.LastFrame > maxFrame) maxFrame = v.LastFrame;
-            }
-            if (maxFrame == minFrame)
-            {
-                return;
-            }
-
-            ulong threshold = minFrame + (maxFrame - minFrame) / 10;
-            var toRemove = new List<long>();
-            foreach (var kv in _cache)
-            {
-                if (kv.Value.LastFrame <= threshold)
+                long lruKey = -1;
+                ulong lruFrame = ulong.MaxValue;
+                foreach (var kv in _cache)
                 {
-                    toRemove.Add(kv.Key);
+                    if (kv.Value.LastFrame < lruFrame)
+                    {
+                        lruFrame = kv.Value.LastFrame;
+                        lruKey = kv.Key;
+                    }
                 }
-            }
 
-            foreach (var key in toRemove)
-            {
-                if (_cache[key].Mesh.BaseMesh != null)
+                if (lruKey < 0)
                 {
-                    _pendingDestroy.Enqueue(_cache[key].Mesh.BaseMesh);
+                    break;
                 }
-                _cache.Remove(key);
+
+                Entry lruEntry = _cache[lruKey];
+                if (lruEntry.Mesh.BaseMesh != null)
+                {
+                    _pendingDestroy.Enqueue(lruEntry.Mesh.BaseMesh);
+                }
+
+                _cache.Remove(lruKey);
+                toRemoveCount--;
             }
         }
     }

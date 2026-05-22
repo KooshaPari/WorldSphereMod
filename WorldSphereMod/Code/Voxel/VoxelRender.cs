@@ -25,6 +25,7 @@ namespace WorldSphereMod.Voxel
     /// </summary>
     public static class VoxelRender
     {
+        const float BuildingMaxScale = 3.0f;
         static Material? _material;
         static bool _materialAttempted;
         static bool _materialProbeLogged;
@@ -669,6 +670,11 @@ namespace WorldSphereMod.Voxel
                     // ActorVoxelEmit): without it, mesh center sits at To3DTileHeight,
                     // which embeds half the mesh inside the terrain/foundation voxel.
                     scl *= Core.savedSettings.VoxelScaleMultiplier;
+                    // Clamp building voxel sprite height to prevent excessive vertical scale
+                    // (e.g. 5-10 px * 16 = 80-160 uu).
+                    scl.x = Mathf.Sign(scl.x) * Mathf.Min(Mathf.Abs(scl.x), BuildingMaxScale);
+                    scl.y = Mathf.Min(scl.y, BuildingMaxScale);
+                    scl.z = Mathf.Min(scl.z, BuildingMaxScale);
                     float bldHalfHeight = m.bounds.size.y * 0.5f * scl.y;
                     pos.y += bldHalfHeight;
                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);

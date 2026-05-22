@@ -70,6 +70,8 @@ namespace WorldSphereMod.Voxel
 
         public static long FrameDrawCalls;
         public static long FrameInstances;
+        public static long FrameBucketCount;
+        public static float InstancingEfficiency => FrameInstances > 0 ? (float)FrameBucketCount / FrameInstances : 0f;
         public static bool UseFallbackPath => _useFallbackPath;
 
         /// <summary>Force the per-instance Graphics.DrawMesh fallback path on. Use to
@@ -176,6 +178,7 @@ namespace WorldSphereMod.Voxel
 
             FrameDrawCalls = 0;
             FrameInstances = 0;
+            FrameBucketCount = 0;
 
             var bucketEnumerator = _buckets.GetEnumerator();
             while (bucketEnumerator.MoveNext())
@@ -192,6 +195,7 @@ namespace WorldSphereMod.Voxel
                     DrawFallbackPath(key, bucket, total, resolvedLayer, renderCamera, shadows, receive);
                     bucket.Matrices.Clear();
                     bucket.Colors.Clear();
+                    FrameBucketCount++;
                     continue;
                 }
 
@@ -264,8 +268,15 @@ namespace WorldSphereMod.Voxel
 
                 }
 
-                bucket.Matrices.Clear();
+                    bucket.Matrices.Clear();
                 bucket.Colors.Clear();
+                FrameBucketCount++;
+            }
+
+            float instancingEfficiency = FrameInstances > 0 ? ((float)FrameBucketCount / FrameInstances) : 0f;
+            if (FrameInstances > 0 && instancingEfficiency > 0.1f)
+            {
+                Debug.LogWarning($"[WSM3D][DIAG] InstancingEfficiency={instancingEfficiency:F4} (FrameBucketCount={FrameBucketCount}, FrameInstances={FrameInstances}, useFallbackPath={_useFallbackPath})");
             }
 
             if (verboseDrawLogging)
@@ -441,6 +452,7 @@ namespace WorldSphereMod.Voxel
             _allCamerasLogged = false;
             FrameDrawCalls = 0;
             FrameInstances = 0;
+            FrameBucketCount = 0;
         }
 
         static bool CanUseInstancedDraw(Material material, out string reason)
