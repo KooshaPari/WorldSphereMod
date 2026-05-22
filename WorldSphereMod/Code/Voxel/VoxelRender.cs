@@ -31,6 +31,7 @@ namespace WorldSphereMod.Voxel
         static bool _materialProbeLogged;
         static bool _materialDebugLogged;
         static bool _firstActorPosLogged;
+        static int _actorVoxelColorSampleCount;
         static bool _actorVoxelDiagnosticLogged;
         static bool _actorImpostorDiagnosticLogged;
         static bool _actorSkeletalDiagnosticLogged;
@@ -53,6 +54,7 @@ namespace WorldSphereMod.Voxel
             _materialDebugLogged = false;
             _firstActorPosLogged = false;
             _actorVoxelDiagnosticLogged = false;
+            _actorVoxelColorSampleCount = 0;
             _actorImpostorDiagnosticLogged = false;
             _actorSkeletalDiagnosticLogged = false;
             _actorVoxelSubmitTranslations.Clear();
@@ -551,9 +553,10 @@ namespace WorldSphereMod.Voxel
                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
                     RecordActorVoxelTrs(trs);
                     // Hide the sprite quad for this actor — we drew the 3D mesh instead.
-                    if (Submit(m, trs, Color.white))
+                    if (Submit(m, trs, rd.colors[i]))
                     {
                         rd.has_normal_render[i] = false;
+                        TraceActorColorSample("voxel", i, rd.colors[i], a, sp, posBeforeLift, pos, rot, scl);
                     }
                 }
             }
@@ -570,6 +573,26 @@ namespace WorldSphereMod.Voxel
                 string assetId = actor != null && actor.asset != null ? actor.asset.id : "<null>";
                 string spriteName = sprite != null ? sprite.name : "<null>";
                 Debug.Log($"[WSM3D] Actor {path} submit sample asset={assetId} sprite={spriteName} posBeforeLift={beforeLift} posAfterLift={afterLift} color={tint} alpha={tint.a}");
+            }
+
+            static void TraceActorColorSample(
+                string path,
+                int index,
+                Color tint,
+                Actor actor,
+                Sprite? sprite,
+                Vector3 rawPos,
+                Vector3 liftedPos,
+                Vector3 rotation,
+                Vector3 scale)
+            {
+                if (_actorVoxelColorSampleCount >= 3) return;
+                if (path != "voxel") return;
+
+                _actorVoxelColorSampleCount++;
+                string actorId = actor != null && actor.asset != null ? actor.asset.id : "<null>";
+                string spriteName = sprite != null ? sprite.name : "<null>";
+                Debug.Log($"[WSM3D][DIAG] Actor voxel color sample {_actorVoxelColorSampleCount}/3 asset={actorId} sprite={spriteName} index={index} rawPos={rawPos} liftedPos={liftedPos} rotY={rotation.y:F3} scale={scale} color={tint}");
             }
 
             static void LogFirstActorPos(Vector3 rawPos, Vector3 liftedPos, Vector3 scl)
@@ -595,6 +618,8 @@ namespace WorldSphereMod.Voxel
         [HarmonyPatch(typeof(BuildingManager), nameof(BuildingManager.precalculateRenderDataParallel))]
         public static class BuildingVoxelEmit
         {
+            static bool _buildingVoxelEmitSubmitLogged;
+
             [HarmonyPostfix]
             public static void EmitVoxels(BuildingManager __instance)
             {
@@ -678,6 +703,11 @@ namespace WorldSphereMod.Voxel
                     float bldHalfHeight = m.bounds.size.y * 0.5f * scl.y;
                     pos.y += bldHalfHeight;
                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
+                    if (!_buildingVoxelEmitSubmitLogged)
+                    {
+                        _buildingVoxelEmitSubmitLogged = true;
+                        Debug.Log($"[WSM3D] BuildingVoxelEmit first submit mesh.bounds.size={m.bounds.size}, scaledBoundsSize={Vector3.Scale(m.bounds.size, scl)}");
+                    }
                     // BuildingRenderData has no has_normal_render. Suppressing via scales[i]=0
                     // hides the sprite quad without nulling main_sprites (downstream
                     // calculateColoredSprite() chokes on null). Shadow sprite still draws as a

@@ -300,9 +300,10 @@ namespace WorldSphereMod.Voxel
             {
                 bucket.Block.Clear();
                 Vector4 tint = bucket.Colors[i];
+                Color colorTint = new Color(tint.x, tint.y, tint.z, tint.w);
                 bucket.Block.SetVector(_colorProp, tint);
-                bucket.Block.SetColor(_baseColorProp, tint);
-                bucket.Block.SetColor(_colorPropUnlit, tint);
+                bucket.Block.SetColor(_baseColorProp, colorTint);
+                bucket.Block.SetColor(_colorPropUnlit, colorTint);
                 Graphics.DrawMesh(
                     key.Mesh,
                     bucket.Matrices[i],
