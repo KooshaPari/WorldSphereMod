@@ -302,7 +302,12 @@ namespace WorldSphereMod.Water
                 int emissionId = Shader.PropertyToID("_EmissionColor");
                 if (material.HasProperty(emissionId))
                 {
-                    material.SetColor(emissionId, new Color(waterTint.r * 1.5f, waterTint.g * 1.5f, waterTint.b * 1.5f, 1f));
+                    // Boost emission so water is visibly blue, not dim/black.
+                    // waterTint = (0.15, 0.40, 0.55, 0.6). At 1.5x emission was
+                    // (0.225, 0.60, 0.825) — still dark in zero-light scenes.
+                    // Use a brighter ocean-blue baseline + 3x intensity so the
+                    // water visibly self-emits even with no ambient/directional.
+                    material.SetColor(emissionId, new Color(0.30f, 0.60f, 1.20f, 1f));
                 }
                 material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
             }
