@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using UnityEngine;
+using UnityDebug = UnityEngine.Debug;
 using WorldSphereMod.Voxel;
 
 namespace WorldSphereMod.Rig
@@ -41,7 +42,6 @@ namespace WorldSphereMod.Rig
         const int kPerfLogIntervalFrames = 60;
         static int _perfFrameCounter;
         static double _perfWindowMs;
-        static int _perfSamples;
 
         public static bool SubmitSkinnedActor(
             Actor a, Vector3 pos, Quaternion rot, Vector3 scl, Color tint,
@@ -144,11 +144,10 @@ namespace WorldSphereMod.Rig
                 return;
             }
 
-            double avgFrameMs = _perfSamples > 0 ? _perfWindowMs / _perfSamples : frameElapsedMs;
-            _perfSamples = 0;
-            _perfWindowMs = 0.0;
+            double avgFrameMs = _perfWindowMs / _perfFrameCounter;
             _perfFrameCounter = 0;
-            Debug.Log($"[WSM3D][Perf] RigDriver.Update avg60FrameMs={avgFrameMs:F3}ms frameSkinnedActors={activeRigCount}");
+            _perfWindowMs = 0.0;
+            UnityDebug.Log($"[WSM3D][Perf] RigDriver.Update avg60FrameMs={avgFrameMs:F3}ms frameSkinnedActors={activeRigCount}");
         }
 
         public static void Clear()

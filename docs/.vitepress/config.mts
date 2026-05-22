@@ -205,6 +205,10 @@ export default defineConfig({
                         link: "/adr/0016-thread-safe-meshinstancebatcher-submit-deferred-queue",
                     },
                     {
+                        text: "0020 — Wave-26 follow-up: docs posture + rig inventory",
+                        link: "/adr/ADR-0020-wave-26-follow-up",
+                    },
+                    {
                         text: "0012 — AssetBundle shader bake plan",
                         link: "/adr/ADR-0012-assetbundle-shader-bake-plan",
                     },

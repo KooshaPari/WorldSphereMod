@@ -4,10 +4,10 @@ using UnityEngine.UI;
 namespace WorldSphereMod.Worldspace
 {
     /// <summary>
-    /// Lightweight worldspace-canvas overlay that prints fork cache + draw-call
-    /// counts to the top-left when <c>Core.savedSettings.ProfilerDump</c> is true.
-    /// Useful to eyeball whether a tier (voxel / procgen / foliage / impostor) is
-    /// doing the work the LOD scale claims it is, without grepping the per-second
+    /// Lightweight worldspace-canvas overlay that prints runtime stats to the
+    /// top-left when <c>Core.savedSettings.ProfilerDump</c> is true.
+    /// Useful to eyeball whether a tier (voxel / procgen / foliage / impostor)
+    /// is doing the work the LOD scale claims it is, without grepping the per-second
     /// <see cref="Perf.FrameProfiler"/> dump.
     ///
     /// Mounted on <see cref="Mod.Object"/> via <see cref="EnsureCreated"/> in
@@ -93,6 +93,7 @@ namespace WorldSphereMod.Worldspace
             _smoothedFrameMs = _smoothedFrameMs <= 0f
                 ? ms
                 : Mathf.Lerp(_smoothedFrameMs, ms, kSmoothing);
+            float fps = _smoothedFrameMs > 0f ? 1000f / _smoothedFrameMs : 0f;
 
             int voxel = SafeCount(() => WorldSphereMod.Voxel.VoxelMeshCache.Count);
             int procgen = SafeCount(() => WorldSphereMod.ProcGen.ProcGenCache.Count);
@@ -106,15 +107,15 @@ namespace WorldSphereMod.Worldspace
             long iMisses = SafeLong(() => WorldSphereMod.LOD.ImpostorBillboard.MissCount);
             float vRate = (vHits + vMisses) > 0 ? (float)vHits / (vHits + vMisses) * 100f : 0f;
             float iRate = (iHits + iMisses) > 0 ? (float)iHits / (iHits + iMisses) * 100f : 0f;
+            float instPerDraw = draws > 0 ? (float)instances / draws : 0f;
 
             // LOD V/P/I distribution intentionally omitted: would require per-actor
             // tier tagging in LodSelector across frames, which we don't currently
             // retain. Re-add once that tracker lands.
             _label.text =
-                $"[WSM3D] DrawCalls={draws} Instances={instances} ImpostorCount={impostor} " +
-                $"VoxelMeshes={voxel} ProcGenMeshes={procgen} FoliageCount={foliage} " +
-                $"VoxCacheHit={vRate:F1}% ImpCacheHit={iRate:F1}% " +
-                $"FrameMs={_smoothedFrameMs:F2}";
+                $"[WSM3D] FPS={fps:F1} DrawCalls={draws} Instances={instances} InstPerFlush={instPerDraw:F1} " +
+                $"ImpostorCount={impostor} VoxelMeshes={voxel} ProcGenMeshes={procgen} FoliageCount={foliage} " +
+                $"VoxCacheHit={vRate:F1}% ImpCacheHit={iRate:F1}% FrameMs={_smoothedFrameMs:F2}";
         }
 
         static int SafeCount(System.Func<int> read)

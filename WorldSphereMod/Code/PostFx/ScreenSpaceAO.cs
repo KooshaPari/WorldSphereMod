@@ -6,6 +6,13 @@ namespace WorldSphereMod.PostFx
 {
     public sealed class ScreenSpaceAO : MonoBehaviour
     {
+        public enum Quality
+        {
+            Low = 0,
+            Medium = 1,
+            High = 2
+        }
+
         public const string ShaderResourcePath = "Shaders/ScreenSpaceAO";
         public const int MaxSamples = 16;
         public const float DefaultRadius = 2.2f;
@@ -18,6 +25,10 @@ namespace WorldSphereMod.PostFx
         static readonly int RadiusId = Shader.PropertyToID("_Radius");
         static readonly int BiasId = Shader.PropertyToID("_Bias");
         static readonly int IntensityId = Shader.PropertyToID("_Intensity");
+        static readonly int[] SamplesByQuality = { 8, 12, MaxSamples };
+        static readonly float[] RadiusByQuality = { 1.6f, 2.0f, 2.4f };
+        static readonly float[] BiasByQuality = { 0.0015f, 0.0012f, 0.001f };
+        static readonly float[] IntensityByQuality = { 0.8f, 1.0f, 1.1f };
 
         static ScreenSpaceAO? _instance;
         static readonly Vector4[] Kernel = new Vector4[MaxSamples];
@@ -146,11 +157,33 @@ namespace WorldSphereMod.PostFx
             {
                 return;
             }
-            _material.SetInt(SampleCountId, Kernel.Length);
+            Quality quality = GetQualityProfile();
+            int qualityIndex = (int)quality;
+            int sampleCount = SamplesByQuality[Mathf.Clamp(qualityIndex, 0, SamplesByQuality.Length - 1)];
+            float radius = RadiusByQuality[Mathf.Clamp(qualityIndex, 0, RadiusByQuality.Length - 1)];
+            float bias = BiasByQuality[Mathf.Clamp(qualityIndex, 0, BiasByQuality.Length - 1)];
+            float intensity = IntensityByQuality[Mathf.Clamp(qualityIndex, 0, IntensityByQuality.Length - 1)];
+
+            _material.SetInt(SampleCountId, sampleCount);
             _material.SetVectorArray(SamplesId, Kernel);
-            _material.SetFloat(RadiusId, DefaultRadius);
-            _material.SetFloat(BiasId, DefaultBias);
-            _material.SetFloat(IntensityId, DefaultIntensity);
+            _material.SetFloat(RadiusId, radius);
+            _material.SetFloat(BiasId, bias);
+            _material.SetFloat(IntensityId, intensity);
+        }
+
+        static Quality GetQualityProfile()
+        {
+            if (Core.savedSettings == null)
+            {
+                return Quality.Medium;
+            }
+
+            return Core.savedSettings.SSAOQuality switch
+            {
+                SsaoQuality.Low => Quality.Low,
+                SsaoQuality.High => Quality.High,
+                _ => Quality.Medium
+            };
         }
 
         void OnRenderImage(RenderTexture source, RenderTexture destination)

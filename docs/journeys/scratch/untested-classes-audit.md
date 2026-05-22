@@ -1,12 +1,12 @@
 # Untested public classes audit (snapshot)
 
-Generated: 2026-05-21 18:54:18 -07:00
+Generated: 2026-05-21 18:59:25 -07:00
 Source: WorldSphereMod/Code/*
 Targets searched: WorldSphereTester/*, tests/*
 
 Total public classes found: 28
-Tested (referenced) classes: 0
-Untested (no reference found): 28
+Tested (referenced) classes: 1
+Untested (no reference found): 27
 
 ## Untested public classes
 | Class | File |
@@ -33,7 +33,6 @@ Untested (no reference found): 28
 | PreviewPatch | .\WorldSphereMod\Code\General.cs |
 | QuantumSpritePatches | .\WorldSphereMod\Code\QuantumSprites.cs |
 | RotateCamera | .\WorldSphereMod\Code\3DCamera.cs |
-| SavedSettings | .\WorldSphereMod\Code\SavedSettings.cs |
 | SetSize | .\WorldSphereMod\Code\3DCamera.cs |
 | Size3D | .\WorldSphereMod\Code\3DCamera.cs |
 | SphereControl | .\WorldSphereMod\Code\General.cs |

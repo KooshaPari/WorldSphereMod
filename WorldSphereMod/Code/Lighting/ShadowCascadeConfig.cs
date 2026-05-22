@@ -87,6 +87,10 @@ namespace WorldSphereMod.Lighting
 
             int requestedCascades = highShadows ? kHighShadowCascades : kLowShadowCascades;
             int cascades = requestedCascades > kMaxShadowCascades ? kMaxShadowCascades : requestedCascades;
+            if (requestedCascades != cascades)
+            {
+                Debug.Log("[WSM3D] ShadowCascadeConfig: capping cascades to 2 for budget profile.");
+            }
 
             QualitySettings.shadowDistance = kShadowDistance;
             QualitySettings.shadowCascades = cascades;
@@ -117,12 +121,7 @@ namespace WorldSphereMod.Lighting
                 _hasOriginals = true;
             }
 
-            if (cascades > 2)
-            {
-                WriteProp(urp, urpType, "shadowCascadeCount", 4);
-                WriteProp(urp, urpType, "cascade4Split", new Vector3(0.067f, 0.2f, 0.467f));
-            }
-            else
+            if (cascades <= 2)
             {
                 WriteProp(urp, urpType, "shadowCascadeCount", 2);
                 WriteProp(urp, urpType, "cascade2Split", 0.25f);

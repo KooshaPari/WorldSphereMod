@@ -40,6 +40,21 @@ using WorldSphereMod;
     public void Init()
     {
                 InitProfiler.Measure("Core.Init", () => { try { Core.Init(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] Core.Init FAILED: " + ex + System.Environment.NewLine + ex.StackTrace); } });
+        bool profileMode = false;
+        foreach (var arg in System.Environment.GetCommandLineArgs())
+        {
+            if (string.Equals(arg, "--profile-mode", System.StringComparison.OrdinalIgnoreCase))
+            {
+                profileMode = true;
+                break;
+            }
+        }
+        if (profileMode && !Core.savedSettings.ProfilerDump)
+        {
+            Core.savedSettings.ProfilerDump = true;
+            Core.SaveSettings();
+            Debug.Log("[WSM3D] --profile-mode detected; enabling ProfilerDump for overlay and frame profiler.");
+        }
         // Phase 1: per-frame flush driver for batched voxel mesh draw calls.
         // No-op when SavedSettings.VoxelEntities is false (Flush early-returns
         // until a material is resolved on first Submit).

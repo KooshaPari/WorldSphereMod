@@ -93,6 +93,7 @@ namespace WorldSphereMod.Lighting
             if (shader == null)
             {
                 Debug.LogWarning("[WSM3D] ProceduralSky shader unresolved; falling back to vanilla skybox.");
+                Destroy(this);
                 return;
             }
 
@@ -106,6 +107,7 @@ namespace WorldSphereMod.Lighting
         void OnDestroy()
         {
             RestoreVanillaSky();
+            RestoreCameraSkybox();
             if (Instance == this) Instance = null;
             if (_skyMat != null) Object.Destroy(_skyMat);
             if (_skyCubemap != null) Object.Destroy(_skyCubemap);
@@ -128,23 +130,23 @@ namespace WorldSphereMod.Lighting
                 RenderSettings.skybox = s_previousSkybox;
                 s_overrodeGlobalSkybox = false;
             }
-            Camera? mainCamera = CameraManager.MainCamera;
-            if (mainCamera == null) return;
-            Skybox? skybox = mainCamera.GetComponent<Skybox>();
-            if (skybox == null) return;
+        }
 
+        void RestoreCameraSkybox()
+        {
+            if (CameraManager.MainCamera == null) return;
+            Skybox? skybox = CameraManager.MainCamera.GetComponent<Skybox>();
+            if (skybox == null) return;
+            if (_addedCameraSkybox)
+            {
+                Object.Destroy(skybox);
+                return;
+            }
             if (!s_previousCameraSkyboxCaptured)
             {
                 return;
             }
-            if (s_previousCameraSkybox == null && skybox != null && (skybox.name == "WSM3D.ProceduralSky" || skybox.material == null))
-            {
-                Object.Destroy(skybox);
-            }
-            else
-            {
-                skybox.material = s_previousCameraSkybox;
-            }
+            skybox.material = s_previousCameraSkybox;
         }
 
         static void CaptureOriginalCameraSkybox()

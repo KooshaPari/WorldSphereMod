@@ -144,7 +144,7 @@ namespace WorldSphereMod.Foliage
 
         static void Evict()
         {
-            // Caller holds _lock. O(N) two-pass eviction — find frame range, drop bottom decile.
+            // Caller holds _lock. Remove least-recently-used entries until capped at Capacity.
             if (_cache.Count <= Capacity) return;
             int removeCount = _cache.Count - Capacity;
             if (removeCount <= 0) return;

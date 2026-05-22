@@ -1,6 +1,13 @@
 using System;
 namespace WorldSphereMod
 {
+    public enum SsaoQuality
+    {
+        Low,
+        Medium,
+        High
+    }
+
     [Serializable]
 public class SavedSettings
 {
@@ -96,6 +103,7 @@ public class SavedSettings
         public bool PostFX = true;
         // Phase 9: Built-in pipeline screen-space ambient occlusion (SSAO) pass.
         public bool SSAOEnabled = true;
+        public SsaoQuality SSAOQuality = SsaoQuality.Medium;
         // Phase 9: Built-in pipeline screen-space global illumination (SSGI) pass.
         public bool SSGIEnabled = false;
         public bool ParticleEffects = true;
@@ -112,3 +120,4 @@ public class SavedSettings
         public bool ProfilerDump = true;
     }
 }
+
