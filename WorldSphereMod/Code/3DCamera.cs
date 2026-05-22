@@ -92,9 +92,12 @@ namespace WorldSphereMod.NewCamera
         }
         public static void MakeCamera2D()
         {
-            OriginalCamera.enabled = true;
-            MainCamera.enabled = false;
-            Manager.main_camera = OriginalCamera;
+            // Null-guard: Become2D fires during world-load before camera init can
+            // complete; without these guards an NRE blocks the entire load sequence
+            // (user-reported 'fail to load past 001: close windows 100%').
+            if (OriginalCamera != null) OriginalCamera.enabled = true;
+            if (MainCamera != null) MainCamera.enabled = false;
+            if (OriginalCamera != null) Manager.main_camera = OriginalCamera;
         }
         public static Texture GetSkyboxTexture()
         {
