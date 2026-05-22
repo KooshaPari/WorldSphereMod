@@ -13,6 +13,7 @@
     <Compile Remove="WorldSphereAPI\**" />
     <Compile Remove="WorldSphereTester\**" />
     <Compile Remove="tests\**" />
+    <Compile Remove="Tools\Unity-Bake-Project\**" />
     <EmbeddedResource Remove="WorldSphereAPI\**" />
     <EmbeddedResource Remove="WorldSphereTester\**" />
     <EmbeddedResource Remove="tests\**" />
