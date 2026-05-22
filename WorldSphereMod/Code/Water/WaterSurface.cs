@@ -292,7 +292,11 @@ namespace WorldSphereMod.Water
                 }
             }
 
-            material.renderQueue = 3000;
+            // Opaque queue (was 3000 = Transparent). Standard shader fallback for water
+            // renders OPAQUE BLACK at the Transparent queue without explicit blend mode
+            // config -> the 'MeshWater creates blackworld' regression. Continuum/
+            // WaterGerstner shaders handle their own alpha; built-in Standard does not.
+            material.renderQueue = 2000;
         }
     }
 }
