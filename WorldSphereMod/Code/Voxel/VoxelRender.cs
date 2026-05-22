@@ -190,7 +190,14 @@ namespace WorldSphereMod.Voxel
                     // for per-instance _Color tints via MaterialPropertyBlock to
                     // actually shift the visible color.
                     m.EnableKeyword("_EMISSION");
-                    m.SetColor("_EmissionColor", new UnityEngine.Color(0.6f, 0.6f, 0.6f, 1f));
+                    // BLACK-VOXEL FIX: Standard shader is LIT; without enough scene light,
+                    // every voxel pixel computes to ~0 → black. Available shaders here are
+                    // only 'Standard' and 'Sprites/Default'; Particles/* and URP/* all returned
+                    // MISSING from Shader.Find. Bump emission to 1.5 (super-bright) so it
+                    // dominates the unlit contribution + actually makes voxels visible.
+                    // Without per-vertex emission texture we can't tint emission per-pixel,
+                    // but this at least lifts everything off black floor.
+                    m.SetColor("_EmissionColor", new UnityEngine.Color(1.5f, 1.5f, 1.5f, 1f));
                     m.globalIlluminationFlags = UnityEngine.MaterialGlobalIlluminationFlags.RealtimeEmissive;
                 }
                 catch { }
