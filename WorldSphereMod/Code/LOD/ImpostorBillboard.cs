@@ -148,6 +148,19 @@ namespace WorldSphereMod.LOD
             material.SetInt(_dstBlendId, (int)BlendMode.Zero);
             material.SetInt(_zWriteId, 1);
             material.color = Color.white;
+            // EMISSION belt+suspenders matching VoxelRender (cb6852d) +
+            // FoliageMaterial (fbe2e71). Without it, Impostor billboards
+            // render pitch-black when LodSelector drops actors to Impostor
+            // tier at strategy zoom — user reported entire scene of black
+            // 2.5D billboards. Self-emit at 1.5× white so impostors stay
+            // visible regardless of scene lighting.
+            try
+            {
+                material.EnableKeyword("_EMISSION");
+                material.SetColor("_EmissionColor", new Color(1.5f, 1.5f, 1.5f, 1f));
+                material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            }
+            catch { }
 
             if (string.Equals(shaderName, "Sprites/Default", System.StringComparison.OrdinalIgnoreCase))
             {
