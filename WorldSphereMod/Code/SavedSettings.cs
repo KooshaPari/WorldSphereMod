@@ -39,12 +39,12 @@ public class SavedSettings
         // Optional Unity 2022.3 BatchRendererGroup path for batching.
         public bool UseBRG = false;
         // ADR-0008: optional post-mesh Laplacian smoothing for voxel output.
-        public bool VoxelMeshSmoothing = true;
+        public bool VoxelMeshSmoothing = false;
         public bool EnableMcPackTextures = false;
         // Set false to use the DrawMeshInstanced fast-path by default.
         // Flip true only when a diagnostic needs guaranteed per-instance rendering.
         public bool ForceFallbackDrawPath = false;
-        public int SmoothingIterations = 2;
+        public int SmoothingIterations = 0;
         // Sprite voxel extrusion depth: 1 keeps the old slab, 3 is the cheapest
         // setting that reads as actual 3D depth at a glance.
         public int VoxelSpriteDepth = 3;
