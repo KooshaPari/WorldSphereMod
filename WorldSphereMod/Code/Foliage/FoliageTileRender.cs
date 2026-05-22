@@ -39,84 +39,92 @@ namespace WorldSphereMod.Foliage
         [HarmonyPrefix]
         public static bool Prefix(WorldTilemap __instance, WorldTile pTile)
         {
-            if (!Core.IsWorld3D || !Core.savedSettings.CrossedQuadFoliage) return true;
-            if (pTile == null || pTile.Type == null) return true;
-
-            TileTypeBase t = pTile.Type;
-            // Foliage filter: surface overlays we claim. Walls/animated_wall
-            // are deferred to Step 3's transpile; liquid/ocean/lava are handled
-            // by the water mesh path.
-            bool isFoliage = (t.grass || t.life || t.road) && !t.wall && !t.animated_wall
-                                && !t.liquid && !t.ocean && !t.lava;
-            if (!isFoliage) return true;
-
-            // Resolve the variation sprite the vanilla path would have flushed.
-            // WorldTilemap.getVariation returns a UnityEngine.Tilemaps.Tile whose
-            // .sprite is the atlas-resolved frame. Assembly-CSharp-Publicized
-            // exposes the private member directly.
-            Sprite? sprite = null;
             try
             {
-                Tile variation = __instance.getVariation(pTile);
-                if (variation != null) sprite = variation.sprite;
-            }
-            catch
-            {
-                sprite = null;
-            }
-            // Fallback: TileSprites.main if the variation lookup didn't yield
-            // a usable sprite (e.g. force_edge_variation with a sparse atlas).
-            if (sprite == null)
-            {
-                var ts = t.sprites;
-                if (ts != null)
-                {
-                    try { sprite = ts.main?.sprite; } catch { /* fall through */ }
-                }
-            }
-            if (sprite == null) return true;
+                if (!Core.IsWorld3D || !Core.savedSettings.CrossedQuadFoliage) return true;
+                if (pTile == null || pTile.Type == null) return true;
 
-            if (t.life && !FoliageDensity.ShouldRender(pTile.pos.x, pTile.pos.y, sprite.name, Core.savedSettings.FoliageDensity))
-            {
+                TileTypeBase t = pTile.Type;
+                // Foliage filter: surface overlays we claim. Walls/animated_wall
+                // are deferred to Step 3's transpile; liquid/ocean/lava are handled
+                // by the water mesh path.
+                bool isFoliage = (t.grass || t.life || t.road) && !t.wall && !t.animated_wall
+                                    && !t.liquid && !t.ocean && !t.lava;
+                if (!isFoliage) return true;
+
+                // Resolve the variation sprite the vanilla path would have flushed.
+                // WorldTilemap.getVariation returns a UnityEngine.Tilemaps.Tile whose
+                // .sprite is the atlas-resolved frame. Assembly-CSharp-Publicized
+                // exposes the private member directly.
+                Sprite? sprite = null;
+                try
+                {
+                    Tile variation = __instance.getVariation(pTile);
+                    if (variation != null) sprite = variation.sprite;
+                }
+                catch
+                {
+                    sprite = null;
+                }
+                // Fallback: TileSprites.main if the variation lookup didn't yield
+                // a usable sprite (e.g. force_edge_variation with a sparse atlas).
+                if (sprite == null)
+                {
+                    var ts = t.sprites;
+                    if (ts != null)
+                    {
+                        try { sprite = ts.main?.sprite; } catch { /* fall through */ }
+                    }
+                }
+                if (sprite == null) return true;
+
+                if (t.life && !FoliageDensity.ShouldRender(pTile.pos.x, pTile.pos.y, sprite.name, Core.savedSettings.FoliageDensity))
+                {
+                    return false;
+                }
+
+                if (!FoliageMaterial.EnsureMaterial()) return true;
+                Material? mat = FoliageMaterial.Get();
+                if (mat == null) return true;
+
+                // road = flat ground decal, no sway. grass/life = crossed quad with sway.
+                BuildingShape shape = t.road ? BuildingShape.Single : BuildingShape.CrossedQuad;
+                float sway = t.road ? 0f : 1f;
+
+                Mesh? mesh = CrossedQuadMeshCache.GetOrBuild(sprite, shape, sway);
+                if (mesh == null || mesh.vertexCount == 0) return true;
+
+                Vector2 pos2 = new Vector2(pTile.pos.x, pTile.pos.y);
+                Vector3 pos3 = Tools.To3DTileHeight(pos2);
+                Quaternion rot = Tools.GetRotation(pTile.pos);
+                Matrix4x4 trs = Matrix4x4.TRS(pos3, rot, Vector3.one);
+
+                if (!t.road && t.life && Core.savedSettings.CrossedQuadFoliage)
+                {
+                    WorldSphereMod.Fx.Environmental.EnqueueLeaf(pos3);
+                    if (Core.savedSettings.DayNightCycle)
+                    {
+                        WorldSphereMod.Fx.Environmental.EnqueueFirefly(pos3);
+                    }
+                }
+
+                MeshInstanceBatcher.Submit(mesh, mat, trs, Color.white);
+
+                // Update the diff memo. The cached sprite reference lets a future
+                // pass skip re-resolving the variation when the tile is still in
+                // the same TileType; vanilla's own diff key
+                // (last_rendered_tile_type) still drives whether renderTile gets
+                // called in the first place.
+                _lastSprite[pTile] = sprite;
+
+                // Skip the upstream Tilemap.SetTiles flush — we drew the overlay.
                 return false;
             }
-
-            if (!FoliageMaterial.EnsureMaterial()) return true;
-            Material? mat = FoliageMaterial.Get();
-            if (mat == null) return true;
-
-            // road = flat ground decal, no sway. grass/life = crossed quad with sway.
-            BuildingShape shape = t.road ? BuildingShape.Single : BuildingShape.CrossedQuad;
-            float sway = t.road ? 0f : 1f;
-
-            Mesh? mesh = CrossedQuadMeshCache.GetOrBuild(sprite, shape, sway);
-            if (mesh == null || mesh.vertexCount == 0) return true;
-
-            Vector2 pos2 = new Vector2(pTile.pos.x, pTile.pos.y);
-            Vector3 pos3 = Tools.To3DTileHeight(pos2);
-            Quaternion rot = Tools.GetRotation(pTile.pos);
-            Matrix4x4 trs = Matrix4x4.TRS(pos3, rot, Vector3.one);
-
-            if (!t.road && t.life && Core.savedSettings.CrossedQuadFoliage)
+            catch (System.Exception ex)
             {
-                WorldSphereMod.Fx.Environmental.EnqueueLeaf(pos3);
-                if (Core.savedSettings.DayNightCycle)
-                {
-                    WorldSphereMod.Fx.Environmental.EnqueueFirefly(pos3);
-                }
+                Debug.LogError("[WSM3D] FoliageTileRender.Prefix: " + ex);
+                return true;
             }
-
-            MeshInstanceBatcher.Submit(mesh, mat, trs, Color.white);
-
-            // Update the diff memo. The cached sprite reference lets a future
-            // pass skip re-resolving the variation when the tile is still in
-            // the same TileType; vanilla's own diff key
-            // (last_rendered_tile_type) still drives whether renderTile gets
-            // called in the first place.
-            _lastSprite[pTile] = sprite;
-
-            // Skip the upstream Tilemap.SetTiles flush — we drew the overlay.
-            return false;
         }
 
         /// <summary>Drop the per-tile memo on world reload.</summary>

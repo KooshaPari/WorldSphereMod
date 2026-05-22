@@ -243,6 +243,7 @@ namespace WorldSphereMod.Effects
 
             Quaternion rot = WorldSphereMod.Tools.GetRotation(__instance.transform.position.AsIntClamped());
             WorldSphereMod.Fx.DecalPool.Emit(WorldSphereMod.Fx.DecalChannel.Scorch, __instance.transform.position, rot, kScorchDecalTtl);
+            Debug.Log("[WSM3D][Phase9] DecalPool.Emit FIRED channel=Scorch");
         }
         [HarmonyPatch(typeof(EffectsLibrary), nameof(EffectsLibrary.spawnAt), new Type[] {typeof(string), typeof(Vector3), typeof(float) })]
         [HarmonyPrefix]
