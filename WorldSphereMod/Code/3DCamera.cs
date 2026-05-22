@@ -396,6 +396,9 @@ namespace WorldSphereMod.NewCamera
         }
         static void ResetZoom()
         {
+            // Null-guard: centerCamera fires during world-gen cleanUpWorld; Manager
+            // + main_camera may not be fully wired yet -> NRE blocks load.
+            if (Manager == null || Manager.main_camera == null || World.world == null) return;
             int tInitialZoom;
             if (Screen.width < Screen.height)
             {
@@ -426,10 +429,17 @@ namespace WorldSphereMod.NewCamera
         }
         static bool Prefix()
         {
-            if (Core.savedSettings.Is3D)
+            try
             {
-                ResetZoom();
-                return false;
+                if (Core.savedSettings != null && Core.savedSettings.Is3D)
+                {
+                    ResetZoom();
+                    return false;
+                }
+            }
+            catch (System.Exception ex)
+            {
+                UnityEngine.Debug.LogWarning("[WSM3D] Size3D.Prefix: " + ex.Message + " - falling back to vanilla");
             }
             return true;
         }
