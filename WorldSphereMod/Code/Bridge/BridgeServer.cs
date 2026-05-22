@@ -769,6 +769,16 @@ namespace WorldSphereMod.Bridge
             field.SetValue(Core.savedSettings, parsed);
             Core.SaveSettings();
             if (field.FieldType == typeof(bool)) Core.ApplyPhaseToggle(field.Name, (bool)parsed);
+            // Cache + material invalidation for render-affecting settings -- without
+            // this, flipping VoxelInflationStyle / VoxelMeshSmoothing / VoxelScale etc
+            // does NOT produce visible deltas because cached meshes + materials persist.
+            string n = field.Name;
+            bool invalidateVoxel = n == "VoxelInflationStyle" || n == "VoxelMeshSmoothing" || n == "SmoothingIterations" || n == "VoxelScaleMultiplier" || n == "VoxelSpriteDepth" || n == "VoxelColorTonemap" || n == "ForceFallbackDrawPath";
+            if (invalidateVoxel)
+            {
+                try { WorldSphereMod.Voxel.VoxelMeshCache.Clear(); } catch { }
+                try { WorldSphereMod.Voxel.VoxelRender.Reset(); } catch { }
+            }
             return new { ok = true, key = field.Name, value = parsed };
         }
 
