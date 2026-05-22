@@ -1,0 +1,3 @@
+[submodule "External/Compound-Spheres"]
+	path = External/Compound-Spheres
+	url = https://github.com/MelvinShwuaner/Compound-Spheres.git
