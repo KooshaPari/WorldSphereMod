@@ -760,7 +760,8 @@ namespace WorldSphereMod.Voxel
                 VoxelMeshCache.DrainPendingDestroy();
             }
 
-            VoxelMeshCache.DrainCompletedBuilds(8);
+            WorldSphereMod.Voxel.VoxelMeshCache.PumpQueuedBuilds(1);
+            WorldSphereMod.Voxel.VoxelMeshCache.DrainCompletedBuilds(8);
 
             if (Core.savedSettings.DebugSanityCube)
             {

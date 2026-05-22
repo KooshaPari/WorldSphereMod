@@ -80,6 +80,7 @@ namespace WorldSphereMod.Voxel
         static readonly HashSet<int> _diagnosedSprites = new HashSet<int>();
         static readonly HashSet<string> _invalidVoxelStyles = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
         static readonly ConcurrentQueue<BuildCompletion> _completedBuilds = new ConcurrentQueue<BuildCompletion>();
+        static readonly ConcurrentQueue<BuildRequest> _queuedBuilds = new ConcurrentQueue<BuildRequest>();
         static readonly HashSet<int> _pendingBuilds = new HashSet<int>();
         // Evict() can't Destroy a mesh that may still be queued in the batcher for this frame;
         // queue it here and let VoxelFrameDriver drain after MeshInstanceBatcher.Flush().
@@ -273,15 +274,6 @@ namespace WorldSphereMod.Voxel
             }
 
             System.Threading.Interlocked.Increment(ref _misses);
-            if (forceSyncBuild)
-            {
-                Mesh forced = BuildVoxelMeshSync(sprite, key, depth);
-                if (forced != null && forced.vertexCount > 0)
-                {
-                    return forced;
-                }
-            }
-
             EnqueueBuild(sprite, depth, key);
             return GetPlaceholderVoxelMesh();
         }
@@ -358,39 +350,45 @@ namespace WorldSphereMod.Voxel
             }
 
             var request = new BuildRequest { Sprite = sprite, Key = key, Depth = depth };
-            // CRASH FIX: SpriteVoxelizer.Build* creates UnityEngine.Mesh via 'new Mesh()'
-            // which REQUIRES the main thread. Task.Run on ThreadPool blew up with
-            // 'Graphics device is null'. Run synchronously inline (caller is main thread).
-            // Cost: cache miss blocks 1-50ms once per unique sprite. Amortized fine.
-            // Future: refactor worker to emit raw vertex/index arrays, dispatch Mesh ctor
-            // via main-thread queue to restore truly-async loading.
-            var completion = BuildVoxelMeshAsync(request);
-            _completedBuilds.Enqueue(completion);
-            System.Threading.Tasks.Task<BuildCompletion> completedTaskShim = System.Threading.Tasks.Task.FromResult(completion);
-            completedTaskShim
-                .ContinueWith(task =>
+            _queuedBuilds.Enqueue(request);
+        }
+
+        public static void PumpQueuedBuilds(int maxBuildsPerFrame = 1)
+        {
+            int processed = 0;
+            while (processed < maxBuildsPerFrame && _queuedBuilds.TryDequeue(out BuildRequest request))
+            {
+                bool shouldBuild = true;
+                lock (_lock)
                 {
-                    if (task == null || !task.IsCompleted)
-                    {
-                        return;
-                    }
+                    shouldBuild = _pendingBuilds.Contains(request.Key);
+                }
 
-                    if (task.IsFaulted)
-                    {
-                        _completedBuilds.Enqueue(new BuildCompletion
-                        {
-                            Key = key,
-                            Sprite = sprite,
-                            Mesh = null,
-                            Snapshot = null,
-                            InflationStyle = null,
-                            BuildFailed = true
-                        });
-                        return;
-                    }
+                if (!shouldBuild)
+                {
+                    continue;
+                }
 
-                    _completedBuilds.Enqueue(task.Result);
-                }, System.Threading.Tasks.TaskContinuationOptions.ExecuteSynchronously);
+                try
+                {
+                    var completion = BuildVoxelMeshAsync(request);
+                    _completedBuilds.Enqueue(completion);
+                }
+                catch
+                {
+                    _completedBuilds.Enqueue(new BuildCompletion
+                    {
+                        Key = request.Key,
+                        Sprite = request.Sprite,
+                        Mesh = null,
+                        Snapshot = null,
+                        InflationStyle = null,
+                        BuildFailed = true
+                    });
+                }
+
+                processed++;
+            }
         }
 
         static BuildCompletion BuildVoxelMeshAsync(BuildRequest request)
@@ -630,10 +628,13 @@ namespace WorldSphereMod.Voxel
                 _pendingBuilds.Clear();
             while (_completedBuilds.TryDequeue(out _))
             {
-                }
-                if (_placeholderMesh != null)
-                {
-                    UnityEngine.Object.Destroy(_placeholderMesh);
+            }
+            while (_queuedBuilds.TryDequeue(out _))
+            {
+            }
+            if (_placeholderMesh != null)
+            {
+                UnityEngine.Object.Destroy(_placeholderMesh);
                     _placeholderMesh = null;
                 }
             }
