@@ -18,16 +18,16 @@ namespace WorldSphereMod.Voxel
     {
         static readonly (string prefix, ShapeHint hint)[] _prefixHints =
         {
-            ("human", ShapeHint.Cylinder),
-            ("dwarf", ShapeHint.Cylinder),
-            ("elf", ShapeHint.Cylinder),
-            ("orc", ShapeHint.Cylinder),
-            ("goblin", ShapeHint.Cylinder),
+            ("human", ShapeHint.Flat),
+            ("dwarf", ShapeHint.Flat),
+            ("elf", ShapeHint.Flat),
+            ("orc", ShapeHint.Flat),
+            ("goblin", ShapeHint.Flat),
             ("tree", ShapeHint.Cylinder),
             ("bush", ShapeHint.Cylinder),
             ("flower", ShapeHint.Cylinder),
-            ("animal", ShapeHint.Cylinder),
-            ("wolf", ShapeHint.Cylinder),
+            ("animal", ShapeHint.Flat),
+            ("wolf", ShapeHint.Flat),
             ("bird", ShapeHint.Cylinder),
             ("eagle", ShapeHint.Cylinder),
             ("fish", ShapeHint.Cylinder),
