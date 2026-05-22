@@ -697,6 +697,13 @@ namespace WorldSphereMod.Voxel
 
         void OnEnable()
         {
+            // Survive scene transitions — DontDestroyOnLoad requires root GameObject.
+            // If parent isn't root or DontDestroyOnLoad fails, frame driver dies on
+            // save-load + LateUpdate stops + voxel rendering halts.
+            try
+            {
+                if (transform.parent == null) UnityEngine.Object.DontDestroyOnLoad(gameObject);
+            } catch { }
             MeshInstanceBatcher.SetMainThread();
             // Force per-instance fallback only when explicitly requested. The
             // Standard material path now keeps INSTANCING_ON in sync before DrawMeshInstanced.
