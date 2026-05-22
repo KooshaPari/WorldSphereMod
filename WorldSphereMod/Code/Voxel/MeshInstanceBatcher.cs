@@ -177,14 +177,19 @@ namespace WorldSphereMod.Voxel
             FrameDrawCalls = 0;
             FrameInstances = 0;
 
-            foreach (var kv in _buckets)
+            var bucketEnumerator = _buckets.GetEnumerator();
+            while (bucketEnumerator.MoveNext())
             {
+                KeyValuePair<Key, Bucket> kv = bucketEnumerator.Current;
                 var bucket = kv.Value;
+                var key = kv.Key;
+                Mesh mesh = key.Mesh;
+                Material material = key.Material;
                 int total = bucket.Matrices.Count;
                 FrameInstances += total;
                 if (_useFallbackPath)
                 {
-                    DrawFallbackPath(kv.Key, bucket, total, resolvedLayer, renderCamera, shadows, receive);
+                    DrawFallbackPath(key, bucket, total, resolvedLayer, renderCamera, shadows, receive);
                     bucket.Matrices.Clear();
                     bucket.Colors.Clear();
                     continue;
@@ -202,14 +207,14 @@ namespace WorldSphereMod.Voxel
                     bucket.Matrices.CopyTo(offset, bucket.MatScratch, 0, n);
                     bucket.Colors.CopyTo(offset, bucket.ColScratch, 0, n);
 
-                    if (!CanUseInstancedDraw(kv.Key.Material, out string disableReason))
+                    if (!CanUseInstancedDraw(material, out string disableReason))
                     {
                         if (!_instancingErrorLogged)
                         {
                             _instancingErrorLogged = true;
                             Debug.LogError(disableReason);
                         }
-                        DrawFallbackPath(kv.Key, bucket, total, resolvedLayer, renderCamera, shadows, receive, offset);
+                        DrawFallbackPath(key, bucket, total, resolvedLayer, renderCamera, shadows, receive, offset);
                         break;
                     }
 
@@ -220,11 +225,11 @@ namespace WorldSphereMod.Voxel
                         if (verboseDrawLogging)
                         {
                             Vector4 p = bucket.MatScratch[0].GetColumn(3);
-                            Debug.Log($"[WSM3D][DIAG] DrawMeshInstanced mesh={kv.Key.Mesh?.name ?? "<null>"} material={kv.Key.Material?.name ?? "<null>"} shader={kv.Key.Material?.shader?.name ?? "<null>"} enableInstancing={(kv.Key.Material != null && kv.Key.Material.enableInstancing)} count={n} offset={offset} layer={resolvedLayer} shadows={shadows} receiveShadows={receive} firstPos=({p.x:F3}, {p.y:F3}, {p.z:F3}) fallback={_useFallbackPath}");
+                            Debug.Log($"[WSM3D][DIAG] DrawMeshInstanced mesh={mesh?.name ?? "<null>"} material={material?.name ?? "<null>"} shader={material?.shader?.name ?? "<null>"} enableInstancing={(material != null && material.enableInstancing)} count={n} offset={offset} layer={resolvedLayer} shadows={shadows} receiveShadows={receive} firstPos=({p.x:F3}, {p.y:F3}, {p.z:F3}) fallback={_useFallbackPath}");
                         }
 
                         Graphics.DrawMeshInstanced(
-                            kv.Key.Mesh, 0, kv.Key.Material,
+                            mesh, 0, material,
                             bucket.MatScratch, n, bucket.Block,
                             shadows, receive, resolvedLayer, null, LightProbeUsage.Off);
                         FrameDrawCalls++;
@@ -235,12 +240,12 @@ namespace WorldSphereMod.Voxel
                         if (!_instancingErrorLogged)
                         {
                             _instancingErrorLogged = true;
-                            string matName = kv.Key.Material != null ? kv.Key.Material.shader.name : "<null>";
+                            string matName = material != null ? material.shader.name : "<null>";
                             Debug.LogError($"[WSM3D] DrawMeshInstanced rejected material; falling back to per-instance Graphics.DrawMesh. Voxel render perf is degraded but visible. material={matName}");
                         }
 
                         _useFallbackPath = true;
-                        DrawFallbackPath(kv.Key, bucket, total, resolvedLayer, renderCamera, shadows, receive, offset);
+                        DrawFallbackPath(key, bucket, total, resolvedLayer, renderCamera, shadows, receive, offset);
                         break;
                     }
                     catch (System.Exception ex)
@@ -248,12 +253,12 @@ namespace WorldSphereMod.Voxel
                         if (!_instancingErrorLogged)
                         {
                             _instancingErrorLogged = true;
-                            string matName = kv.Key.Material != null ? kv.Key.Material.shader?.name : "<null>";
+                            string matName = material != null ? material.shader?.name : "<null>";
                             Debug.LogError($"[WSM3D] DrawMeshInstanced threw {ex.GetType().Name}; falling back to per-instance Graphics.DrawMesh. Voxel render perf is degraded but visible. material={matName}");
                         }
 
                         _useFallbackPath = true;
-                        DrawFallbackPath(kv.Key, bucket, total, resolvedLayer, renderCamera, shadows, receive, offset);
+                        DrawFallbackPath(key, bucket, total, resolvedLayer, renderCamera, shadows, receive, offset);
                         break;
                     }
 

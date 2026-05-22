@@ -66,19 +66,19 @@ public class SavedSettings
         // Phase 3: Crossed-quad foliage (vs. billboarded sprite top tiles).
         public bool CrossedQuadFoliage = true;
         // Terrain polish: blend biome colors across tile boundaries.
-        public bool BiomeBlending = false;
+        public bool BiomeBlending = true;
         // Phase 4: Mesh water surface (vs. flat tile color).
-        public bool MeshWater = false;
+        public bool MeshWater = true;
         // Worldspace health bar style: true => 3D mesh bars, false => legacy billboard quads.
-        public bool WorldspaceHealth3D = false;
+        public bool WorldspaceHealth3D = true;
         // Mountain slope smoothing: smooth overlay mesh that blends the upstream
         // blocky terrain around cliff and ridge transitions.
-        public bool MountainSlopeSmoothing = false;
+        public bool MountainSlopeSmoothing = true;
         // Phase 5: Directional sun + cascaded shadow maps.
         public bool HighShadows = true;
         // Phase 5b: optional HDR skybox reflections and 256x16 LUT color grading.
-        public bool HdrSkybox = false;
-        public bool ColorGradingLut = false;
+        public bool HdrSkybox = true;
+        public bool ColorGradingLut = true;
         // Phase 6: Skeletal animation driver for voxel actors.
         // ON by default: without it the per-texel voxel path renders as a
         // sparse tri-dot mesh (sub-pixel fragments instead of proper limbed
@@ -88,12 +88,12 @@ public class SavedSettings
         // Phase 7: Worldspace UI (nameplates, health bars, selection rings).
         public bool WorldspaceUI = true;
         // Phase 7: optional worldspace 3D text labels instead of upstream NameplateText.
-        public bool WorldspaceLabel3D = false;
+        public bool WorldspaceLabel3D = true;
         // Phase 8: Day/night cycle + procedural sky + fog.
         public bool DayNightCycle = true;
         public float FogDensity = 0.0f;
         // Phase 9: URP post-processing (bloom, color grading, vignette).
-        public bool PostFX = false;
+        public bool PostFX = true;
         // Phase 9: Built-in pipeline screen-space ambient occlusion (SSAO) pass.
         public bool SSAOEnabled = true;
         // Phase 9: Built-in pipeline screen-space global illumination (SSGI) pass.

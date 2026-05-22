@@ -668,6 +668,7 @@ namespace WorldSphereMod.Voxel
                     // Lift mesh center up by half world-space height (same fix as
                     // ActorVoxelEmit): without it, mesh center sits at To3DTileHeight,
                     // which embeds half the mesh inside the terrain/foundation voxel.
+                    scl *= Core.savedSettings.VoxelScaleMultiplier;
                     float bldHalfHeight = m.bounds.size.y * 0.5f * scl.y;
                     pos.y += bldHalfHeight;
                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
