@@ -3,6 +3,7 @@
   "intent": "Validate Phase 3 (CrossedQuadFoliage) renders trees and bushes with crossed quads and wind animation.",
   "keyframe_count": 5,
   "passed": false,
+  "recording_gif": null,
   "steps": [
     {
       "index": 0,

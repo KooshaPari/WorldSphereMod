@@ -3,6 +3,7 @@
   "intent": "Validate Phase 8 (DayNightCycle) cycles sky color from dawn to noon to dusk.",
   "keyframe_count": 5,
   "passed": false,
+  "recording_gif": null,
   "steps": [
     {
       "index": 0,

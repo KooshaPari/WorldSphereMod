@@ -205,6 +205,123 @@ function Get-FrameDrawCallRows {
     return @($rows)
 }
 
+function Ensure-ScreenshotInterop {
+    if ("WSM3D.ScreenCaptureNative" -as [type]) {
+        return
+    }
+
+    Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+namespace WSM3D {
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+
+        public int Width => Right - Left;
+        public int Height => Bottom - Top;
+    }
+
+    public static class ScreenCaptureNative {
+        [DllImport("user32.dll")]
+        public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [DllImport("user32.dll")]
+        public static extern bool IsIconic(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
+
+        [DllImport("user32.dll")]
+        public static extern bool ClientToScreen(IntPtr hWnd, ref POINT lpPoint);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT {
+        public int X;
+        public int Y;
+    }
+}
+"@
+}
+
+function Get-CaptureBounds {
+    param(
+        [switch]$WindowOnly
+    )
+
+    Ensure-ScreenshotInterop
+
+    if ($WindowOnly) {
+        $proc = Get-Process worldbox -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $proc) {
+            throw "WorldBox not running. Cannot capture window-only screenshot."
+        }
+
+        $handle = [IntPtr]$proc.MainWindowHandle
+        if ($handle -eq [IntPtr]::Zero) {
+            throw "WorldBox window handle not available yet."
+        }
+
+        if ([WSM3D.ScreenCaptureNative]::IsIconic($handle)) {
+            throw "WorldBox is minimized. Restore the window before capturing."
+        }
+
+        $clientRect = New-Object WSM3D.RECT
+        if (-not [WSM3D.ScreenCaptureNative]::GetClientRect($handle, [ref]$clientRect)) {
+            throw "Unable to determine the WorldBox client bounds."
+        }
+
+        $origin = New-Object WSM3D.POINT
+        if (-not [WSM3D.ScreenCaptureNative]::ClientToScreen($handle, [ref]$origin)) {
+            throw "Unable to translate the WorldBox client origin."
+        }
+
+        if ($clientRect.Width -le 0 -or $clientRect.Height -le 0) {
+            throw "WorldBox client bounds were empty."
+        }
+
+        return [PSCustomObject]@{
+            X = $origin.X
+            Y = $origin.Y
+            Width = $clientRect.Width
+            Height = $clientRect.Height
+        }
+    }
+
+    $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+    return [PSCustomObject]@{
+        X = $screen.X
+        Y = $screen.Y
+        Width = $screen.Width
+        Height = $screen.Height
+    }
+}
+
+function Parse-CaptureRegion {
+    param([string]$Region)
+
+    if (-not $Region) {
+        return $null
+    }
+
+    $parts = @($Region -split '[,\s]+' | Where-Object { $_ -ne '' })
+    if ($parts.Count -ne 4) {
+        throw "Region must be four integers: x,y,width,height"
+    }
+
+    return [PSCustomObject]@{
+        X = [int]$parts[0]
+        Y = [int]$parts[1]
+        Width = [int]$parts[2]
+        Height = [int]$parts[3]
+    }
+}
+
 # === Commands ===
 
 function Invoke-Build {
@@ -530,26 +647,27 @@ function Invoke-RenderBudget {
 function Invoke-Screenshot {
     param(
         [string]$Path,
-        [switch]$WindowOnly
+        [switch]$WindowOnly,
+        [string]$Region
     )
 
     Write-Info "Capturing screenshot..."
     Add-Type -AssemblyName System.Drawing
+    Add-Type -AssemblyName System.Windows.Forms
 
-    $bounds = if ($WindowOnly) {
-        $gameWnd = Get-Process worldbox -ErrorAction SilentlyContinue
-        if (-not $gameWnd) {
-            throw "WorldBox not running. Cannot capture window-only screenshot."
-        }
-        # Simple bounding box for now; P/Invoke windowing comes later
-        throw "WindowOnly not yet implemented. Use full screen capture."
-    } else {
-        [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+    $bounds = Get-CaptureBounds -WindowOnly:$WindowOnly
+    $regionBounds = Parse-CaptureRegion -Region $Region
+    if ($regionBounds) {
+        $bounds = $regionBounds
     }
 
     $bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
     $graphics = [System.Drawing.Graphics]::FromImage($bmp)
-    $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+    $graphics.CopyFromScreen(
+        (New-Object System.Drawing.Point($bounds.X, $bounds.Y)),
+        [System.Drawing.Point]::Empty,
+        (New-Object System.Drawing.Size($bounds.Width, $bounds.Height))
+    )
     $graphics.Dispose()
 
     if (-not $Path) {
@@ -1030,8 +1148,10 @@ Commands:
       FrameDrawCalls/DrawCalls history. Prints operation time, Init percent, cumulative percent,
       and sorts slowest first. -DryRun parses without launching. -Json emits machine-readable data.
 
-  screenshot [-Path <file>] [-WindowOnly]
-      Capture full screen to PNG. Use -Path to specify output. -WindowOnly not yet implemented.
+  screenshot [-Path <file>] [-WindowOnly] [-Region <x,y,width,height>]
+      Capture the desktop or WorldBox window to PNG. Use -Path to specify output.
+      -WindowOnly captures the WorldBox window bounds.
+      -Region accepts x,y,width,height and crops the capture to that rectangle.
 
   settings get [-Key <field>]
       Print all settings or one field as JSON. Field names are camelCase (e.g., VoxelEntities).
@@ -1051,6 +1171,9 @@ Commands:
 
   journey list
       List available journeys (delegates to phenotype-journey CLI).
+
+  journey capture -Id <id> [-NonInteractive]
+      Capture screenshots for a journey manifest by ID.
 
   journey run -Id <id>
       Run a journey by ID (delegates to phenotype-journey CLI).
@@ -1085,6 +1208,9 @@ Examples:
   wsm3d settings get
   wsm3d settings set -Key VoxelEntities -Value true
   wsm3d settings set -Key VoxelEntities -Value true -Force
+  wsm3d screenshot -Path .\smoke.png -WindowOnly
+  wsm3d screenshot -Path .\crop.png -Region 100,100,800,600
+  wsm3d journey capture -Id sample-journey -NonInteractive
   wsm3d toggle -Phase voxel_entities
   wsm3d status -Json
   wsm3d journey list
@@ -1166,6 +1292,9 @@ try {
             }
             if ($commandArgs -contains "-WindowOnly") {
                 $params["WindowOnly"] = $true
+            }
+            if ($commandArgs -contains "-Region") {
+                $params["Region"] = $commandArgs[$commandArgs.IndexOf("-Region") + 1]
             }
             Invoke-Screenshot @params
         }
@@ -1252,7 +1381,7 @@ try {
 
         "journey" {
             if ($commandArgs.Count -eq 0) {
-                Write-Error-Custom "journey requires 'list', 'run', or 'verify' subcommand"
+                    Write-Error-Custom "journey requires 'capture', 'list', 'run', or 'verify' subcommand"
                 Show-Help
                 exit 1
             }
@@ -1260,6 +1389,15 @@ try {
             $subArgs = @(if ($commandArgs.Count -gt 1) { $commandArgs[1..($commandArgs.Count - 1)] })
 
             switch -Exact ($subCmd) {
+                "capture" {
+                    $params = @{}
+                    if ($subArgs -contains "-Id") {
+                        $params["Id"] = $subArgs[$subArgs.IndexOf("-Id") + 1]
+                    }
+                    $params["NonInteractive"] = $subArgs -contains "-NonInteractive"
+                    Invoke-JourneyCapture @params
+                }
+
                 "list" {
                     Invoke-JourneyList
                 }

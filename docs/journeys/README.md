@@ -263,6 +263,9 @@ docs/journeys/manifests/
    - Use a short GIF or recording only when the step is easier to understand
      in motion than in a still frame.
    - Keep the screenshot set canonical even if you add a recording.
+   - Add the asset path to `recording_gif` or `recording` in the manifest,
+     and leave the field `null` until the capture exists if the journey is
+     still waiting on live media.
 
 ### Journey Template (5-Step Pattern)
 
@@ -368,14 +371,19 @@ Output: Updated `manifest.json` with:
 
 ### Mock/Offline Verification
 
-If screenshots are not yet captured, the manifest still parses as valid JSON. The verifier can run in **mock mode** to validate the manifest schema without OCR:
+If screenshots are not yet captured, the manifest still parses as valid JSON. The journey-records validator can run in **offline mode** to validate the manifest schema and step ordering without checking screenshot files:
 
 ```bash
-phenotype-journey verify --mock \
-  --manifest docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json
+cargo run --manifest-path Tools/journey-records/Cargo.toml -- validate docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json
 ```
 
-This checks schema correctness without requiring the `verification` object to be filled.
+This checks schema correctness and contiguity without requiring screenshot files to exist yet. Use strict asset validation when the capture set is present:
+
+```bash
+cargo run --manifest-path Tools/journey-records/Cargo.toml -- validate --strict-assets docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json
+```
+
+Strict asset validation requires each step screenshot to exist and resolves optional recording assets when present.
 
 ## Integration with phenotype-journey CLI
 

@@ -3,6 +3,7 @@
   "intent": "Validate Phase 4 (MeshWater) renders water with Gerstner waves and shoreline foam.",
   "keyframe_count": 5,
   "passed": false,
+  "recording_gif": null,
   "steps": [
     {
       "index": 0,

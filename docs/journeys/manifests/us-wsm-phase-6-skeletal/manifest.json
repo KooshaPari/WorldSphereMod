@@ -3,6 +3,7 @@
   "intent": "Validate Phase 6 (SkeletalAnimation) animates voxel actors via skeleton rig.",
   "keyframe_count": 5,
   "passed": false,
+  "recording_gif": null,
   "steps": [
     {
       "index": 0,

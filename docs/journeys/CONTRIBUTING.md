@@ -78,7 +78,17 @@ The tool will:
 3. Save them to `frame-000.png`, `frame-001.png`, etc.
 
 ### 6. Verify locally
-Test your assertions against the captured screenshots. Mock mode uses Tesseract OCR locally (no API key needed):
+Test your assertions against the captured screenshots. The Rust manifest validator has an offline mode for schema and contiguity checks before assets exist:
+```powershell
+cargo run --manifest-path Tools/journey-records/Cargo.toml -- validate docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json
+```
+
+Strict asset validation is available once the screenshots are in place:
+```powershell
+cargo run --manifest-path Tools/journey-records/Cargo.toml -- validate --strict-assets docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json
+```
+
+Mock mode uses Tesseract OCR locally (no API key needed):
 ```powershell
 phenotype-journey verify docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json --mode mock
 ```
