@@ -4,6 +4,7 @@ ShaderImporter:
   externalObjects: {}
   defaultTextures: []
   nonModifiableTextures: []
-  userData: 
-  assetBundleName: worldsphere
-  assetBundleVariant: 
+  preprocessorOverride: 0
+  userData:
+  assetBundleName:wsm3d-shaders
+  assetBundleVariant:
