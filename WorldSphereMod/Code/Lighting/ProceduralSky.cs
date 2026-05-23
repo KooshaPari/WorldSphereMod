@@ -99,7 +99,9 @@ namespace WorldSphereMod.Lighting
 
             _skyMat = new Material(shader) { name = "WSM3D.ProceduralSky" };
             s_overrodeGlobalSkybox = true;
+            Debug.Log($"[WSM3D] ProceduralSky binding RenderSettings.skybox to '{_skyMat.name}'.");
             RenderSettings.skybox = _skyMat;
+            Debug.Log("[WSM3D] ProceduralSky bound RenderSettings.skybox successfully.");
             SyncSkyboxComponent();
             EnsureCubemap();
         }

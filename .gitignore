@@ -29,3 +29,6 @@ Tools/**/target/
 
 # Auto-screenshot diagnostic captures (large + accumulate fast; baseline kept in commits)
 docs/journeys/scratch/in-mod-*.png
+Tools/Unity-Bake-Project/Library/
+Tools/Unity-Bake-Project/Logs/
+Tools/Unity-Bake-Project/Temp/
