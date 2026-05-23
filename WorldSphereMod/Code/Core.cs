@@ -724,10 +724,29 @@ namespace WorldSphereMod
                     Debug.LogError("[WSM3D] AssetBundleUtils.GetAssetBundle('worldsphere') returned null — likely an NML duplicate-bundle conflict. Skipping LoadAssets. Mesh/material/skybox not available this session.");
                     return;
                 }
+                Mod.LogAssetBundleInventory(ab);
                 CompoundSphereMesh = ab.GetObject<Mesh>("assets/worldspheremod/compoundspheremesh.asset");
                 CompoundSphereMaterial = ab.GetObject<Material>("assets/worldspheremod/compoundspherematerial.mat");
                 CameraManager.Begin(ab.GetObject<Material>("assets/worldspheremod/SkyBox.mat").shader);
                 LibraryMaterials.instance._night_affected_colors.Add(CompoundSphereMaterial);
+
+                // Force-load WSM3D/* shaders so Shader.Find can resolve them
+                // (bundle CONTAINS them but Unity's global shader registry only
+                // sees shaders that have been explicitly LoadAsset<Shader>'d).
+                // Without this, VoxelRender.TryCompileInlineVoxelShader's
+                // Shader.Find(WSM3D/OpaqueVertexColor) returns null -> falls
+                // back to Standard -> Standard-lit-blackness cascade.
+                try
+                {
+                    foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ScreenSpaceAO", "ColorGradingLUT", "ProceduralSky", "Impostor" })
+                    {
+                        string assetPath = $"assets/wsm3d/shaders/{shaderName.ToLowerInvariant()}.shader";
+                        var sh = ab.GetObject<UnityEngine.Shader>(assetPath);
+                        if (sh != null) Debug.Log($"[WSM3D] Loaded shader from bundle: WSM3D/{shaderName} -> {sh.name}");
+                        else Debug.LogWarning($"[WSM3D] Shader not in bundle: {assetPath}");
+                    }
+                }
+                catch (System.Exception ex) { Debug.LogWarning("[WSM3D] Shader load: " + ex.Message); }
             }
             public static SphereTile GetTile(int X, int Y)
             {
