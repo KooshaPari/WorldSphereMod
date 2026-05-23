@@ -777,13 +777,32 @@ namespace WorldSphereMod
                                  || shName.StartsWith("Hidden/Internal", System.StringComparison.OrdinalIgnoreCase);
                     if (isBroken)
                     {
-                        Shader std = Shader.Find("Standard");
-                        if (std != null)
+                        // Prefer Unlit/Color over Standard: Standard is a lit
+                        // shader that needs a directional light + non-zero
+                        // NdotL to produce visible output. If the scene's
+                        // lighting isn't fully wired (mod is mid-init or sun
+                        // hasn't been placed yet) Standard reads as pure
+                        // black despite the tan color we assigned — exactly
+                        // matching the user's 'no changes' report after the
+                        // prior fallback to Standard. Unlit/Color always
+                        // renders the assigned color regardless of lights.
+                        Shader fallback = Shader.Find("Unlit/Color") ?? Shader.Find("Standard");
+                        if (fallback != null)
                         {
-                            CompoundSphereMaterial.shader = std;
-                            CompoundSphereMaterial.color = new Color(0.55f, 0.50f, 0.40f, 1f);
-                            try { CompoundSphereMaterial.SetColor("_BaseColor", new Color(0.55f, 0.50f, 0.40f, 1f)); } catch { }
-                            Debug.LogWarning("[WSM3D] CompoundSphereMaterial had broken shader; reassigned to Standard with tan tint.");
+                            CompoundSphereMaterial.shader = fallback;
+                            Color tan = new Color(0.55f, 0.50f, 0.40f, 1f);
+                            CompoundSphereMaterial.color = tan;
+                            try { CompoundSphereMaterial.SetColor("_BaseColor", tan); } catch { }
+                            try { CompoundSphereMaterial.SetColor("_Color", tan); } catch { }
+                            // Belt-and-suspenders emission so even if a future
+                            // path swaps the shader back to Standard the
+                            // material still reads tan.
+                            try
+                            {
+                                CompoundSphereMaterial.EnableKeyword("_EMISSION");
+                                CompoundSphereMaterial.SetColor("_EmissionColor", new Color(0.55f, 0.50f, 0.40f, 1f));
+                            } catch { }
+                            Debug.LogWarning($"[WSM3D] CompoundSphereMaterial had broken shader; reassigned to '{fallback.name}' with tan color + emission.");
                         }
                     }
                 }
