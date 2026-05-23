@@ -7,6 +7,7 @@ using NCMS.Utils;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
+using System.IO;
 namespace WorldSphereMod.UI
 {
     struct ButtonData
@@ -35,6 +36,7 @@ namespace WorldSphereMod.UI
         const string PhasesWindowId = "3D Phases";
         const string PhasesWindowTitle = "phases_window";
         static readonly Dictionary<string, Sprite?> IconCache = new Dictionary<string, Sprite?>();
+        static readonly Dictionary<string, Sprite?> PhaseIconCache = new Dictionary<string, Sprite?>();
         static GameObject Space;
         static GameObject Line;
         static bool _isPhasesWindowSuppressionHooked;
@@ -243,6 +245,117 @@ namespace WorldSphereMod.UI
             // flag) and a destructive Reset-to-defaults action.
             CreateToggleButton("ProfileMode", "WorldSphereMod/ModIcon", "profile_mode", "profile_mode_description", ToggleProfileMode, Core.savedSettings.ProfilerDump);
             CreateButton("Reset Defaults", "WorldSphereMod/ModIcon", ResetToDefaults);
+        }
+
+        public static void PreloadPhaseIcons()
+        {
+            string[] phaseIconNames =
+            {
+                "CrossedQuadFoliage",
+                "DayNightCycle",
+                "HdrSkybox",
+                "HighShadows",
+                "MeshWater",
+                "ProceduralBuildings",
+                "SkeletalAnimation",
+                "SSGIEnabled",
+                "VoxelEntities",
+                "WorldspaceUI"
+            };
+
+            foreach (string iconName in phaseIconNames)
+            {
+                GetPhaseIcon(iconName);
+            }
+        }
+
+        public static Sprite? GetPhaseIcon(string iconName)
+        {
+            if (PhaseIconCache.TryGetValue(iconName, out var cachedSprite))
+            {
+                return cachedSprite;
+            }
+
+            string iconPath = Path.Combine(Mod.ModDirectory, "GameResources", "PhaseIcons", $"{iconName}.png");
+            if (!File.Exists(iconPath))
+            {
+                PhaseIconCache[iconName] = null;
+                return null;
+            }
+
+            try
+            {
+                byte[] data = File.ReadAllBytes(iconPath);
+                Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (!TryLoadPngViaReflection(texture, data))
+                {
+                    PhaseIconCache[iconName] = null;
+                    return null;
+                }
+
+                Sprite sprite = Sprite.Create(
+                    texture,
+                    new Rect(0, 0, texture.width, texture.height),
+                    new Vector2(0.5f, 0.5f),
+                    100f
+                );
+                PhaseIconCache[iconName] = sprite;
+                return sprite;
+            }
+            catch (System.Exception ex)
+            {
+                global::UnityEngine.Debug.LogWarning($"[WSM3D] Failed to load phase icon '{iconName}': {ex.Message}");
+                PhaseIconCache[iconName] = null;
+                return null;
+            }
+        }
+
+        static bool TryLoadPngViaReflection(Texture2D tex, byte[] bytes)
+        {
+            try
+            {
+                var miInstance = typeof(Texture2D).GetMethod(
+                    "LoadImage",
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                    null,
+                    new System.Type[] { typeof(byte[]) },
+                    null);
+                if (miInstance != null)
+                {
+                    object result = miInstance.Invoke(tex, new object[] { bytes });
+                    if (result is bool b1)
+                    {
+                        return b1;
+                    }
+                    return true;
+                }
+
+                var icType = typeof(Texture2D).Assembly.GetType("UnityEngine.ImageConversion");
+                if (icType != null)
+                {
+                    var miStatic = icType.GetMethod(
+                        "LoadImage",
+                        BindingFlags.Static | BindingFlags.Public,
+                        null,
+                        new System.Type[] { typeof(Texture2D), typeof(byte[]) },
+                        null);
+                    if (miStatic != null)
+                    {
+                        object result = miStatic.Invoke(null, new object[] { tex, bytes });
+                        if (result is bool b2)
+                        {
+                            return b2;
+                        }
+                        return true;
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                global::UnityEngine.Debug.LogWarning($"[WSM3D] TryLoadPngViaReflection threw: {ex.GetType().Name}: {ex.Message}");
+            }
+
+            return false;
         }
 
         static void TogglePhase(string phaseToggleId)
@@ -643,6 +756,10 @@ namespace WorldSphereMod.UI
             layoutGroup.childScaleWidth = true;
             layoutGroup.childAlignment = TextAnchor.UpperCenter;
             layoutGroup.spacing = 50;
+            if (ID == "3D Phases")
+            {
+                WorldSphereTab.PreloadPhaseIcons();
+            }
             LoadInputOptions(Buttons);
         }
         public void openWindow()
@@ -705,12 +822,102 @@ namespace WorldSphereMod.UI
                 );
                 PlayerConfig.dict[data.Name].boolVal = data.IsActive;
                 activeButton.gameObject.GetComponent<RectTransform>().sizeDelta = new Vector2(64, 64);
-                if (ID == "phases_window")
+                if (ID == "3D Phases")
                 {
-                    WorldSphereTab.addText(ID, LM.Get(data.Name), activeButton.gameObject, 10, new Vector3(0, -40, 0), new Vector2(28, 24));
+                    AddPhaseIconAndLabel(activeButton.gameObject, data.Name);
                 }
             }
             PowerButtonSelector.instance.checkToggleIcons();
+        }
+
+        static void AddPhaseIconAndLabel(GameObject parent, string phaseId)
+        {
+            string iconName = GetPhaseIconName(phaseId);
+            Sprite? icon = string.IsNullOrEmpty(iconName) ? null : WorldSphereTab.GetPhaseIcon(iconName);
+            if (icon != null)
+            {
+                GameObject iconGo = new GameObject("PhaseIcon", typeof(RectTransform), typeof(Image));
+                iconGo.transform.SetParent(parent.transform, false);
+
+                RectTransform iconRect = iconGo.GetComponent<RectTransform>();
+                iconRect.anchorMin = new Vector2(0f, 0.5f);
+                iconRect.anchorMax = new Vector2(0f, 0.5f);
+                iconRect.pivot = new Vector2(0.5f, 0.5f);
+                iconRect.anchoredPosition = new Vector2(-18f, -40f);
+                iconRect.sizeDelta = new Vector2(16f, 16f);
+
+                Image iconImage = iconGo.GetComponent<Image>();
+                iconImage.sprite = icon;
+                iconImage.raycastTarget = false;
+            }
+
+            WorldSphereTab.addText("3D Phases", LM.Get(phaseId), parent, 10, new Vector3(0, -40, 0), new Vector2(28, 24));
+        }
+
+        static string GetPhaseIconName(string phaseId)
+        {
+            switch (phaseId)
+            {
+                case "crossed_quad_foliage": return "CrossedQuadFoliage";
+                case "day_night_cycle": return "DayNightCycle";
+                case "hdr_skybox": return "HdrSkybox";
+                case "high_shadows": return "HighShadows";
+                case "mesh_water": return "MeshWater";
+                case "procedural_buildings": return "ProceduralBuildings";
+                case "skeletal_animation": return "SkeletalAnimation";
+                case "ssgi_enabled": return "SSGIEnabled";
+                case "voxel_entities": return "VoxelEntities";
+                case "worldspace_ui": return "WorldspaceUI";
+                default: return string.Empty;
+            }
+        }
+
+        static bool TryLoadPngViaReflection(Texture2D tex, byte[] bytes)
+        {
+            try
+            {
+                var miInstance = typeof(Texture2D).GetMethod(
+                    "LoadImage",
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                    null,
+                    new System.Type[] { typeof(byte[]) },
+                    null);
+                if (miInstance != null)
+                {
+                    object result = miInstance.Invoke(tex, new object[] { bytes });
+                    if (result is bool b1)
+                    {
+                        return b1;
+                    }
+                    return true;
+                }
+
+                var icType = typeof(Texture2D).Assembly.GetType("UnityEngine.ImageConversion");
+                if (icType != null)
+                {
+                    var miStatic = icType.GetMethod(
+                        "LoadImage",
+                        BindingFlags.Static | BindingFlags.Public,
+                        null,
+                        new System.Type[] { typeof(Texture2D), typeof(byte[]) },
+                        null);
+                    if (miStatic != null)
+                    {
+                        object result = miStatic.Invoke(null, new object[] { tex, bytes });
+                        if (result is bool b2)
+                        {
+                            return b2;
+                        }
+                        return true;
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                global::UnityEngine.Debug.LogWarning($"[WSM3D] TryLoadPngViaReflection threw: {ex.GetType().Name}: {ex.Message}");
+            }
+
+            return false;
         }
     }
 }
