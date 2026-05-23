@@ -19,6 +19,7 @@ namespace WorldSphereMod.Water
 
         static Material? _material;
         static bool _materialAttempted;
+        static bool _emissionDiagnosticsLogged;
 
         MeshFilter? _filter;
         internal MeshRenderer? _renderer;
@@ -296,28 +297,38 @@ namespace WorldSphereMod.Water
             // scene the water layer receives ~0 directional/ambient light so the lit
             // base color computes to ~0 -> opaque black mesh. Adding emission ==
             // waterTint guarantees pixels light up regardless of scene lighting.
-            try
+            material.EnableKeyword("_EMISSION");
+            int emissionId = Shader.PropertyToID("_EmissionColor");
+            if (material.HasProperty(emissionId))
             {
-                material.EnableKeyword("_EMISSION");
-                int emissionId = Shader.PropertyToID("_EmissionColor");
-                if (material.HasProperty(emissionId))
-                {
-                    // Boost emission so water is visibly blue, not dim/black.
-                    // waterTint = (0.15, 0.40, 0.55, 0.6). At 1.5x emission was
-                    // (0.225, 0.60, 0.825) — still dark in zero-light scenes.
-                    // Use a brighter ocean-blue baseline + 3x intensity so the
-                    // water visibly self-emits even with no ambient/directional.
-                    material.SetColor(emissionId, new Color(0.30f, 0.60f, 1.20f, 1f));
-                }
-                material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                // Boost emission so water is visibly blue, not dim/black.
+                // waterTint = (0.15, 0.40, 0.55, 0.6). At 1.5x emission was
+                // (0.225, 0.60, 0.825) — still dark in zero-light scenes.
+                // Use a brighter ocean-blue baseline + 3x intensity so the
+                // water visibly self-emits even with no ambient/directional.
+                material.SetColor(emissionId, new Color(0.30f, 0.60f, 1.20f, 1f));
             }
-            catch { }
-
             // Opaque queue (was 3000 = Transparent). Standard shader fallback for water
             // renders OPAQUE BLACK at the Transparent queue without explicit blend mode
             // config -> the 'MeshWater creates blackworld' regression. Continuum/
             // WaterGerstner shaders handle their own alpha; built-in Standard does not.
             material.renderQueue = 2000;
+
+            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            if (!_emissionDiagnosticsLogged)
+            {
+                _emissionDiagnosticsLogged = true;
+                Color emissionColor = material.HasProperty(emissionId) ? material.GetColor(emissionId) : default;
+                Debug.Log(
+                    "[WSM3D] Water emission setup: _EmissionColor=" + FormatColor(emissionColor) +
+                    " _EMISSION=" + material.IsKeywordEnabled("_EMISSION") +
+                    " GI=" + material.globalIlluminationFlags);
+            }
+        }
+
+        static string FormatColor(Color color)
+        {
+            return $"({color.r:0.###}, {color.g:0.###}, {color.b:0.###}, {color.a:0.###})";
         }
     }
 }

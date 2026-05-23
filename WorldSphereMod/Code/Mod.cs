@@ -32,6 +32,7 @@ using WorldSphereMod;
         IsAutoTest = System.Environment.GetEnvironmentVariable("WSM3D_AUTOTEST") == "1"
                     || (Core.savedSettings != null && Core.savedSettings.AutoTest);
     }
+
     public string GetUrl()
     {
         return "https://github.com/MelvinShwuaner?tab=repositories";
