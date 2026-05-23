@@ -24,7 +24,11 @@ namespace WorldSphereMod.Voxel
     public static class SpriteVoxelizer
     {
         /// <summary>Voxel depth in texels. 1 = flat extruded card, &gt;1 = chunkier. </summary>
-        public const int DefaultDepth = 1;
+        // Per-sprite voxel depth (number of z-layers in the volume). MUST be > 1
+        // for ANY depth variation to be visible — Perlin column-depth modulation
+        // is a no-op when depth=1. Setting to 8 gives meaningful 3D variation
+        // while keeping voxel counts reasonable (sprite_w * sprite_h * 8).
+        public const int DefaultDepth = 8;
         static readonly HashSet<string> _unreadableSpriteWarnings = new HashSet<string>();
         static int _buildPerTexelDiagCount;
         static readonly object _buildPerTexelDiagLock = new object();
