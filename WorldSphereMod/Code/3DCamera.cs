@@ -97,6 +97,11 @@ namespace WorldSphereMod.NewCamera
             Vector3 snappedPosition = new Vector3(MapBox.width * 0.5f, DefaultStrategyZoomHeight, MapBox.height * 0.5f);
             camera.transform.position = snappedPosition;
             camera.transform.eulerAngles = new Vector3(45f, 0f, 0f);
+            Height = DefaultStrategyZoomHeight;
+            if (Manager != null)
+            {
+                Manager._target_zoom = DefaultStrategyZoomHeight;
+            }
             if (MainCamera != null && MainCamera != camera)
             {
                 MainCamera.transform.position = snappedPosition;
