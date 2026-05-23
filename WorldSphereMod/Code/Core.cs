@@ -726,8 +726,10 @@ namespace WorldSphereMod
                 }
                 try { Mod.LogAssetBundleInventory(ab); }
                 catch (System.Exception ex) { Debug.LogWarning("[WSM3D] LogAssetBundleInventory threw: " + ex.Message); }
-                CompoundSphereMesh = ab.GetObject<Mesh>("assets/worldspheremod/compoundspheremesh.asset");
-                CompoundSphereMaterial = ab.GetObject<Material>("assets/worldspheremod/compoundspherematerial.mat");
+                CompoundSphereMesh = ab.GetObject<Mesh>("assets/worldspheremod/compoundspheremesh.asset")
+                    ?? ab.GetObject<Mesh>("assets/wsm3d/legacyassets/compoundspheremesh.asset");
+                CompoundSphereMaterial = ab.GetObject<Material>("assets/worldspheremod/compoundspherematerial.mat")
+                    ?? ab.GetObject<Material>("assets/wsm3d/legacyassets/compoundspherematerial.mat");
                 // Null-guard each asset get so a missing SkyBox.mat in the
                 // combined-bake bundle doesn't NRE here and trip NML's
                 // post-init error handler (which disables the entire mod —
@@ -737,7 +739,8 @@ namespace WorldSphereMod
                     Debug.LogError("[WSM3D] CompoundSphereMesh missing from bundle.");
                 if (CompoundSphereMaterial == null)
                     Debug.LogError("[WSM3D] CompoundSphereMaterial missing from bundle.");
-                var skyboxMat = ab.GetObject<Material>("assets/worldspheremod/SkyBox.mat");
+                var skyboxMat = ab.GetObject<Material>("assets/worldspheremod/SkyBox.mat")
+                    ?? ab.GetObject<Material>("assets/wsm3d/legacyassets/skybox.mat");
                 if (skyboxMat != null && skyboxMat.shader != null)
                 {
                     CameraManager.Begin(skyboxMat.shader);
