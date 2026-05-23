@@ -394,6 +394,14 @@ namespace WorldSphereMod.Terrain
                     name = "WSM3D.MountainSlopeSmoothing"
                 };
                 material.color = Color.white;
+                // Emission floor so slopes don't render pure black when vertex
+                // colors come through as (0,0,0). Grey emission ensures visible
+                // contour while letting vertex colors tint it if non-zero.
+                try
+                {
+                    material.EnableKeyword("_EMISSION");
+                    material.SetColor("_EmissionColor", new Color(0.5f, 0.4f, 0.3f, 1f));
+                } catch { }
                 material.enableInstancing = true;
                 if (!material.enableInstancing)
                 {
