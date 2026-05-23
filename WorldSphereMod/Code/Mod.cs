@@ -1,7 +1,9 @@
 using CompoundSpheres;
 using NeoModLoader.api;
 using NeoModLoader.constants;
+using NeoModLoader.utils;
 using System.IO;
+using System.Reflection;
 using UnityEngine;
 using WorldSphereMod;
     public class Mod : MonoBehaviour, IMod, IStagedLoad, ILocalizable
@@ -31,6 +33,33 @@ using WorldSphereMod;
         WorldSphereMod.Bridge.BridgeServer.EnsureCreated();
         IsAutoTest = System.Environment.GetEnvironmentVariable("WSM3D_AUTOTEST") == "1"
                     || (Core.savedSettings != null && Core.savedSettings.AutoTest);
+    }
+
+    public static void LogAssetBundleInventory(WrappedAssetBundle bundle)
+    {
+        if (bundle == null)
+        {
+            return;
+        }
+
+        var assetBundleField = typeof(WrappedAssetBundle).GetField("assetBundle", BindingFlags.NonPublic | BindingFlags.Instance);
+        var assetBundle = assetBundleField?.GetValue(bundle);
+        if (assetBundle == null)
+        {
+            return;
+        }
+
+        var loadAllAssets = assetBundle.GetType().GetMethod("LoadAllAssets", BindingFlags.Public | BindingFlags.Instance, null, System.Type.EmptyTypes, null);
+        var assets = loadAllAssets?.Invoke(assetBundle, null) as UnityEngine.Object[];
+        if (assets == null)
+        {
+            return;
+        }
+
+        foreach (var asset in assets)
+        {
+            Debug.Log("[WSM3D] worldsphere bundle asset: " + asset.name);
+        }
     }
 
     public string GetUrl()

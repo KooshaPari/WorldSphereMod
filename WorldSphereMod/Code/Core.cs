@@ -724,10 +724,31 @@ namespace WorldSphereMod
                     Debug.LogError("[WSM3D] AssetBundleUtils.GetAssetBundle('worldsphere') returned null — likely an NML duplicate-bundle conflict. Skipping LoadAssets. Mesh/material/skybox not available this session.");
                     return;
                 }
+                Mod.LogAssetBundleInventory(ab);
                 CompoundSphereMesh = ab.GetObject<Mesh>("assets/worldspheremod/compoundspheremesh.asset");
                 CompoundSphereMaterial = ab.GetObject<Material>("assets/worldspheremod/compoundspherematerial.mat");
-                CameraManager.Begin(ab.GetObject<Material>("assets/worldspheremod/SkyBox.mat").shader);
-                LibraryMaterials.instance._night_affected_colors.Add(CompoundSphereMaterial);
+                // Null-guard each asset get so a missing SkyBox.mat in the
+                // combined-bake bundle doesn't NRE here and trip NML's
+                // post-init error handler (which disables the entire mod —
+                // root cause of pale-blue/black-water/no-smoothing on
+                // 2026-05-22).
+                if (CompoundSphereMesh == null)
+                    Debug.LogError("[WSM3D] CompoundSphereMesh missing from bundle.");
+                if (CompoundSphereMaterial == null)
+                    Debug.LogError("[WSM3D] CompoundSphereMaterial missing from bundle.");
+                var skyboxMat = ab.GetObject<Material>("assets/worldspheremod/SkyBox.mat");
+                if (skyboxMat != null && skyboxMat.shader != null)
+                {
+                    CameraManager.Begin(skyboxMat.shader);
+                }
+                else
+                {
+                    Debug.LogError("[WSM3D] SkyBox.mat missing from bundle — CameraManager.Begin skipped; sky will fall back to default.");
+                }
+                if (CompoundSphereMaterial != null && LibraryMaterials.instance != null)
+                {
+                    LibraryMaterials.instance._night_affected_colors.Add(CompoundSphereMaterial);
+                }
 
                 // Force-load WSM3D/* shaders so Shader.Find can resolve them
                 // (bundle CONTAINS them but Unity's global shader registry only
@@ -819,4 +840,3 @@ namespace WorldSphereMod
         }
     }
 }
-
