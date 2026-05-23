@@ -209,10 +209,16 @@ namespace WorldSphereMod.Water
             int metallicId = Shader.PropertyToID("_Metallic");
             bool isLit = false;
 
-            Shader? s = Shader.Find("WSM3D/GerstnerWater");
-            if (s != null)
+            Shader? s = null;
+            if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("GerstnerWater", out var bundledWater) && bundledWater != null)
             {
-                Debug.Log("[WSM3D] Water material resolved via Shader.Find('WSM3D/GerstnerWater').");
+                s = bundledWater;
+                Debug.Log("[WSM3D] Water material resolved via Core.Sphere.LoadedShaders cache.");
+            }
+            if (s == null)
+            {
+                s = Shader.Find("WSM3D/GerstnerWater");
+                if (s != null) Debug.Log("[WSM3D] Water material resolved via Shader.Find('WSM3D/GerstnerWater').");
             }
             if (s == null) s = Resources.Load<Shader>("Shaders/ContinuumWaterGerstner");
             if (s == null) s = Resources.Load<Shader>("Shaders/WaterGerstner");

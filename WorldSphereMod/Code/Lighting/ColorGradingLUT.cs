@@ -111,10 +111,16 @@ namespace WorldSphereMod.Lighting
                 yield break;
             }
 
-            Shader? shader = Shader.Find("WSM3D/ColorGradingLUT");
-            if (shader != null)
+            Shader? shader = null;
+            if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("ColorGradingLUT", out var bundledLut) && bundledLut != null)
             {
-                Debug.Log("[WSM3D] ColorGradingLUT shader resolved via Shader.Find('WSM3D/ColorGradingLUT').");
+                shader = bundledLut;
+                Debug.Log("[WSM3D] ColorGradingLUT shader resolved via Core.Sphere.LoadedShaders cache.");
+            }
+            if (shader == null)
+            {
+                shader = Shader.Find("WSM3D/ColorGradingLUT");
+                if (shader != null) Debug.Log("[WSM3D] ColorGradingLUT shader resolved via Shader.Find('WSM3D/ColorGradingLUT').");
             }
             if (shader == null)
             {

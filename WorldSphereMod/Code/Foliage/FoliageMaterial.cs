@@ -19,10 +19,19 @@ namespace WorldSphereMod.Foliage
             if (_attempted) return false;
             _attempted = true;
 
-            Shader? s = Shader.Find("WSM3D/FoliageWind");
-            if (s != null)
+            // FoliageWind isn't currently in the bundled-shaders list; check
+            // cache for completeness then fall back. Worth adding to the bake
+            // pass in Tools/Unity-Bake-Project/Assets/Editor/BakeShaders.cs.
+            Shader? s = null;
+            if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("FoliageWind", out var bundledFoliage) && bundledFoliage != null)
             {
-                Debug.Log("[WSM3D] Foliage material resolved via Shader.Find('WSM3D/FoliageWind').");
+                s = bundledFoliage;
+                Debug.Log("[WSM3D] Foliage material resolved via Core.Sphere.LoadedShaders cache.");
+            }
+            if (s == null)
+            {
+                s = Shader.Find("WSM3D/FoliageWind");
+                if (s != null) Debug.Log("[WSM3D] Foliage material resolved via Shader.Find('WSM3D/FoliageWind').");
             }
             if (s == null) s = Resources.Load<Shader>("Shaders/FoliageWind");
             if (s == null) s = Shader.Find("Sprites/Default");

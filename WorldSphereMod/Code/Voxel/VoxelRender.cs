@@ -225,8 +225,15 @@ namespace WorldSphereMod.Voxel
         {
             try
             {
-                // First check if our custom name already exists (compiled once previously).
-                Shader? existing = Shader.Find("WSM3D/OpaqueVertexColor");
+                // First check the bundle-loaded shaders cache (Shader.Find
+                // doesn't see AssetBundle shaders unless they're Always-Included).
+                Shader? existing = null;
+                if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("OpaqueVertexColor", out var bundled) && bundled != null)
+                {
+                    existing = bundled;
+                    Debug.Log("[WSM3D] Voxel shader resolved via Core.Sphere.LoadedShaders cache.");
+                }
+                if (existing == null) existing = Shader.Find("WSM3D/OpaqueVertexColor");
                 if (existing != null)
                 {
                     Material inlineMaterial = new Material(existing) { name = "WSM3D.Voxel.OpaqueVertexColor" };
