@@ -758,6 +758,27 @@ namespace WorldSphereMod
                     Debug.LogError("[WSM3D] CompoundSphereMesh missing from bundle.");
                 if (CompoundSphereMaterial == null)
                     Debug.LogError("[WSM3D] CompoundSphereMaterial missing from bundle.");
+                // Inspect CompoundSphereMaterial's shader. If its shader was
+                // bundled corrupted (empty .name like the 4-of-6 broken
+                // shaders above), the terrain tiles render as black
+                // trapezoids — user-reported 2026-05-23. Reassign to
+                // Standard with a tan _Color so terrain at least shows up.
+                if (CompoundSphereMaterial != null)
+                {
+                    string shName = CompoundSphereMaterial.shader != null ? CompoundSphereMaterial.shader.name : "<null>";
+                    Debug.Log($"[WSM3D] CompoundSphereMaterial.shader = '{shName}'");
+                    if (CompoundSphereMaterial.shader == null || string.IsNullOrEmpty(shName))
+                    {
+                        Shader std = Shader.Find("Standard");
+                        if (std != null)
+                        {
+                            CompoundSphereMaterial.shader = std;
+                            CompoundSphereMaterial.color = new Color(0.55f, 0.50f, 0.40f, 1f);
+                            try { CompoundSphereMaterial.SetColor("_BaseColor", new Color(0.55f, 0.50f, 0.40f, 1f)); } catch { }
+                            Debug.LogWarning("[WSM3D] CompoundSphereMaterial had broken shader; reassigned to Standard with tan tint.");
+                        }
+                    }
+                }
                 var skyboxMat = ab.GetObject<Material>("assets/worldspheremod/SkyBox.mat")
                     ?? ab.GetObject<Material>("assets/wsm3d/legacyassets/skybox.mat");
                 if (skyboxMat != null && skyboxMat.shader != null)
