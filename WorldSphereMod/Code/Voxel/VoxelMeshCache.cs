@@ -739,6 +739,11 @@ namespace WorldSphereMod.Voxel
                 return SpriteVoxelizer.BuildBalloon(sprite, depth, out vertexToTexel);
             }
 
+            if (string.Equals(inflationStyle, "organicblob", System.StringComparison.OrdinalIgnoreCase))
+            {
+                return SpriteVoxelizer.BuildOrganicBlob(sprite, depth, out vertexToTexel);
+            }
+
             if (string.Equals(inflationStyle, "lathe", System.StringComparison.OrdinalIgnoreCase))
             {
                 return SpriteVoxelizer.BuildLathe(sprite, depth, out vertexToTexel);

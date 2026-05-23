@@ -3,17 +3,6 @@ using UnityEngine;
 
 namespace WorldSphereMod.Voxel
 {
-    public enum ShapeHint
-    {
-        Cylinder,
-        LongX,
-        LongZ,
-        Tall,
-        Flat,
-        Mirror,
-        Auto,
-    }
-
     public static class AssetShapeRegistry
     {
         static readonly (string prefix, ShapeHint hint)[] _prefixHints =
@@ -26,6 +15,12 @@ namespace WorldSphereMod.Voxel
             ("tree", ShapeHint.Cylinder),
             ("bush", ShapeHint.Cylinder),
             ("flower", ShapeHint.Cylinder),
+            ("barrel", ShapeHint.Cylinder),
+            ("pot", ShapeHint.Cylinder),
+            ("rock", ShapeHint.OrganicBlob),
+            ("stone", ShapeHint.OrganicBlob),
+            ("boulder", ShapeHint.OrganicBlob),
+            ("mountain", ShapeHint.OrganicBlob),
             ("animal", ShapeHint.Flat),
             ("wolf", ShapeHint.Flat),
             ("bird", ShapeHint.Cylinder),
@@ -51,7 +46,7 @@ namespace WorldSphereMod.Voxel
             ("lighthouse", ShapeHint.Tall),
             ("mast", ShapeHint.Tall),
             ("obelisk", ShapeHint.Tall),
-            ("pillar", ShapeHint.Tall),
+            ("pillar", ShapeHint.Cylinder),
             ("boat", ShapeHint.Mirror),
             ("ship", ShapeHint.Mirror),
             ("wagon", ShapeHint.Mirror),
@@ -93,6 +88,7 @@ namespace WorldSphereMod.Voxel
             return hint switch
             {
                 ShapeHint.Cylinder => "lathe",
+                ShapeHint.OrganicBlob => "organicblob",
                 ShapeHint.LongX => "extruded",
                 ShapeHint.LongZ => "extruded",
                 ShapeHint.Tall => "lathe",

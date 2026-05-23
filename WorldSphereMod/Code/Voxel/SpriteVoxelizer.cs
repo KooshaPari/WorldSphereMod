@@ -346,6 +346,87 @@ namespace WorldSphereMod.Voxel
         }
 
         /// <summary>
+        /// Organic blob inflation keeps the sprite silhouette but varies the extrusion depth
+        /// per column with deterministic Perlin noise so rock-like assets do not read as flat
+        /// 2.5D slabs from the side.
+        /// </summary>
+        public static Mesh BuildOrganicBlob(Sprite sprite, int depth, out int[] vertexToTexel)
+        {
+            depth = ResolveDepth(depth);
+            if (sprite == null || sprite.texture == null || !sprite.texture.isReadable)
+            {
+                vertexToTexel = System.Array.Empty<int>();
+                return CreateEmpty();
+            }
+
+            Rect r = sprite.textureRect;
+            int w = Mathf.Max(1, (int)r.width);
+            int h = Mathf.Max(1, (int)r.height);
+            int x0 = (int)r.x;
+            int y0 = (int)r.y;
+            Color32[] tex = GetPixelsCached(sprite.texture);
+            int texW = sprite.texture.width;
+
+            bool[,,] solid = new bool[w, h, depth];
+            Color32[,,] color = new Color32[w, h, depth];
+            float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
+            const float minDepthScale = 0.70f;
+            const float maxDepthScale = 1.30f;
+
+            for (int y = 0; y < h; y++)
+            {
+                int row = (y0 + y) * texW + x0;
+                for (int x = 0; x < w; x++)
+                {
+                    Color32 c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
+                        ? ColorTonemap.Tonemap(tex[row + x])
+                        : tex[row + x];
+                    if (c.a <= 16)
+                    {
+                        continue;
+                    }
+
+                    float worldX = (x - sprite.pivot.x) / ppu;
+                    float worldZ = (y - sprite.pivot.y) / ppu;
+                    float noise = Mathf.PerlinNoise(worldX * 0.22f + 0.13f, worldZ * 0.22f + 0.73f);
+                    float depthScale = Mathf.Lerp(minDepthScale, maxDepthScale, noise);
+                    int columnDepth = Mathf.Clamp(Mathf.RoundToInt(depth * depthScale), 1, depth);
+                    int zStart = (depth - columnDepth) / 2;
+                    int zEnd = zStart + columnDepth;
+
+                    for (int z = zStart; z < zEnd; z++)
+                    {
+                        solid[x, y, z] = true;
+                        color[x, y, z] = c;
+                    }
+                }
+            }
+
+            Vector2 pivot = sprite.pivot;
+            Vector3 origin = new Vector3(-pivot.x / ppu, -pivot.y / ppu, -(depth * 0.5f) / ppu);
+            float cell = 1f / ppu;
+
+            var verts = new List<Vector3>();
+            var cols = new List<Color32>();
+            var tris = new List<int>();
+
+            GreedyMesh(solid, color, w, h, depth, origin, cell, verts, cols, tris);
+
+            var mesh = new Mesh { name = $"voxel-organicblob:{sprite.name}" };
+            if (verts.Count > 65535)
+            {
+                mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            }
+            mesh.SetVertices(verts);
+            mesh.SetColors(cols);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            vertexToTexel = System.Array.Empty<int>();
+            return mesh;
+        }
+
+        /// <summary>
         /// Phase 1: lathe inflation revolves a 2D silhouette around the Y axis into a
         /// W×H×W voxel volume. For each opaque row, we compute a silhouette half-width r(y)
         /// and fill cylinder-space voxels where (x-c)^2+(z-c)^2 ≤ r(y)^2.
