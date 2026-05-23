@@ -28,6 +28,7 @@ namespace WorldSphereMod
         public static string SettingsVersion = "2.3";
 
         public static Harmony Patcher;
+        internal static bool ClearVoxelMeshCacheOnFirstFrame;
         public static void SaveSettings()
         {
             string json = JsonConvert.SerializeObject(savedSettings, Formatting.Indented);
@@ -141,10 +142,12 @@ namespace WorldSphereMod
         // go go gadget un-box my worldbox
         public static void Init()
         {
+            ClearVoxelMeshCacheOnFirstFrame = true;
             InitProfiler.Measure("LoadSettings", () => LoadSettings());
             InitProfiler.Measure("WorldSphereTab.Begin", () => WorldSphereTab.Begin());
             InitProfiler.Measure("DimensionConverter.Prepare", () => DimensionConverter.Prepare());
             InitProfiler.Measure("Patch", () => Patch());
+            try { WorldSphereMod.Voxel.VoxelMeshCache.Clear(); } catch { }
             // Gated: McPack bundle competes with worldsphere main bundle (NML's
             // AssetBundleUtils throws NRE on duplicate file IDs). Opt-in only.
             if (Core.savedSettings != null && Core.savedSettings.EnableMcPackTextures)

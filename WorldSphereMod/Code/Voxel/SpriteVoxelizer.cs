@@ -370,8 +370,8 @@ namespace WorldSphereMod.Voxel
             bool[,,] solid = new bool[w, h, depth];
             Color32[,,] color = new Color32[w, h, depth];
             float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
-            const float minDepthScale = 0.70f;
-            const float maxDepthScale = 1.30f;
+            const float minDepthScale = 0.25f;
+            const float maxDepthScale = 1.00f;
 
             for (int y = 0; y < h; y++)
             {
@@ -391,7 +391,7 @@ namespace WorldSphereMod.Voxel
                     float noise = Mathf.PerlinNoise(worldX * 0.22f + 0.13f, worldZ * 0.22f + 0.73f);
                     float depthScale = Mathf.Lerp(minDepthScale, maxDepthScale, noise);
                     int columnDepth = Mathf.Clamp(Mathf.RoundToInt(depth * depthScale), 1, depth);
-                    int zStart = (depth - columnDepth) / 2;
+                    int zStart = Mathf.Clamp(Mathf.FloorToInt((depth - columnDepth) * 0.5f), 0, depth - columnDepth);
                     int zEnd = zStart + columnDepth;
 
                     for (int z = zStart; z < zEnd; z++)

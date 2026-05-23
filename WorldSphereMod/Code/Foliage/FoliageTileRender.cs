@@ -13,17 +13,17 @@ namespace WorldSphereMod.Foliage
     /// savanna, biomass, snow_sand, road, walls, etc).
     ///
     /// For tiles tagged as grass / life / road we resolve the variation
-    /// sprite WorldBox would have flushed into the Tilemap, build a
-    /// crossed-quad (or single ground quad for road) mesh, and submit it to
-    /// <see cref="MeshInstanceBatcher"/>. Walls and water are left to the
-    /// vanilla flush — walls get their own transpile in Step 3, and
-    /// liquid/ocean already route through the water mesh.
+    /// sprite WorldBox would have flushed into the Tilemap, build a voxel
+    /// foliage mesh for trees/bushes (or a single ground quad for road), and
+    /// submit it to <see cref="MeshInstanceBatcher"/>. Walls and water are
+    /// left to the vanilla flush — walls get their own transpile in Step 3,
+    /// and liquid/ocean already route through the water mesh.
     ///
     /// Diff cache: parallel <c>WorldTile -&gt; Sprite</c> map mirrors
     /// <c>WorldTile.last_rendered_tile_type</c>. When the resolved sprite
     /// matches the cached one we still re-submit (the batcher accumulates
     /// per-frame draws) but skip the mesh rebuild via
-    /// <see cref="CrossedQuadMeshCache"/>.
+    /// <see cref="VoxelMeshCache"/>.
     /// </summary>
     [Phase(nameof(SavedSettings.CrossedQuadFoliage))]
     [HarmonyPatch(typeof(WorldTilemap), "renderTile")]
@@ -87,11 +87,11 @@ namespace WorldSphereMod.Foliage
                 Material? mat = FoliageMaterial.Get();
                 if (mat == null) return true;
 
-                // road = flat ground decal, no sway. grass/life = crossed quad with sway.
-                BuildingShape shape = t.road ? BuildingShape.Single : BuildingShape.CrossedQuad;
-                float sway = t.road ? 0f : 1f;
-
-                Mesh? mesh = CrossedQuadMeshCache.GetOrBuild(sprite, shape, sway);
+                // Road remains a flat decal. Foliage now uses voxel meshes so
+                // trees render with actual 3D depth on all axes.
+                Mesh? mesh = t.road
+                    ? CrossedQuadMeshCache.GetOrBuild(sprite, BuildingShape.Single, 0f)
+                    : VoxelMeshCache.Get(sprite, -1);
                 if (mesh == null || mesh.vertexCount == 0) return true;
 
                 Vector2 pos2 = new Vector2(pTile.pos.x, pTile.pos.y);

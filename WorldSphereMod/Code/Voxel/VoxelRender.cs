@@ -782,6 +782,12 @@ namespace WorldSphereMod.Voxel
         {
             if (!Core.IsWorld3D) return;
 
+            if (Core.ClearVoxelMeshCacheOnFirstFrame)
+            {
+                Core.ClearVoxelMeshCacheOnFirstFrame = false;
+                try { VoxelMeshCache.Clear(); } catch (System.Exception ex) { Debug.LogWarning("[WSM3D] First-frame VoxelMeshCache.Clear failed: " + ex.Message); }
+            }
+
             float deltaTime = Time.deltaTime;
             _perfFrameCounter++;
             _perfDeltaTimeSum += deltaTime;

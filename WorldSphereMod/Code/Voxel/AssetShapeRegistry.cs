@@ -58,14 +58,14 @@ namespace WorldSphereMod.Voxel
 
         public static ShapeHint GetShapeHint(string assetId)
         {
-            if (string.IsNullOrEmpty(assetId)) return ShapeHint.Auto;
+            if (string.IsNullOrEmpty(assetId)) return ShapeHint.OrganicBlob;
             string lower = assetId.ToLowerInvariant();
             foreach (var (prefix, hint) in _prefixHints)
             {
                 if (lower.StartsWith(prefix) || lower.Contains("_" + prefix) || lower.Contains(prefix + "_"))
                     return hint;
             }
-            return ShapeHint.Auto;
+            return ShapeHint.OrganicBlob;
         }
 
         // Resolves the InflationStyle string used by SpriteVoxelizer dispatch.
@@ -77,13 +77,6 @@ namespace WorldSphereMod.Voxel
                 return globalOverride;
 
             ShapeHint hint = GetShapeHint(assetId);
-            if (hint == ShapeHint.Auto && sprite != null && sprite.rect.width > 0 && sprite.rect.height > 0)
-            {
-                float ar = sprite.rect.width / sprite.rect.height;
-                if (ar > 1.5f) hint = ShapeHint.LongX;
-                else if (ar < 0.67f) hint = ShapeHint.Tall;
-                else hint = ShapeHint.Mirror;
-            }
 
             return hint switch
             {
