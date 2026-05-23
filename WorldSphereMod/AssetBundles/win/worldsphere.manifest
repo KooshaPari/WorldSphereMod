@@ -1,27 +1,32 @@
 ManifestFileVersion: 0
-UnityVersion: 6000.3.11f1
-CRC: 2847500522
+CRC: 2831314970
 Hashes:
   AssetFileHash:
     serializedVersion: 2
-    Hash: f1d95b2c13d47bfa6bdd9462d4749eeb
+    Hash: 4e17b7f161a0bb59782a54a568f79781
   TypeTreeHash:
     serializedVersion: 2
-    Hash: 235cbca85ccdf28f10f6ab4fde453a14
+    Hash: 5738d5144726bd397c25f523f01cc102
   IncrementalBuildHash:
     serializedVersion: 2
-    Hash: c31d66df59f459b2605e70d894a04039
+    Hash: 4e17b7f161a0bb59782a54a568f79781
 HashAppended: 0
 ClassTypes:
+- Class: 21
+  Script: {instanceID: 0}
+- Class: 43
+  Script: {instanceID: 0}
 - Class: 48
   Script: {instanceID: 0}
 SerializeReferenceClassIdentifiers: []
 Assets:
 - Assets/WSM3D/Shaders/OpaqueVertexColor.shader
+- Assets/WSM3D/LegacyAssets/compoundspheremesh.asset
 - Assets/WSM3D/Shaders/GerstnerWater.shader
-- Assets/WSM3D/Shaders/OpaqueVertexColorURP.shader
+- Assets/WSM3D/LegacyAssets/compoundspherematerial.mat
 - Assets/WSM3D/Shaders/Impostor.shader
 - Assets/WSM3D/Shaders/ProceduralSky.shader
+- Assets/WSM3D/LegacyAssets/skybox.mat
 - Assets/WSM3D/Shaders/ColorGradingLUT.shader
 - Assets/WSM3D/Shaders/ScreenSpaceAO.shader
 Dependencies: []
