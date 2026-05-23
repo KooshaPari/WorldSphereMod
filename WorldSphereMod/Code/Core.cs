@@ -776,12 +776,24 @@ namespace WorldSphereMod
                     {
                         string assetPath = $"assets/wsm3d/shaders/{shaderName.ToLowerInvariant()}.shader";
                         var sh = ab.GetObject<UnityEngine.Shader>(assetPath);
-                        if (sh != null)
+                        if (sh == null)
                         {
-                            LoadedShaders[shaderName] = sh;
-                            Debug.Log($"[WSM3D] Loaded shader from bundle: WSM3D/{shaderName} -> {sh.name}");
+                            Debug.LogWarning($"[WSM3D] Shader not in bundle: {assetPath}");
+                            continue;
                         }
-                        else Debug.LogWarning($"[WSM3D] Shader not in bundle: {assetPath}");
+                        // Reject corrupted shader assets: a Shader object whose
+                        // .name is null/empty was emitted by Unity bake but failed
+                        // to compile its passes. Caching it would route every
+                        // consumer through a magenta-rendering instance. Leave
+                        // these out of the dict so the consumer falls through to
+                        // Shader.Find / Standard fallback.
+                        if (string.IsNullOrEmpty(sh.name))
+                        {
+                            Debug.LogError($"[WSM3D] Shader '{shaderName}' loaded with empty name — bake produced corrupted asset, skipping LoadedShaders cache. Consumer will fall back.");
+                            continue;
+                        }
+                        LoadedShaders[shaderName] = sh;
+                        Debug.Log($"[WSM3D] Loaded shader from bundle: WSM3D/{shaderName} -> {sh.name}");
                     }
                 }
                 catch (System.Exception ex) { Debug.LogWarning("[WSM3D] Shader load: " + ex.Message); }
