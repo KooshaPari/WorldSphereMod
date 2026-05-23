@@ -117,7 +117,15 @@ public static class BakeShaders
         {
             string platformDir = Path.Combine(outBase, folder);
             Directory.CreateDirectory(platformDir);
-            BuildPipeline.BuildAssetBundles(platformDir, BuildAssetBundleOptions.None, target);
+            // Uncompressed + chunk-based + strict-mode tries to maximize bundle
+            // compatibility across Unity versions. Bake target is Unity 6.3 but
+            // WorldBox runs Unity 2022 — Unity normally refuses cross-version bundle
+            // load. Uncompressed + ChunkBasedCompression sometimes works as a stop-gap.
+            BuildPipeline.BuildAssetBundles(
+                platformDir,
+                BuildAssetBundleOptions.UncompressedAssetBundle |
+                BuildAssetBundleOptions.StrictMode,
+                target);
             Debug.Log($"[WSM3D-Bake] built bundles for {target} -> {platformDir}");
         }
         Debug.Log("[WSM3D-Bake] All platforms done (combined legacy + new shaders).");
