@@ -79,6 +79,7 @@ namespace WorldSphereMod.Voxel
         static readonly Dictionary<int, Entry> _cache = new Dictionary<int, Entry>(1024);
         static readonly Dictionary<string, int> _nameToSpriteId = new Dictionary<string, int>();
         static readonly HashSet<int> _diagnosedSprites = new HashSet<int>();
+        static readonly HashSet<int> _diagnosedShapeHints = new HashSet<int>();
         static readonly HashSet<string> _invalidVoxelStyles = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
         static readonly ConcurrentQueue<BuildCompletion> _completedBuilds = new ConcurrentQueue<BuildCompletion>();
         static readonly ConcurrentQueue<BuildRequest> _queuedBuilds = new ConcurrentQueue<BuildRequest>();
@@ -726,9 +727,21 @@ namespace WorldSphereMod.Voxel
             // Per-sprite shape-hint routing. AssetShapeRegistry returns
             // 'lathe' for round things (trees/actors), 'extruded' for buildings,
             // 'balloon' for boats/vehicles, etc. Honors non-auto global override.
+            ShapeHint shapeHint = sprite != null ? AssetShapeRegistry.GetShapeHint(sprite.name) : ShapeHint.Auto;
             inflationStyle = sprite != null
                 ? AssetShapeRegistry.ResolveStyle(sprite.name, sprite)
                 : ResolveVoxelInflationStyle();
+            if (sprite != null)
+            {
+                int key = sprite.GetInstanceID();
+                lock (_lock)
+                {
+                    if (_diagnosedShapeHints.Add(key))
+                    {
+                        Debug.Log($"[WSM3D][ShapeHintMap] sprite=\"{sprite.name}\" hint={shapeHint} bucket={inflationStyle}");
+                    }
+                }
+            }
             if (string.Equals(inflationStyle, "lathe", System.StringComparison.OrdinalIgnoreCase))
             {
                 depth = -1;
