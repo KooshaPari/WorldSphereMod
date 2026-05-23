@@ -28,6 +28,8 @@ namespace WorldSphereMod.Voxel
         static readonly HashSet<string> _unreadableSpriteWarnings = new HashSet<string>();
         static int _buildPerTexelDiagCount;
         static readonly object _buildPerTexelDiagLock = new object();
+        static int _buildPerTexelNoiseDiagCount;
+        static readonly object _buildPerTexelNoiseDiagLock = new object();
         static int _buildGreedyDiagCount;
         static readonly object _buildGreedyDiagLock = new object();
 
@@ -690,6 +692,17 @@ namespace WorldSphereMod.Voxel
             const float kMinDepthScale = 0.30f;
             const float kMaxDepthScale = 1.00f;
             float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
+            int[] depthScaleHistogram = null;
+            bool logNoiseHistogram = false;
+            lock (_buildPerTexelNoiseDiagLock)
+            {
+                if (_buildPerTexelNoiseDiagCount < 5)
+                {
+                    _buildPerTexelNoiseDiagCount++;
+                    logNoiseHistogram = true;
+                    depthScaleHistogram = new int[8];
+                }
+            }
             for (int y = 0; y < h; y++)
             {
                 int row = (y0 + y) * texW + x0;
@@ -700,11 +713,16 @@ namespace WorldSphereMod.Voxel
                         : tex[row + x];
                     if (c.a > 16)
                     {
-                        float worldX = (x - sprite.pivot.x) / ppu;
-                        float worldZ = (y - sprite.pivot.y) / ppu;
+                        float worldX = (x0 + x - sprite.pivot.x) / ppu;
+                        float worldZ = (y0 + y - sprite.pivot.y) / ppu;
                         float noise = Mathf.PerlinNoise(worldX * 0.22f + 0.13f, worldZ * 0.22f + 0.73f);
                         float depthScale = Mathf.Lerp(kMinDepthScale, kMaxDepthScale, noise);
                         int columnDepth = Mathf.Clamp(Mathf.RoundToInt(depth * depthScale), 1, depth);
+                        if (logNoiseHistogram)
+                        {
+                            int bin = Mathf.Clamp(Mathf.FloorToInt(depthScale * depthScaleHistogram.Length), 0, depthScaleHistogram.Length - 1);
+                            depthScaleHistogram[bin]++;
+                        }
                         int zStart = Mathf.Clamp((depth - columnDepth) / 2, 0, depth - columnDepth);
                         int zEnd = zStart + columnDepth;
 
@@ -772,6 +790,10 @@ namespace WorldSphereMod.Voxel
             if (shouldLog)
             {
                 Debug.Log($"[WSM3D][DIAG] BuildPerTexel #{diagIndex}: sprite=\"{sprite.name}\" w={w} h={h} depth={depth} verts={mesh.vertexCount} tris={tris.Count / 3} bounds={mesh.bounds}");
+            }
+            if (logNoiseHistogram)
+            {
+                Debug.Log($"[WSM3D][DIAG] BuildPerTexel depthScale histogram #{_buildPerTexelNoiseDiagCount}: sprite=\"{sprite.name}\" depth={depth} bins=[{string.Join(",", depthScaleHistogram)}]");
             }
             // No UploadMeshData(true) here: callers (RigCache) need to keep CPU-side vertex
             // data readable so they can stamp per-vertex bone indices alongside vertexToTexel.
