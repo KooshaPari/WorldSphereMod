@@ -69,7 +69,19 @@ namespace WorldSphereMod.Lighting
 
         static Shader? ResolveSkyShader()
         {
-            Shader? shader = Resources.Load<Shader>(kSkyShaderPath);
+            // Bundle-loaded WSM3D/* shaders register globally via Shader.Find
+            // after Core.LoadAssets force-loads them. Try that first since the
+            // shader actually lives in the worldsphere AssetBundle, not in any
+            // Unity Resources folder. The Resources.Load paths below are kept
+            // as fallbacks for hypothetical pre-bake builds, but should not be
+            // hit in the shipped configuration.
+            Shader? shader = Shader.Find("WSM3D/ProceduralSky");
+            if (shader != null)
+            {
+                Debug.Log("[WSM3D] ProceduralSky shader resolved via Shader.Find('WSM3D/ProceduralSky').");
+                return shader;
+            }
+            shader = Resources.Load<Shader>(kSkyShaderPath);
             if (shader != null)
             {
                 Debug.Log($"[WSM3D] ProceduralSky shader resolved from {kSkyShaderPath}.");
