@@ -758,6 +758,48 @@ namespace WorldSphereMod
                     Debug.LogError("[WSM3D] CompoundSphereMesh missing from bundle.");
                 if (CompoundSphereMaterial == null)
                     Debug.LogError("[WSM3D] CompoundSphereMaterial missing from bundle.");
+
+                // Load the shader-only bundle separately so a bad rebuild can
+                // never corrupt the legacy worldsphere bundle again.
+                WrappedAssetBundle shaderAb = AssetBundleUtils.GetAssetBundle("wsm3d-shaders");
+                if (shaderAb == null)
+                {
+                    Debug.LogWarning("[WSM3D] AssetBundleUtils.GetAssetBundle('wsm3d-shaders') returned null — shader bundle not baked yet. Consumers will fall back to Shader.Find / Standard.");
+                }
+                else
+                {
+                    try
+                    {
+                        foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ScreenSpaceAO", "ColorGradingLUT", "ProceduralSky", "Impostor" })
+                        {
+                            string assetPath = $"assets/wsm3d/shaders/{shaderName.ToLowerInvariant()}.shader";
+                            var sh = shaderAb.GetObject<UnityEngine.Shader>(assetPath);
+                            if (sh == null)
+                            {
+                                Debug.LogWarning($"[WSM3D] Shader not in wsm3d-shaders bundle: {assetPath}");
+                                continue;
+                            }
+                            // Reject corrupted shader assets: a Shader object whose
+                            // .name is null/empty was emitted by Unity bake but failed
+                            // to compile its passes. Caching it would route every
+                            // consumer through a magenta-rendering instance. Leave
+                            // these out of the dict so the consumer falls through to
+                            // Shader.Find / Standard fallback.
+                            if (string.IsNullOrEmpty(sh.name))
+                            {
+                                Debug.LogError($"[WSM3D] Shader '{shaderName}' loaded with empty name — bake produced corrupted asset, skipping LoadedShaders cache. Consumer will fall back.");
+                                continue;
+                            }
+                            LoadedShaders[shaderName] = sh;
+                            Debug.Log($"[WSM3D] Loaded shader from wsm3d-shaders bundle: WSM3D/{shaderName} -> {sh.name}");
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogWarning("[WSM3D] Shader load: " + ex.Message);
+                    }
+                }
+
                 // Inspect CompoundSphereMaterial's shader. If its shader was
                 // bundled corrupted (empty .name like the 4-of-6 broken
                 // shaders above), the terrain tiles render as black
@@ -837,40 +879,6 @@ namespace WorldSphereMod
                 {
                     LibraryMaterials.instance._night_affected_colors.Add(CompoundSphereMaterial);
                 }
-
-                // Force-load WSM3D/* shaders into a static cache. AssetBundle.
-                // LoadAsset<Shader> returns the shader instance but does NOT
-                // register it in Unity's global Shader.Find database (that
-                // requires Always-Included Shaders in Graphics Settings).
-                // So we stash the loaded references here, and consumers read
-                // from LoadedShaders dict instead of relying on Shader.Find.
-                try
-                {
-                    foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ScreenSpaceAO", "ColorGradingLUT", "ProceduralSky", "Impostor" })
-                    {
-                        string assetPath = $"assets/wsm3d/shaders/{shaderName.ToLowerInvariant()}.shader";
-                        var sh = ab.GetObject<UnityEngine.Shader>(assetPath);
-                        if (sh == null)
-                        {
-                            Debug.LogWarning($"[WSM3D] Shader not in bundle: {assetPath}");
-                            continue;
-                        }
-                        // Reject corrupted shader assets: a Shader object whose
-                        // .name is null/empty was emitted by Unity bake but failed
-                        // to compile its passes. Caching it would route every
-                        // consumer through a magenta-rendering instance. Leave
-                        // these out of the dict so the consumer falls through to
-                        // Shader.Find / Standard fallback.
-                        if (string.IsNullOrEmpty(sh.name))
-                        {
-                            Debug.LogError($"[WSM3D] Shader '{shaderName}' loaded with empty name — bake produced corrupted asset, skipping LoadedShaders cache. Consumer will fall back.");
-                            continue;
-                        }
-                        LoadedShaders[shaderName] = sh;
-                        Debug.Log($"[WSM3D] Loaded shader from bundle: WSM3D/{shaderName} -> {sh.name}");
-                    }
-                }
-                catch (System.Exception ex) { Debug.LogWarning("[WSM3D] Shader load: " + ex.Message); }
             }
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look
