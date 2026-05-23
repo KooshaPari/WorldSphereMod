@@ -14,6 +14,7 @@ $LogFile = Join-Path $RepoRoot 'Tools/bake-shaders.log'
 # Auto-locate Unity 6.3 install
 if ([string]::IsNullOrEmpty($UnityExe)) {
     $candidates = @(
+        "${env:ProgramFiles}\Unity\Hub\Editor\2021.3.45f1\Editor\Unity.exe",
         "${env:ProgramFiles}\Unity\Hub\Editor\6000.3.0f1\Editor\Unity.exe",
         "${env:ProgramFiles}\Unity\Hub\Editor\6000.3.0\Editor\Unity.exe"
     )
