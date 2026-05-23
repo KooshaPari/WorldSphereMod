@@ -1,14 +1,15 @@
-# WSM3D Shipped Shaders — AssetBundle Bake Manifest
+# WSM3D Shipped Shaders - AssetBundle Bake Manifest
 
 Shipped `.shader` source files that need baking into the platform-specific
-`worldsphere` AssetBundles (`win/`, `linux/`, `osx/`). Runtime resolves them
-via `Shader.Find("WSM3D/<name>")` after the bundle loads.
+`wsm3d-shaders` AssetBundles (`win/`, `linux/`, `osx/`). Runtime resolves them
+via `Shader.Find("WSM3D/<name>")` after the bundle loads. The bundle is BRP-
+only; `OpaqueVertexColorURP.shader` is intentionally excluded from the shipped
+set.
 
 | Shader | Replaces | Pipeline |
 |---|---|---|
 | `OpaqueVertexColor.shader` | Standard for voxel meshes (eliminates Standard-lit-blackness) | BRP |
-| `OpaqueVertexColorURP.shader` | URP variant of above | URP |
-| `GerstnerWater.shader` | Standard for water surface (eliminates water-blackworld) | BRP/URP |
+| `GerstnerWater.shader` | Standard for water surface (eliminates water-blackworld) | BRP |
 | `ScreenSpaceAO.shader` | Falls back to OnRenderImage SSAO pass | BRP |
 | `ColorGradingLUT.shader` | OnRenderImage LUT lookup with exposure + saturation | BRP |
 | `ProceduralSky.shader` | HDR atmospheric skybox with sun disc | BRP |
@@ -16,23 +17,23 @@ via `Shader.Find("WSM3D/<name>")` after the bundle loads.
 
 ## Bake procedure (Unity 2022.3 Editor required)
 
-1. Open `WorldSphereMod-AssetBundles/` project (or create it: Unity 2022.3
-   LTS, empty 3D template).
+1. Open the Unity bake project used by `Tools/Unity-Bake-Project/`.
 2. Drop the `.shader` files into `Assets/WSM3D/Shaders/`.
 3. For each shader, in inspector → AssetBundle dropdown → choose
-   `worldsphere` (Standalone variant).
+   `wsm3d-shaders` (Standalone variant).
 4. Build → Build AssetBundles → Target Win64/Linux/macOS.
 5. Copy outputs to:
-   - `WorldSphereMod/AssetBundles/win/worldsphere`
-   - `WorldSphereMod/AssetBundles/linux/worldsphere`
-   - `WorldSphereMod/AssetBundles/osx/worldsphere`
+   - `WorldSphereMod/AssetBundles/win/wsm3d-shaders`
+   - `WorldSphereMod/AssetBundles/linux/wsm3d-shaders`
+   - `WorldSphereMod/AssetBundles/osx/wsm3d-shaders`
 6. Commit binary blobs + shipped `.shader` source side-by-side.
 
 ## Runtime loader
 
 At `Mod.PostInit`, `WorldSphereMod.Core.LoadAssets` resolves the platform's
-bundle via `AssetBundleUtils.GetAssetBundle("worldsphere")`. Any `Shader.Find`
-call for `WSM3D/*` then resolves cleanly.
+main bundle via `AssetBundleUtils.GetAssetBundle("worldsphere")` and the shader
+bundle via `AssetBundleUtils.GetAssetBundle("wsm3d-shaders")`. Any
+`Shader.Find` call for `WSM3D/*` then resolves cleanly.
 
 ## Verification
 
@@ -47,9 +48,10 @@ If a shader is FOUND at probe but the material fallback chain still picks
 Standard/Sprites-Default, the inline-shader try-compile guard at
 `VoxelRender.TryCompileInlineVoxelShader` is the place to fix.
 
-## Why not URP-only?
+## Why no URP variant?
 
 WorldBox ships Unity 2022.3 with the **Built-in Render Pipeline (BRP)**.
-We can't change the pipeline from a mod. URP shaders simply won't resolve
-at runtime in WorldBox. The URP variants are for downstream consumers /
-future-proofing only.
+We can't change the pipeline from a mod, so the bake script intentionally
+skips the URP shader variant instead of carrying it in the shipped bundle set.
+If `OpaqueVertexColorURP.shader` appears in the bake project, delete it before
+rebaking.
