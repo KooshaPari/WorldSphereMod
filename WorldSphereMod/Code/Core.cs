@@ -420,6 +420,13 @@ namespace WorldSphereMod
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] CubemapLighting failed: " + ex.Message); }
             try { WorldSphereMod.Lighting.ColorGradingLUT.EnsureCreated(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] ColorGradingLUT failed: " + ex.Message); }
+            // Drive ProceduralSky.EnsureCreated AFTER IsWorld3D has flipped true.
+            // The earlier InitProfiler-wrapped call during Mod.Init early-returns
+            // because Core.IsWorld3D is still false at that point — so the skybox
+            // bind never happens. This is the diagnosed root cause of "HDR cubemap
+            // not visible despite flag=true" 2026-05-22.
+            try { WorldSphereMod.Lighting.ProceduralSky.EnsureCreated(); }
+            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] ProceduralSky.EnsureCreated failed: " + ex.Message); }
             try { Do3DStuff(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] Do3DStuff failed: " + ex.Message); }
         }
