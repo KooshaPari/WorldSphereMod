@@ -152,7 +152,10 @@ using WorldSphereMod;
             // and gated on IsWorld3D && WorldspaceUI internally.
             InitProfiler.Measure("EnsureCreated: WorldUIRenderer", () => { try { WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] WorldUIRenderer FAILED: " + ex); } });
             yield return null;
-            InitProfiler.Measure("EnsureCreated: RuntimeStatsOverlay", () => { try { WorldSphereMod.Worldspace.RuntimeStatsOverlay.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] RuntimeStatsOverlay FAILED: " + ex); } });
+            if (Core.savedSettings != null && Core.savedSettings.ProfilerDump)
+            {
+                InitProfiler.Measure("EnsureCreated: RuntimeStatsOverlay", () => { try { WorldSphereMod.Worldspace.RuntimeStatsOverlay.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] RuntimeStatsOverlay FAILED: " + ex); } });
+            }
             yield return null;
             InitProfiler.Measure("EnsureCreated: TimeOfDay", () => { try { WorldSphereMod.Lighting.TimeOfDay.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] TimeOfDay FAILED: " + ex); } });
             yield return null;

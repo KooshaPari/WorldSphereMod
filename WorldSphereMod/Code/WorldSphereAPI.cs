@@ -17,6 +17,41 @@ namespace WorldSphereMod.API
         {
             return Core.IsWorld3D;
         }
+        /// <summary>Report the host API version for downstream capability checks.</summary>
+        public static string GetVersion()
+        {
+            return "2.0";
+        }
+        /// <summary>Return the host capabilities supported by this build.</summary>
+        public static string[] GetCapabilities()
+        {
+            return new[]
+            {
+                "IsWorld3D",
+                "IsModel3D",
+                "RegisterCustomMesh",
+                "RegisterBuildingRules"
+            };
+        }
+        /// <summary>Return true when the host advertises the named feature.</summary>
+        public static bool HasFeature(string Name)
+        {
+            if (string.IsNullOrEmpty(Name))
+            {
+                return false;
+            }
+
+            switch (Name)
+            {
+                case "IsWorld3D":
+                case "IsModel3D":
+                case "RegisterCustomMesh":
+                case "RegisterBuildingRules":
+                    return true;
+                default:
+                    return false;
+            }
+        }
         /// <summary>Mark an actor asset as non-billboarded (faces ground, doesn't rotate to camera).</summary>
         /// <param name="ID">WorldBox actor asset id.</param>
         public static void MakeActorPerp(string ID)

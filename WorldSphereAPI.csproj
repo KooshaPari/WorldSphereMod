@@ -8,25 +8,14 @@
       4.8 reference pack installed.
     -->
     <TargetFramework>netstandard2.0</TargetFramework>
-	  <LangVersion>8.0</LangVersion>
-	  <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <LangVersion>8.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="WorldSphereMod\**" />
-    <Compile Remove="WorldSphereTester\**" />
-    <Compile Remove="tests\**" />
-    <EmbeddedResource Remove="WorldSphereMod\**" />
-    <EmbeddedResource Remove="WorldSphereTester\**" />
-    <EmbeddedResource Remove="tests\**" />
-    <None Remove="WorldSphereMod\**" />
-    <None Remove="WorldSphereTester\**" />
-    <None Remove="tests\**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Remove=".gitignore" />
-    <None Remove="README.md" />
+    <Compile Include="WorldSphereAPI\WorldSphereAPI.cs" />
   </ItemGroup>
 
 </Project>

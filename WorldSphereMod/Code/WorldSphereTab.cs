@@ -524,6 +524,10 @@ namespace WorldSphereMod.UI
         static void ToggleProfileMode()
         {
             Core.savedSettings.ProfilerDump = !Core.savedSettings.ProfilerDump;
+            if (Core.savedSettings.ProfilerDump)
+            {
+                WorldSphereMod.Worldspace.RuntimeStatsOverlay.EnsureCreated();
+            }
             Core.SaveSettings();
         }
         static void ResetToDefaults()

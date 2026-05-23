@@ -1,6 +1,9 @@
 using System;
 using System.Reflection;
 delegate bool IsWorld3D();
+delegate string GetVersion();
+delegate string[] GetCapabilities();
+delegate bool HasFeature(string Name);
 delegate void MakePerp(string ID);
 delegate object GetSetting(string Name);
 delegate void EditEffect(string ID, bool IsUpright, bool SeperateSprite, float ExtraHeight, bool OnGround);
@@ -16,12 +19,15 @@ delegate void RegisterBuildingRules(string assetId, object rules);
 /// </summary>
 public class WorldSphereAPI
 {
-    IsWorld3D is3D;
-    MakePerp actor;
-    MakePerp building;
-    MakePerp proj;
-    EditEffect editEffect;
-    GetSetting getSetting;
+    IsWorld3D? is3D;
+    GetVersion? getVersion;
+    GetCapabilities? getCapabilities;
+    HasFeature? hasFeature;
+    MakePerp? actor;
+    MakePerp? building;
+    MakePerp? proj;
+    EditEffect? editEffect;
+    GetSetting? getSetting;
     IsModel3D? isModel3D;
     RegisterCustomMesh? registerCustomMesh;
     RegisterBuildingRules? registerBuildingRules;
@@ -29,12 +35,27 @@ public class WorldSphereAPI
     /// <summary>
     /// returns true if the world Is 3D
     /// </summary>
-    public bool IsWorld3D { get { return is3D(); } }
+    public bool IsWorld3D { get { return is3D!(); } }
     /// <summary>
     /// returns true if the v2 mesh pipeline is active (voxel/procgen meshes,
     /// not just camera-billboarded sprites). False on v1 hosts.
     /// </summary>
     public bool IsModel3D { get { return isModel3D != null && isModel3D(); } }
+    /// <summary>
+    /// Returns the host API version string when available. Falls back to
+    /// <c>unknown</c> on older hosts that do not expose discovery methods.
+    /// </summary>
+    public string GetVersion() { return getVersion != null ? getVersion() : "unknown"; }
+    /// <summary>
+    /// Returns the set of host capabilities exposed through the discovery surface.
+    /// Older hosts return an empty set.
+    /// </summary>
+    public string[] GetCapabilities() { return getCapabilities != null ? getCapabilities() : Array.Empty<string>(); }
+    /// <summary>
+    /// Returns true when the connected host advertises <paramref name="Name"/>.
+    /// Older hosts safely return false.
+    /// </summary>
+    public bool HasFeature(string Name) { return hasFeature != null && hasFeature(Name); }
     /// <summary>
     /// Override the auto-voxelized mesh for a given asset id. No-op on v1 hosts.
     /// </summary>
@@ -67,20 +88,28 @@ public class WorldSphereAPI
         getSetting = (GetSetting)Delegate.CreateDelegate(typeof(GetSetting), WorldSpherePort.GetMethod("GetSetting", BindingFlags.Static | BindingFlags.Public));
 
         // v2 surface — present only when connected to WorldSphereMod3D.
-        MethodInfo? isModel = WorldSpherePort.GetMethod("IsModel3D", BindingFlags.Static | BindingFlags.Public);
-        if (isModel != null)
+        TryBindOptional(WorldSpherePort, "GetVersion", out getVersion);
+        TryBindOptional(WorldSpherePort, "GetCapabilities", out getCapabilities);
+        TryBindOptional(WorldSpherePort, "HasFeature", out hasFeature);
+        TryBindOptional(WorldSpherePort, "IsModel3D", out isModel3D);
+        TryBindOptional(WorldSpherePort, "RegisterCustomMesh", out registerCustomMesh);
+        TryBindOptional(WorldSpherePort, "RegisterBuildingRules", out registerBuildingRules);
+    }
+    private static void TryBindOptional<T>(Type hostType, string methodName, out T? binding) where T : class
+    {
+        binding = null;
+        MethodInfo? method = hostType.GetMethod(methodName, BindingFlags.Static | BindingFlags.Public);
+        if (method == null)
         {
-            isModel3D = (IsModel3D)Delegate.CreateDelegate(typeof(IsModel3D), isModel);
+            return;
         }
-        MethodInfo? regMesh = WorldSpherePort.GetMethod("RegisterCustomMesh", BindingFlags.Static | BindingFlags.Public);
-        if (regMesh != null)
+        try
         {
-            registerCustomMesh = (RegisterCustomMesh)Delegate.CreateDelegate(typeof(RegisterCustomMesh), regMesh);
+            binding = Delegate.CreateDelegate(typeof(T), method) as T;
         }
-        MethodInfo? regBuilding = WorldSpherePort.GetMethod("RegisterBuildingRules", BindingFlags.Static | BindingFlags.Public);
-        if (regBuilding != null)
+        catch (ArgumentException)
         {
-            registerBuildingRules = (RegisterBuildingRules)Delegate.CreateDelegate(typeof(RegisterBuildingRules), regBuilding);
+            binding = null;
         }
     }
     /// <summary>
@@ -92,7 +121,7 @@ public class WorldSphereAPI
     /// <returns></returns>
     public T GetSetting<T>(string Name)
     {
-        return (T)getSetting(Name);
+        return (T)getSetting!(Name);
     }
     /// <summary>
     /// Makes a actor with asset <paramref name="ID"/> non upright, it will face towards the ground and not rotate to the camera
@@ -100,7 +129,7 @@ public class WorldSphereAPI
     /// <param name="ID"></param>
     public void MakeActorNonUpright(string ID)
     {
-        actor(ID);
+        actor!(ID);
     }
     /// <summary>
     /// Makes a building with asset <paramref name="ID"/> non upright, it will face towards the ground and not rotate to the camera
@@ -108,7 +137,7 @@ public class WorldSphereAPI
     /// <param name="ID"></param>
     public void MakeBuildingNonUpright(string ID)
     {
-        building(ID);
+        building!(ID);
     }
     /// <summary>
     /// Makes a projectile with asset <paramref name="ID"/> non upright, it will face towards the ground and not rotate to the camera
@@ -116,7 +145,7 @@ public class WorldSphereAPI
     /// <param name="ID"></param>
     public void MakeProjectileNonUpright(string ID)
     {
-        proj(ID);
+        proj!(ID);
     }
     /// <summary>
     /// edits the data of an effect that worldspheremod uses
@@ -128,14 +157,14 @@ public class WorldSphereAPI
     /// <param name="OnGround">if true, the base height of the effect is the height of the tile it is on, otherwise the base height is 0</param>
     public void EditEffect(string ID, bool isUpright, bool SeperateSprite = false, float ExtraHeight = 0, bool OnGround = true)
     {
-        editEffect(ID, isUpright, SeperateSprite, ExtraHeight, OnGround);
+        editEffect!(ID, isUpright, SeperateSprite, ExtraHeight, OnGround);
     }
     /// <summary>
     /// Connects to WorldSphereMod, if it is in the Game
     /// </summary>
     /// <remarks>only use this in post init</remarks>
     /// <returns>true if worldspheremod is detected</returns>
-    public static bool Connect(out WorldSphereAPI API)
+    public static bool Connect(out WorldSphereAPI? API)
     {
         API = null;
         // Try the WorldSphereMod3D fork first, fall back to upstream WorldSphereMod.

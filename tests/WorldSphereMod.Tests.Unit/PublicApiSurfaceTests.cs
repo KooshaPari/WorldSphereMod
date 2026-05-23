@@ -6,6 +6,24 @@ using FluentAssertions;
 
 public class PublicApiSurfaceTests
 {
+    private static class HostWithMismatchedOptionalSurface
+    {
+        public static bool IsWorld3D() => true;
+        public static void MakeActorPerp(string id) { }
+        public static void MakeBuildingPerp(string id) { }
+        public static void MakeProjectilePerp(string id) { }
+        public static void EditEffect(string id, bool isUpright, bool separateSprite, float extraHeight, bool onGround) { }
+        public static object GetSetting(string name) => new object();
+
+        // Deliberately incompatible with the API's optional discovery delegates.
+        public static string GetVersion(int unused) => "broken";
+        public static int GetCapabilities() => 42;
+        public static bool HasFeature() => true;
+        public static bool IsModel3D(string unused) => true;
+        public static void RegisterCustomMesh(string assetId, object mesh) { }
+        public static void RegisterBuildingRules() { }
+    }
+
     // Resolve the internal parameterless ctor on WorldSphereAPI so we can
     // exercise the public surface without a real WorldBox/WorldSphereMod3D host.
     private static WorldSphereAPI CreateBareInstance()
@@ -56,10 +74,56 @@ public class PublicApiSurfaceTests
     }
 
     [Fact]
+    public void Discovery_methods_return_safe_defaults_when_no_host()
+    {
+        var api = CreateBareInstance();
+
+        api.GetVersion().Should().Be("unknown");
+        api.GetCapabilities().Should().BeEmpty();
+        api.HasFeature("RegisterCustomMesh").Should().BeFalse();
+        api.HasFeature(null!).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Optional_discovery_bindings_fail_soft_when_host_signature_mismatches()
+    {
+        var ctor = typeof(WorldSphereAPI).GetConstructor(
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            binder: null,
+            types: new[] { typeof(Type) },
+            modifiers: null);
+        ctor.Should().NotBeNull("WorldSphereAPI must expose the host-binding ctor for compatibility tests");
+
+        Action act = () => ctor!.Invoke(new object[] { typeof(HostWithMismatchedOptionalSurface) });
+        act.Should().NotThrow("optional v2 methods must fall back to safe defaults when a future host shape differs");
+
+        var api = (WorldSphereAPI)ctor!.Invoke(new object[] { typeof(HostWithMismatchedOptionalSurface) });
+        api.GetVersion().Should().Be("unknown");
+        api.GetCapabilities().Should().BeEmpty();
+        api.HasFeature("RegisterCustomMesh").Should().BeFalse();
+        api.IsModel3D.Should().BeFalse();
+        api.RegisterCustomMesh("human", mesh: null!, albedo: null!);
+        api.RegisterBuildingRules("house_human", rules: new object());
+    }
+
+    [Fact]
+    public void Discovery_methods_are_present_on_public_surface()
+    {
+        var apiType = typeof(WorldSphereAPI);
+
+        apiType.GetMethod("GetVersion", BindingFlags.Instance | BindingFlags.Public)
+            .Should().NotBeNull();
+        apiType.GetMethod("GetCapabilities", BindingFlags.Instance | BindingFlags.Public)
+            .Should().NotBeNull();
+        apiType.GetMethod("HasFeature", BindingFlags.Instance | BindingFlags.Public)
+            .Should().NotBeNull();
+    }
+
+    [Fact]
     public void RegisterCustomMesh_is_noop_when_no_host()
     {
         var api = CreateBareInstance();
-        Action act = () => api.RegisterCustomMesh("human", mesh: null!, albedo: null);
+        Action act = () => api.RegisterCustomMesh("human", mesh: null!, albedo: null!);
         act.Should().NotThrow("v2 RegisterCustomMesh must null-check the delegate");
     }
 
