@@ -33,6 +33,7 @@ CI builds only the Unity-free API project.
 | Settings | `WorldSphereMod/Code/SavedSettings.cs` |
 | Build portability layer | `Directory.Build.props` (env: `WORLDBOX_PATH`) |
 | CI | `.github/workflows/build.yml` (API-only) |
+| Dependency/security audit gate | `.github/workflows/dependency-security-audit.yml` |
 | Install / uninstall | `Tools/install.ps1`, `Tools/uninstall.ps1` |
 | Voxel pipeline | `WorldSphereMod/Code/Voxel/` |
 | Procedural buildings | `WorldSphereMod/Code/ProcGen/` |
@@ -116,6 +117,16 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 
 - `MeshWater` — Phase 4
 - `SSGIEnabled` — Phase 9
+
+### CI dependency audit gate
+
+- `docs/package-lock.json` currently reports moderate `npm audit` advisories
+  for `esbuild`, `vite`, and `vitepress` with no available upstream fix.
+  The new dependency-security audit workflow documents that waiver and keeps
+  the docs job non-blocking until the dependency chain can be updated.
+- `Tools/journey-records` is audited with `cargo-audit` in CI.
+- NuGet vulnerability scanning is blocking and should fail the gate if any
+  project reports vulnerable packages.
 
 ### Diagnostic / non-phase settings
 
