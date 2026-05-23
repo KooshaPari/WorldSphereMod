@@ -53,31 +53,54 @@ namespace WorldSphereMod.LOD
             if (_materialAttempted) return null;
             _materialAttempted = true;
 
-            string[] candidates =
+            Shader? shader = null;
+            if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("Impostor", out var bundledImpostor) && bundledImpostor != null)
             {
-                "Universal Render Pipeline/Unlit",
-                "Universal Render Pipeline/Lit",
-                "Universal Render Pipeline/Particles/Unlit",
-                "Standard",
-                "Sprites/Default",
-            };
+                shader = bundledImpostor;
+                Debug.Log("[WSM3D] Impostor material resolved via Core.Sphere.LoadedShaders cache.");
+            }
+            if (shader == null)
+            {
+                shader = Shader.Find("WSM3D/Impostor");
+                if (shader != null) Debug.Log("[WSM3D] Impostor material resolved via Shader.Find('WSM3D/Impostor').");
+            }
+            if (shader == null)
+            {
+                string[] candidates =
+                {
+                    "Universal Render Pipeline/Unlit",
+                    "Universal Render Pipeline/Lit",
+                    "Universal Render Pipeline/Particles/Unlit",
+                    "Standard",
+                    "Sprites/Default",
+                };
 
-            foreach (var shaderName in candidates)
+                foreach (var shaderName in candidates)
+                {
+                    shader = Shader.Find(shaderName);
+                    if (shader != null)
+                    {
+                        Debug.Log($"[WSM3D] Impostor material fallback shader resolved via Shader.Find('{shaderName}').");
+                        break;
+                    }
+                }
+            }
+
+            if (shader != null)
             {
-                Shader? s = Shader.Find(shaderName);
-                if (s == null) continue;
-                var mat = new Material(s) { name = "WSM3D.Impostor" };
+                var mat = new Material(shader) { name = "WSM3D.Impostor" };
                 mat.enableInstancing = true;
                 if (!mat.enableInstancing)
                 {
                     Object.Destroy(mat);
-                    continue;
                 }
-
-                ConfigureImpostorMaterial(mat, shaderName);
-                _material = mat;
-                LogImpostorMaterialPassDetails(_material, shaderName);
-                return _material;
+                else
+                {
+                    ConfigureImpostorMaterial(mat, shader.name);
+                    _material = mat;
+                    LogImpostorMaterialPassDetails(_material, shader.name);
+                    return _material;
+                }
             }
 
             Debug.LogWarning("[WSM3D] ImpostorBillboard material resolution failed; impostor rendering will stay sprite-only.");
