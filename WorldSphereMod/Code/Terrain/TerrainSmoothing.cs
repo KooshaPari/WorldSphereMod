@@ -369,23 +369,9 @@ namespace WorldSphereMod.Terrain
 
             _materialAttempted = true;
 
-            Material? terrainMaterial = GetUnderlyingTerrainMaterial();
-            if (terrainMaterial != null)
-            {
-                Material material = new Material(terrainMaterial)
-                {
-                    name = "WSM3D.MountainSlopeSmoothing"
-                };
-                material.color = Color.white;
-                if (material.enableInstancing)
-                {
-                    _material = material;
-                    return true;
-                }
-
-                UnityEngine.Object.Destroy(material);
-            }
-
+            // SKIP GetUnderlyingTerrainMaterial path — copying a vanilla terrain Material
+            // produces magenta-fallback meshes at runtime (user-confirmed screenshot).
+            // Go straight to the WSM3D candidate chain.
             string[] candidates =
             {
                 "WSM3D/OpaqueVertexColor",
