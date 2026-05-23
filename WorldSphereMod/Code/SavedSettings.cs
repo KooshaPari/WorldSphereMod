@@ -12,7 +12,7 @@ namespace WorldSphereMod
 public class SavedSettings
 {
     public bool AutoScreenshotEnabled = true;
-    public float AutoScreenshotIntervalSeconds = 30f;
+    public float AutoScreenshotIntervalSeconds = 60f;
     public string AutoScreenshotPath = @"C:\Users\koosh\Dev\WorldSphereMod\docs\journeys\scratch\";
 
         public string Version = "2.2";

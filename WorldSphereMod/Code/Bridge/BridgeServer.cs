@@ -2,7 +2,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Drawing;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -238,10 +237,10 @@ namespace WorldSphereMod.Bridge
                     WriteJson(context.Response, InvokeOnMainThread(() => LoadSave(slotText)));
                     return;
                 }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/screenshot", StringComparison.OrdinalIgnoreCase))
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && (string.Equals(path, "/actions/screenshot", StringComparison.OrdinalIgnoreCase) || string.Equals(path, "/screenshot/now", StringComparison.OrdinalIgnoreCase)))
                 {
                     string outputPath = context.Request.QueryString["path"] ?? string.Empty;
-                    WriteJson(context.Response, InvokeOnMainThread(() => CaptureScreenshot(outputPath)));
+                    WriteJson(context.Response, CaptureScreenshot(outputPath));
                     return;
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/voxel/dump_all", StringComparison.OrdinalIgnoreCase))
@@ -808,40 +807,41 @@ namespace WorldSphereMod.Bridge
 
         object CaptureScreenshot(string outputPath)
         {
-            if (string.IsNullOrWhiteSpace(outputPath))
+            string requestPath = string.IsNullOrWhiteSpace(outputPath) ? WorldSphereMod.ScreenshotCapture.BuildDefaultPath() : outputPath;
+            ManualResetEventSlim completed = new ManualResetEventSlim(false);
+            object result = new { ok = false, error = "pending", path = Path.GetFullPath(requestPath) };
+            Exception? error = null;
+
+            _mainThreadQueue.Enqueue(() =>
             {
-                return new { ok = false, error = "missing_path" };
+                try
+                {
+                    StartCoroutine(WorldSphereMod.ScreenshotCapture.CaptureCoroutine(requestPath, (savedPath, success, message) =>
+                    {
+                        result = success
+                            ? new { ok = true, path = savedPath }
+                            : new { ok = false, error = message, path = savedPath };
+                        completed.Set();
+                    }));
+                }
+                catch (Exception ex)
+                {
+                    error = ex;
+                    completed.Set();
+                }
+            });
+
+            if (!completed.Wait(10000))
+            {
+                return new { ok = false, error = "timeout", path = Path.GetFullPath(requestPath) };
             }
 
-            try
+            if (error != null)
             {
-                string fullPath = Path.GetFullPath(outputPath);
-                string? directory = Path.GetDirectoryName(fullPath);
-                if (!string.IsNullOrEmpty(directory))
-                {
-                    Directory.CreateDirectory(directory);
-                }
-
-                int width = UnityEngine.Screen.width;
-                int height = UnityEngine.Screen.height;
-                if (width <= 0 || height <= 0)
-                {
-                    return new { ok = false, error = "invalid_screen_size", width, height, path = fullPath };
-                }
-
-                using (var bitmap = new Bitmap(width, height))
-                using (System.Drawing.Graphics graphics = System.Drawing.Graphics.FromImage(bitmap))
-                {
-                    graphics.CopyFromScreen(0, 0, 0, 0, new Size(width, height));
-                    bitmap.Save(fullPath, System.Drawing.Imaging.ImageFormat.Png);
-                }
-
-                return new { ok = true, path = fullPath, width, height };
+                return new { ok = false, error = error.Message, path = Path.GetFullPath(requestPath) };
             }
-            catch (Exception ex)
-            {
-                return new { ok = false, error = ex.Message, path = outputPath };
-            }
+
+            return result;
         }
 
         object BuildPhasePayload(string phaseName)
