@@ -372,12 +372,17 @@ namespace WorldSphereMod.Terrain
             // SKIP GetUnderlyingTerrainMaterial path — copying a vanilla terrain Material
             // produces magenta-fallback meshes at runtime (user-confirmed screenshot).
             // Go straight to the WSM3D candidate chain.
+            // Standard FIRST: user-confirmed that OpaqueVertexColor renders
+            // slope quads pure black even with grey emission applied
+            // (5fafe5e). Standard with brown _Color + emission produces the
+            // expected visible tinted slope. Falls through to others only if
+            // Standard somehow isn't present.
             string[] candidates =
             {
-                "WSM3D/OpaqueVertexColor",
-                "Universal Render Pipeline/Unlit",
-                "Universal Render Pipeline/Lit",
                 "Standard",
+                "WSM3D/OpaqueVertexColor",
+                "Universal Render Pipeline/Lit",
+                "Universal Render Pipeline/Unlit",
                 "Sprites/Default",
             };
 
@@ -393,14 +398,16 @@ namespace WorldSphereMod.Terrain
                 {
                     name = "WSM3D.MountainSlopeSmoothing"
                 };
-                material.color = Color.white;
-                // Emission floor so slopes don't render pure black when vertex
-                // colors come through as (0,0,0). Grey emission ensures visible
-                // contour while letting vertex colors tint it if non-zero.
+                // Set a brown base color directly. _EmissionColor was unreliable
+                // because OpaqueVertexColor's shader didn't honor _EMISSION
+                // keyword, leaving slopes black. With Standard shader as primary,
+                // both _Color and _EmissionColor are honored.
+                material.color = new Color(0.55f, 0.45f, 0.35f, 1f);
                 try
                 {
                     material.EnableKeyword("_EMISSION");
                     material.SetColor("_EmissionColor", new Color(0.5f, 0.4f, 0.3f, 1f));
+                    material.SetColor("_BaseColor", new Color(0.55f, 0.45f, 0.35f, 1f));
                 } catch { }
                 material.enableInstancing = true;
                 if (!material.enableInstancing)

@@ -14,12 +14,15 @@
     <Compile Remove="WorldSphereTester\**" />
     <Compile Remove="tests\**" />
     <Compile Remove="Tools\Unity-Bake-Project\**" />
+    <Compile Remove="External\**" />
     <EmbeddedResource Remove="WorldSphereAPI\**" />
     <EmbeddedResource Remove="WorldSphereTester\**" />
     <EmbeddedResource Remove="tests\**" />
+    <EmbeddedResource Remove="External\**" />
     <None Remove="WorldSphereAPI\**" />
     <None Remove="WorldSphereTester\**" />
     <None Remove="tests\**" />
+    <None Remove="External\**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -112,11 +115,16 @@
     <Reference Include="YamlDotNet">
       <HintPath>$(WorldBoxNMLAssemblies)/YamlDotNet.dll</HintPath>
     </Reference>
-    <!-- ProjectReference removed 2026-05-22: External/Compound-Spheres submodule
-         not present locally. Reverted to vendored CompoundSpheres.dll. -->
+    <!-- 2026-05-23: revert to vendored DLL. External/Compound-Spheres source
+         clone causes AssemblyInfo conflicts. Fix will be applied via Harmony
+         patch on CompoundSpheres.SphereManager.Init instead. -->
     <Reference Include="CompoundSpheres">
       <HintPath>WorldSphereMod\Assemblies\CompoundSpheres.dll</HintPath>
     </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="External\**" />
+
   </ItemGroup>
 
 </Project>
