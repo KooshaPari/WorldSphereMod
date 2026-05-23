@@ -1,7 +1,7 @@
 # Phase 9 — Particles, Decals, Post-Processing
 
 Source: design pass by `feature-dev:code-architect` (agent run 2026-05-17).
-Pre-implementation design doc; no code written yet.
+Historical design-state snapshot; use `docs/HANDOFF.md` for current defaults.
 
 ---
 

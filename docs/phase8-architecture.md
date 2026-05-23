@@ -1,7 +1,7 @@
 # Phase 8 — Procedural Sky + Day/Night + Fog
 
 Source: design pass by `feature-dev:code-architect` (agent run 2026-05-17).
-Pre-implementation design doc; no code written yet. Builds on Phase 5 (which owns the Sun `DirectionalLight`).
+Historical design-state snapshot; use `docs/HANDOFF.md` for current defaults. Builds on Phase 5 (which owns the Sun `DirectionalLight`).
 
 ---
 

@@ -1,6 +1,6 @@
 # Phase 3 — Foliage, Clouds, Decorations (revised scope)
 
-Source: rewrite after the decompile pass at `docs/phase3-decompile-findings.md` invalidated the original `QuantumSpriteLibrary.drawTopTiles` premise. Pre-implementation design doc.
+Source: rewrite after the decompile pass at `docs/phase3-decompile-findings.md` invalidated the original `QuantumSpriteLibrary.drawTopTiles` premise. Historical design-state snapshot; use `docs/HANDOFF.md` for current defaults.
 
 ---
 

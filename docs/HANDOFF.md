@@ -2,20 +2,20 @@
 
 Canonical "next session starts here" doc for WorldSphereMod3D.
 
-**Last updated:** 2026-05-21
+**Last updated:** 2026-05-23
 
 ## TL;DR
 
 Hard fork of `MelvinShwuaner/WorldSphereMod` that finishes the 3D conversion
 of WorldBox: actors, buildings, foliage, water, lighting, animation, UI, sky,
 particles and LOD now have real 3D code paths sitting behind per-phase flags
-in `SavedSettings`. All 10 phases have code paths in place; **v2.0.0-alpha.10**
-marks Phase 1 victory and includes Phase 2 procedural mesh default-on,
-Phase 5 SSAO+HighShadows default-on, Phase 6 skeletal default-on, Phase 8
-DayNight default-on, Phase 9 partial DecalPool wiring, and Phase 10 LOD tuning.
-Phases 1 and 4 remain opt-in / default-off plus PostFX/Profiler/Fog controls.
-Build is local-only (needs WorldBox reference DLLs); CI builds only the
-Unity-free API project.
+in `SavedSettings`. Phase 0 hardening is documented as landed: task/journey
+gates are wired, API capability discovery is exposed, the profiler overlay is
+opt-in, and journey capture tooling is in place. The remaining documented gaps
+are live capture validation and strict-assets verification for journeys. The
+current code defaults are summarized below; they are not the same thing as live
+smoke-test verification. Build is local-only (needs WorldBox reference DLLs);
+CI builds only the Unity-free API project.
 
 ## Where things are
 
@@ -50,36 +50,87 @@ Unity-free API project.
 
 | Phase | State | Notes |
 |---|---|---|
-| 0  Fork plumbing                       | ✅ | Build portability, GUID `worldsphere3d.fork`, settings v2, API v2 |
-| 1  Voxel actors + buildings            | ✅ | Visibly rendering as of 2026-05-19 (`v2.0.0-alpha.7`); final root-cause fix in [ADR-0015](adr/0015-actor-invisibility-final-root-causes.md). `VoxelScaleMultiplier=8.0f` still fixes pre-root-cause sub-pixel rendering. See [ADR-0011](adr/0011-phase-1-visibility-postmortem.md). Phase 1 victory in `v2.0.0-alpha.10`. |
-| 2  Procedural building meshes          | ✅ | Visibly rendering as of 2026-05-19 (commit `3448c1f`, v2.0.0-alpha.5). AutoTest telemetry on save2 (Earth, pop 6406): drawCalls=377 instances=37760. Root cause of prior invisibility: 2D rd.positions tested against 3D frustum — see [ADR-0012](adr/0012-phase-2-procedural-not-rendering.md). Flag default ON in `v2.0.0-alpha.10`. |
-| 3a Crossed-quad foliage                | ✅ | Trees/bushes/rocks ship as crossed quads; flag default ON |
+| 0  Fork plumbing                       | ✅ | Build portability, GUID `worldsphere3d.fork`, settings v2, API v2, task/journey gates, capability discovery, opt-in profiler overlay, journey capture tooling |
+| 1  Voxel actors + buildings            | ✅ | Current code default: `VoxelEntities = true`. Smoke-test verification is documented elsewhere and should not be inferred from the default alone. |
+| 2  Procedural building meshes          | ✅ | Current code default: `ProceduralBuildings = true`. |
+| 3a Crossed-quad foliage                | ✅ | Current code default: `CrossedQuadFoliage = true`. |
 | 3b Surface overlays + walls            | ✅ | `WorldTilemap.renderTile` Prefix + `drawWallType` Prefix wired |
-| 4  Mesh water                          | ✅ | Gerstner surface + mask buffer + lifecycle Postfix; flag default OFF |
-| 5  Sun + cascaded shadows              | ✅ | `SunDriver`/`SunRig`/`ShadowCascadeConfig` landed; **lit shader (`VoxelLit.shader`) requires Unity 2022.3 AssetBundle bake**. SSAO+HighShadows now default ON as of `v2.0.0-alpha.10`; remaining work is visual polish. |
-| 6  Skeletal animation                  | ✅ | Humanoid skinned-mesh actor path + `RigDriver` live update loop shipped; GPU compute (`VoxelSkin.compute`) still deferred to ADR-0006 rewrite path. Flag default ON in `v2.0.0-alpha.10`. |
-| 7  Worldspace UI                       | ✅ | Nameplate + HP bar + damage popups; selection ring stub awaits `SelectionManager` hook; flag default ON |
-| 8  Day/night + sky + fog               | ✅ | Autonomous TOD driver + sun gradient + ProceduralSky landed; `MapBox.world_time` probe falls back gracefully; flag default ON in `v2.0.0-alpha.10`. |
-| 9  Particles + decals + PostFX         | ✅ | Partial phase landed: 5 effect IDs bursted; `DecalPool` wiring in place; URP PostFX volume; particles ON, PostFX OFF. |
-| 10 LOD + impostor fallback             | ✅ | `FrustumCuller` + `LodSelector` + `ImpostorBillboard` + soft hardware gate; **no dedicated Proxy mesh — Proxy tier falls through to Voxel path**. LOD tuning/parameters are now tuned in `v2.0.0-alpha.10`. |
+| 4  Mesh water                          | ✅ | Current code default: `MeshWater = false`. |
+| 5  Sun + cascaded shadows              | ✅ | Current code defaults: `HighShadows = true`, `HdrSkybox = true`, `ColorGradingLut = true`. |
+| 6  Skeletal animation                  | ✅ | Current code default: `SkeletalAnimation = true`. |
+| 7  Worldspace UI                       | ✅ | Current code defaults: `WorldspaceUI = true`, `WorldspaceLabel3D = true`. |
+| 8  Day/night + sky + fog               | ✅ | Current code default: `DayNightCycle = true`; `FogDensity = 0.05f`. |
+| 9  Particles + decals + PostFX         | ✅ | Current code defaults: `ParticleEffects = true`, `PostFX = true`, `SSAOEnabled = true`, `SSGIEnabled = false`. |
+| 10 LOD + impostor fallback             | ✅ | Current code defaults: `LODScale = 0.5f`, `WaterDetail = 1.0f`, `FoliageDensity = 1.0f`. |
 
-## Default-on flags (the user sees these without opting in)
+## Current defaults matrix
 
+These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSettings.cs` as of this doc update. They describe startup state, not proof that every phase has been re-smoke-tested in this session.
+
+| Setting | Default | Phase | Note |
+|---|---|---|---|
+| `VoxelEntities` | `true` | 1 | Default-on voxel actors/items/projectiles |
+| `ProceduralBuildings` | `true` | 2 | Default-on building meshes |
+| `CrossedQuadFoliage` | `true` | 3a | Default-on crossed-quad foliage |
+| `BiomeBlending` | `true` | n/a | Terrain polish |
+| `MeshWater` | `false` | 4 | Default-off mesh water |
+| `WorldspaceHealth3D` | `true` | 7 | Worldspace HP bar style |
+| `MountainSlopeSmoothing` | `true` | n/a | Terrain polish |
+| `HighShadows` | `true` | 5 | Default-on shadow cascades |
+| `HdrSkybox` | `true` | 5 | Current live default |
+| `ColorGradingLut` | `true` | 5 | Current live default |
+| `SkeletalAnimation` | `true` | 6 | Default-on skeletal path |
+| `WorldspaceUI` | `true` | 7 | Default-on worldspace UI |
+| `WorldspaceLabel3D` | `true` | 7 | Default-on 3D labels |
+| `DayNightCycle` | `true` | 8 | Default-on TOD driver |
+| `FogDensity` | `0.05f` | 8 | Current live default |
+| `PostFX` | `true` | 9 | Current live default |
+| `SSAOEnabled` | `true` | 9 | Default-on SSAO |
+| `SSAOQuality` | `Medium` | 9 | Current live default |
+| `SSGIEnabled` | `false` | 9 | Default-off SSGI |
+| `ParticleEffects` | `true` | 9 | Default-on particle effects |
+| `WeatherRain` | `true` | n/a | Weather default |
+| `WeatherSnow` | `false` | n/a | Weather default |
+| `WeatherLightning` | `false` | n/a | Weather default |
+| `LODScale` | `0.5f` | 10 | LOD tuning default |
+| `WaterDetail` | `1.0f` | 10 | LOD tuning default |
+| `FoliageDensity` | `1.0f` | 10 | LOD tuning default |
+| `ProfilerDump` | `true` | 0 | Diagnostic overlay default |
+
+## Current defaults by category
+
+### Default-on / currently enabled
+
+- `VoxelEntities` — Phase 1
 - `CrossedQuadFoliage` — Phase 3a/3b
+- `ProceduralBuildings` — Phase 2
 - `WorldspaceUI` — Phase 7
 - `ParticleEffects` — Phase 9 (decals + bursts)
-- `ProceduralBuildings` — Phase 2
+- `PostFX` — Phase 9
 - `HighShadows` — Phase 5
 - `SkeletalAnimation` — Phase 6
 - `DayNightCycle` — Phase 8
+- `FogDensity` — `0.05f` in live settings
 
-## Default-off flags (opt-in)
+### Default-off / opt-in
 
-- `VoxelEntities` — Phase 1 (visible in-game; flag remains opt-in until ship gate)
 - `MeshWater` — Phase 4
-- `PostFX` — Phase 9
-- `ProfilerDump` — diagnostic
-- `FogDensity` — float, defaults `0.0`
+- `SSGIEnabled` — Phase 9
+
+### Diagnostic / non-phase settings
+
+- `ProfilerDump` — diagnostic overlay default
+- `BiomeBlending` — terrain polish
+- `MountainSlopeSmoothing` — terrain polish
+- `WorldspaceHealth3D` — worldspace HP bar style
+- `SSAOEnabled` — Phase 9 ambient occlusion
+- `SSAOQuality` — diagnostic tuning value
+- `WeatherRain` — weather default
+- `WeatherSnow` — weather default
+- `WeatherLightning` — weather default
+- `LODScale` — LOD tuning default
+- `WaterDetail` — LOD tuning default
+- `FoliageDensity` — LOD tuning default
 
 ## Local build + install
 
@@ -100,7 +151,7 @@ The user-driven gate. See `docs/smoke-test-phase1.md` for the full checklist.
 Short form:
 
 1. `./Tools/install.ps1` → launch WorldBox → enable mod in NeoModLoader.
-2. Confirm vanilla-3D path is regression-clean with `VoxelEntities = false` (default).
+2. Confirm vanilla-3D path is regression-clean with `VoxelEntities = false` for the smoke-test gate, even though the live default is `true`.
 3. Flip `VoxelEntities = true` in the in-game settings tab, generate a
    500-unit kingdom, sweep camera 360°.
 4. Verify: voxel actors render, no body topple while walking (review fix #4),
@@ -129,7 +180,7 @@ Short form:
 - **CLI:** `pwsh Tools/wsm3d.ps1 help` — 13 subcommands (build, install, launch, relaunch, log, toggle, journey capture, etc.).
 - **Slash commands:** `/wsm-status`, `/wsm-validate-all`, `/wsm-build`, `/wsm-install`, `/wsm-relaunch`, `/wsm-log`, `/wsm-toggle`, `/wsm-screenshot`, `/wsm-journey-run`, `/wsm-doctor`.
 - **MCP:** `Tools/wsm3d-mcp/` — Python FastMCP with 18 tools, auto-registered via `.claude/mcp-servers.json`.
-- **Journey gate:** `.github/workflows/journeys-gate.yml` — OCR-assertion DSL; verify with `phenotype-journey verify <manifest> --mode mock`.
+- **Journey gate:** `.github/workflows/journeys-gate.yml` — OCR-assertion DSL; verify with `phenotype-journey verify <manifest> --mode mock`. Live capture remains the final proof step, and strict-assets checks still gate manifests with screenshots.
 
 ## Recent commits (7 most recent)
 

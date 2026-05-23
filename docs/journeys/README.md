@@ -14,6 +14,11 @@ A **journey** is a step-by-step verification of a feature or workflow. Each jour
 
 All 10 WorldSphereMod3D phases have journeys (phases 1–10: Voxel Actors, Buildings, Foliage, Water, Shadows, Skeletal, WorldspaceUI, DayNight, PostFX, LOD/Impostor).
 
+Phase 0 hardening uses the same journey system to cover task/journey gates,
+API capability discovery, the opt-in profiler overlay, and capture tooling.
+The manifests and runbooks are in place; live capture proofs and strict-assets
+validation remain the open gaps when a journey still depends on fresh screenshots.
+
 ## Record first, verify second
 
 Capture drift is the main failure mode. Keep the workflow explicit:
@@ -383,7 +388,7 @@ This checks schema correctness and contiguity without requiring screenshot files
 cargo run --manifest-path Tools/journey-records/Cargo.toml -- validate --strict-assets docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json
 ```
 
-Strict asset validation requires each step screenshot to exist and resolves optional recording assets when present.
+Strict asset validation requires each step screenshot to exist and resolves optional recording assets when present. If the capture set is still missing, keep the manifest honest and leave the live-verification fields unset instead of implying proof that has not been recorded yet.
 
 ## Integration with phenotype-journey CLI
 

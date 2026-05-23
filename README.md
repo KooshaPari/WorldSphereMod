@@ -17,15 +17,15 @@ This fork lands a real 3D pipeline on top of that foundation:
 | Phase | Status | What changes |
 |---|---|---|
 | 0  | landed       | Fork metadata, build portability (`WORLDBOX_PATH`), CI, settings/API v2 |
-| 1  | **landed (default ON)** | Voxelized actors + buildings — limbed colored voxel actors at v2.0.0-alpha.9, 2026-05-21 (opus vision verified). 7 cumulative material fixes + 12 Harmony transpiler guards + Y-lift + LOD threshold matched to VoxelScaleMultiplier=16 + emission re-enable. AutoTest peakDrawCalls=29,799 |
-| 2  | **landed (default ON)** | Procedural building meshes — voxel proc-mesh default ON at v2.0.0-alpha.9. `cullPos.To3DTileHeight` lift before FrustumCuller (commit `3448c1f`). AutoTest peakDrawCalls=28,349 instances on save2 |
+| 1  | **landed (default ON)** | Voxelized actors + buildings. Current code default: `VoxelEntities = true`. Live smoke-test verification is documented separately; do not infer it from the default alone. |
+| 2  | **landed (default ON)** | Procedural building meshes. Current code default: `ProceduralBuildings = true`. |
 | 3  | code-complete | 3a trees/bushes/rocks crossed-quads + 3b surface overlays + walls as 3D prisms |
 | 4  | code-complete (opt-in, lite) | Mesh water — WaterGerstner shader source landed; AssetBundle bake deferred to Phase 5b |
-| 5  | code-complete (opt-in, SSAO pending) | Sun driver + shadow cascade config + procedural sky landed (full 360° cycle as of v2.0.0-alpha.6); SSAO not yet implemented. |
-| 6  | **landed (default ON)** | Skeletal pipeline — rig cache + segmented humanoid skinned-mesh path + Y-lift now rendering limbed actors at v2.0.0-alpha.9 (opus verified: 'distinct head-cube + torso block + limb voxels visible'). GPU skinning path still deferred per ADR-0006. |
+| 5  | code-complete (default ON) | Sun driver + shadow cascade config + procedural sky landed. Current code defaults: `HighShadows = true`, `HdrSkybox = true`, `ColorGradingLut = true`. |
+| 6  | **landed (default ON)** | Skeletal pipeline. Current code default: `SkeletalAnimation = true`. |
 | 7  | code-complete | Worldspace UI: nameplate, HP bar, damage popups, selection ring all landed; SelectionHooks wired via `SelectedUnit`. |
-| 8  | code-complete (opt-in, autonomous) | TimeOfDay autonomous driver + SunRig color gradient; ProceduralSky shader source landed; MapBox.world_time probe falls back since field absent. |
-| 9  | partial      | Particle bursts on 5 effect IDs ✅ + URP PostFX volume ✅; `DecalPool` is initialized + ticked + cleared but no `Emit()` call site exists in code → decals are effectively absent (task #143). |
+| 8  | code-complete (default ON) | TimeOfDay autonomous driver + SunRig color gradient; ProceduralSky landed. Current code default: `DayNightCycle = true`; `FogDensity = 0.05f`. |
+| 9  | partial / default ON | Particle bursts on 5 effect IDs + URP PostFX volume. Current code defaults: `ParticleEffects = true`, `PostFX = true`. |
 | 10 | code-complete (no proxy) | FrustumCuller + LodSelector + ImpostorBillboard + softened hardware gate; Proxy tier still routes to Voxel. |
 
 `v2.0.0-beta.0` marks the start of beta: all 10 phases are code-complete, default-on behavior is active, and visible 3D rendering is now fully in place.
@@ -102,13 +102,13 @@ still does *something* useful on incompatible GPUs.
 | Component | Purpose | Invocation |
 |---|---|---|
 | **wsm3d.ps1** | 540-LOC CLI: build, install, reload, toggle phases, screenshot, profiler, startup profile parse | `./Tools/wsm3d.ps1 build` / `install` / `reload-nml` / `toggle-phase` / `profile` / etc. (14 subcommands) |
-| **wsm3d profile** | Parse `[WSM3D] InitProfiler` startup buckets from latest `Player.log`, sort by slowest, and show per-bucket totals | `./Tools/wsm3d.ps1 profile` / `./Tools/wsm3d.ps1 profile -DryRun` / `/wsm-profile` |
+| **wsm3d profile** | Parse `[WSM3D] InitProfiler` startup buckets from latest `Player.log`, sort by slowest, and show per-bucket totals; profiler overlay remains opt-in | `./Tools/wsm3d.ps1 profile` / `./Tools/wsm3d.ps1 profile -DryRun` / `/wsm-profile` |
 | **wsm3d-stats.ps1** | Auto-generates stats dashboard (tests, LOC, patches, journeys, git, CI) to `docs/dashboard.md` | `pwsh Tools/wsm3d-stats.ps1` (runs nightly + on-demand) |
 | **wsm3d tab-completion** | PowerShell argument completer for all CLI subcommands | See "Enable tab-completion" below |
 | **MCP server** | Python FastMCP on port 8766; exposes phase state, build logs, manifest queries | `python Tools/wsm3d-mcp/main.py` (auto-launched by Claude commands) |
 | **/wsm-* slash commands** | 10 Claude Code shortcuts: build, install, reload, phases, tests, profile | `/wsm-build`, `/wsm-install`, `/wsm-reload`, `/wsm-toggle-phase`, etc. |
 | **wsm3d skill** | Auto-routed `.claude/skills/wsm3d/SKILL.md` for guided dev tasks | Invoked via Claude Code agent dispatch |
-| **phase journeys** | 10 Phenotype-org manifests (Phase 1–10) with checklist + validation steps | `docs/journeys/manifests/us-wsm-phase-*/` |
+| **phase journeys** | 10 Phenotype-org manifests (Phase 1–10) with checklist + validation steps; phase-0 hardening journeys cover capability discovery, profiler overlay, and capture tooling | `docs/journeys/manifests/us-wsm-phase-*/` |
 | **test suite** | 42 unit + 15 e2e tests (27 new); all green | `dotnet test` or `/wsm-test` |
 
 ### Day in the life of an iteration

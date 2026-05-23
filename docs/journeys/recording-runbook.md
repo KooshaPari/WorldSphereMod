@@ -85,6 +85,11 @@ Use both layers, but do not confuse them:
 - The file path you are saving to matches the manifest.
 - The frame you just captured is legible before you continue.
 
+This checklist is the live proof path for the current phase-0 hardening work.
+Use it when validating new journey captures, profiler-overlay screenshots, or
+API-capability discovery flows. If you only have mock verification, call that
+out explicitly; it does not replace a refreshed capture set.
+
 ## Related docs
 
 - [Journey README](./README.md)

@@ -61,10 +61,10 @@ Legend: ✅ done · 🔄 in progress / partial · ❌ missing · ➖ N/A (justif
 
 | Item | Status | Notes |
 |---|---|---|
-| `docs/.vitepress/`    | ❌ | Missing. Org convention is VitePress (`config.mts`, `theme/`, `cache/`). |
-| `docs/journeys/`      | ❌ | Missing. Reference repo has `docs/journeys/{us-f1-1-game-launch,…}` user-journey manifests. |
-| `docs/adr/`           | ❌ | Missing. Reference repo has ADR-001 … ADR-019. This fork has architectural decisions (phase plan, Z-displacement sentinel, no-Harmony-on-Dino-systems analog, compute-shader gate) that warrant ADRs. |
-| `docs/` content       | 🔄 | Rich phase-by-phase markdown exists (`PLAN.md`, `HANDOFF.md`, `phase{1..10}-architecture.md`, `performance.md`, `render-data-fields.md`) but it is not structured as a navigable site and is not split journey vs. ADR vs. reference. |
+| `docs/.vitepress/`    | 🔄 | Present as a docs site entrypoint via `docs/package.json`; the site still needs a few content/validation passes, but the docs tree is no longer absent. |
+| `docs/journeys/`      | ✅ | Present with manifests, assets, authoring guidance, and capture runbooks. Remaining gap is live-capture coverage for the latest phase-0 hardening changes. |
+| `docs/adr/`           | 🔄 | Present with ADRs and phase findings. Additional ADR coverage may still be warranted for phase-0 hardening and journey-gate details. |
+| `docs/` content       | 🔄 | Rich phase-by-phase markdown exists (`PLAN.md`, `HANDOFF.md`, `phase{1..10}-architecture.md`, `performance.md`, `render-data-fields.md`) and is now paired with journeys content, but it still needs continued curation rather than being treated as a finished reference site. |
 | `llms.txt` / `llms-full.txt` | ❌ | Missing. Org convention surfaces these at repo root for LLM-friendly indexing. |
 
 ### 1.5 CI gates
@@ -76,7 +76,7 @@ Reference repo runs ~40 workflow files. This repo runs 1.
 | `build-gate`          | 🔄 | `.github/workflows/build.yml` exists but only builds `WorldSphereAPI` for real; the main mod build is `continue-on-error: true` against zero-byte stub DLLs. Not a true gate. |
 | `test-gate`           | ❌ | No test workflow because no tests. |
 | `lint-gate`           | ❌ | No `dotnet format`, no analyzers config, no editorconfig enforcement. |
-| `docs-build-gate`     | ❌ | No VitePress build, no link-check, no journey-quality-gate. |
+| `docs-build-gate`     | 🔄 | VitePress build entrypoint exists, but link-check and full journey-quality gating are still not complete. |
 | `release` workflow    | ❌ | No tag-driven release pipeline. Mod is distributed by manual ZIP / `Tools/install.ps1`. |
 | `codeql` / security   | ❌ | Missing. |
 | `sbom`                | ❌ | Missing. |

@@ -1,7 +1,7 @@
 # Phase 2 — Procedural Building Meshes: Architecture Blueprint
 
 Source: design pass by `feature-dev:code-architect` (agent run 2026-05-17).
-This is a pre-implementation design doc. No code is written yet.
+Historical design-state snapshot; use `docs/HANDOFF.md` for current defaults.
 
 ---
 

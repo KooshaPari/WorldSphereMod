@@ -2,7 +2,7 @@
 
 A **journey** is a scripted end-to-end test that captures screenshots of the game, extracts text via OCR, and asserts that specific strings appear or don't appear. Each journey is a JSON manifest with a sequence of steps, where each step has a screenshot and an assertion DSL.
 
-Journeys validate entire features: a phase ships (Phase 1 voxel actors), a UI flow works (open settings, toggle a flag, reload), or a regression is fixed. They run in CI and locally, with screenshots cropped tight to reduce OCR noise and cost.
+Journeys validate entire features: a phase ships (Phase 1 voxel actors), a UI flow works (open settings, toggle a flag, reload), or a regression is fixed. They run in CI and locally, with screenshots cropped tight to reduce OCR noise and cost. Phase 0 hardening now uses the same path for task/journey gates, API capability discovery, the opt-in profiler overlay, and capture tooling.
 
 ## Authoring workflow
 
@@ -77,6 +77,9 @@ The tool will:
 2. Prompt you to take 5 screenshots (one per step)
 3. Save them to `frame-000.png`, `frame-001.png`, etc.
 
+If the capture has not been refreshed in the live game, keep the manifest and
+the verification status separate; do not treat a stale capture set as proof.
+
 ### 6. Verify locally
 Test your assertions against the captured screenshots. The Rust manifest validator has an offline mode for schema and contiguity checks before assets exist:
 ```powershell
@@ -87,6 +90,8 @@ Strict asset validation is available once the screenshots are in place:
 ```powershell
 cargo run --manifest-path Tools/journey-records/Cargo.toml -- validate --strict-assets docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json
 ```
+
+Strict asset validation requires each step screenshot to exist and resolves optional recording assets when present. It is the right check for a fully captured journey, not a substitute for live capture when the screenshots are still missing.
 
 Mock mode uses Tesseract OCR locally (no API key needed):
 ```powershell

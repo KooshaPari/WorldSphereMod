@@ -1,7 +1,7 @@
 # Phase 5 — Lighting + Cascaded Shadows
 
 Source: design pass by `feature-dev:code-architect` (agent run 2026-05-17).
-Pre-implementation design doc; no code written yet. Complements `docs/phase5-prep.md`.
+Historical design-state snapshot; use `docs/HANDOFF.md` for current defaults. Complements `docs/phase5-prep.md`.
 
 ---
 
