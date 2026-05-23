@@ -91,7 +91,7 @@ namespace WorldSphereMod.Foliage
                 // trees render with actual 3D depth on all axes.
                 Mesh? mesh = t.road
                     ? CrossedQuadMeshCache.GetOrBuild(sprite, BuildingShape.Single, 0f)
-                    : VoxelMeshCache.Get(sprite, -1);
+                    : VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob);
                 if (mesh == null || mesh.vertexCount == 0) return true;
 
                 Vector2 pos2 = new Vector2(pTile.pos.x, pTile.pos.y);

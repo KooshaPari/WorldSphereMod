@@ -63,6 +63,7 @@ namespace WorldSphereMod.Voxel
             public Sprite Sprite;
             public int Key;
             public int Depth;
+            public ShapeHint ShapeHint;
         }
 
         struct BuildCompletion
@@ -280,9 +281,41 @@ namespace WorldSphereMod.Voxel
             return GetPlaceholderVoxelMesh();
         }
 
+        /// <summary>
+        /// Return a cached voxel mesh using an explicit shape hint.
+        /// This lets callers bypass the asset-name registry when a semantic
+        /// hint is already known.
+        /// </summary>
+        public static Mesh Get(Sprite sprite, ShapeHint shapeHint, bool forceSyncBuild = false)
+        {
+            if (sprite == null) return null;
+
+            int key = sprite.GetInstanceID();
+            lock (_lock)
+            {
+                if (_cache.TryGetValue(key, out var e))
+                {
+                    if (e.Mesh == null || e.Mesh.vertexCount == 0)
+                    {
+                        _cache.Remove(key);
+                        return null;
+                    }
+                    e.LastFrame = _frame;
+                    _cache[key] = e;
+                    if (sprite != null && !string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = key;
+                    System.Threading.Interlocked.Increment(ref _hits);
+                    return e.Mesh;
+                }
+            }
+
+            System.Threading.Interlocked.Increment(ref _misses);
+            EnqueueBuild(sprite, -1, key, shapeHint);
+            return GetPlaceholderVoxelMesh();
+        }
+
         static Mesh BuildVoxelMeshSync(Sprite sprite, int key, int depth)
         {
-            BuildCompletion completion = BuildVoxelMeshAsync(new BuildRequest { Sprite = sprite, Key = key, Depth = depth });
+            BuildCompletion completion = BuildVoxelMeshAsync(new BuildRequest { Sprite = sprite, Key = key, Depth = depth, ShapeHint = ShapeHint.Auto });
             if (completion.BuildFailed || completion.Mesh == null || completion.Mesh.vertexCount == 0)
             {
                 return null;
@@ -335,7 +368,7 @@ namespace WorldSphereMod.Voxel
             return mesh;
         }
 
-        static void EnqueueBuild(Sprite sprite, int depth, int key)
+        static void EnqueueBuild(Sprite sprite, int depth, int key, ShapeHint shapeHint = ShapeHint.Auto)
         {
             lock (_lock)
             {
@@ -351,7 +384,7 @@ namespace WorldSphereMod.Voxel
                 if (_cache.Count > Capacity) Evict();
             }
 
-            var request = new BuildRequest { Sprite = sprite, Key = key, Depth = depth };
+            var request = new BuildRequest { Sprite = sprite, Key = key, Depth = depth, ShapeHint = shapeHint };
             _queuedBuilds.Enqueue(request);
         }
 
@@ -395,7 +428,7 @@ namespace WorldSphereMod.Voxel
 
         static BuildCompletion BuildVoxelMeshAsync(BuildRequest request)
         {
-            Mesh m = BuildVoxelMesh(request.Sprite, request.Depth, out int[] vertexToTexel, out string inflationStyle);
+            Mesh m = BuildVoxelMesh(request.Sprite, request.Depth, request.ShapeHint, out int[] vertexToTexel, out string inflationStyle);
             MeshSnapshot snapshot = m != null ? CreateSnapshot(request.Sprite, m, m.vertices, m.colors32, m.triangles) : null;
             return new BuildCompletion
             {
@@ -718,18 +751,32 @@ namespace WorldSphereMod.Voxel
 
         static Mesh BuildVoxelMesh(Sprite sprite, int depth, out Mesh mesh)
         {
-            mesh = BuildVoxelMesh(sprite, depth, out _, out _);
+            mesh = BuildVoxelMesh(sprite, depth, ShapeHint.Auto, out _, out _);
             return mesh;
         }
 
-        static Mesh BuildVoxelMesh(Sprite sprite, int depth, out int[] vertexToTexel, out string inflationStyle)
+        static Mesh BuildVoxelMesh(Sprite sprite, int depth, ShapeHint explicitShapeHint, out int[] vertexToTexel, out string inflationStyle)
         {
             // Per-sprite shape-hint routing. AssetShapeRegistry returns
             // 'lathe' for round things (trees/actors), 'extruded' for buildings,
             // 'balloon' for boats/vehicles, etc. Honors non-auto global override.
-            ShapeHint shapeHint = sprite != null ? AssetShapeRegistry.GetShapeHint(sprite.name) : ShapeHint.Auto;
+            ShapeHint shapeHint = explicitShapeHint != ShapeHint.Auto
+                ? explicitShapeHint
+                : (sprite != null ? AssetShapeRegistry.GetShapeHint(sprite.name) : ShapeHint.Auto);
             inflationStyle = sprite != null
-                ? AssetShapeRegistry.ResolveStyle(sprite.name, sprite)
+                ? (explicitShapeHint != ShapeHint.Auto
+                    ? explicitShapeHint switch
+                    {
+                        ShapeHint.Cylinder => "lathe",
+                        ShapeHint.OrganicBlob => "organicblob",
+                        ShapeHint.LongX => "extruded",
+                        ShapeHint.LongZ => "extruded",
+                        ShapeHint.Tall => "lathe",
+                        ShapeHint.Flat => "pertexel",
+                        ShapeHint.Mirror => "balloon",
+                        _ => AssetShapeRegistry.ResolveStyle(sprite.name, sprite),
+                    }
+                    : AssetShapeRegistry.ResolveStyle(sprite.name, sprite))
                 : ResolveVoxelInflationStyle();
             if (sprite != null)
             {
