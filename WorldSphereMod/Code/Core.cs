@@ -761,24 +761,35 @@ namespace WorldSphereMod
                     LibraryMaterials.instance._night_affected_colors.Add(CompoundSphereMaterial);
                 }
 
-                // Force-load WSM3D/* shaders so Shader.Find can resolve them
-                // (bundle CONTAINS them but Unity's global shader registry only
-                // sees shaders that have been explicitly LoadAsset<Shader>'d).
-                // Without this, VoxelRender.TryCompileInlineVoxelShader's
-                // Shader.Find(WSM3D/OpaqueVertexColor) returns null -> falls
-                // back to Standard -> Standard-lit-blackness cascade.
+                // Force-load WSM3D/* shaders into a static cache. AssetBundle.
+                // LoadAsset<Shader> returns the shader instance but does NOT
+                // register it in Unity's global Shader.Find database (that
+                // requires Always-Included Shaders in Graphics Settings).
+                // So we stash the loaded references here, and consumers read
+                // from LoadedShaders dict instead of relying on Shader.Find.
                 try
                 {
                     foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ScreenSpaceAO", "ColorGradingLUT", "ProceduralSky", "Impostor" })
                     {
                         string assetPath = $"assets/wsm3d/shaders/{shaderName.ToLowerInvariant()}.shader";
                         var sh = ab.GetObject<UnityEngine.Shader>(assetPath);
-                        if (sh != null) Debug.Log($"[WSM3D] Loaded shader from bundle: WSM3D/{shaderName} -> {sh.name}");
+                        if (sh != null)
+                        {
+                            LoadedShaders[shaderName] = sh;
+                            Debug.Log($"[WSM3D] Loaded shader from bundle: WSM3D/{shaderName} -> {sh.name}");
+                        }
                         else Debug.LogWarning($"[WSM3D] Shader not in bundle: {assetPath}");
                     }
                 }
                 catch (System.Exception ex) { Debug.LogWarning("[WSM3D] Shader load: " + ex.Message); }
             }
+
+            // Static cache of bundle-loaded WSM3D/* shaders. Consumers look
+            // here BEFORE Shader.Find — AssetBundle shaders aren't auto-
+            // registered in Unity's global lookup, so Shader.Find returns
+            // null for them unless they're also Always-Included.
+            public static readonly System.Collections.Generic.Dictionary<string, UnityEngine.Shader> LoadedShaders =
+                new System.Collections.Generic.Dictionary<string, UnityEngine.Shader>();
             public static SphereTile GetTile(int X, int Y)
             {
                 return Manager[X, Y];
