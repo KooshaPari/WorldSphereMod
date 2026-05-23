@@ -526,6 +526,15 @@ namespace WorldSphereMod
                 CreateSettings();
                 int width = MapBox.width;
                 int height = MapBox.height;
+                // Guard: SphereManager.Init line 107 dereferences SphereTileMaterial
+                // without null-check (pre-DLL fix). If material/mesh failed to load
+                // from bundle, skip CreateSphereManager entirely -- world remains 2D
+                // but doesn't pale-blue-crash.
+                if (CompoundSphereMaterial == null || CompoundSphereMesh == null)
+                {
+                    UnityEngine.Debug.LogError("[WSM3D] Sphere.Begin: CompoundSphereMaterial or CompoundSphereMesh missing — skipping CreateSphereManager. Bundle load likely failed.");
+                    return;
+                }
                 Manager = SphereManager.Creator.CreateSphereManager(width, height, SphereManagerConfig);
             }
             static Color32 GetBaseColor(int index)
