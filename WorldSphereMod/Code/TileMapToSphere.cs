@@ -482,9 +482,23 @@ namespace WorldSphereMod.TileMapToSphere
             int num = __instance.texture.height * __instance.texture.width;
             Color32 color = Color.clear;
             __instance.pixels = new Color32[num];
+            // Lazy-init Core.Sphere.CachedColors entry for this MapLayer if
+            // missing. User saw pale-blue blank world because this loop NREd
+            // when CachedColors[__instance] was null/missing, aborting MapBox
+            // texture init mid-recreateSizes → terrain tiles render with no
+            // texture → pale-blue fallback.
+            if (Core.Sphere.CachedColors == null)
+            {
+                Core.Sphere.CachedColors = new System.Collections.Generic.Dictionary<MapLayer, PixelArray>();
+            }
+            if (!Core.Sphere.CachedColors.TryGetValue(__instance, out PixelArray cached) || cached == null)
+            {
+                PixelArray.AddLayer(__instance, 0);
+                cached = Core.Sphere.CachedColors[__instance];
+            }
             for (int i = 0; i < num; i++)
             {
-                Core.Sphere.CachedColors[__instance][i] = color;
+                cached[i] = color;
             }
             __instance.updatePixels();
             return false;
