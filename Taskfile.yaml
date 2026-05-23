@@ -16,6 +16,21 @@ tasks:
     cmds:
       - task --list
 
+  check:
+    desc: "Run the standard local verification set."
+    cmds:
+      - task: build-all
+      - task: test-all
+      - task: lint
+
+  release:prep:
+    desc: "Pre-release gate: build + tests + lint + docs build all green."
+    cmds:
+      - task: build-all
+      - task: test-all
+      - task: lint
+      - task: docs-build
+
   # ── Build ──────────────────────────────────────────────────────────────────
 
   build:
@@ -135,12 +150,9 @@ tasks:
   # ── Release gate ──────────────────────────────────────────────────────────
 
   release-check:
-    desc: "Pre-release gate: build + tests + lint + docs build all green."
+    desc: "Alias for release:prep."
     cmds:
-      - task: build-all
-      - task: test-all
-      - task: lint
-      - task: docs-build
+      - task: release:prep
 
   # ── Journeys ──────────────────────────────────────────────────────────────
 

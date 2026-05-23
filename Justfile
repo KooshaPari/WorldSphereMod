@@ -12,6 +12,12 @@ export DOTNET_NOLOGO := "true"
 default:
     @just --list
 
+# Standard local verification set.
+check: build-all test-all lint
+
+# Pre-release gate: build + tests + lint + docs build all green.
+release-prep: build-all test-all lint docs-build
+
 # ── Build ──────────────────────────────────────────────────────────────────
 
 # Build main mod (Release). Requires $WORLDBOX_PATH for WorldBox reference DLLs.
@@ -98,8 +104,8 @@ lint-fix:
 
 # ── Release gate ──────────────────────────────────────────────────────────
 
-# Pre-release gate: build + tests + lint + docs build all green.
-release-check: build-all test-all lint docs-build
+# Alias for release-prep.
+release-check: release-prep
 
 # ── Journeys ──────────────────────────────────────────────────────────────
 

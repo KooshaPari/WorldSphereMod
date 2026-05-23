@@ -10,6 +10,9 @@ captured by a human (or a desktop-equipped agent) following the steps in
 each journey end-to-end. VitePress emits a warning for missing images at
 build time but the build still succeeds.
 
+For the capture order, crop discipline, and live-vs-mock split, use the
+[journey recording runbook](../recording-runbook.md).
+
 ## Capture protocol
 
 1. **Fresh install.** Start from a clean WorldBox install (or revert your
@@ -22,6 +25,9 @@ build time but the build still succeeds.
    subfolder lists exactly what each filename is supposed to show.
 4. **Save under the journey's slug.** Use the exact filename listed.
    Overwrites are fine — just keep one canonical capture per slot.
+5. **Review before moving on.** If the frame is blurry, over-cropped, or
+   shows the wrong phase state, replace it immediately instead of carrying
+   the mistake forward.
 
 ## Recommended dimensions
 

@@ -29,6 +29,9 @@ particles / LOD) is consuming the most frame time.
 
    ![In-game capture with the RuntimeStatsOverlay text rendered in the top-left corner — frame time, actor and building counts](./assets/diagnose-perf/02-stats-overlay.png)
 
+   Keep the camera and zoom fixed while you sample. A moving camera makes
+   the profiler line harder to compare across runs.
+
 3. **Read `[WSM-PROF]` lines.** Open the WorldBox log:
    - Windows: `%APPDATA%/../LocalLow/Maxim Karpenko/WorldBox/Player.log`
      (or via NeoModLoader's log viewer if enabled).
@@ -42,6 +45,10 @@ particles / LOD) is consuming the most frame time.
 
    The largest bucket is your hot phase. `dt` in excess of ~16 ms means
    sub-60 fps.
+
+   A clean sample set usually has at least 10 lines taken from the same
+   scene state. If the world changes while you are sampling, throw that set
+   away and capture again.
 
    ![Player.log tail-viewer filtered to [WSM-PROF] lines, with at least five frames of per-phase budget data visible](./assets/diagnose-perf/03-prof-line.png)
 
@@ -65,6 +72,10 @@ particles / LOD) is consuming the most frame time.
    `SavedSettings` and re-measure. The delta confirms (or refutes) the
    suspicion.
 
+   If the hot path is `lighting` or `sky`, note whether `HighShadows` or
+   `DayNightCycle` was on when you sampled. Those are the most common sources
+   of confused reports.
+
 6. **Drop to the LOD fallback.** For Phase 1, lower `LODScale` to push the
    voxel-to-proxy and proxy-to-impostor thresholds closer. The
    billboard-impostor tier is the same path used by the hardware-fallback
@@ -76,6 +87,9 @@ particles / LOD) is consuming the most frame time.
    - The `[WSM-PROF]` lines (10+ frames).
    - Repro: world seed, age, approximate actor / building / tree counts.
    - GPU + CPU model.
+
+   Include the exact world seed and the flag state. Without those two bits,
+   the report is usually too vague to act on.
 
 ## Outcome
 

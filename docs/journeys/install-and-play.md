@@ -36,6 +36,9 @@ Get `WorldSphereMod3D` installed alongside (or instead of) upstream `WorldSphere
 
    ![PowerShell output from Tools/install.ps1 showing the auto-detected Steam path, per-folder copy log, and 0-Error dotnet build summary](./assets/install-and-play/01-fresh-install.png)
 
+   If that build step fails, fix the install before you continue. A partial
+   copy is not a valid journey state.
+
 4. **Enable in NeoModLoader.** Launch WorldBox once with NeoModLoader installed;
    open the mod manager, enable `WorldSphereMod3D`. **Disable upstream
    `WorldSphereMod` if present** — they share Harmony patch surfaces and only
@@ -44,6 +47,9 @@ Get `WorldSphereMod3D` installed alongside (or instead of) upstream `WorldSphere
    *runnable* side-by-side).
 
    ![WorldBox start screen with NeoModLoader mod manager open and WorldSphereMod3D toggled on alongside the WSM3D icon](./assets/install-and-play/02-mod-loaded.png)
+
+   If both mods are enabled, stop here and correct it before taking any
+   screenshots. The journey only makes sense with one patcher active.
 
 5. **Launch the game.** A new world; sphere or flat shape is fine.
 
@@ -58,6 +64,9 @@ Get `WorldSphereMod3D` installed alongside (or instead of) upstream `WorldSphere
    (cost gate, lit-shader bake gate; see [phase 5 prep](/phase5-prep) and
    [phase 6 architecture](/phase6-architecture)).
 
+   Keep the screenshots tight around the settings panel if you are recording
+   the toggle state. The asset README explains the crop expectations.
+
    ![Settings panel with the WorldSphere tab open, per-phase toggles list visible, the five default-on flags highlighted](./assets/install-and-play/03-settings-tab.png)
 
    ![Animated capture of actors switching from sprite billboards to voxel meshes when VoxelActors is toggled on mid-game](./assets/install-and-play/04-voxel-on.gif)
@@ -66,6 +75,9 @@ Get `WorldSphereMod3D` installed alongside (or instead of) upstream `WorldSphere
    silhouettes should hold from any angle, with no z-fighting against the
    terrain. Sprite-billboard fallback is what you'll see on flags that are
    OFF.
+
+   If you capture a before/after GIF for the journey assets, keep the same
+   camera and zoom for both halves of the comparison.
 
    ![Wide kingdom overview with voxel actors, mesh buildings, mesh water, and worldspace nameplates all visible on the spherical terrain](./assets/install-and-play/05-after-overview.png)
 

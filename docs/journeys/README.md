@@ -9,8 +9,22 @@ A **journey** is a step-by-step verification of a feature or workflow. Each jour
 - Performs an action (toggle phase, navigate UI)
 - Takes a screenshot after the action
 - Asserts expected text is visible (via OCR) or expected text is absent
+- Can also carry a short recording asset when motion is the clearest proof
+  of the state change
 
 All 10 WorldSphereMod3D phases have journeys (phases 1–10: Voxel Actors, Buildings, Foliage, Water, Shadows, Skeletal, WorldspaceUI, DayNight, PostFX, LOD/Impostor).
+
+## Record first, verify second
+
+Capture drift is the main failure mode. Keep the workflow explicit:
+
+1. Read the journey doc and the matching manifest together.
+2. Capture the frame or recording in the live game window.
+3. Check the crop, legibility, and visible state immediately.
+4. Run mock verification for schema and OCR preflight.
+5. Run live verification only after the capture set is stable.
+
+For a practical checklist, see [recording-runbook.md](./recording-runbook.md).
 
 ### Journey Manifest Structure
 
@@ -79,8 +93,8 @@ Each journey is defined in `docs/journeys/manifests/<id>/manifest.json`. The fil
 | `steps` | array | Yes | — | Array of step objects (see Step Fields below) |
 | `keyframe_count` | int | No | 0 | Number of keyframes (screenshots) in the journey |
 | `passed` | boolean | No | false | Set to `true` when the journey has been verified and passes; authors leave as `false` |
-| `recording` | string or null | No | null | Path to a video recording of the journey (optional; set to `null` if not available) |
-| `recording_gif` | string or null | No | null | Path to an animated GIF of the journey (optional; set to `null` if not available) |
+| `recording` | string or null | No | null | Path to a video recording of the journey (optional; keep `null` when the journey is screenshot-only) |
+| `recording_gif` | string or null | No | null | Path to an animated GIF of the journey (optional; use for short state transitions, not long sessions) |
 | `verification` | object or null | No | null | Filled by the verifier after running `phenotype-journey verify`; authors can omit at authoring time |
 
 ## Step Fields
@@ -200,6 +214,11 @@ pwsh Tools/wsm3d.ps1 screenshot -Path docs/journeys/manifests/us-wsm-phase-1-vox
 
 This captures the active game window and saves it to the specified path. The journey runner will then use OCR on these screenshots to verify assertions.
 
+If the moment you care about is a transition rather than a static frame,
+record a short GIF or video as well, but still save the still frame the
+manifest expects. The runbook in [recording-runbook.md](./recording-runbook.md)
+spells out the order.
+
 ### Directory Structure
 
 All screenshots for a journey live in the same directory as the manifest:
@@ -232,12 +251,18 @@ docs/journeys/manifests/
    - Start with the game in the baseline state (phase off, world loaded).
    - Use `pwsh Tools/wsm3d.ps1 screenshot -Path ...` to capture each step.
    - Label frames as `frame-000.png`, `frame-001.png`, etc.
+   - Keep the same crop and window size for the entire journey.
 
 4. **Define assertions** for each step:
    - `must_contain`: OCR text that should appear (e.g., phase name, UI element).
    - `must_not_contain`: Error messages or unexpected state.
 
 5. **Validate the manifest** (see Validation section below).
+
+6. **If needed, add a motion asset**:
+   - Use a short GIF or recording only when the step is easier to understand
+     in motion than in a still frame.
+   - Keep the screenshot set canonical even if you add a recording.
 
 ### Journey Template (5-Step Pattern)
 
