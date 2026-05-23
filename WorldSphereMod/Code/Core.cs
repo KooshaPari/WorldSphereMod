@@ -767,7 +767,15 @@ namespace WorldSphereMod
                 {
                     string shName = CompoundSphereMaterial.shader != null ? CompoundSphereMaterial.shader.name : "<null>";
                     Debug.Log($"[WSM3D] CompoundSphereMaterial.shader = '{shName}'");
-                    if (CompoundSphereMaterial.shader == null || string.IsNullOrEmpty(shName))
+                    // Unity substitutes 'Hidden/InternalErrorShader' when a
+                    // shader reference fails to resolve at runtime — that's
+                    // what produces the black terrain void users see when
+                    // the bundled shader is missing/corrupted. Treat it the
+                    // same as null/empty.
+                    bool isBroken = CompoundSphereMaterial.shader == null
+                                 || string.IsNullOrEmpty(shName)
+                                 || shName.StartsWith("Hidden/Internal", System.StringComparison.OrdinalIgnoreCase);
+                    if (isBroken)
                     {
                         Shader std = Shader.Find("Standard");
                         if (std != null)
