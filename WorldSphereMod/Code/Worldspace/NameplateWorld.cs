@@ -9,7 +9,7 @@ using WorldSphereMod.NewCamera;
 namespace WorldSphereMod.Worldspace
 {
     /// <summary>
-    /// Phase 7 Step 2. Per-actor world-space name label attached to the actor head object.
+    /// Phase 7 Step 2. Per-actor world-space name label attached to the shared worldspace rig.
     /// Uses a <c>TextMesh3D</c> when available, then faces the camera each <see cref="LateUpdate"/>.
     /// </summary>
     public sealed class NameplateWorld : MonoBehaviour
@@ -30,7 +30,7 @@ namespace WorldSphereMod.Worldspace
             if (a == null || rigRoot == null) return null;
             if (!Core.savedSettings.WorldspaceLabel3D) return null;
 
-            Transform parent = ResolveHeadTransform(a) ?? rigRoot;
+            Transform parent = rigRoot;
             var existing = parent.GetComponentInChildren<NameplateWorld>(true);
             if (existing != null) return existing;
 
@@ -43,6 +43,8 @@ namespace WorldSphereMod.Worldspace
             GameObject go = new GameObject("nameplate");
             Transform t = go.transform;
             t.SetParent(parent, worldPositionStays: false);
+            // Keep the label anchored to the rig root so it inherits the same lifted
+            // world-space transform as the voxel actor path.
             t.localPosition = Vector3.zero;
             t.localScale = Vector3.one;
 
