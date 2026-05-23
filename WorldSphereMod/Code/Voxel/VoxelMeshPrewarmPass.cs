@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using HarmonyLib;
+using NeoModLoader.utils;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
@@ -38,21 +39,208 @@ namespace WorldSphereMod.Voxel
             _patchRunning = true;
             try
             {
-                int total = 0;
-                total += EnqueueTileSprites();
-                total += EnqueueActorSprites();
-                total += EnqueueBuildingSprites();
-                Debug.Log($"[WSM3D] VoxelMeshPrewarmPass: queued {total} unique sprite meshes.");
+                if (Mod.Object != null && Mod.Object.GetComponent<PrewarmRunner>() == null)
+                {
+                    Mod.Object.AddComponent<PrewarmRunner>();
+                }
+                else
+                {
+                    Debug.LogWarning("[WSM3D] VoxelMeshPrewarmPass: no runner host available, falling back to sync queue.");
+                    int total = 0;
+                    total += EnqueueTileSprites();
+                    total += EnqueueActorSprites();
+                    total += EnqueueBuildingSprites();
+                    Debug.Log($"[WSM3D] VoxelMeshPrewarmPass: queued {total} unique sprite meshes.");
+                    _queuedSpriteIds.Clear();
+                    _queuedBuildings.Clear();
+                    _patchRunning = false;
+                }
             }
             catch (System.Exception ex)
             {
                 Debug.LogWarning("[WSM3D] VoxelMeshPrewarmPass failed: " + ex);
-            }
-            finally
-            {
                 _queuedSpriteIds.Clear();
                 _queuedBuildings.Clear();
                 _patchRunning = false;
+            }
+        }
+
+        sealed class PrewarmRunner : MonoBehaviour
+        {
+            bool _started;
+
+            void Awake()
+            {
+                if (_started)
+                {
+                    return;
+                }
+
+                _started = true;
+                StartCoroutine(Run());
+            }
+
+            IEnumerator Run()
+            {
+                int total = 0;
+                yield return StartCoroutine(EnqueueTileSpritesBatched(result => total += result));
+                yield return null;
+                yield return StartCoroutine(EnqueueActorSpritesBatched(result => total += result));
+                yield return null;
+                yield return StartCoroutine(EnqueueBuildingSpritesBatched(result => total += result));
+                Debug.Log($"[WSM3D] VoxelMeshPrewarmPass: queued {total} unique sprite meshes.");
+                _queuedSpriteIds.Clear();
+                _queuedBuildings.Clear();
+                _patchRunning = false;
+            }
+
+            IEnumerator EnqueueTileSpritesBatched(Action<int> onComplete)
+            {
+                int count = 0;
+                if (World.world?.tiles_list != null && World.world.tilemap != null)
+                {
+                    WorldTile[] tiles = World.world.tiles_list;
+                    for (int i = 0; i < tiles.Length; i++)
+                    {
+                        WorldTile tile = tiles[i];
+                        if (tile == null)
+                        {
+                            continue;
+                        }
+
+                        try
+                        {
+                            var tileVariation = World.world.tilemap.getVariation(tile);
+                            if (tileVariation == null)
+                            {
+                                continue;
+                            }
+
+                            Sprite sprite = tileVariation.sprite;
+                            if (sprite == null)
+                            {
+                                continue;
+                            }
+
+                            if (EnqueueSprite(sprite))
+                            {
+                                count++;
+                            }
+                        }
+                        catch (System.Exception)
+                        {
+                            continue;
+                        }
+
+                        if ((i & 31) == 31)
+                        {
+                            yield return null;
+                        }
+                    }
+                }
+
+                InitProfiler.Measure("VoxelPrewarm: TileSprites", () => { });
+                onComplete?.Invoke(count);
+            }
+
+            IEnumerator EnqueueActorSpritesBatched(Action<int> onComplete)
+            {
+                int index = 0;
+                int count = 0;
+                foreach (Actor actor in World.world.units)
+                {
+                    if (actor == null)
+                    {
+                        continue;
+                    }
+
+                    Sprite sprite;
+                    try
+                    {
+                        sprite = actor.calculateMainSprite();
+                    }
+                    catch (System.Exception)
+                    {
+                        continue;
+                    }
+
+                    if (sprite != null && EnqueueSprite(sprite))
+                    {
+                        count++;
+                    }
+
+                    if ((index++ & 31) == 31)
+                    {
+                        yield return null;
+                    }
+                }
+
+                InitProfiler.Measure("VoxelPrewarm: ActorSprites", () => { });
+                onComplete?.Invoke(count);
+            }
+
+            IEnumerator EnqueueBuildingSpritesBatched(Action<int> onComplete)
+            {
+                if (World.world.buildings == null)
+                {
+                    onComplete?.Invoke(0);
+                    yield break;
+                }
+
+                int count = 0;
+                Type managerType = World.world.buildings.GetType();
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+                FieldInfo[] fields = managerType.GetFields(flags);
+                for (int i = 0; i < fields.Length; i++)
+                {
+                    FieldInfo field = fields[i];
+                    Type fieldType = field.FieldType;
+                    if (fieldType == typeof(string) || !typeof(IEnumerable).IsAssignableFrom(fieldType))
+                    {
+                        continue;
+                    }
+
+                    object value = field.GetValue(World.world.buildings);
+                    if (value == null)
+                    {
+                        continue;
+                    }
+
+                    if (value is Building[] array)
+                    {
+                        for (int j = 0; j < array.Length; j++)
+                        {
+                            count += TryEnqueueBuildingSprite(array[j]);
+                            if ((j & 31) == 31)
+                            {
+                                yield return null;
+                            }
+                        }
+                        continue;
+                    }
+
+                    if (!(value is IEnumerable enumerable))
+                    {
+                        continue;
+                    }
+
+                    int inner = 0;
+                    foreach (object element in enumerable)
+                    {
+                        if (element is Building building)
+                        {
+                            count += TryEnqueueBuildingSprite(building);
+                        }
+
+                        if ((inner++ & 31) == 31)
+                        {
+                            yield return null;
+                        }
+                    }
+                }
+
+                InitProfiler.Measure("VoxelPrewarm: BuildingSprites", () => { });
+                onComplete?.Invoke(count);
             }
         }
 
