@@ -1,9 +1,7 @@
 ManifestFileVersion: 0
-UnityVersion: 6000.3.11f1
-CRC: 2621560348
-HashAppended: 0
+CRC: 2013332460
 AssetBundleManifest:
   AssetBundleInfos:
     Info_0:
-      Name: worldsphere
+      Name: wsm3d-shaders
       Dependencies: {}
