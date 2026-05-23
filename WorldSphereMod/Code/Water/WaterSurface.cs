@@ -210,15 +210,25 @@ namespace WorldSphereMod.Water
             bool isLit = false;
 
             Shader? s = null;
-            if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("GerstnerWater", out var bundledWater) && bundledWater != null)
+            // GerstnerWater.shader currently renders magenta on the built-in
+            // render pipeline — its HLSL passes don't compile on the runtime
+            // GPU/RP combo Worldbox uses. Force-skip the WSM3D path until the
+            // shader file is fixed (tracked in wave-52). Fall through to the
+            // Standard candidates below — gives a transparent-blue plane
+            // that's visually correct but lacks Gerstner displacement.
+            const bool kGerstnerKnownBroken = true;
+            if (!kGerstnerKnownBroken)
             {
-                s = bundledWater;
-                Debug.Log("[WSM3D] Water material resolved via Core.Sphere.LoadedShaders cache.");
-            }
-            if (s == null)
-            {
-                s = Shader.Find("WSM3D/GerstnerWater");
-                if (s != null) Debug.Log("[WSM3D] Water material resolved via Shader.Find('WSM3D/GerstnerWater').");
+                if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("GerstnerWater", out var bundledWater) && bundledWater != null)
+                {
+                    s = bundledWater;
+                    Debug.Log("[WSM3D] Water material resolved via Core.Sphere.LoadedShaders cache.");
+                }
+                if (s == null)
+                {
+                    s = Shader.Find("WSM3D/GerstnerWater");
+                    if (s != null) Debug.Log("[WSM3D] Water material resolved via Shader.Find('WSM3D/GerstnerWater').");
+                }
             }
             if (s == null) s = Resources.Load<Shader>("Shaders/ContinuumWaterGerstner");
             if (s == null) s = Resources.Load<Shader>("Shaders/WaterGerstner");
