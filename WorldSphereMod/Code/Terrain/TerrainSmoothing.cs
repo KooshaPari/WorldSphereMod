@@ -175,6 +175,8 @@ namespace WorldSphereMod.Terrain
                 return;
             }
 
+            Debug.Log($"[WSM3D] MountainSlopeSmoothing rebuilt {quads.Count} cliff quads.");
+
             Vector3[] vertices = new Vector3[quads.Count * 4];
             Color32[] colors = new Color32[quads.Count * 4];
             int[] triangles = new int[quads.Count * 6];
