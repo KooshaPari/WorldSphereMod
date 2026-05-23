@@ -111,9 +111,17 @@ namespace WorldSphereMod.Lighting
                 yield break;
             }
 
-            ResourceRequest shaderRequest = Resources.LoadAsync<Shader>(LutShaderResourcePath);
-            yield return shaderRequest;
-            Shader? shader = shaderRequest.asset as Shader;
+            Shader? shader = Shader.Find("WSM3D/ColorGradingLUT");
+            if (shader != null)
+            {
+                Debug.Log("[WSM3D] ColorGradingLUT shader resolved via Shader.Find('WSM3D/ColorGradingLUT').");
+            }
+            if (shader == null)
+            {
+                ResourceRequest shaderRequest = Resources.LoadAsync<Shader>(LutShaderResourcePath);
+                yield return shaderRequest;
+                shader = shaderRequest.asset as Shader;
+            }
             shader ??= Shader.Find("Hidden/ColorGradingLUT");
             if (shader == null)
             {

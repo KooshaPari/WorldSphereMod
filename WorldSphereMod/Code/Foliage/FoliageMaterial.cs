@@ -19,7 +19,12 @@ namespace WorldSphereMod.Foliage
             if (_attempted) return false;
             _attempted = true;
 
-            Shader? s = Resources.Load<Shader>("Shaders/FoliageWind");
+            Shader? s = Shader.Find("WSM3D/FoliageWind");
+            if (s != null)
+            {
+                Debug.Log("[WSM3D] Foliage material resolved via Shader.Find('WSM3D/FoliageWind').");
+            }
+            if (s == null) s = Resources.Load<Shader>("Shaders/FoliageWind");
             if (s == null) s = Shader.Find("Sprites/Default");
             if (s == null)
             {
