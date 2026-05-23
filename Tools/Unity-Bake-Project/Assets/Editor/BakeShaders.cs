@@ -60,7 +60,16 @@ public static class BakeShaders
         Directory.CreateDirectory(assetsShaderDir);
         foreach (var src in Directory.GetFiles(shaderSrc, "*.shader"))
         {
-            string dst = Path.Combine(assetsShaderDir, Path.GetFileName(src));
+            string fn = Path.GetFileName(src);
+            // Skip URP variant — needs com.unity.render-pipelines.universal package
+            // that isn't installed in this bake project; compile errors would
+            // taint the entire batch.
+            if (fn.IndexOf("URP", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                Debug.Log("[WSM3D-Bake] skip URP variant: " + fn);
+                continue;
+            }
+            string dst = Path.Combine(assetsShaderDir, fn);
             File.Copy(src, dst, overwrite: true);
         }
         AssetDatabase.Refresh();
@@ -70,14 +79,27 @@ public static class BakeShaders
         {
             string rel = "Assets/" + Path.GetRelativePath(Application.dataPath, path).Replace('\\', '/');
             AssetImporter ai = AssetImporter.GetAtPath(rel);
-            if (ai != null) ai.assetBundleName = "worldsphere";
+            if (ai != null)
+            {
+                ai.assetBundleName = "worldsphere";
+                ai.SaveAndReimport();
+                Debug.Log("[WSM3D-Bake] tagged worldsphere: " + rel);
+            }
+            else
+            {
+                Debug.LogError("[WSM3D-Bake] AssetImporter NULL for shader: " + rel);
+            }
         }
         foreach (var path in Directory.GetFiles(legacyDir, "*"))
         {
             if (path.EndsWith(".meta")) continue;
             string rel = "Assets/" + Path.GetRelativePath(Application.dataPath, path).Replace('\\', '/');
             AssetImporter ai = AssetImporter.GetAtPath(rel);
-            if (ai != null) ai.assetBundleName = "worldsphere";
+            if (ai != null)
+            {
+                ai.assetBundleName = "worldsphere";
+                ai.SaveAndReimport();
+            }
         }
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
