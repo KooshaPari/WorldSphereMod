@@ -777,16 +777,33 @@ namespace WorldSphereMod
                                  || shName.StartsWith("Hidden/Internal", System.StringComparison.OrdinalIgnoreCase);
                     if (isBroken)
                     {
-                        // Prefer Unlit/Color over Standard: Standard is a lit
-                        // shader that needs a directional light + non-zero
-                        // NdotL to produce visible output. If the scene's
-                        // lighting isn't fully wired (mod is mid-init or sun
-                        // hasn't been placed yet) Standard reads as pure
-                        // black despite the tan color we assigned — exactly
-                        // matching the user's 'no changes' report after the
-                        // prior fallback to Standard. Unlit/Color always
-                        // renders the assigned color regardless of lights.
-                        Shader fallback = Shader.Find("Unlit/Color") ?? Shader.Find("Standard");
+                        // Try unlit candidates in order — Standard reads pure
+                        // black when scene lighting isn't fully wired, so we
+                        // prefer anything that doesn't need NdotL. Sprites/
+                        // Default is always present in every Unity build and
+                        // renders the assigned color directly, so it's the
+                        // bulletproof last resort. WSM3D/OpaqueVertexColor
+                        // is opaque + lit-color-free, our own bundled shader
+                        // that always loads.
+                        Shader? fallback = null;
+                        string[] candidates =
+                        {
+                            "Unlit/Color",
+                            "Unlit/Texture",
+                            "Universal Render Pipeline/Unlit",
+                            "Particles/Standard Unlit",
+                            "WSM3D/OpaqueVertexColor",
+                            "Sprites/Default",
+                            "Standard",
+                        };
+                        string chosen = "<none>";
+                        foreach (var n in candidates)
+                        {
+                            // First try our bundle cache; only OpaqueVertexColor + ProceduralSky are valid there.
+                            if (LoadedShaders.TryGetValue(n.Substring(n.LastIndexOf('/') + 1), out var cached) && cached != null) { fallback = cached; chosen = n + " (cache)"; break; }
+                            var sh2 = Shader.Find(n);
+                            if (sh2 != null) { fallback = sh2; chosen = n; break; }
+                        }
                         if (fallback != null)
                         {
                             CompoundSphereMaterial.shader = fallback;
@@ -802,7 +819,7 @@ namespace WorldSphereMod
                                 CompoundSphereMaterial.EnableKeyword("_EMISSION");
                                 CompoundSphereMaterial.SetColor("_EmissionColor", new Color(0.55f, 0.50f, 0.40f, 1f));
                             } catch { }
-                            Debug.LogWarning($"[WSM3D] CompoundSphereMaterial had broken shader; reassigned to '{fallback.name}' with tan color + emission.");
+                            Debug.LogWarning($"[WSM3D] CompoundSphereMaterial had broken shader; reassigned to '{chosen}' (resolved name='{fallback.name}') with tan color + emission.");
                         }
                     }
                 }
