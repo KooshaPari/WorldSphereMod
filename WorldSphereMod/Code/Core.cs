@@ -724,7 +724,8 @@ namespace WorldSphereMod
                     Debug.LogError("[WSM3D] AssetBundleUtils.GetAssetBundle('worldsphere') returned null — likely an NML duplicate-bundle conflict. Skipping LoadAssets. Mesh/material/skybox not available this session.");
                     return;
                 }
-                Mod.LogAssetBundleInventory(ab);
+                try { Mod.LogAssetBundleInventory(ab); }
+                catch (System.Exception ex) { Debug.LogWarning("[WSM3D] LogAssetBundleInventory threw: " + ex.Message); }
                 CompoundSphereMesh = ab.GetObject<Mesh>("assets/worldspheremod/compoundspheremesh.asset");
                 CompoundSphereMaterial = ab.GetObject<Material>("assets/worldspheremod/compoundspherematerial.mat");
                 // Null-guard each asset get so a missing SkyBox.mat in the
