@@ -82,13 +82,36 @@ namespace WorldSphereMod.NewCamera
     //this manages the camera
     public static class CameraManager
     {
+        const float DefaultStrategyZoomHeight = 30f;
+        const KeyCode EmergencySnapKey = KeyCode.F12;
         public static Vector2 Position => Manager.transform.position;
         public static Transform transform => MainCamera.transform;
+        static void SnapCameraToWorldCenter()
+        {
+            Camera camera = Camera.main;
+            if (camera == null)
+            {
+                return;
+            }
+
+            Vector3 snappedPosition = new Vector3(MapBox.width * 0.5f, DefaultStrategyZoomHeight, MapBox.height * 0.5f);
+            camera.transform.position = snappedPosition;
+            camera.transform.eulerAngles = new Vector3(45f, 0f, 0f);
+            if (MainCamera != null && MainCamera != camera)
+            {
+                MainCamera.transform.position = snappedPosition;
+                MainCamera.transform.eulerAngles = new Vector3(45f, 0f, 0f);
+            }
+
+            UnityEngine.Debug.Log("[WSM3D] Emergency camera snap: centered at " + snappedPosition);
+        }
         public static void MakeCamera3D()
         {
             OriginalCamera.enabled = false;
             MainCamera.enabled = true;
             Manager.main_camera = MainCamera;
+            Height = DefaultStrategyZoomHeight;
+            MainCamera.transform.position = Core.Sphere.SpherePos(Position.x, Position.y, Height);
         }
         public static void MakeCamera2D()
         {
@@ -129,6 +152,11 @@ namespace WorldSphereMod.NewCamera
         {
             if (!Core.IsWorld3D)
             {
+                return;
+            }
+            if (Input.GetKeyDown(EmergencySnapKey))
+            {
+                SnapCameraToWorldCenter();
                 return;
             }
             MainCamera.transform.position = Core.Sphere.SpherePos(Position.x, Position.y, Height);
@@ -254,7 +282,7 @@ namespace WorldSphereMod.NewCamera
             Vector2 tPos = ControllableUnit._unit_main.current_position;
             Vector3 tCam = World.world.camera.transform.position;
             tCam.x = tPos.x;
-            tCam.y = tPos.y;
+            tCam.y = Height;
             if (!Core.savedSettings.FirstPerson && Core.IsWorld3D)
             {
                 tCam += (Vector3)GetMovementVector(-Height/2, true);
