@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 namespace WorldSphereMod.Lighting
 {
+    [Phase(nameof(SavedSettings.HdrSkybox))]
     public sealed class CubemapLighting : MonoBehaviour
     {
         public const string CubemapResourcePath = "Cubemap/sky-default";
