@@ -210,13 +210,9 @@ namespace WorldSphereMod.Water
             bool isLit = false;
 
             Shader? s = null;
-            // GerstnerWater.shader currently renders magenta on the built-in
-            // render pipeline — its HLSL passes don't compile on the runtime
-            // GPU/RP combo Worldbox uses. Force-skip the WSM3D path until the
-            // shader file is fixed (tracked in wave-52). Fall through to the
-            // Standard candidates below — gives a transparent-blue plane
-            // that's visually correct but lacks Gerstner displacement.
-            const bool kGerstnerKnownBroken = true;
+            // The bundled GerstnerWater shader now compiles in the built-in
+            // render pipeline, so prefer it over the Standard fallback.
+            const bool kGerstnerKnownBroken = false;
             if (!kGerstnerKnownBroken)
             {
                 if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("GerstnerWater", out var bundledWater) && bundledWater != null)

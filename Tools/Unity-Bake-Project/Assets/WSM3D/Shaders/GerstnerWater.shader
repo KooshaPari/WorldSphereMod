@@ -1,8 +1,8 @@
 // WSM3D/GerstnerWater
 //
 // Mesh water surface with vertex-displaced Gerstner waves + Fresnel-tinted blue
-// transparency. Replaces the "water is opaque black at Standard queue" failure
-// mode by being explicitly transparent + self-emissive at the tint color.
+// coloration. This shader targets the built-in render pipeline and avoids URP
+// includes so it can compile in the WorldBox bake/runtime path.
 //
 // Properties:
 //   _Color           — base water tint (RGBA, alpha controls transparency)
@@ -32,11 +32,10 @@ Shader "WSM3D/GerstnerWater"
 
     SubShader
     {
-        Tags { "RenderType"="Transparent" "Queue"="Transparent-100" "IgnoreProjector"="True" }
+        Tags { "RenderType"="Opaque" "Queue"="Geometry" "IgnoreProjector"="True" }
         LOD 200
         Cull Back
         ZWrite On
-        Blend SrcAlpha OneMinusSrcAlpha
 
         Pass
         {
@@ -90,7 +89,7 @@ Shader "WSM3D/GerstnerWater"
                 float fresnel = pow(1 - saturate(dot(normalize(i.worldNormal), viewDir)), 3);
                 fixed3 baseTint = lerp(_DeepColor.rgb, _Color.rgb, fresnel);
                 fixed3 finalRgb = lerp(baseTint, _Foam.rgb, smoothstep(0.85, 0.99, i.foam));
-                return fixed4(finalRgb, _Color.a);
+                return fixed4(finalRgb, 1.0);
             }
             ENDCG
         }
