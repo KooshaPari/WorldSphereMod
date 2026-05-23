@@ -682,6 +682,14 @@ namespace WorldSphereMod.Voxel
             bool[,,] solid = new bool[w, h, depth];
             Color32[,,] color = new Color32[w, h, depth];
             int backStart = depth > 1 ? depth / 2 : 0;
+            // Apply Perlin depth modulation to ALL voxelized sprites so the skinned
+            // actor path (which only ever calls BuildPerTexel) stops producing flat
+            // 2.5D extrusions. Same recipe as BuildOrganicBlob but applied here so
+            // ShapeHint routing no longer matters for the skinned path. Disable via
+            // VoxelColorTonemap-style toggle later if needed.
+            const float kMinDepthScale = 0.30f;
+            const float kMaxDepthScale = 1.00f;
+            float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
             for (int y = 0; y < h; y++)
             {
                 int row = (y0 + y) * texW + x0;
@@ -692,7 +700,15 @@ namespace WorldSphereMod.Voxel
                         : tex[row + x];
                     if (c.a > 16)
                     {
-                        for (int z = 0; z < depth; z++)
+                        float worldX = (x - sprite.pivot.x) / ppu;
+                        float worldZ = (y - sprite.pivot.y) / ppu;
+                        float noise = Mathf.PerlinNoise(worldX * 0.22f + 0.13f, worldZ * 0.22f + 0.73f);
+                        float depthScale = Mathf.Lerp(kMinDepthScale, kMaxDepthScale, noise);
+                        int columnDepth = Mathf.Clamp(Mathf.RoundToInt(depth * depthScale), 1, depth);
+                        int zStart = Mathf.Clamp((depth - columnDepth) / 2, 0, depth - columnDepth);
+                        int zEnd = zStart + columnDepth;
+
+                        for (int z = zStart; z < zEnd; z++)
                         {
                             int sampleX = depth <= 1 ? x : (z < backStart ? x : (w - 1 - x));
                             solid[sampleX, y, z] = true;
@@ -703,7 +719,6 @@ namespace WorldSphereMod.Voxel
             }
 
             Vector2 pivot = sprite.pivot;
-            float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
             Vector3 origin = new Vector3(-pivot.x / ppu, -pivot.y / ppu, -(depth * 0.5f) / ppu);
             float cell = 1f / ppu;
 
