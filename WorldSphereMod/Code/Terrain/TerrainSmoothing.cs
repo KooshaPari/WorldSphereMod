@@ -388,6 +388,7 @@ namespace WorldSphereMod.Terrain
 
             string[] candidates =
             {
+                "WSM3D/OpaqueVertexColor",
                 "Universal Render Pipeline/Unlit",
                 "Universal Render Pipeline/Lit",
                 "Standard",
