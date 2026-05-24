@@ -24,7 +24,7 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 | Active branch | `claude/research-ultraplan-fork-DdgI5` |
 | Open PR (#1) | https://github.com/KooshaPari/WorldSphereMod/pull/1 — **OPEN**, **MERGEABLE**; blocking CI green except Vercel rate limit |
 | Release tag (remote) | **`v2.0.0-beta.6`** — [release](https://github.com/KooshaPari/WorldSphereMod/releases/tag/v2.0.0-beta.6) |
-| Offline test matrix | **485 pass / 3 skip** (488 total) — Unit 151 (+ 3 skip), Integration 69, E2E 265 |
+| Offline test matrix | **486 pass / 3 skip** (489 total) — Unit 151 (+ 3 skip), Integration 69, E2E 266 |
 | Cold-start orientation | `CLAUDE.md` |
 | Full 10-phase plan | `docs/PLAN.md` |
 | Per-phase architectures | `docs/phase{2..10}-architecture.md` |
@@ -68,15 +68,15 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 |---|---|---|
 | 0  Fork plumbing                       | ✅ | Build portability, GUID `worldsphere3d.fork`, settings v2, API v2, task/journey gates, capability discovery, opt-in profiler overlay, journey capture tooling; ADR-0007 conditional patch dispatch **landed scaffold** (`PhasePatchGate` + E2E invariants; ADR status still Proposed until per-phase smoke) |
 | 1  Voxel actors + buildings            | ✅ | Current code default: `VoxelEntities = true`. Smoke-test verification is documented elsewhere and should not be inferred from the default alone. |
-| 2  Procedural building meshes          | ✅ | Current code default: `ProceduralBuildings = true`. |
-| 3a Crossed-quad foliage                | ✅ | Current code default: `CrossedQuadFoliage = true`. |
+| 2  Procedural building meshes          | ✅ | Current code default: `ProceduralBuildings = false`. |
+| 3a Crossed-quad foliage                | ✅ | Current code default: `CrossedQuadFoliage = false`. |
 | 3b Surface overlays + walls            | ✅ | `WorldTilemap.renderTile` Prefix + `drawWallType` Prefix wired |
-| 4  Mesh water                          | ✅ | Current code default: `MeshWater = true`. |
-| 5  Sun + cascaded shadows              | ✅ | Current code defaults: `HighShadows = true`, `HdrSkybox = true`, `ColorGradingLut = true`. |
-| 6  Skeletal animation                  | ✅ | Current code default: `SkeletalAnimation = true`. |
-| 7  Worldspace UI                       | ✅ | Current code defaults: `WorldspaceUI = true`, `WorldspaceLabel3D = true`. |
-| 8  Day/night + sky + fog               | ✅ | Current code default: `DayNightCycle = true`; `FogDensity = 0.05f`. |
-| 9  Particles + decals + PostFX         | ✅ | Current code defaults: `ParticleEffects = true`, `PostFX = true`, `SSAOEnabled = true`, `SSGIEnabled = false`. |
+| 4  Mesh water                          | ✅ | Current code default: `MeshWater = false`. |
+| 5  Sun + cascaded shadows              | ✅ | Current code defaults: `HighShadows = false`, `HdrSkybox = false`, `ColorGradingLut = false`. |
+| 6  Skeletal animation                  | ✅ | Current code default: `SkeletalAnimation = false`. |
+| 7  Worldspace UI                       | ✅ | Current code defaults: `WorldspaceUI = false`, `WorldspaceLabel3D = false`. |
+| 8  Day/night + sky + fog               | ✅ | Current code default: `DayNightCycle = false`; `FogDensity = 0.05f`. |
+| 9  Particles + decals + PostFX         | ✅ | Current code defaults: `ParticleEffects = false`, `PostFX = false`, `SSAOEnabled = false`, `SSGIEnabled = false`. |
 | 10 LOD + impostor fallback             | ✅ | Current code defaults: `LODScale = 0.5f`, `WaterDetail = 1.0f`, `FoliageDensity = 1.0f`. |
 
 ## Current defaults matrix
@@ -86,40 +86,44 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 | Setting | Default | Phase | Note |
 |---|---|---|---|
 | `VoxelEntities` | `true` | 1 | Default-on voxel actors/items/projectiles |
-| `ProceduralBuildings` | `true` | 2 | Default-on building meshes |
-| `CrossedQuadFoliage` | `true` | 3a | Default-on crossed-quad foliage |
-| `BiomeBlending` | `true` | n/a | Terrain polish |
-| `MeshWater` | `true` | 4 | Default-on mesh water (Phase 4-lite) |
-| `WorldspaceHealth3D` | `true` | 7 | Worldspace HP bar style |
-| `MountainSlopeSmoothing` | `true` | n/a | Terrain polish |
-| `HighShadows` | `true` | 5 | Default-on shadow cascades |
-| `HdrSkybox` | `true` | 5 | Current live default |
-| `ColorGradingLut` | `true` | 5 | Current live default |
-| `SkeletalAnimation` | `true` | 6 | Default-on skeletal path |
-| `WorldspaceUI` | `true` | 7 | Default-on worldspace UI |
-| `WorldspaceLabel3D` | `true` | 7 | Default-on 3D labels |
-| `DayNightCycle` | `true` | 8 | Default-on TOD driver |
+| `ProceduralBuildings` | `false` | 2 | Default-off building meshes |
+| `CrossedQuadFoliage` | `false` | 3a | Default-off crossed-quad foliage |
+| `BiomeBlending` | `false` | n/a | Terrain polish |
+| `MeshWater` | `false` | 4 | Default-off mesh water (Phase 4-lite) |
+| `WorldspaceHealth3D` | `false` | 7 | Worldspace HP bar style |
+| `MountainSlopeSmoothing` | `false` | n/a | Terrain polish |
+| `HighShadows` | `false` | 5 | Default-off shadow cascades |
+| `HdrSkybox` | `false` | 5 | Current live default |
+| `ColorGradingLut` | `false` | 5 | Current live default |
+| `SkeletalAnimation` | `false` | 6 | Default-off skeletal path |
+| `WorldspaceUI` | `false` | 7 | Default-off worldspace UI |
+| `WorldspaceLabel3D` | `false` | 7 | Default-off 3D labels |
+| `DayNightCycle` | `false` | 8 | Default-off TOD driver |
 | `FogDensity` | `0.05f` | 8 | Current live default |
-| `PostFX` | `true` | 9 | Current live default |
-| `SSAOEnabled` | `true` | 9 | Default-on SSAO |
+| `PostFX` | `false` | 9 | Current live default |
+| `SSAOEnabled` | `false` | 9 | Default-off SSAO |
 | `SSAOQuality` | `Medium` | 9 | Current live default |
 | `SSGIEnabled` | `false` | 9 | Default-off SSGI |
 | `BloomEnabled` | `false` | 9 | Default-off bloom (BRP shader shipped) |
 | `ACESTonemapping` | `true` | 9 | Default-on ACES filmic tonemap |
-| `ParticleEffects` | `true` | 9 | Default-on particle effects |
-| `WeatherRain` | `true` | n/a | Weather default |
+| `ParticleEffects` | `false` | 9 | Default-off particle effects |
+| `WeatherRain` | `false` | n/a | Weather default |
 | `WeatherSnow` | `false` | n/a | Weather default |
 | `WeatherLightning` | `false` | n/a | Weather default |
 | `LODScale` | `0.5f` | 10 | LOD tuning default |
 | `WaterDetail` | `1.0f` | 10 | LOD tuning default |
 | `FoliageDensity` | `1.0f` | 10 | LOD tuning default |
-| `ProfilerDump` | `true` | 0 | Diagnostic overlay default |
+| `ProfilerDump` | `false` | 0 | Diagnostic overlay default |
 
 ## Current defaults by category
 
 ### Default-on / currently enabled
 
 - `VoxelEntities` — Phase 1
+- `ACESTonemapping` — Phase 9
+
+### Default-off / opt-in
+
 - `ProceduralBuildings` — Phase 2
 - `CrossedQuadFoliage` — Phase 3a/3b
 - `MeshWater` — Phase 4
@@ -132,17 +136,13 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 - `DayNightCycle` — Phase 8
 - `PostFX` — Phase 9
 - `SSAOEnabled` — Phase 9
-- `ACESTonemapping` — Phase 9
 - `ParticleEffects` — Phase 9 (decals + bursts)
 - `BiomeBlending` — terrain polish
 - `WorldspaceHealth3D` — worldspace HP bar style
 - `MountainSlopeSmoothing` — terrain polish
 - `WeatherRain` — weather
-- `ProfilerDump` — diagnostic overlay (default-on)
+- `ProfilerDump` — diagnostic overlay
 - `FogDensity` — `0.05f` in live settings
-
-### Default-off / opt-in
-
 - `SSGIEnabled` — Phase 9
 - `BloomEnabled` — Phase 9
 - `WeatherSnow` — weather
@@ -253,7 +253,7 @@ All paths under `Tools/wsm3d-playcua/sample-scenarios/`:
 - **Slash commands:** `/wsm-status`, `/wsm-validate-all`, `/wsm-build`, `/wsm-install`, `/wsm-relaunch`, `/wsm-log`, `/wsm-toggle`, `/wsm-screenshot`, `/wsm-journey-run`, `/wsm-doctor`.
 - **MCP:** `Tools/wsm3d-mcp/` — Python FastMCP with 18 tools, auto-registered via `.claude/mcp-servers.json`.
 - **Journey gate:** `.github/workflows/journeys-gate.yml` — OCR-assertion DSL; verify with `phenotype-journey verify <manifest> --mock`. Live capture remains the final proof step; entry point: `docs/live-verification.md`.
-- **Live-verify gate (CI):** `.github/workflows/live-verify-gate.yml` — offline `dotnet test` + journey mock (stages 1–2 of `Tools/wsm-live-verify.ps1`; **485 pass / 3 skip**, 488 total locally). Reused by **nightly** (`nightly.yml` → `live-verify-offline` job). Full harness: `pwsh Tools/wsm-live-verify.ps1` (add `-Live -Vision` for PlayCUA + SSIM + OmniRoute vision on a desktop with WorldBox + bridge).
+- **Live-verify gate (CI):** `.github/workflows/live-verify-gate.yml` — offline `dotnet test` + journey mock (stages 1–2 of `Tools/wsm-live-verify.ps1`; **486 pass / 3 skip**, 489 total locally). Reused by **nightly** (`nightly.yml` → `live-verify-offline` job). Full harness: `pwsh Tools/wsm-live-verify.ps1` (add `-Live -Vision` for PlayCUA + SSIM + OmniRoute vision on a desktop with WorldBox + bridge).
 - **ADR-0007 (conditional patch dispatch):** Landed scaffold — `PhasePatchGate.ShouldApplyHarmonyPatch` wired from `Core.Patch()`; `docs/adr/ADR-0007-conditional-patch-dispatch.md` remains **Proposed** until acceptance smoke. E2E: `ConditionalPatchDispatchInvariantsTests`.
 - **Live verify:** `docs/live-verification.md` — programmatic (`dotnet test`, journey mock, optional SSIM ≥ 0.95) vs agentic (`wsm3d-playcua` sample scenarios, OmniRoute combo, bridge save/load checklist).
 

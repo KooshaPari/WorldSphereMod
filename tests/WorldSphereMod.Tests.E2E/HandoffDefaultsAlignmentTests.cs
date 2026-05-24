@@ -157,21 +157,21 @@ public class HandoffDefaultsAlignmentTests
             }
         }
 
-        defaultOff.Should().NotContain(
+        defaultOff.Should().Contain(
             "MeshWater",
-            "MeshWater defaults to true in SavedSettings.cs — HANDOFF must not list it as default-off");
+            "MeshWater defaults to false in SavedSettings.cs and must be listed under Default-off in HANDOFF.md");
     }
 
     [Fact]
-    public void Handoff_default_on_category_includes_MeshWater()
+    public void Handoff_default_off_category_includes_MeshWater()
     {
         var root = FindRepoRoot();
         var handoff = ReadRepoFile(root, "docs", "HANDOFF.md");
 
-        var defaultOn = ParseHandoffCategoryFieldNames(handoff, "Default-on / currently enabled").ToList();
-        defaultOn.Should().Contain(
+        var defaultOff = ParseHandoffCategoryFieldNames(handoff, "Default-off / opt-in").ToList();
+        defaultOff.Should().Contain(
             "MeshWater",
-            "MeshWater is default-on in SavedSettings.cs and must be listed under Default-on in HANDOFF.md");
+            "MeshWater is default-off in SavedSettings.cs and must be listed under Default-off in HANDOFF.md");
     }
 
     [Fact]
@@ -198,9 +198,9 @@ public class HandoffDefaultsAlignmentTests
 
     [Theory]
     [InlineData(1, "VoxelEntities", "true")]
-    [InlineData(2, "ProceduralBuildings", "true")]
-    [InlineData(4, "MeshWater", "true")]
-    [InlineData(8, "DayNightCycle", "true")]
+    [InlineData(2, "ProceduralBuildings", "false")]
+    [InlineData(4, "MeshWater", "false")]
+    [InlineData(8, "DayNightCycle", "false")]
     public void Readme_phase_table_documents_saved_settings_default(
         int phase,
         string flag,
@@ -219,7 +219,8 @@ public class HandoffDefaultsAlignmentTests
             .FirstOrDefault(line => Regex.IsMatch(line, $@"^\|\s*{phase}\s+\|"));
 
         phaseRow.Should().NotBeNull($"README phase table must include a Phase {phase} row");
-        phaseRow!.Should().Contain("default ON", $"README Phase {phase} row must document default-on status");
+        var expectedStatus = expectedLiteral == "true" ? "default ON" : "default OFF";
+        phaseRow!.Should().Contain(expectedStatus, $"README Phase {phase} row must document default status");
         phaseRow.Should().Contain(
             $"{flag} = {expectedLiteral}",
             $"README Phase {phase} row must cite the live SavedSettings default");
