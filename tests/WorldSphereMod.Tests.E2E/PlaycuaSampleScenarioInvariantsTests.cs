@@ -14,6 +14,7 @@ public sealed class PlaycuaSampleScenarioInvariantsTests
     private const string BridgeSaveLoadSmokeScenarioRelative =
         "Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml";
     private const string LiveVerificationDocRelative = "docs/live-verification.md";
+    private const string SmokeTestPhase2Relative = "docs/smoke-test-phase2.md";
 
     private static string FindRepoRoot()
     {
@@ -32,6 +33,16 @@ public sealed class PlaycuaSampleScenarioInvariantsTests
         var path = Path.Combine(FindRepoRoot(), relativePath.Replace('/', Path.DirectorySeparatorChar));
         File.Exists(path).Should().BeTrue($"{relativePath} must exist at {path}");
         return File.ReadAllText(path);
+    }
+
+    [Fact]
+    public void Smoke_test_phase2_doc_exists_and_links_playcua_and_live_verification()
+    {
+        var doc = ReadRepoFile(SmokeTestPhase2Relative);
+
+        doc.Should().Contain(Phase2ScenarioRelative);
+        doc.Should().Contain(LiveVerificationDocRelative);
+        doc.Should().Contain("ProceduralBuildings");
     }
 
     [Fact]

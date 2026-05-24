@@ -46,6 +46,7 @@ export default defineConfig({
                     { text: "PR Checklist", link: "/PR_CHECKLIST" },
                     { text: "Phase 1 review", link: "/phase1-review" },
                     { text: "Phase 1 smoke test", link: "/smoke-test-phase1" },
+                    { text: "Phase 2 smoke test", link: "/smoke-test-phase2" },
                     { text: "Performance", link: "/performance" },
                 ],
             },
