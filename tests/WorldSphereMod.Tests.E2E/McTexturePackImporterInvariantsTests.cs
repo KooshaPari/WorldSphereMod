@@ -74,4 +74,29 @@ public sealed class McTexturePackImporterInvariantsTests
         Regex.IsMatch(settings, @"public\s+bool\s+EnableMcPackTextures\s*=\s*false")
             .Should().BeTrue("McPack textures are opt-in to avoid bundle ID conflicts");
     }
+
+    [Fact]
+    public void Importer_manifest_stub_and_McPackLoader_noop_bind_contract_are_aligned()
+    {
+        var importer = ReadSource(@"WorldSphereMod/Code/Import/TexturePackImporter.cs");
+        var loader = ReadSource(@"WorldSphereMod/Code/Texture/McPackLoader.cs");
+        var manifestIo = ReadSource(@"WorldSphereMod/Code/Texture/McPackManifestIO.cs");
+
+        importer.Should().Contain("ManifestImportStatusStub");
+        importer.Should().Contain("import_status = ManifestImportStatusStub");
+        importer.Should().Contain("atlas_rgb = string.Empty");
+        importer.Should().Contain("atlas_width = 0");
+        importer.Should().Contain("AtlasImportStubbed = true");
+        importer.Should().Contain("EnumerateBlockTextureNames");
+
+        manifestIo.Should().Contain("TexturePackImporter.ManifestImportStatusStub");
+        manifestIo.Should().Contain("IsImporterStubManifest");
+
+        loader.Should().Contain("TryBindImporterStubManifest");
+        loader.Should().Contain("_isLoaded = false");
+        loader.Should().Contain("_mainAtlas = null");
+        loader.Should().Contain("if (material == null || !_isLoaded) return");
+        loader.Should().Contain("McPackManifestIO.TryParseManifestFile");
+        loader.Should().Contain("!isImporterStub");
+    }
 }
