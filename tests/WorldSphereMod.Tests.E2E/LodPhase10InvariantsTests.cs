@@ -141,14 +141,24 @@ public class LodPhase10InvariantsTests
         var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
         var buildingProc = ReadSourceFile("WorldSphereMod/Code/ProcGen/BuildingProcRender.cs");
         var voxelizer = ReadSourceFile("WorldSphereMod/Code/Voxel/SpriteVoxelizer.cs");
+        var proxyCache = ReadSourceFile("WorldSphereMod/Code/Voxel/ProxyMeshCache.cs");
 
-        voxelRender.Should().NotContain("LodTier.Proxy",
+        voxelRender.Should().NotContain("tier == WorldSphereMod.LOD.LodTier.Proxy",
             "actor/building/projectile emit must not branch on Proxy until mid-tier meshes exist");
-        buildingProc.Should().NotContain("LodTier.Proxy",
+        buildingProc.Should().NotContain("tier == WorldSphereMod.LOD.LodTier.Proxy",
             "procedural building emit must not branch on Proxy until mid-tier meshes exist");
-        voxelizer.Should().NotContain("BuildProxy",
-            "deferred Phase 10 proxy mesh entry point is not implemented yet");
 
+        voxelizer.Should().Contain("public static Mesh BuildProxy(Sprite sprite)",
+            "Phase 10 proxy entry point must exist as a documented deferral stub");
+        voxelizer.Should().Contain("phase10-proxy-tier-status.md",
+            "BuildProxy stub must document deferral to status doc");
+        proxyCache.Should().Contain("public static class ProxyMeshCache",
+            "proxy mesh cache stub must exist for future mid-tier wiring");
+        proxyCache.Should().Contain("return null",
+            "ProxyMeshCache.Get must defer until BuildProxy and emit dispatch ship");
+
+        voxelRender.Should().Contain("LodTier.Proxy (and Voxel) share full voxel path",
+            "emit fallthrough must document that Proxy still uses VoxelMeshCache");
         voxelRender.Should().Contain("Mesh m = VoxelMeshCache.Get(sp, -1, true)",
             "non-impostor tiers (Voxel and Proxy) must share the full voxel cache path");
     }

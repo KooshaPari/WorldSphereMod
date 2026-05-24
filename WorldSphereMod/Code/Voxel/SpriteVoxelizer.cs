@@ -76,6 +76,18 @@ namespace WorldSphereMod.Voxel
             return Build(sprite, out _, depth);
         }
 
+        /// <summary>
+        /// Phase 10 proxy-tier mesh entry point (half-res downsample, then voxelize at depth=1).
+        /// Deferred: returns null; <see cref="LOD.LodTier.Proxy"/> emit still uses
+        /// <see cref="VoxelMeshCache.Get"/> until this ships. See
+        /// <c>docs/journeys/scratch/phase10-proxy-tier-status.md</c>.
+        /// </summary>
+        public static Mesh BuildProxy(Sprite sprite)
+        {
+            if (sprite == null) return null;
+            return null;
+        }
+
         public static Mesh Build(Sprite sprite, out VoxelMeshCache.MeshSnapshot snapshot, int depth = -1)
         {
             snapshot = null;

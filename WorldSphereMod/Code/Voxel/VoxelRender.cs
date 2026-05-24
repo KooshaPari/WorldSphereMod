@@ -547,6 +547,7 @@ namespace WorldSphereMod.Voxel
                         continue;
                     }
 
+                    // Phase 10: LodTier.Proxy (and Voxel) share full voxel path until BuildProxy/ProxyMeshCache ship.
                     Mesh m = VoxelMeshCache.Get(sp, -1, true);
                     if (m == null || m.vertexCount == 0) continue;
 
@@ -702,6 +703,7 @@ namespace WorldSphereMod.Voxel
                         continue;
                     }
 
+                    // Phase 10: Proxy tier shares full voxel path until BuildProxy/ProxyMeshCache ship.
                     Mesh m = VoxelMeshCache.Get(sp);
                     if (m == null || m.vertexCount == 0) continue;
 

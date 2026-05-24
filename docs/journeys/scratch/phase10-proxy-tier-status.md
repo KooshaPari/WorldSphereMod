@@ -9,7 +9,7 @@
 |---|---|
 | `LodSelector` tier math | **Shipped** — `Voxel` / `Proxy` / `Impostor` with hysteresis |
 | `FrustumCuller` + impostor + hardware fallback | **Shipped** |
-| `SpriteVoxelizer.BuildProxy` + proxy mesh cache | **Deferred** — not in repo |
+| `SpriteVoxelizer.BuildProxy` + `ProxyMeshCache` | **Stub** — symbols exist; return null; emit unwired |
 | Emit dispatch for `LodTier.Proxy` | **Routes to full voxel** — same path as `Voxel` |
 
 README phase table: **code-complete (no proxy)** — selection exists; mid-tier mesh swap does not.
@@ -47,7 +47,7 @@ Deeper threshold/hysteresis notes: [`lod-system-audit.md`](lod-system-audit.md).
 2. Only **`tier == LodTier.Impostor`** gets a dedicated branch (impostor quad + atlas).
 3. All other tiers — including **`Proxy`** — fall through to **`VoxelMeshCache.Get(sp, -1, true)`** (full voxel mesh).
 
-There is **no** `BuildProxy` in `SpriteVoxelizer.cs` and **no** `LodTier.Proxy` branch in emit code. Mid-band entities pay full voxel cost; they are classified as Proxy for future wiring only.
+`SpriteVoxelizer.BuildProxy` and `ProxyMeshCache.Get` are **stubs** (return null; documented deferral). There is still **no** `LodTier.Proxy` branch in emit code. Mid-band entities pay full voxel cost; they are classified as Proxy for future wiring only.
 
 **Skeletal path:** `tier != LodTier.Impostor` still allows `RigDriver.SubmitSkinnedActor` before the impostor/voxel split — Proxy-tier actors near camera can take the skinned path when rig type is known.
 
@@ -67,7 +67,7 @@ Until then, tuning `ProxyThreshold` changes **which entities are labeled Proxy**
 `tests/WorldSphereMod.Tests.E2E/LodPhase10InvariantsTests.cs`:
 
 - `LodSelector` exposes three tiers and proposes `Proxy` in `Select`.
-- `Proxy_tier_emit_uses_full_voxel_path_until_BuildProxy_ships` — emit code never branches on `LodTier.Proxy`; no `BuildProxy` symbol.
+- `Proxy_tier_emit_uses_full_voxel_path_until_BuildProxy_ships` — emit never branches on `LodTier.Proxy`; `BuildProxy`/`ProxyMeshCache` stubs return null; fallthrough comment in `VoxelRender`.
 
 ## Related docs
 
