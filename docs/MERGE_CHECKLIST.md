@@ -75,7 +75,7 @@ For the canonical release/handoff evidence bundle, use [`docs/live-verification.
 
 ## Release tag
 
-- Remote latest: **`v2.0.0-beta.5`** — [GitHub Release](https://github.com/KooshaPari/WorldSphereMod/releases/tag/v2.0.0-beta.5) (2026-05-24)
+- Remote latest: **`v2.0.0-beta.6`** — [GitHub Release](https://github.com/KooshaPari/WorldSphereMod/releases/tag/v2.0.0-beta.6) (2026-05-24)
 
 ## Submodule pin (do not bump casually)
 
