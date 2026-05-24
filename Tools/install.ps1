@@ -37,6 +37,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Write-InstallFailureHint {
+    Write-Host "[install] For environment diagnostics, run: pwsh Tools/wsm3d.ps1 doctor" -ForegroundColor Yellow
+}
+
+try {
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $modSrc   = Join-Path $repoRoot "WorldSphereMod"
 $modDst   = Join-Path $WorldBoxPath "Mods/$InstallFolderName"
@@ -108,3 +113,7 @@ Write-Host ""
 Write-Host "[install] installed to $modDst" -ForegroundColor Green
 Write-Host "[install] launch WorldBox; NeoModLoader will Roslyn-compile Code/*.cs on startup (~1s)."
 Write-Host "[install] verify in-game: WorldSphere tab -> '3D Phases' window. Phase 1 = 'Voxel Actors' toggle."
+} catch {
+    Write-InstallFailureHint
+    throw
+}
