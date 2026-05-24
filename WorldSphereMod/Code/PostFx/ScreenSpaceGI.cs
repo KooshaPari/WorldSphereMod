@@ -22,6 +22,7 @@ namespace WorldSphereMod.PostFx
         static bool _kernelBuilt;
         Material? _material;
         bool _initializing;
+        bool _destroyed;
 
         static Camera? ResolveMainCamera()
         {
@@ -52,7 +53,7 @@ namespace WorldSphereMod.PostFx
 
         public static void EnsureCreated()
         {
-            if (!Core.IsWorld3D || !Core.savedSettings.SSGIEnabled)
+            if (!Core.IsWorld3D || Core.savedSettings == null || !Core.savedSettings.SSGIEnabled)
             {
                 return;
             }
@@ -92,6 +93,12 @@ namespace WorldSphereMod.PostFx
 
         void OnDestroy()
         {
+            _destroyed = true;
+            if (_material != null)
+            {
+                Destroy(_material);
+                _material = null;
+            }
             if (_instance == this)
             {
                 _instance = null;
@@ -109,11 +116,21 @@ namespace WorldSphereMod.PostFx
             _initializing = true;
             ResourceRequest request = Resources.LoadAsync<Shader>(ShaderResourcePath);
             yield return request;
+            if (_destroyed)
+            {
+                _initializing = false;
+                yield break;
+            }
             Shader? shader = request.asset as Shader;
             shader ??= Shader.Find(ShaderFallbackName);
             if (shader == null)
             {
                 Debug.LogWarning("[WSM3D] ScreenSpaceGI: shader not found (Resources/Shaders/ScreenSpaceGI or Hidden/ScreenSpaceGI)");
+                _initializing = false;
+                yield break;
+            }
+            if (_destroyed)
+            {
                 _initializing = false;
                 yield break;
             }

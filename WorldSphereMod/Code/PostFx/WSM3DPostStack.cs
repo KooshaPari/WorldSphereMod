@@ -18,7 +18,6 @@ namespace WorldSphereMod.PostFx
         Material _lutMat;
         Texture2D _lutTexture;
         RenderTexture _ping;
-        RenderTexture _pong;
         bool _initialized;
 
         public static void EnsureCreated()
@@ -77,7 +76,9 @@ namespace WorldSphereMod.PostFx
 
         void OnDestroy()
         {
+            ReleaseMaterials();
             ReleasePingPong();
+            _initialized = false;
             if (_instance == this) _instance = null;
         }
 
@@ -98,13 +99,14 @@ namespace WorldSphereMod.PostFx
 
         void InitMaterials()
         {
+            ReleaseMaterials();
             _ssaoMat = TryLoadMaterial("Shaders/ScreenSpaceAO", "Hidden/ScreenSpaceAO");
             _ssgiMat = TryLoadMaterial("Shaders/ScreenSpaceGI", "Hidden/ScreenSpaceGI");
             _bloomMat = TryLoadMaterial("Shaders/BrpBloom", "Hidden/WSM3D/BrpBloom");
             _acesMat = TryLoadMaterial("Shaders/BrpACES", "Hidden/WSM3D/BrpACES");
 
             Shader lutShader = null;
-            if (Core.Sphere.LoadedShaders.TryGetValue("ColorGradingLUT", out var bundled) && bundled != null)
+            if (Core.IsWorld3D && Core.Sphere.LoadedShaders.TryGetValue("ColorGradingLUT", out var bundled) && bundled != null)
                 lutShader = bundled;
             lutShader ??= Shader.Find("WSM3D/ColorGradingLUT");
             lutShader ??= Resources.Load<Shader>("Shaders/ColorGradingLUT");
@@ -135,6 +137,16 @@ namespace WorldSphereMod.PostFx
 
             _initialized = true;
             Debug.Log($"[WSM3D] WSM3DPostStack initialized: SSAO={_ssaoMat != null} SSGI={_ssgiMat != null} Bloom={_bloomMat != null} ACES={_acesMat != null} LUT={_lutMat != null}");
+        }
+
+        void ReleaseMaterials()
+        {
+            if (_ssaoMat != null) { Destroy(_ssaoMat); _ssaoMat = null; }
+            if (_ssgiMat != null) { Destroy(_ssgiMat); _ssgiMat = null; }
+            if (_bloomMat != null) { Destroy(_bloomMat); _bloomMat = null; }
+            if (_acesMat != null) { Destroy(_acesMat); _acesMat = null; }
+            if (_lutMat != null) { Destroy(_lutMat); _lutMat = null; }
+            if (_lutTexture != null) { _lutTexture = null; }
         }
 
         static Material TryLoadMaterial(string resourcePath, string fallbackName)
@@ -175,17 +187,19 @@ namespace WorldSphereMod.PostFx
             if (_ping != null && _ping.width == src.width && _ping.height == src.height) return;
             ReleasePingPong();
             _ping = RenderTexture.GetTemporary(src.descriptor);
-            _pong = RenderTexture.GetTemporary(src.descriptor);
         }
 
         void ReleasePingPong()
         {
             if (_ping != null) { RenderTexture.ReleaseTemporary(_ping); _ping = null; }
-            if (_pong != null) { RenderTexture.ReleaseTemporary(_pong); _pong = null; }
         }
 
         void OnRenderImage(RenderTexture src, RenderTexture dst)
         {
+            if (src == null || dst == null)
+            {
+                return;
+            }
             if (!_initialized || Core.savedSettings == null || !Core.savedSettings.PostFX)
             {
                 Graphics.Blit(src, dst);
@@ -206,62 +220,72 @@ namespace WorldSphereMod.PostFx
             }
 
             EnsurePingPong(src);
-            RenderTexture cur = src;
-            RenderTexture next = _ping;
-
-            // Pass 1: SSAO
-            if (Core.savedSettings.SSAOEnabled && _ssaoMat != null)
+            try
             {
-                Graphics.Blit(cur, next, _ssaoMat);
-                Swap(ref cur, ref next);
+                RenderTexture cur = src;
+                RenderTexture next = _ping;
+
+                // Pass 1: SSAO
+                if (Core.savedSettings.SSAOEnabled && _ssaoMat != null)
+                {
+                    Graphics.Blit(cur, next, _ssaoMat);
+                    Swap(ref cur, ref next);
+                }
+
+                // Pass 2: SSGI
+                if (Core.savedSettings.SSGIEnabled && _ssgiMat != null)
+                {
+                    Graphics.Blit(cur, next, _ssgiMat);
+                    Swap(ref cur, ref next);
+                }
+
+                // Pass 3: Bloom (threshold → blur H → blur V → composite)
+                if (Core.savedSettings.BloomEnabled && _bloomMat != null)
+                {
+                    int w = Mathf.Max(1, src.width / 4);
+                    int h = Mathf.Max(1, src.height / 4);
+                    RenderTexture bloomA = RenderTexture.GetTemporary(w, h, 0, src.format);
+                    RenderTexture bloomB = RenderTexture.GetTemporary(w, h, 0, src.format);
+
+                    try
+                    {
+                        Graphics.Blit(cur, bloomA, _bloomMat, 0); // threshold
+                        Graphics.Blit(bloomA, bloomB, _bloomMat, 1); // blur H
+                        Graphics.Blit(bloomB, bloomA, _bloomMat, 2); // blur V
+
+                        _bloomMat.SetTexture(BloomTexId, bloomA);
+                        Graphics.Blit(cur, next, _bloomMat, 3); // composite
+                        Swap(ref cur, ref next);
+                    }
+                    finally
+                    {
+                        _bloomMat?.SetTexture(BloomTexId, null);
+                        RenderTexture.ReleaseTemporary(bloomA);
+                        RenderTexture.ReleaseTemporary(bloomB);
+                    }
+                }
+
+                // Pass 4: ACES tonemap
+                if (Core.savedSettings.ACESTonemapping && _acesMat != null)
+                {
+                    _acesMat.SetFloat(ExposureId, 1.0f);
+                    Graphics.Blit(cur, next, _acesMat);
+                    Swap(ref cur, ref next);
+                }
+
+                // Pass 5: LUT color grading (final)
+                if (Core.savedSettings.ColorGradingLut && _lutMat != null && _lutTexture != null)
+                {
+                    Graphics.Blit(cur, dst, _lutMat);
+                }
+                else
+                {
+                    Graphics.Blit(cur, dst);
+                }
             }
-
-            // Pass 2: SSGI
-            if (Core.savedSettings.SSGIEnabled && _ssgiMat != null)
+            finally
             {
-                Graphics.Blit(cur, next, _ssgiMat);
-                Swap(ref cur, ref next);
-            }
-
-            // Pass 3: Bloom (threshold → blur H → blur V → composite)
-            if (Core.savedSettings.BloomEnabled && _bloomMat != null)
-            {
-                int w = src.width / 4;
-                int h = src.height / 4;
-                RenderTexture bloomA = RenderTexture.GetTemporary(w, h, 0, src.format);
-                RenderTexture bloomB = RenderTexture.GetTemporary(w, h, 0, src.format);
-
-                Graphics.Blit(cur, bloomA, _bloomMat, 0); // threshold
-                Graphics.Blit(bloomA, bloomB, _bloomMat, 1); // blur H
-                Graphics.Blit(bloomB, bloomA, _bloomMat, 2); // blur V
-                // second blur pass for softer glow
-                Graphics.Blit(bloomA, bloomB, _bloomMat, 1);
-                Graphics.Blit(bloomB, bloomA, _bloomMat, 2);
-
-                _bloomMat.SetTexture(BloomTexId, bloomA);
-                Graphics.Blit(cur, next, _bloomMat, 3); // composite
-                Swap(ref cur, ref next);
-
-                RenderTexture.ReleaseTemporary(bloomA);
-                RenderTexture.ReleaseTemporary(bloomB);
-            }
-
-            // Pass 4: ACES tonemap
-            if (Core.savedSettings.ACESTonemapping && _acesMat != null)
-            {
-                _acesMat.SetFloat(ExposureId, 1.0f);
-                Graphics.Blit(cur, next, _acesMat);
-                Swap(ref cur, ref next);
-            }
-
-            // Pass 5: LUT color grading (final)
-            if (Core.savedSettings.ColorGradingLut && _lutMat != null && _lutTexture != null)
-            {
-                Graphics.Blit(cur, dst, _lutMat);
-            }
-            else
-            {
-                Graphics.Blit(cur, dst);
+                ReleasePingPong();
             }
         }
 
