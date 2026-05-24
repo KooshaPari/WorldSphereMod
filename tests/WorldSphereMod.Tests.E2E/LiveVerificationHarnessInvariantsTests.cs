@@ -58,6 +58,18 @@ public class LiveVerificationHarnessInvariantsTests
     }
 
     [Fact]
+    public void Playcua_main_requires_health_json_object_with_explicit_ok_true()
+    {
+        var main = ReadRepoFile(PlaycuaMainRelative);
+
+        main.Should().Contain("not isinstance(health, dict)");
+        main.Should().Contain("\"ok\" not in health");
+        main.Should().Contain("not isinstance(health.get(\"ok\"), bool)");
+        main.Should().Contain("or not health.get(\"ok\")");
+        main.Should().NotContain("get(\"ok\", True)");
+    }
+
+    [Fact]
     public void Live_verification_doc_documents_programmatic_and_agentic_gates()
     {
         var doc = ReadRepoFile(LiveVerificationDocRelative);
@@ -140,5 +152,16 @@ public class LiveVerificationHarnessInvariantsTests
 
         script.Should().Contain("Missing required live SSIM fixture");
         script.Should().NotContain("skipped_no_fixture");
+    }
+
+    [Fact]
+    public void Wsm_live_verify_report_keeps_live_artifacts_in_failed_live_stage()
+    {
+        var script = ReadRepoFile(LiveVerifyScriptRelative);
+
+        script.Should().Contain("bridgePort     = $bridgePort");
+        script.Should().Contain("playcuaRuns    = @()");
+        script.Should().Contain("ssimComparisons = @()");
+        script.Should().Contain("Add-StageResult -Id \"live-playcua-ssim\" -Status \"failed\" -Details $liveDetails");
     }
 }

@@ -21,12 +21,16 @@
 
 .PARAMETER ListScenarios
   Print PlayCUA sample scenarios (file + name) and exit without running the pipeline.
+
+.PARAMETER SkipOffline
+  Skip Stage 1 (dotnet test) and Stage 2 (journey mock). Requires -Live.
 #>
 [CmdletBinding()]
 param(
     [switch]$Live,
     [switch]$Vision,
     [switch]$ListScenarios,
+    [switch]$SkipOffline,
     [int]$Phase = 0
 )
 
@@ -152,10 +156,37 @@ function Get-DotnetTestResultFromOutput {
     }
 }
 
+function Invoke-BridgeLiveBootstrap {
+    param([int]$Port = 8766)
+
+    $base = "http://127.0.0.1:$Port"
+    $settings = @(
+        @{ key = "VoxelEntities"; value = "true" },
+        @{ key = "DebugSanityCube"; value = "true" }
+    )
+
+    foreach ($entry in $settings) {
+        $uri = "$base/settings/$($entry.key)?value=$($entry.value)"
+        try {
+            $response = Invoke-RestMethod -Method Post -Uri $uri -TimeoutSec 20
+            if (-not $response.ok) {
+                Write-Warning ("Bridge bootstrap POST /settings/{0} returned ok=false" -f $entry.key)
+            }
+        } catch {
+            Write-Warning ("Bridge bootstrap /settings/{0} failed: {1}" -f $entry.key, $_.Exception.Message)
+        }
+    }
+
+    # Let MapBox.renderStuff + VoxelFrameDriver.LateUpdate flush probe submissions.
+    Start-Sleep -Seconds 3
+}
+
 function Test-BridgeHealthy {
     try {
         $response = Invoke-RestMethod -Uri $bridgeUrl -Method Get -TimeoutSec 8
-        return [bool]($response -and $response.ok -ne $false)
+        if ($null -eq $response) { return $false }
+        $ok = $response.ok
+        return ($ok -is [bool] -and $ok -eq $true)
     } catch {
         return $false
     }
@@ -303,7 +334,17 @@ if ($ListScenarios) {
     exit 0
 }
 
+if ($SkipOffline -and -not $Live) {
+    throw "-SkipOffline requires -Live (offline stages are skipped; only live PlayCUA/SSIM runs)."
+}
+
 # Stage 1: dotnet test (unit, integration, e2e) — fail fast
+if ($SkipOffline) {
+    Invoke-SkippedStage -Id "dotnet-tests" -Reason "Skipped via -SkipOffline; run without -SkipOffline for CI parity."
+    Invoke-SkippedStage -Id "journey-mock-verify" -Reason "Skipped via -SkipOffline."
+    $stage1Ok = $true
+    $stage2Ok = $true
+} else {
 $stage1Ok = Invoke-Stage -Id "dotnet-tests" -Body {
     $projects = Get-DotnetTestProjects
     if (-not $projects -or $projects.Count -eq 0) {
@@ -371,6 +412,7 @@ $stage2Ok = Invoke-Stage -Id "journey-mock-verify" -Body {
 if (-not $stage2Ok) {
     Write-ReportAndExit 1
 }
+}
 
 # Stage 3: [-Live] bridge :8766, wsm3d-playcua, SSIM vs docs/journeys/phase-previews
 if (-not $Live) {
@@ -390,6 +432,8 @@ if (-not $Live) {
             throw "Bridge health check failed at $bridgeUrl (start MCP/bridge on port $bridgePort)."
         }
         $liveDetails.bridgeHealthy = $true
+        Invoke-BridgeLiveBootstrap -Port $bridgePort
+        $liveDetails.bridgeBootstrap = @{ VoxelEntities = $true; DebugSanityCube = $true }
 
         $python = Resolve-PythonCommand
         $playcuaMain = Join-Path $repoRoot "Tools/wsm3d-playcua/main.py"
@@ -400,6 +444,16 @@ if (-not $Live) {
         $scenarios = Get-PlaycuaScenarios
         if (-not $scenarios -or $scenarios.Count -eq 0) {
             throw "No playcua YAML scenarios found under Tools/wsm3d-playcua/sample-scenarios."
+        }
+
+        # Phase scenarios require OmniRoute/Anthropic vision (required: true). Without -Vision,
+        # run bridge smoke/health gates only so -Live succeeds on a bridge + telemetry machine.
+        if (-not $Vision) {
+            $bridgeOnly = @($scenarios | Where-Object { $_.Name -like 'bridge-*' })
+            if ($bridgeOnly.Count -gt 0) {
+                Write-Host ("PlayCUA: -Vision not set; running $($bridgeOnly.Count) bridge-* scenario(s) only.")
+                $scenarios = $bridgeOnly
+            }
         }
 
         $artifactRoot = Join-Path $repoRoot "Tools/wsm3d-playcua/.reports/live-verify-artifacts"
@@ -436,6 +490,9 @@ if (-not $Live) {
             }
         }
 
+        if (-not $Vision -and $Phase -le 0) {
+            $liveDetails.ssimSkipped = "Pass -Vision (and load the matching phase in-game) to run phase-preview SSIM."
+        } else {
         $captureRoot = Join-Path $artifactRoot "ssim-captures"
         if (-not (Test-Path -LiteralPath $captureRoot)) {
             New-Item -ItemType Directory -Force -Path $captureRoot | Out-Null
@@ -494,6 +551,7 @@ if (-not $Live) {
                     note    = "before.png exists; harness compares after.png post-scenario only."
                 }
             }
+        }
         }
 
         Add-StageResult -Id "live-playcua-ssim" -Status "passed" -Details $liveDetails -DurationMs $liveSw.Elapsed.TotalMilliseconds

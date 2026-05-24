@@ -381,6 +381,7 @@ namespace WorldSphereMod.Voxel
             {
                 MeshInstanceBatcher.Flush();
                 VoxelMeshCache.Tick();
+                Bridge.BridgeServer.RefreshTelemetryCache();
                 return;
             }
 
@@ -397,6 +398,7 @@ namespace WorldSphereMod.Voxel
 
             totalSw.Stop();
             Debug.Log($"[WSM3D][PERF] VoxelRender.Flush total={totalSw.Elapsed.TotalMilliseconds:F3}ms");
+            Bridge.BridgeServer.RefreshTelemetryCache();
         }
 
         static void LogActorVoxelSubmitDiagnostics(Camera? camera)
@@ -1190,6 +1192,10 @@ namespace WorldSphereMod.Voxel
                 VoxelRender.Flush();
                 VoxelMeshCache.DrainPendingDestroy();
             }
+
+            // Always sample after the emit phase so /telemetry sees the last flush counters
+            // even when this frame had nothing new to submit.
+            Bridge.BridgeServer.RefreshTelemetryCache();
         }
 
         static bool _lastAppliedPostFX = false;

@@ -21,12 +21,18 @@ namespace WorldSphereMod.Bridge
             BridgeServer.DrainStaticQueue();
             WorldSphereMod.Voxel.MeshInstanceBatcher.SetMainThread();
 
-            if (!runVoxelFrame || !Core.IsWorld3D) return;
+            if (!Core.IsWorld3D) return;
 
-            int frame = Time.frameCount;
-            if (frame == _voxelTickFrame) return;
-            _voxelTickFrame = frame;
-            WorldSphereMod.Voxel.VoxelFrameDriver.TickPerFrame();
+            if (runVoxelFrame)
+            {
+                int frame = Time.frameCount;
+                if (frame != _voxelTickFrame)
+                {
+                    _voxelTickFrame = frame;
+                    WorldSphereMod.Voxel.VoxelFrameDriver.TickPerFrame();
+                }
+            }
+
         }
     }
 

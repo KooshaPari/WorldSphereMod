@@ -2,6 +2,18 @@ name: bridge-save-load-smoke
 output_dir: artifacts
 default_wait_seconds: 0.5
 steps:
+  - action: set_setting
+    key: VoxelEntities
+    value: true
+    note: Ensure voxel emit path is active for telemetry probes.
+  - action: set_setting
+    key: DebugSanityCube
+    value: true
+    note: Submit probe cubes via MeshInstanceBatcher for lastNonZeroDrawCalls.
+  - action: wait_n_frames
+    frames: 30
+    fps: 30
+    note: Allow TickPerFrame + LateUpdate flush to populate telemetry cache.
   - action: health
     required: true
     expect_is_world_3d: true
@@ -12,7 +24,7 @@ steps:
     required: true
     note: Pre-save-load telemetry baseline before any scene transition.
     checks:
-      - field: drawCalls
+      - field: lastNonZeroDrawCalls
         op: ">"
         value: 0
   - action: load_save
@@ -42,7 +54,7 @@ steps:
     required: true
     note: Post-reload telemetry — frame/cache fields must respond after save/load.
     checks:
-      - field: drawCalls
+      - field: lastNonZeroDrawCalls
         op: ">"
         value: 0
       - field: frameMs

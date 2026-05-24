@@ -1,5 +1,5 @@
 using UnityEngine;
-using UnityEngine.Rendering;
+using WorldSphereMod.NewCamera;
 
 namespace WorldSphereMod.Voxel
 {
@@ -9,22 +9,28 @@ namespace WorldSphereMod.Voxel
         static bool _hasLastActorPos;
         static Vector3 _lastLoggedBasePos = new Vector3(float.NaN, float.NaN, float.NaN);
         static Mesh? _mesh;
-        static MaterialPropertyBlock? _block;
 
-        static readonly int _instanceColorId = Shader.PropertyToID("_InstanceColor");
-        static readonly int _baseColorId = Shader.PropertyToID("_BaseColor");
-        static readonly int _colorId = Shader.PropertyToID("_Color");
         static readonly Vector3 _heightOffset = Vector3.up * 50f;
         static readonly float _halfCubeSize = 10f;
+        static readonly Color _baseTint = Color.magenta;
+        static readonly Color _topTint = Color.cyan;
+        static bool _loggedMissingMaterial;
 
         public static void Draw()
         {
-            Material? material = VoxelRender.GetResolvedMaterial();
-            if (material == null) return;
-            if (!_hasLastActorPos) return;
+            if (!Core.savedSettings.DebugSanityCube && !Bridge.BridgeServer.LiveTelemetryProbeEnabled) return;
+            if (!TryEnsureProbePosition()) return;
+            if (VoxelRender.GetResolvedMaterial() == null)
+            {
+                if (!_loggedMissingMaterial)
+                {
+                    _loggedMissingMaterial = true;
+                    Debug.LogWarning("[WSM3D] SanityTestCube skipped: voxel material not resolved yet.");
+                }
+                return;
+            }
 
             Mesh mesh = EnsureMesh();
-            MaterialPropertyBlock block = EnsureBlock();
             Vector3 basePos = LastActorPos;
             Vector3 topPos = LastActorPos + _heightOffset;
             Matrix4x4 baseMatrix = Matrix4x4.TRS(basePos, Quaternion.identity, Vector3.one * _halfCubeSize);
@@ -32,35 +38,50 @@ namespace WorldSphereMod.Voxel
 
             if (!basePos.Equals(_lastLoggedBasePos))
             {
-                Debug.Log($"[WSM3D] SanityTestCube: drawing 20-unit cube at base={basePos} and upOffset={topPos} using material {material.shader.name}");
+                Debug.Log($"[WSM3D] SanityTestCube: submitting probe cubes at base={basePos} upOffset={topPos}");
                 _lastLoggedBasePos = basePos;
             }
 
-            Graphics.DrawMesh(
-                mesh,
-                baseMatrix,
-                material,
-                0,
-                null,
-                0,
-                block,
-                ShadowCastingMode.On,
-                true,
-                null,
-                LightProbeUsage.Off);
+            // Route through the voxel batcher so /telemetry drawCalls and lastNonZeroDrawCalls
+            // reflect live-verify and PlayCUA assertions (Graphics.DrawMesh bypassed the counter).
+            VoxelRender.Submit(mesh, baseMatrix, _baseTint);
+            VoxelRender.Submit(mesh, topMatrix, _topTint);
+        }
 
-            Graphics.DrawMesh(
-                mesh,
-                topMatrix,
-                material,
-                0,
-                null,
-                0,
-                block,
-                ShadowCastingMode.On,
-                true,
-                null,
-                LightProbeUsage.Off);
+        static bool TryEnsureProbePosition()
+        {
+            if (_hasLastActorPos) return true;
+
+            if (Bridge.BridgeServer.LiveTelemetryProbeEnabled)
+            {
+                if (MapBox.width > 0 && MapBox.height > 0)
+                {
+                    LastActorPos = new Vector3(MapBox.width * 0.5f, 12f, MapBox.height * 0.5f);
+                }
+                else
+                {
+                    LastActorPos = Vector3.zero;
+                }
+                _hasLastActorPos = true;
+                return true;
+            }
+
+            Camera? cam = CameraManager.MainCamera;
+            if (cam != null)
+            {
+                LastActorPos = cam.transform.position + cam.transform.forward * 8f;
+                _hasLastActorPos = true;
+                return true;
+            }
+
+            if (World.world != null && MapBox.width > 0 && MapBox.height > 0)
+            {
+                LastActorPos = new Vector3(MapBox.width * 0.5f, 10f, MapBox.height * 0.5f);
+                _hasLastActorPos = true;
+                return true;
+            }
+
+            return false;
         }
 
         public static void CaptureFirstActorPos(Vector3 actorWorldPos)
@@ -137,17 +158,6 @@ namespace WorldSphereMod.Voxel
             _mesh.colors = colors;
             _mesh.RecalculateBounds();
             return _mesh;
-        }
-
-        static MaterialPropertyBlock EnsureBlock()
-        {
-            if (_block != null) return _block;
-
-            _block = new MaterialPropertyBlock();
-            _block.SetColor(_instanceColorId, Color.white);
-            _block.SetColor(_baseColorId, Color.white);
-            _block.SetColor(_colorId, Color.white);
-            return _block;
         }
     }
 }

@@ -210,8 +210,10 @@ public class SourceContentInvariantsTests
             "backup ActorManager hook must drain bridge only — emit postfixes finish before LateUpdate flush");
 
         var survivalRunBody = ExtractMethodBody(bridgeTick, "public static void Run(bool runVoxelFrame)");
-        survivalRunBody.Should().Contain("if (!runVoxelFrame || !Core.IsWorld3D) return",
-            "backup drain must skip TickPerFrame so emit postfixes run before LateUpdate flush");
+        survivalRunBody.Should().Contain("if (!Core.IsWorld3D) return",
+            "non-3D worlds skip TickPerFrame while bridge queue drain still runs each hook");
+        survivalRunBody.Should().Contain("if (runVoxelFrame)",
+            "backup drain must gate TickPerFrame so emit postfixes run before LateUpdate flush");
         survivalRunBody.Should().Contain("VoxelFrameDriver.TickPerFrame()",
             "primary hook must still invoke pre-emit voxel work when runVoxelFrame is true");
 
@@ -236,6 +238,40 @@ public class SourceContentInvariantsTests
             "OnDestroy must not stop HTTP listener when a newer BridgeServer instance exists");
         bridgeServer.Should().Contain("if (_mainThreadId != 0 && Thread.CurrentThread.ManagedThreadId == _mainThreadId)",
             "InvokeOnMainThread must use the captured static main thread id");
+        bridgeServer.Should().Contain("WriteJson(context.Response, BuildHealthPayload());",
+            "/health must bypass InvokeOnMainThread so it can answer while Unity main-thread work is stalled");
+        bridgeServer.Should().Contain("bridgeAlive = true",
+            "health payload must always expose a bridge-alive marker");
+        bridgeServer.Should().Contain("listenerThreadAlive = _listenerThread != null && _listenerThread.IsAlive",
+            "health payload must stay on bridge-owned thread-safe state");
+        bridgeServer.Should().Contain("RefreshHealthCache()",
+            "health version/world flags must be cached on the main thread, not read from the listener thread");
+        bridgeServer.Should().Contain("version = _cachedHealthVersion",
+            "health must expose cached version for PlayCUA without blocking on Unity");
+        bridgeServer.Should().Contain("isWorld3D = _cachedIsWorld3D",
+            "health must expose cached isWorld3D for PlayCUA without blocking on Unity");
+        bridgeServer.Should().NotContain("WriteJson(context.Response, InvokeOnMainThread(BuildHealthPayload));",
+            "/health must not be serialized through the timeout-prone main-thread dispatcher");
+        bridgeServer.Should().Contain("public static void RefreshTelemetryCache()",
+            "telemetry cache must be callable after MeshInstanceBatcher.Flush");
+        var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
+        voxelRender.Should().Contain("Bridge.BridgeServer.RefreshTelemetryCache()",
+            "telemetry must refresh after flush so drawCalls reflect the completed frame");
+        voxelRender.Should().MatchRegex(
+            @"void LateUpdate\(\)[\s\S]*RefreshTelemetryCache\(\);",
+            "LateUpdate must refresh telemetry every frame, not only when HasPendingSubmissions");
+        bridgeServer.Should().Contain("WriteJson(context.Response, BuildTelemetryPayload());",
+            "/telemetry must bypass InvokeOnMainThread so PlayCUA assert_telemetry does not get null");
+        bridgeServer.Should().Contain("drawCalls = _cachedDrawCalls",
+            "telemetry must expose cached drawCalls for PlayCUA");
+        bridgeServer.Should().Contain("lastNonZeroDrawCalls = _cachedLastNonZeroDrawCalls",
+            "telemetry must expose last non-zero drawCalls for between-frame PlayCUA checks");
+        bridgeServer.Should().Contain("EnsureVoxelFrameDriverOnBridgeHost()",
+            "bridge DDOL host must host VoxelFrameDriver so LateUpdate flush runs after scene transitions");
+        bridgeServer.Should().Contain("frameMs = _cachedFrameMs",
+            "telemetry must expose cached frameMs for PlayCUA");
+        bridgeServer.Should().NotContain("InvokeOnMainThread(BuildTelemetryPayload)",
+            "/telemetry must not block on the 5s main-thread dispatcher");
     }
 
     [Fact]

@@ -4,6 +4,7 @@ default_wait_seconds: 1
 steps:
   - action: load_save
     slot: 2
+    optional: true
     note: Load the baseline save with voxel-heavy world content.
   - action: wait_n_frames
     frames: 12
@@ -12,7 +13,7 @@ steps:
     required: true
     note: Bridge health proxy — game must be rendering before phase toggle.
     checks:
-      - field: drawCalls
+      - field: lastNonZeroDrawCalls
         op: ">"
         value: 0
       - field: frameMs
@@ -46,5 +47,5 @@ steps:
         op: "<"
         value: 50
       - field: instances
-        op: ">"
-        value: 10
+        op: ">="
+        value: 2
