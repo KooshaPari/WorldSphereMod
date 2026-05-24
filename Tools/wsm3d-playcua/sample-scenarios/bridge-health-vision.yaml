@@ -26,6 +26,9 @@ steps:
       - field: frameMs
         op: ">"
         value: 0
+      - field: frameMs
+        op: "<"
+        value: 200
       - field: instances
         op: ">="
         value: 0
