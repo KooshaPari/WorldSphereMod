@@ -314,4 +314,26 @@ public class Wsm3dCliInvariantsTests
         completion.Should().Contain("\"submodule\" {");
         completion.Should().Contain(@"""init""");
     }
+
+    [Fact]
+    public void Wsm3d_status_reads_live_verify_report_test_counts()
+    {
+        var script = ReadWsm3dScript();
+
+        script.Should().Contain("live-verify-latest.json");
+        script.Should().Contain("function Get-LiveVerifyReportSummary");
+        script.Should().Contain("dotnet-tests");
+        script.Should().Contain("testCounts");
+        script.Should().Contain("LiveVerify");
+    }
+
+    [Fact]
+    public void Wsm3d_help_documents_status_live_verify_test_counts()
+    {
+        var script = ReadWsm3dScript();
+
+        script.Should().Contain("status [-Json]");
+        script.Should().Contain("live-verify test counts");
+        script.Should().Contain("Tools/.reports/live-verify-latest.json");
+    }
 }

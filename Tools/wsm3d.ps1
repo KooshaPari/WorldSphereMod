@@ -41,6 +41,7 @@ $script:BridgePort = 8766
 $script:BridgeHealthUrl = "http://127.0.0.1:8766/health"
 $script:OmniRouteBaseUrl = if ($env:OMNROUTE_BASE_URL) { $env:OMNROUTE_BASE_URL.TrimEnd('/') } else { "http://127.0.0.1:20128/v1" }
 $script:GitSubmodulePaths = @("External/Compound-Spheres")
+$script:LiveVerifyReportPath = Join-Path $RepoRoot "Tools/.reports/live-verify-latest.json"
 
 # Phase defaults from SavedSettings.cs (also used by safe-min preset)
 $script:PhaseDefaults = @{
@@ -1172,6 +1173,33 @@ function Invoke-PhasesPreset {
     }
 }
 
+function Get-LiveVerifyReportSummary {
+    if (-not (Test-Path -LiteralPath $script:LiveVerifyReportPath)) {
+        return $null
+    }
+
+    try {
+        $report = Get-Content -LiteralPath $script:LiveVerifyReportPath -Raw | ConvertFrom-Json
+    } catch {
+        return $null
+    }
+
+    $dotnetStage = @($report.stages | Where-Object { $_.id -eq "dotnet-tests" } | Select-Object -First 1)
+    $testCounts = $null
+    if ($dotnetStage.Count -gt 0 -and $dotnetStage[0].details) {
+        $details = $dotnetStage[0].details
+        if ($details.PSObject.Properties.Name -contains "testCounts") {
+            $testCounts = $details.testCounts
+        }
+    }
+
+    return [ordered]@{
+        finishedAt = [string]$report.finishedAt
+        overallOk  = [bool]$report.overallOk
+        testCounts = $testCounts
+    }
+}
+
 function Invoke-Status {
     param([switch]$Json)
 
@@ -1222,8 +1250,13 @@ function Invoke-Status {
         $status["LogModified"] = "not found"
     }
 
+    $liveVerify = Get-LiveVerifyReportSummary
+    if ($liveVerify) {
+        $status["LiveVerify"] = $liveVerify
+    }
+
     if ($Json) {
-        Write-Host ($status | ConvertTo-Json)
+        Write-Host ($status | ConvertTo-Json -Depth 6)
     } else {
         Write-Host ""
         Write-Host "Status Report" -ForegroundColor Cyan
@@ -1233,6 +1266,16 @@ function Invoke-Status {
         Write-Host "  Mod Install      : $($status['ModInstalled'])"
         Write-Host "  Game Process     : $($status['GameProcess'])"
         Write-Host "  Player.log       : $($status['LogModified']) ($($status['LogSize']) bytes)"
+        if ($liveVerify) {
+            $lvLabel = if ($liveVerify.overallOk) { "ok" } else { "failed" }
+            $lvWhen = if ($liveVerify.finishedAt) { $liveVerify.finishedAt } else { "unknown" }
+            $lvLine = "  Live Verify      : $lvLabel @ $lvWhen"
+            if ($liveVerify.testCounts) {
+                $tc = $liveVerify.testCounts
+                $lvLine += " ($($tc.total) tests: $($tc.passed) passed, $($tc.failed) failed, $($tc.skipped) skipped)"
+            }
+            Write-Host $lvLine
+        }
         Write-Host ""
     }
 }
@@ -1800,7 +1843,8 @@ Commands:
       Flip a phase flag on/off. Name can be camelCase (VoxelEntities) or snake_case (voxel_entities).
 
   status [-Json]
-      Print build state, game running, log mtime. Use -Json for machine-readable output.
+      Print build state, game running, log mtime, and last live-verify test counts when
+      Tools/.reports/live-verify-latest.json exists. Use -Json for machine-readable output.
 
   doctor [-Json]
       Environment diagnostics: WORLDBOX_PATH, dotnet SDK, python, git submodules,

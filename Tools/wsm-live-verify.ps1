@@ -125,6 +125,29 @@ function Get-DotnetTestProjects {
     }
 }
 
+function Get-DotnetTestResultFromOutput {
+    param(
+        [string]$Output,
+        [string]$ProjectLabel
+    )
+
+    $match = [regex]::Match(
+        $Output,
+        '(?:Passed|Failed)!\s+-\s+Failed:\s+(\d+),\s+Passed:\s+(\d+),\s+Skipped:\s+(\d+),\s+Total:\s+(\d+)'
+    )
+    if (-not $match.Success) {
+        throw "Could not parse dotnet test summary for $ProjectLabel"
+    }
+
+    return [ordered]@{
+        project = $ProjectLabel
+        failed  = [int]$match.Groups[1].Value
+        passed  = [int]$match.Groups[2].Value
+        skipped = [int]$match.Groups[3].Value
+        total   = [int]$match.Groups[4].Value
+    }
+}
+
 function Test-BridgeHealthy {
     try {
         $response = Invoke-RestMethod -Uri $bridgeUrl -Method Get -TimeoutSec 8
@@ -260,21 +283,42 @@ $stage1Ok = Invoke-Stage -Id "dotnet-tests" -Body {
     }
 
     $runs = @()
+    $byProject = @()
+    $passed = 0
+    $failed = 0
+    $skipped = 0
+    $total = 0
     foreach ($project in $projects) {
-        Write-Host ("dotnet test " + (Split-Path -Leaf $project) + " ...")
+        $label = Split-Path -Leaf $project
+        Write-Host ("dotnet test " + $label + " ...")
         Push-Location $repoRoot
         try {
-            & dotnet test $project -c Release --nologo | Out-Null
+            $output = & dotnet test $project -c Release --nologo 2>&1 | Out-String
             if ($LASTEXITCODE -ne 0) {
                 throw "dotnet test failed for $project (exit $LASTEXITCODE)"
             }
+            $result = Get-DotnetTestResultFromOutput -Output $output -ProjectLabel $label
+            $byProject += $result
+            $passed += $result.passed
+            $failed += $result.failed
+            $skipped += $result.skipped
+            $total += $result.total
         } finally {
             Pop-Location
         }
-        $runs += (Split-Path -Leaf $project)
+        $runs += $label
     }
 
-    return @{ projects = $runs }
+    return @{
+        projects   = $runs
+        testCounts = [ordered]@{
+            passed  = $passed
+            failed  = $failed
+            skipped = $skipped
+            total   = $total
+        }
+        byProject  = $byProject
+    }
 }
 
 if (-not $stage1Ok) {
