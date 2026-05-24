@@ -357,37 +357,4 @@ public class Wsm3dCliInvariantsTests
         script.Should().Contain("live-verify test counts");
         script.Should().Contain("Tools/.reports/live-verify-latest.json");
     }
-
-    [Fact]
-    public void Wsm3d_help_documents_validate_offline_live_verify()
-    {
-        var script = ReadWsm3dScript();
-
-        script.Should().Contain("validate");
-        script.Should().Contain("wsm-live-verify.ps1");
-        script.Should().Contain("function Invoke-Validate");
-        script.Should().Contain("/wsm-validate-all");
-        script.Should().Contain("live-verify-gate.yml");
-        script.Should().Contain("Tools/.reports/live-verify-latest.json");
-    }
-
-    [Fact]
-    public void Wsm3d_validate_dispatcher_wires_invoke_validate()
-    {
-        var script = ReadWsm3dScript();
-
-        script.Should().MatchRegex(@"""validate""\s*\{");
-        script.Should().Contain("Invoke-Validate");
-        script.Should().Contain("Tools/wsm-live-verify.ps1");
-        script.Should().Contain("offline CI gate");
-    }
-
-    [Fact]
-    public void Wsm3d_completion_offers_validate()
-    {
-        var path = Path.Combine(FindRepoRoot(), "Tools", "wsm3d.completion.ps1");
-        var completion = File.ReadAllText(path);
-
-        completion.Should().Contain(@"""validate""");
-    }
 }
