@@ -88,7 +88,7 @@ Requires a Windows desktop with WorldBox, the mod installed, and the BridgeRPC l
 
 | Layer | What it proves | Command / workflow |
 |-------|----------------|-------------------|
-| **wsm3d-playcua** | YAML scenarios drive bridge actions (`health`, `load_save`, `toggle_flag`, `assert_telemetry`, `screenshot`) | `python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/bridge-health-vision.yaml` |
+| **wsm3d-playcua** | YAML scenarios drive bridge actions (`health`, `load_save`, `toggle_flag`, `assert_telemetry`, `screenshot`) | [`Tools/wsm3d-playcua/sample-scenarios/README.md`](../Tools/wsm3d-playcua/sample-scenarios/README.md) — all 13 scenarios; `python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/bridge-health-vision.yaml` |
 | **OmniRoute vision combo** | Screenshot steps with `vision:` criteria get multi-VLM judgment via OpenAI-compatible `/v1/chat/completions` | Set `OMNROUTE_*` env (below); backend: `Tools/wsm3d-playcua/vision.py` → `OmniRouteVisionValidator` |
 | **Bridge smoke** | JSON invariants on `/health`, `/telemetry`, `/voxel/sprite`, `/phase/*` | `python Tools/wsm3d-playcua/smoke.py` |
 | **Journey live** | Manifest frames + OCR against real captures | `pwsh Tools/wsm3d.ps1 journey verify -Id <id> -Live` |
