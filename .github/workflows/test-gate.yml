@@ -1,11 +1,7 @@
 name: test-gate
 
-# Blocking quality gate: PRs must pass unit tests.
-# Mirrors DINOForge -gate.yml naming convention.
-#
-# NOTE: This workflow assumes a tests/ scaffold (WorldSphereMod.Tests.Unit,
-# .Integration, .E2E projects). If those paths haven't landed yet, the workflow
-# will run but skip the test step with a clear log message rather than fail.
+# Blocking quality gate: PRs must pass offline live-verify stages (tests + journeys).
+# Mirrors DINOForge -gate.yml naming; implementation reuses live-verify-gate stages.
 
 on:
   pull_request:
@@ -17,63 +13,4 @@ permissions:
 
 jobs:
   dotnet-test:
-    name: dotnet test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: |
-            5.0.x
-            8.0.x
-
-      # See docs/ci-mod-compile-gap.md — placeholders for HintPath resolution only.
-      - name: Stub WorldBox reference DLLs
-        shell: bash
-        run: bash Tools/ci-stub-worldbox-refs.sh
-
-      - name: Detect test projects
-        id: detect
-        shell: bash
-        run: |
-          if [ -d "tests" ] && find tests -maxdepth 3 -name '*.csproj' | grep -q .; then
-            echo "found=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "found=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No test projects found under tests/ — workflow ready when paths land."
-          fi
-
-      - name: Run unit tests
-        if: steps.detect.outputs.found == 'true'
-        shell: bash
-        run: |
-          if [ -d "tests/WorldSphereMod.Tests.Unit" ]; then
-            dotnet test tests/WorldSphereMod.Tests.Unit/ \
-              --logger "trx;LogFileName=unit.trx" \
-              --logger "console;verbosity=normal" \
-              --results-directory ./test-results
-          else
-            echo "::notice::tests/WorldSphereMod.Tests.Unit not present — skipping."
-          fi
-
-      - name: Run integration tests
-        if: steps.detect.outputs.found == 'true'
-        shell: bash
-        run: |
-          if [ -d "tests/WorldSphereMod.Tests.Integration" ]; then
-            dotnet test tests/WorldSphereMod.Tests.Integration/ \
-              --logger "trx;LogFileName=integration.trx" \
-              --logger "console;verbosity=normal" \
-              --results-directory ./test-results
-          else
-            echo "::notice::tests/WorldSphereMod.Tests.Integration not present — skipping."
-          fi
-
-      - name: Upload test results
-        if: always() && steps.detect.outputs.found == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: ./test-results
-          if-no-files-found: ignore
+    uses: ./.github/workflows/live-verify-gate.yml

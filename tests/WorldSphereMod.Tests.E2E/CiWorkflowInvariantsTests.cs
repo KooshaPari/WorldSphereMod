@@ -98,7 +98,6 @@ public class CiWorkflowInvariantsTests
 
     [Theory]
     [InlineData(".github/workflows/build.yml")]
-    [InlineData(".github/workflows/test-gate.yml")]
     [InlineData(".github/workflows/lint-gate.yml")]
     [InlineData(".github/workflows/release.yml")]
     public void Workflows_use_the_shared_ci_stub_script(string workflowRelativePath)
@@ -151,6 +150,22 @@ public class CiWorkflowInvariantsTests
     }
 
     [Fact]
+    public void Test_gate_workflow_reuses_offline_live_verify_gate()
+    {
+        var yaml = ReadRepoFile(".github/workflows/test-gate.yml");
+
+        yaml.Should().Contain(
+            "./.github/workflows/live-verify-gate.yml",
+            "test-gate must call the shared offline live-verify gate instead of duplicating dotnet/journey steps");
+        yaml.Should().NotContain(
+            "Tools/ci-stub-worldbox-refs.sh",
+            "stub script belongs in live-verify-gate, not duplicated in test-gate");
+        yaml.Should().NotMatchRegex(
+            @"dotnet test|verify-journeys\.ps1",
+            "test-gate must not inline dotnet/journey steps owned by live-verify-gate");
+    }
+
+    [Fact]
     public void Nightly_workflow_reuses_offline_live_verify_gate()
     {
         var yaml = ReadRepoFile(".github/workflows/nightly.yml");
@@ -161,5 +176,19 @@ public class CiWorkflowInvariantsTests
         yaml.Should().NotMatchRegex(
             @"phenotype-org/phenotype-journeys|journeys validate",
             "nightly must not use the legacy phenotype-org journey clone loop");
+    }
+
+    [Fact]
+    public void Live_verify_gate_is_reusable_not_a_duplicate_pr_trigger()
+    {
+        var yaml = ReadRepoFile(".github/workflows/live-verify-gate.yml");
+
+        yaml.Should().Contain("workflow_call:");
+        yaml.Should().NotMatchRegex(
+            @"(?m)^\s*pull_request:\s*$",
+            "live-verify-gate must not run standalone on PR — test-gate is the PR entry point");
+        yaml.Should().NotMatchRegex(
+            @"(?m)^\s*push:\s*$",
+            "live-verify-gate must not run standalone on push — test-gate and nightly call it");
     }
 }

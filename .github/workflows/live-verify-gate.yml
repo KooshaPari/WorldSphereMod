@@ -4,9 +4,6 @@ name: live-verify-gate
 # Mirrors programmatic stages 1–2 of the local live-verify harness (no bridge / playcua / SSIM).
 
 on:
-  pull_request:
-  push:
-    branches: [main, "claude/**"]
   workflow_dispatch:
   workflow_call:
 
