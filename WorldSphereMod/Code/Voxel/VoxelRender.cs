@@ -1191,8 +1191,11 @@ namespace WorldSphereMod.Voxel
             {
                 VoxelRender.Flush();
                 VoxelMeshCache.DrainPendingDestroy();
-                Bridge.BridgeServer.RefreshTelemetryCache();
             }
+
+            // Always sample after the emit phase so /telemetry sees the last flush counters
+            // even when this frame had nothing new to submit.
+            Bridge.BridgeServer.RefreshTelemetryCache();
         }
 
         static bool _lastAppliedPostFX = false;

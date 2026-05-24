@@ -255,6 +255,9 @@ public class SourceContentInvariantsTests
         var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
         voxelRender.Should().Contain("Bridge.BridgeServer.RefreshTelemetryCache()",
             "telemetry must refresh after flush so drawCalls reflect the completed frame");
+        voxelRender.Should().MatchRegex(
+            @"void LateUpdate\(\)[\s\S]*RefreshTelemetryCache\(\);",
+            "LateUpdate must refresh telemetry every frame, not only when HasPendingSubmissions");
         bridgeServer.Should().Contain("WriteJson(context.Response, BuildTelemetryPayload());",
             "/telemetry must bypass InvokeOnMainThread so PlayCUA assert_telemetry does not get null");
         bridgeServer.Should().Contain("drawCalls = _cachedDrawCalls",
