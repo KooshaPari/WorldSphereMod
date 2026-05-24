@@ -1,0 +1,50 @@
+name: bridge-save-load-smoke
+output_dir: artifacts
+default_wait_seconds: 0.5
+steps:
+  - action: health
+    required: true
+    expect_is_world_3d: true
+    note: >
+      Pre-save-load baseline — GET /health must return JSON with ok true (see
+      docs/journeys/scratch/bridge-scene-transition-known-issue.md checklist).
+  - action: assert_telemetry
+    required: true
+    note: Pre-save-load telemetry baseline before any scene transition.
+    checks:
+      - field: drawCalls
+        op: ">"
+        value: 0
+  - action: load_save
+    slot: 2
+    optional: true
+    note: >
+      Optional automated load via bridge POST /actions/load_save. When false or
+      skipped, perform save/load manually in the WorldBox UI during the next step.
+  - action: wait_n_frames
+    frames: 6
+    fps: 30
+    note: >
+      MANUAL (when load_save is skipped): In WorldBox, save the current world and
+      load it (or load slot 2 from the menu). Continue only when the world is
+      playable in 3D.
+  - action: wait_n_frames
+    frames: 45
+    fps: 1
+    note: Allow scene transition and bridge drain to settle after save/load (~45s).
+  - action: health
+    required: true
+    expect_is_world_3d: true
+    note: >
+      Post-reload — GET /health must still return JSON with ok true (not null, no
+      5s stall). Clears PARTIAL on bridge-scene-transition when this passes.
+  - action: assert_telemetry
+    required: true
+    note: Post-reload telemetry — frame/cache fields must respond after save/load.
+    checks:
+      - field: drawCalls
+        op: ">"
+        value: 0
+      - field: frameMs
+        op: "<"
+        value: 200

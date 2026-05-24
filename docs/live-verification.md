@@ -42,7 +42,7 @@ Requires a Windows desktop with WorldBox, the mod installed, and the BridgeRPC l
 
 | Layer | What it proves | Command / workflow |
 |-------|----------------|-------------------|
-| **wsm3d-playcua** | YAML scenarios drive bridge actions (`load_save`, `toggle_flag`, `assert_telemetry`, `screenshot`) | `python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/bridge-health-vision.yaml` |
+| **wsm3d-playcua** | YAML scenarios drive bridge actions (`health`, `load_save`, `toggle_flag`, `assert_telemetry`, `screenshot`) | `python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/bridge-health-vision.yaml` |
 | **OmniRoute vision combo** | Screenshot steps with `vision:` criteria get multi-VLM judgment via OpenAI-compatible `/v1/chat/completions` | Set `OMNROUTE_*` env (below); backend: `Tools/wsm3d-playcua/vision.py` → `OmniRouteVisionValidator` |
 | **Bridge smoke** | JSON invariants on `/health`, `/telemetry`, `/voxel/sprite`, `/phase/*` | `python Tools/wsm3d-playcua/smoke.py` |
 | **Journey live** | Manifest frames + OCR against real captures | `pwsh Tools/wsm3d.ps1 journey verify -Id <id> -Live` |
@@ -70,7 +70,13 @@ For phase toggles and vision assertions after the world is in 3D, use:
 - Phase 1 voxel actors: `Tools/wsm3d-playcua/sample-scenarios/phase-1-voxel-actors.yaml`
 - Phase 2 procedural buildings: `Tools/wsm3d-playcua/sample-scenarios/phase-2-procedural-buildings.yaml`
 
-E2E guardrails: `tests/WorldSphereMod.Tests.E2E/PlaycuaSampleScenarioInvariantsTests.cs`.
+Bridge save/load smoke (pre/post `health` + telemetry; optional `load_save`; manual UI save/load notes):
+
+```powershell
+python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml
+```
+
+Maps to the live checklist in [`bridge-scene-transition-known-issue.md`](journeys/scratch/bridge-scene-transition-known-issue.md#live-verification-checklist-required-to-clear-partial). E2E guardrails: `tests/WorldSphereMod.Tests.E2E/PlaycuaSampleScenarioInvariantsTests.cs`.
 
 ### OmniRoute environment
 
@@ -163,8 +169,10 @@ Quick smoke before the checklist:
 
 ```powershell
 python Tools/wsm3d-playcua/smoke.py
-# then exercise save/load and re-run GET /health via wsm3d or MCP
+python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml
 ```
+
+The YAML scenario asserts pre-save-load `health` + telemetry, documents an optional bridge `load_save` or manual in-game save/load, then post-reload `health` + telemetry. Skip automated `load_save` when exercising only the WorldBox UI path (`optional: true` on that step).
 
 ---
 

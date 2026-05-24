@@ -6,6 +6,7 @@ Executes YAML scenario scripts that drive the in-game BridgeRPC server and valid
 both telemetry and screenshot content with OmniRoute or Anthropic vision backends.
 
 Supported step actions:
+  - health
   - load_save
   - wait_n_frames
   - toggle_flag
@@ -302,6 +303,33 @@ def _assert_telemetry(step: Dict[str, Any], client: BridgeClient) -> Tuple[bool,
     return True, "telemetry checks passed"
 
 
+def _assert_health(raw_step: Dict[str, Any], client: BridgeClient) -> Tuple[bool, Dict[str, Any]]:
+    payload = client.health()
+    details: Dict[str, Any] = {"health": payload}
+
+    if not isinstance(payload.get("ok"), bool):
+        details["error"] = "health ok field missing or non-boolean"
+        return False, details
+    if not payload.get("ok", False):
+        details["error"] = "health returned ok=false"
+        return False, details
+
+    expect_3d = raw_step.get("expect_is_world_3d", raw_step.get("isWorld3D"))
+    if expect_3d is not None and _to_bool(expect_3d):
+        if not _to_bool(payload.get("isWorld3D", False)):
+            details["error"] = "health isWorld3D check failed"
+            return False, details
+
+    version = str(payload.get("version") or "").strip()
+    if not version:
+        details["error"] = "health version missing"
+        return False, details
+
+    details["isWorld3D"] = payload.get("isWorld3D")
+    details["version"] = version
+    return True, details
+
+
 def _execute_scenario(
     scenario: Dict[str, Any],
     client: BridgeClient,
@@ -329,7 +357,13 @@ def _execute_scenario(
             raise ValueError(f"step #{index} missing action")
 
         action = action.lower()
-        if action == "load_save":
+        optional = bool(raw_step.get("optional", False))
+        if action == "health":
+            required = bool(raw_step.get("required", True))
+            ok, details = _assert_health(raw_step, client)
+            if required and not ok:
+                raise AssertionError(f"health step #{index} failed: {details}")
+        elif action == "load_save":
             slot = int(raw_step.get("slot", raw_step.get("save_slot", 0)))
             if slot < 0:
                 raise ValueError(f"load_save step #{index} requires non-negative slot")
@@ -382,6 +416,13 @@ def _execute_scenario(
                 raise AssertionError(f"assert_telemetry step #{index} failed: {details}")
         else:
             raise ValueError(f"unknown action at step #{index}: {action}")
+
+        if optional and not ok:
+            ok = True
+            if isinstance(details, dict):
+                details = {**details, "skipped": True, "reason": "optional step did not pass"}
+            else:
+                details = {"skipped": True, "reason": "optional step did not pass", "details": details}
 
         results.append(
             {
