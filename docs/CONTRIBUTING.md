@@ -79,3 +79,78 @@ For undocumented WorldBox API surface, decompile
 new file under `docs/` (e.g. `docs/phase3-decompile-findings.md`) so the
 next contributor doesn't re-do the investigation. Reference the findings
 doc from the PR body.
+
+## 9. Contributor verification flow
+
+Run these in order before you push. They mirror what CI expects; details
+and gate names are in [`MERGE_CHECKLIST.md`](MERGE_CHECKLIST.md).
+
+### 9.1 Doctor (environment)
+
+Checks WorldBox path, .NET SDK, Python (PlayCUA), git submodules, and
+optional services (phenotype-journey, bridge, OmniRoute):
+
+```powershell
+pwsh Tools/wsm3d.ps1 doctor
+pwsh Tools/wsm3d.ps1 doctor -Json   # machine-readable
+```
+
+Fix required failures first (`worldbox_path`, `dotnet_sdk`, `python`,
+`git_submodules`). Warnings on bridge or journey are expected until the
+game is running or tools are built locally.
+
+Equivalent: `task doctor` or `/wsm-doctor` (see `.claude/commands/wsm-doctor.md`).
+
+### 9.2 Live-verify offline (CI-equivalent)
+
+Matches [`live-verify-gate.yml`](../.github/workflows/live-verify-gate.yml)
+stages 1–2: full `dotnet test` matrix + phenotype journey mock. No game,
+bridge, PlayCUA, or SSIM required.
+
+```powershell
+pwsh Tools/wsm-live-verify.ps1
+```
+
+- Report: `Tools/.reports/live-verify-latest.json`
+- Deep dive: [`live-verification.md`](live-verification.md)
+
+Optional desktop proof (not required to merge): `pwsh Tools/wsm-live-verify.ps1 -Live`
+with WorldBox + mod installed and BridgeRPC on `127.0.0.1:8766`.
+
+### 9.3 PlayCUA (agentic / live desktop)
+
+PlayCUA drives the running game via YAML scenarios (bridge health, toggles,
+telemetry, screenshots, optional vision). Use after install + launch when
+validating bridge behavior or phase smoke paths.
+
+```powershell
+pip install -r Tools/wsm3d-playcua/requirements.txt
+python Tools/wsm3d-playcua/smoke.py
+python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/bridge-health-vision.yaml
+```
+
+Run every sample scenario (what `-Live` live-verify uses):
+
+```powershell
+pwsh Tools/wsm3d.ps1 playcua run-all
+pwsh Tools/wsm3d.ps1 playcua run-all -VisionBackend omniroute   # optional VLM gate
+```
+
+Scenarios live under `Tools/wsm3d-playcua/sample-scenarios/`. Phase-specific
+in-game checklists: `docs/smoke-test-phase*.md`.
+
+### 9.4 Commit and PR conventions
+
+| Rule | Detail |
+|------|--------|
+| **Branch** | `claude/research-ultraplan-fork-DdgI5` (dev branch). Do not push directly to `main`. |
+| **PR shape** | One PR per phase (0–10). Incremental commits *within* a phase are encouraged. |
+| **Commit messages** | [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `ci:`. Example: `feat: journey for Phase 1 voxel actors`. |
+| **Traceability** | When a change satisfies a requirement, cite `FR-WSM-NNN` or `NFR-WSM-NNN` in the PR title or commit body (see [`PRD.md`](PRD.md)). |
+| **Journey-only work** | Follow [`journeys/CONTRIBUTING.md`](journeys/CONTRIBUTING.md) for manifest IDs, capture, and `phenotype-journey verify --mock`. |
+
+### 9.5 Pre-merge checklist
+
+Before marking a PR ready or merging to `main`, walk
+[`MERGE_CHECKLIST.md`](MERGE_CHECKLIST.md): CI gate table, offline
+live-verify, submodule pin, co-install GUID, and post-merge bake notes.

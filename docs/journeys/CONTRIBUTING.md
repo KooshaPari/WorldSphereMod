@@ -156,4 +156,10 @@ The Phenotype journeys package defines the full manifest schema. See the `phenot
 
 ---
 
+## Repo-wide verification (before push)
+
+Journey work is one slice of the contributor loop. For doctor, offline
+live-verify, PlayCUA, commit conventions, and the pre-merge checklist, see
+[`docs/CONTRIBUTING.md`](../CONTRIBUTING.md) §9 and [`docs/MERGE_CHECKLIST.md`](../MERGE_CHECKLIST.md).
+
 **Questions?** Check `docs/journeys/README.md` or `CLAUDE.md` "Dev tooling" section for the full journey CLI.
