@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -39,6 +40,10 @@ def parse_vision_response(full: str) -> Dict[str, Any]:
     if fenced:
         candidates.append(fenced.group(1).strip())
 
+    match = re.search(r"\{.*\}", text, re.S)
+    if match:
+        candidates.append(match.group(0))
+
     last_exc: Exception | None = None
     for candidate in candidates:
         try:
@@ -50,8 +55,14 @@ def parse_vision_response(full: str) -> Dict[str, Any]:
             return {"passes": False, "reason": "vision response was not an object"}
         return parsed
 
-    if last_exc is not None:
+    if last_exc is not None and ("{" in text or text.lstrip().startswith("[")):
         return {"passes": False, "reason": f"vision json parse failed: {last_exc}"}
+
+    if re.search(r"\bpass(?:es)?\b[^a-z0-9]{0,8}\btrue\b", text, re.I):
+        return {"passes": True, "reason": text[:240], "confidence": 0.5}
+    if re.search(r"\bpass(?:es)?\b[^a-z0-9]{0,8}\bfalse\b", text, re.I):
+        return {"passes": False, "reason": text[:240], "confidence": 0.5}
+
     return {"passes": False, "reason": f"vision response not json: {full[:180]}"}
 
 

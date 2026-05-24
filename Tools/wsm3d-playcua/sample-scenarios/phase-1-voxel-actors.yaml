@@ -4,8 +4,9 @@ default_wait_seconds: 1
 steps:
   - action: load_save
     slot: 2
+    optional: true
     settle_frames: 150
-    note: Load the baseline save with voxel-heavy world content.
+    note: Load baseline save when bridge survives transition; otherwise load slot 2 in UI first.
   - action: wait_n_frames
     frames: 45
     fps: 30

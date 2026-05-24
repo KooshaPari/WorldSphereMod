@@ -206,13 +206,18 @@ function Wait-BridgeWorldSettle {
     Write-Host "Waiting for in-game world settle (telemetry stable, max ${MaxSeconds}s)..."
     while ($sw.Elapsed.TotalSeconds -lt $MaxSeconds) {
         try {
+            $health = Invoke-RestMethod -Uri "$base/health" -Method Get -TimeoutSec 8
             $t = Invoke-RestMethod -Uri "$base/telemetry" -Method Get -TimeoutSec 8
             $draws = [int]$t.lastNonZeroDrawCalls
             $frameMs = [double]$t.frameMs
-            if ($draws -ge 2 -and $frameMs -gt 0 -and $frameMs -lt 150) {
+            $world3d = $false
+            if ($null -ne $health.isWorld3D) {
+                $world3d = [bool]$health.isWorld3D
+            }
+            if ($world3d -and $draws -ge 2 -and $frameMs -gt 0 -and $frameMs -lt 150) {
                 $stableHits++
                 if ($stableHits -ge $MinStableReads) {
-                    Write-Host ("World settle ok: lastNonZeroDrawCalls={0} frameMs={1}" -f $draws, $frameMs)
+                    Write-Host ("World settle ok: isWorld3D={0} lastNonZeroDrawCalls={1} frameMs={2}" -f $world3d, $draws, $frameMs)
                     Start-Sleep -Seconds 8
                     return
                 }
@@ -502,19 +507,10 @@ if (-not $Live) {
         Invoke-BridgeLiveBootstrap -Port $bridgePort
         $liveDetails.bridgeBootstrap = @{ VoxelEntities = $true; DebugSanityCube = $true }
         if ($Vision) {
-            try {
-                $loadUri = "http://127.0.0.1:$bridgePort/actions/load_save?slot=2"
-                $loadResp = Invoke-RestMethod -Method Post -Uri $loadUri -TimeoutSec 20
-                $liveDetails.loadSaveSlot2 = $loadResp
-                if ($loadResp.ok -and $loadResp.queued) {
-                    Write-Host "Queued load_save slot=2; waiting 20s for world transition..."
-                    Start-Sleep -Seconds 20
-                }
-            } catch {
-                Write-Warning ("load_save slot=2 bootstrap failed: {0}" -f $_.Exception.Message)
-                $liveDetails.loadSaveSlot2 = @{ ok = $false; error = $_.Exception.Message }
-            }
-            Wait-BridgeWorldSettle -Port $bridgePort
+            # Do not bootstrap load_save here: post-load bridge RPC can stall until relaunch
+            # (see docs/journeys/scratch/bridge-scene-transition-known-issue.md). Phase YAMLs
+            # queue load_save per-scenario when needed.
+            Wait-BridgeWorldSettle -Port $bridgePort -MaxSeconds 60
             $liveDetails.worldSettle = $true
         }
 
