@@ -29,6 +29,23 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+def _load_omniroute_env_file() -> None:
+    env_file = Path(__file__).resolve().parent.parent / "omniroute-vision.env"
+    if not env_file.is_file():
+        return
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+_load_omniroute_env_file()
+
 from vision import (
     OmniRouteVisionValidator,
     VisionValidationError,
@@ -430,11 +447,28 @@ def _execute_scenario(
                         else "validator unavailable",
                     }
                 else:
-                    result = validator.validate(img_path, prompt, criteria)
-                    details["vision"] = result
-                    ok = bool(result.get("passes", False))
-                    if required and not ok:
-                        details["error"] = result.get("reason", "vision criteria failed")
+                    try:
+                        result = validator.validate(img_path, prompt, criteria)
+                    except VisionValidationError as exc:
+                        details["vision"] = {
+                            "ok": False,
+                            "required": required,
+                            "status": "failed" if required else "skipped",
+                            "reason": str(exc),
+                        }
+                        if required:
+                            raise
+                    else:
+                        details["vision"] = {
+                            "ok": bool(result.get("passes", False)),
+                            "required": required,
+                            "status": "passed" if result.get("passes", False) else "failed",
+                            "result": result,
+                        }
+                        if required:
+                            ok = bool(result.get("passes", False))
+                            if not ok:
+                                details["error"] = result.get("reason", "vision criteria failed")
         elif action == "assert_telemetry":
             required = bool(raw_step.get("required", True))
             ok, details = _assert_telemetry(raw_step, client)

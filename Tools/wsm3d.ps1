@@ -40,6 +40,17 @@ $script:PhenotypeJourneyRepo = "C:/Users/koosh/Dino/tools/phenotype-journeys"
 $script:PhenotypeJourneyCache = Join-Path $RepoRoot "tools/.cache/phenotype-journeys"
 $script:BridgePort = 8766
 $script:BridgeHealthUrl = "http://127.0.0.1:8766/health"
+function Import-OmniRouteVisionEnv {
+    $envFile = Join-Path $script:ToolsDir "omniroute-vision.env"
+    if (-not (Test-Path -LiteralPath $envFile)) { return }
+    Get-Content -LiteralPath $envFile | ForEach-Object {
+        if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
+            Set-Item -Path "env:$($matches[1].Trim())" -Value $matches[2].Trim()
+        }
+    }
+}
+
+Import-OmniRouteVisionEnv
 $script:OmniRouteBaseUrl = if ($env:OMNROUTE_BASE_URL) { $env:OMNROUTE_BASE_URL.TrimEnd('/') } else { "http://127.0.0.1:20128/v1" }
 $script:GitSubmodulePaths = @("External/Compound-Spheres")
 $script:LiveVerifyReportPath = Join-Path $RepoRoot "Tools/.reports/live-verify-latest.json"

@@ -37,6 +37,18 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+
+function Import-OmniRouteVisionEnv {
+    $envFile = Join-Path $PSScriptRoot "omniroute-vision.env"
+    if (-not (Test-Path -LiteralPath $envFile)) { return }
+    Get-Content -LiteralPath $envFile | ForEach-Object {
+        if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
+            Set-Item -Path "env:$($matches[1].Trim())" -Value $matches[2].Trim()
+        }
+    }
+}
+
+Import-OmniRouteVisionEnv
 $reportDir = Join-Path $repoRoot "Tools/.reports"
 $reportPath = Join-Path $reportDir "live-verify-latest.json"
 $ssimThreshold = 0.95
@@ -181,6 +193,40 @@ function Invoke-BridgeLiveBootstrap {
     Start-Sleep -Seconds 3
 }
 
+function Wait-BridgeWorldSettle {
+    param(
+        [int]$Port = 8766,
+        [int]$MaxSeconds = 120,
+        [int]$MinStableReads = 4
+    )
+
+    $base = "http://127.0.0.1:$Port"
+    $stableHits = 0
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    Write-Host "Waiting for in-game world settle (telemetry stable, max ${MaxSeconds}s)..."
+    while ($sw.Elapsed.TotalSeconds -lt $MaxSeconds) {
+        try {
+            $t = Invoke-RestMethod -Uri "$base/telemetry" -Method Get -TimeoutSec 8
+            $draws = [int]$t.lastNonZeroDrawCalls
+            $frameMs = [double]$t.frameMs
+            if ($draws -ge 2 -and $frameMs -gt 0 -and $frameMs -lt 150) {
+                $stableHits++
+                if ($stableHits -ge $MinStableReads) {
+                    Write-Host ("World settle ok: lastNonZeroDrawCalls={0} frameMs={1}" -f $draws, $frameMs)
+                    Start-Sleep -Seconds 8
+                    return
+                }
+            } else {
+                $stableHits = 0
+            }
+        } catch {
+            $stableHits = 0
+        }
+        Start-Sleep -Seconds 5
+    }
+    Write-Warning "World settle timed out after ${MaxSeconds}s; continuing PlayCUA."
+}
+
 function Test-BridgeHealthy {
     try {
         $response = Invoke-RestMethod -Uri $bridgeUrl -Method Get -TimeoutSec 8
@@ -253,7 +299,28 @@ function Get-PlaycuaScenarios {
         return @()
     }
 
-    return Get-ChildItem -Path $scenarioRoot -Filter "*.yaml" -File | Sort-Object Name
+    function Get-PlaycuaScenarioSortKey {
+        param([System.IO.FileInfo]$ScenarioFile)
+
+        if ($ScenarioFile.BaseName -eq "bridge-health-vision") {
+            return [pscustomobject]@{ group = 0; phase = -1; name = $ScenarioFile.Name }
+        }
+        if ($ScenarioFile.BaseName -eq "bridge-save-load-smoke") {
+            return [pscustomobject]@{ group = 1; phase = -1; name = $ScenarioFile.Name }
+        }
+        if ($ScenarioFile.BaseName -match '^phase-(\d+)') {
+            return [pscustomobject]@{ group = 2; phase = [int]$Matches[1]; name = $ScenarioFile.Name }
+        }
+        return [pscustomobject]@{ group = 3; phase = [int]::MaxValue; name = $ScenarioFile.Name }
+    }
+
+    return Get-ChildItem -Path $scenarioRoot -Filter "*.yaml" -File | Sort-Object @{
+        Expression = { (Get-PlaycuaScenarioSortKey $_).group }
+    }, @{
+        Expression = { (Get-PlaycuaScenarioSortKey $_).phase }
+    }, @{
+        Expression = { (Get-PlaycuaScenarioSortKey $_).name }
+    }
 }
 
 function Get-PlaycuaScenarioName {
@@ -434,6 +501,10 @@ if (-not $Live) {
         $liveDetails.bridgeHealthy = $true
         Invoke-BridgeLiveBootstrap -Port $bridgePort
         $liveDetails.bridgeBootstrap = @{ VoxelEntities = $true; DebugSanityCube = $true }
+        if ($Vision) {
+            Wait-BridgeWorldSettle -Port $bridgePort
+            $liveDetails.worldSettle = $true
+        }
 
         $python = Resolve-PythonCommand
         $playcuaMain = Join-Path $repoRoot "Tools/wsm3d-playcua/main.py"

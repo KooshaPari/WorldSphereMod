@@ -7,8 +7,9 @@ steps:
     optional: true
     note: Load the baseline save with voxel-heavy world content.
   - action: wait_n_frames
-    frames: 12
+    frames: 45
     fps: 30
+    note: Allow world/sim to advance past asset-loading UI before telemetry gate.
   - action: assert_telemetry
     required: true
     note: Bridge health proxy — game must be rendering before phase toggle.

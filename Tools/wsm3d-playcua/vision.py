@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-import re
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -35,9 +34,10 @@ def parse_vision_response(full: str) -> Dict[str, Any]:
 
     text = full.strip()
     candidates = [text]
-    match = re.search(r"\{.*\}", text, re.S)
-    if match:
-        candidates.append(match.group(0))
+
+    fenced = re.fullmatch(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.I)
+    if fenced:
+        candidates.append(fenced.group(1).strip())
 
     last_exc: Exception | None = None
     for candidate in candidates:
@@ -172,14 +172,23 @@ class OmniRouteVisionValidator:
             },
         )
 
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout_s) as resp:
-                body = resp.read().decode("utf-8")
-        except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")[:240]
-            raise VisionValidationError(f"OmniRoute HTTP {exc.code}: {detail}") from exc
-        except urllib.error.URLError as exc:
-            raise VisionValidationError(f"OmniRoute request failed: {exc}") from exc
+        body = ""
+        for attempt in range(2):
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout_s) as resp:
+                    body = resp.read().decode("utf-8")
+                break
+            except urllib.error.HTTPError as exc:
+                if attempt == 0 and exc.code in {408, 429, 500, 502, 503, 504}:
+                    continue
+                detail = exc.read().decode("utf-8", errors="replace")[:240]
+                raise VisionValidationError(f"OmniRoute HTTP {exc.code}: {detail}") from exc
+            except urllib.error.URLError as exc:
+                if attempt == 0:
+                    continue
+                raise VisionValidationError(f"OmniRoute request failed: {exc}") from exc
+        else:
+            raise VisionValidationError("OmniRoute request failed after retry")
 
         try:
             data = json.loads(body) if body else {}
