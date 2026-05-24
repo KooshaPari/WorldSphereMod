@@ -24,7 +24,7 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 | Active branch | `claude/research-ultraplan-fork-DdgI5` |
 | Open PR (#1) | https://github.com/KooshaPari/WorldSphereMod/pull/1 — **OPEN**, **MERGEABLE**; blocking CI green except Vercel rate limit |
 | Release tag (remote) | **`v2.0.0-beta.6`** — [release](https://github.com/KooshaPari/WorldSphereMod/releases/tag/v2.0.0-beta.6) |
-| Offline test matrix | **482 pass / 3 skip** (485 total) — Unit 151 (+ 3 skip), Integration 69, E2E 262 |
+| Offline test matrix | **485 pass / 3 skip** (488 total) — Unit 151 (+ 3 skip), Integration 69, E2E 265 |
 | Cold-start orientation | `CLAUDE.md` |
 | Full 10-phase plan | `docs/PLAN.md` |
 | Per-phase architectures | `docs/phase{2..10}-architecture.md` |
@@ -104,6 +104,8 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 | `SSAOEnabled` | `true` | 9 | Default-on SSAO |
 | `SSAOQuality` | `Medium` | 9 | Current live default |
 | `SSGIEnabled` | `false` | 9 | Default-off SSGI |
+| `BloomEnabled` | `false` | 9 | Default-off bloom (BRP shader shipped) |
+| `ACESTonemapping` | `true` | 9 | Default-on ACES filmic tonemap |
 | `ParticleEffects` | `true` | 9 | Default-on particle effects |
 | `WeatherRain` | `true` | n/a | Weather default |
 | `WeatherSnow` | `false` | n/a | Weather default |
@@ -130,6 +132,7 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 - `DayNightCycle` — Phase 8
 - `PostFX` — Phase 9
 - `SSAOEnabled` — Phase 9
+- `ACESTonemapping` — Phase 9
 - `ParticleEffects` — Phase 9 (decals + bursts)
 - `BiomeBlending` — terrain polish
 - `WorldspaceHealth3D` — worldspace HP bar style
@@ -141,6 +144,7 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 ### Default-off / opt-in
 
 - `SSGIEnabled` — Phase 9
+- `BloomEnabled` — Phase 9
 - `WeatherSnow` — weather
 - `WeatherLightning` — weather
 
@@ -217,7 +221,7 @@ Short form:
 
 1. **Visual verification with populated world** — load a save with kingdoms/actors and confirm voxel actors render. The GPU instancing pipeline was fixed (`751e0da`): OpaqueVertexColor shader + late bundle upgrade + enableInstancing=true. Pipeline confirmed working (EmitVoxels fires, DrawMeshInstanced succeeds), but only tested with empty worlds so far.
 2. Smoke-test Phase 2 procedural buildings the same way Phase 1 was proven: toggle `ProceduralBuildings`, capture screenshots, and diff against canonical output.
-3. Rebake `wsm3d-shaders` bundle — 4 of 6 shaders (GerstnerWater, ScreenSpaceAO, ColorGradingLUT, Impostor) still load with empty names (corrupted in bake). The shader sources are fixed for built-in RP, but the bundle binary needs regenerating in Unity 2022.3.
+3. Rebake `wsm3d-shaders` bundle — 4 of 6 shaders (GerstnerWater, ScreenSpaceAO, ColorGradingLUT, Impostor) still load with empty names (corrupted in bake). The shader sources are fixed for built-in RP, but the bundle binary needs regenerating in Unity 2022.3. `ProjectVersion.txt` updated to `2022.3.54f1`; `bake-shaders.ps1` auto-detects the install.
 4. Implement ADR-0006 (Phase 6 Step 9 DrawProceduralIndirect skinning) — 2–3 day estimate if we decide to replace the visible skinned-mesh path with GPU-resident batching later.
 5. Flip ADR-0007 status to **Accepted** after safe-min / per-phase toggle smoke confirms init gate matches runtime `PhasePatchManager` behavior.
 
@@ -249,7 +253,7 @@ All paths under `Tools/wsm3d-playcua/sample-scenarios/`:
 - **Slash commands:** `/wsm-status`, `/wsm-validate-all`, `/wsm-build`, `/wsm-install`, `/wsm-relaunch`, `/wsm-log`, `/wsm-toggle`, `/wsm-screenshot`, `/wsm-journey-run`, `/wsm-doctor`.
 - **MCP:** `Tools/wsm3d-mcp/` — Python FastMCP with 18 tools, auto-registered via `.claude/mcp-servers.json`.
 - **Journey gate:** `.github/workflows/journeys-gate.yml` — OCR-assertion DSL; verify with `phenotype-journey verify <manifest> --mock`. Live capture remains the final proof step; entry point: `docs/live-verification.md`.
-- **Live-verify gate (CI):** `.github/workflows/live-verify-gate.yml` — offline `dotnet test` + journey mock (stages 1–2 of `Tools/wsm-live-verify.ps1`; **482 pass / 3 skip**, 485 total locally). Reused by **nightly** (`nightly.yml` → `live-verify-offline` job). Full harness: `pwsh Tools/wsm-live-verify.ps1` (add `-Live -Vision` for PlayCUA + SSIM + OmniRoute vision on a desktop with WorldBox + bridge).
+- **Live-verify gate (CI):** `.github/workflows/live-verify-gate.yml` — offline `dotnet test` + journey mock (stages 1–2 of `Tools/wsm-live-verify.ps1`; **485 pass / 3 skip**, 488 total locally). Reused by **nightly** (`nightly.yml` → `live-verify-offline` job). Full harness: `pwsh Tools/wsm-live-verify.ps1` (add `-Live -Vision` for PlayCUA + SSIM + OmniRoute vision on a desktop with WorldBox + bridge).
 - **ADR-0007 (conditional patch dispatch):** Landed scaffold — `PhasePatchGate.ShouldApplyHarmonyPatch` wired from `Core.Patch()`; `docs/adr/ADR-0007-conditional-patch-dispatch.md` remains **Proposed** until acceptance smoke. E2E: `ConditionalPatchDispatchInvariantsTests`.
 - **Live verify:** `docs/live-verification.md` — programmatic (`dotnet test`, journey mock, optional SSIM ≥ 0.95) vs agentic (`wsm3d-playcua` sample scenarios, OmniRoute combo, bridge save/load checklist).
 
