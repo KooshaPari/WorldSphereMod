@@ -134,4 +134,22 @@ public class LodPhase10InvariantsTests
         voxelRender.Should().Contain("FrustumCuller.IsVisible(cullPos, radius)",
             "near/far LOD selection must run only for frustum-visible actors");
     }
+
+    [Fact]
+    public void Proxy_tier_emit_uses_full_voxel_path_until_BuildProxy_ships()
+    {
+        var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
+        var buildingProc = ReadSourceFile("WorldSphereMod/Code/ProcGen/BuildingProcRender.cs");
+        var voxelizer = ReadSourceFile("WorldSphereMod/Code/Voxel/SpriteVoxelizer.cs");
+
+        voxelRender.Should().NotContain("LodTier.Proxy",
+            "actor/building/projectile emit must not branch on Proxy until mid-tier meshes exist");
+        buildingProc.Should().NotContain("LodTier.Proxy",
+            "procedural building emit must not branch on Proxy until mid-tier meshes exist");
+        voxelizer.Should().NotContain("BuildProxy",
+            "deferred Phase 10 proxy mesh entry point is not implemented yet");
+
+        voxelRender.Should().Contain("Mesh m = VoxelMeshCache.Get(sp, -1, true)",
+            "non-impostor tiers (Voxel and Proxy) must share the full voxel cache path");
+    }
 }

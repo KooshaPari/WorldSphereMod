@@ -30,7 +30,7 @@ meshes) or opt-in polish (voxel Laplacian smoothing, style procgen branch).
 
 3. **Building style procgen branch.** `BuildingProcRender` can use `BuildingStyleProcgen` stylized path (`BuildingProcRender.cs`). Default off while `ProceduralBuildings=true`. Users get voxelized buildings unless style toggle is on. Code: yes. Flag: style off. Gate: secondary toggle.
 
-4. **Phase 10 Proxy LOD tier.** README documents Proxy still routes to Voxel; `LodSelector` / impostor path exists for hardware-gate fallback. Code: partial. Not a default-visible proxy mesh swap.
+4. **Phase 10 Proxy LOD tier.** README documents Proxy still routes to Voxel; `LodSelector` / impostor path exists for hardware-gate fallback. Code: partial. Not a default-visible proxy mesh swap. Detail: [`phase10-proxy-tier-status.md`](phase10-proxy-tier-status.md). E2E: `LodPhase10InvariantsTests.Proxy_tier_emit_uses_full_voxel_path_until_BuildProxy_ships`.
 
 5. **Phase 9 breadth.** Particle bursts cover fixed IDs (`fx_meteorite`, `fx_explosion_wave`, `fx_fire_smoke`, `fx_antimatter_effect`, `fx_napalm_flash`, `fx_cloud`) — not a general effect→mesh converter. Defaults ON. Gate: `BaseEffectController.GetObject` + `ParticleEffects`.
 
