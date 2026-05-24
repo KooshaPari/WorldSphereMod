@@ -60,7 +60,10 @@ public class BakeInfrastructureIntegrationTests
         var script = TestRepo.ReadRelative("Tools/bake-shaders.ps1");
 
         script.Should().NotContain("6000.3");
-        Regex.IsMatch(script, @"candidates\s*=\s*@\(.*2021\.3", RegexOptions.Singleline)
-            .Should().BeFalse("auto-detect must not list 2021.3 as a preferred candidate");
+        var prefers2021InCandidates = Regex.IsMatch(
+            script,
+            @"candidates\s*=\s*@\(.*2021\.3",
+            RegexOptions.Singleline);
+        prefers2021InCandidates.Should().BeFalse("auto-detect must not list 2021.3 as a preferred candidate");
     }
 }
