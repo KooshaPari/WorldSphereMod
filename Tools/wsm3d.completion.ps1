@@ -115,9 +115,16 @@ Register-ArgumentCompleter -Native -CommandName "wsm3d.ps1", "wsm3d" -ScriptBloc
                         [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
                     }
             }
-            # journey verify/capture -Id <journey-id>
+            # journey verify/capture -Id <journey-id> [-NonInteractive]
             elseif ($arg2 -in @("verify", "capture")) {
-                if ($arg3 -eq "-Id") {
+                if ($arg2 -eq "capture" -and $elements.Count -le 4 -and $arg3 -notlike "-*") {
+                    @("-Id", "-NonInteractive") |
+                        Where-Object { $_ -like "$wordToComplete*" } |
+                        ForEach-Object {
+                            [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+                        }
+                }
+                elseif ($arg3 -eq "-Id") {
                     # Load journey IDs from manifest
                     $journeyIds = @()
                     $manifestPath = "$PSScriptRoot\..\docs\journeys\manifests\index.json"

@@ -80,4 +80,38 @@ public class Wsm3dCliInvariantsTests
         completion.Should().Contain(@"""list"", ""enable-all"", ""preset""");
         completion.Should().Contain(@"""safe-min""");
     }
+
+    [Fact]
+    public void Wsm3d_help_documents_journey_capture_and_verify()
+    {
+        var script = ReadWsm3dScript();
+
+        script.Should().Contain("journey capture -Id");
+        script.Should().Contain("-NonInteractive");
+        script.Should().Contain("journey verify -Id");
+        script.Should().Contain("function Invoke-JourneyCapture");
+        script.Should().Contain("function Invoke-JourneyVerify");
+    }
+
+    [Fact]
+    public void Wsm3d_journey_dispatcher_wires_capture_and_verify_subcommands()
+    {
+        var script = ReadWsm3dScript();
+
+        script.Should().MatchRegex(@"""capture""\s*\{");
+        script.Should().MatchRegex(@"""verify""\s*\{");
+        script.Should().Contain("Invoke-JourneyCapture @params");
+        script.Should().Contain("Invoke-JourneyVerify @params");
+        script.Should().Contain("journey capture requires a manifest ID (-Id)");
+    }
+
+    [Fact]
+    public void Wsm3d_completion_offers_journey_capture_and_verify()
+    {
+        var path = Path.Combine(FindRepoRoot(), "Tools", "wsm3d.completion.ps1");
+        var completion = File.ReadAllText(path);
+
+        completion.Should().Contain(@"""verify"", ""capture""");
+        completion.Should().Contain("-NonInteractive");
+    }
 }

@@ -1546,6 +1546,10 @@ try {
                     $params = @{}
                     if ($subArgs -contains "-Id") {
                         $params["Id"] = $subArgs[$subArgs.IndexOf("-Id") + 1]
+                    } else {
+                        Write-Error-Custom "journey capture requires a manifest ID (-Id)"
+                        Show-Help
+                        exit 1
                     }
                     $params["NonInteractive"] = $subArgs -contains "-NonInteractive"
                     Invoke-JourneyCapture @params

@@ -5,19 +5,15 @@ Scope: `Tools/wsm3d.ps1`, `Tools/wsm3d.completion.ps1`, and the journey docs tha
 ## Verdict
 
 - All wired top-level commands are documented in `Show-Help`.
-- One implemented journey path is not wired into the dispatcher/help: `journey capture`.
+- **Resolved (2026-05-23):** `journey capture` is wired in `Show-Help`, the dispatcher, and tab completion; guarded by E2E invariants in `Wsm3dCliInvariantsTests`.
 - User-facing flags are mostly consistent: single-dash, PascalCase (`-Key`, `-Json`, `-DryRun`, etc.).
 - I found no user-facing `--key` or `-key` usage in `wsm3d.ps1`.
-- The only casing drift is internal, where `phenotype-journey` is invoked with lowercase `-id`.
 
 ## Findings
 
-- Historical note: the dispatcher/help references below reflected the older CLI shape at the time of this audit. The current canonical journey contract is `journey verify -Id <id>` or `journey verify <manifest-path>`, with `capture` still supported as a separate path.
-- Undocumented / orphaned subcommand: `journey capture -Id <id> [-NonInteractive]`.
-  - `Invoke-JourneyCapture` exists in `Tools/wsm3d.ps1:791` and ends with a success message at `Tools/wsm3d.ps1:868`.
-  - The dispatcher/help snapshot from the audit era reflected an older journey enumeration/run split; the current contract is `journey verify` plus `journey capture`.
-  - `Show-Help` documents only `journey verify` and `journey capture` in the current completion/help path.
-  - `Tools/wsm3d.completion.ps1` still offers `capture`, and `docs/journeys/CONTRIBUTING.md:72` tells users to run it.
+- Canonical journey contract: `journey verify -Id <id>` or `journey verify <manifest-path> [-Live]`, plus `journey capture -Id <id> [-NonInteractive]` for step screenshots.
+- `Invoke-JourneyCapture` walks manifest steps and calls `Invoke-Screenshot`; `Invoke-JourneyVerify` shells to `phenotype-journey verify` with `--mock` or `--live`.
+- `Show-Help`, the dispatcher, and `Tools/wsm3d.completion.ps1` all expose `capture` and `verify`; `docs/journeys/CONTRIBUTING.md` documents capture for authors.
 - Flag casing consistency:
   - External CLI flags are consistently PascalCase with a single leading dash: `-Key`, `-Value`, `-Force`, `-Json`, `-DryRun`, `-Launch`, `-NoBuild`, `-Tail`, `-Follow`, `-Grep`, `-Path`, `-WindowOnly`, `-Filter`, `-Phase`, `-Id`, `-Configuration`.
   - No `--key` or `-key` appears in the script.
