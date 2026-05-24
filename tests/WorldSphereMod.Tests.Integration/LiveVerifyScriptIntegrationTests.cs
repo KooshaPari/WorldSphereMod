@@ -62,4 +62,19 @@ public class LiveVerifyScriptIntegrationTests
         ssim.Should().Contain("\"threshold\"");
         ssim.Should().Contain("default=0.95");
     }
+
+    [Fact]
+    public void Wsm_live_verify_live_stage_ssim_loops_all_phase_previews_with_after_png_when_capture_succeeds()
+    {
+        var script = TestRepo.ReadRelative(LiveVerifyScriptRelative);
+
+        script.Should().Contain("Get-PhasePreviewDirectories");
+        script.Should().Contain("docs/journeys/phase-previews");
+        script.Should().Contain("after.png");
+        script.Should().Contain("Invoke-SsimCompare");
+        script.Should().Contain("Invoke-WindowCapture");
+        script.Should().Contain("skipped_no_fixture");
+        script.Should().Contain("skipped_capture_failed");
+        script.Should().Contain("ssim-captures");
+    }
 }

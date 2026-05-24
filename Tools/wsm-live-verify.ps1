@@ -386,7 +386,29 @@ if (-not $Live) {
             }
 
             $capturePath = Join-Path $captureRoot ($phaseDir.Name + "-live.png")
-            $captureTool = Invoke-WindowCapture -OutputPath $capturePath
+            $captureTool = $null
+            try {
+                $captureTool = Invoke-WindowCapture -OutputPath $capturePath
+            } catch {
+                $liveDetails.ssimComparisons += [ordered]@{
+                    phase   = $phaseDir.Name
+                    fixture = "after.png"
+                    status  = "skipped_capture_failed"
+                    error   = $_.Exception.Message
+                }
+                continue
+            }
+
+            if (-not (Test-Path -LiteralPath $capturePath -PathType Leaf)) {
+                $liveDetails.ssimComparisons += [ordered]@{
+                    phase   = $phaseDir.Name
+                    fixture = "after.png"
+                    status  = "skipped_capture_failed"
+                    error   = "Capture path missing after capture tool reported success."
+                }
+                continue
+            }
+
             $compare = Invoke-SsimCompare -ExpectedPath $afterFixture -ActualPath $capturePath
             $entry = [ordered]@{
                 phase       = $phaseDir.Name
@@ -403,10 +425,10 @@ if (-not $Live) {
 
             if (Test-Path -LiteralPath $beforeFixture) {
                 $liveDetails.ssimComparisons += [ordered]@{
-                    phase  = $phaseDir.Name
+                    phase   = $phaseDir.Name
                     fixture = "before.png"
-                    status = "skipped_requires_baseline_state"
-                    note   = "before.png exists; harness compares after.png post-scenario only."
+                    status  = "skipped_requires_baseline_state"
+                    note    = "before.png exists; harness compares after.png post-scenario only."
                 }
             }
         }

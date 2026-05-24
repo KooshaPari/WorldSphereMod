@@ -30,6 +30,8 @@ public class LiveVerifyHarnessStructureTests
         script.Should().Contain("verify-journeys.ps1");
         script.Should().Contain("live-verify-latest.json");
         script.Should().Contain("phase-previews");
+        script.Should().Contain("Get-PhasePreviewDirectories");
+        script.Should().Contain("after.png");
         script.ToLowerInvariant().Should().Contain("ssim");
     }
 
