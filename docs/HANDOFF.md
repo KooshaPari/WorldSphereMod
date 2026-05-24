@@ -251,6 +251,8 @@ All paths under `Tools/wsm3d-playcua/sample-scenarios/`:
 - **ADR-0007 (conditional patch dispatch):** Landed scaffold — `PhasePatchGate.ShouldApplyHarmonyPatch` wired from `Core.Patch()`; `docs/adr/ADR-0007-conditional-patch-dispatch.md` remains **Proposed** until acceptance smoke. E2E: `ConditionalPatchDispatchInvariantsTests`.
 - **Live verify:** `docs/live-verification.md` — programmatic (`dotnet test`, journey mock, optional SSIM ≥ 0.95) vs agentic (`wsm3d-playcua` sample scenarios, OmniRoute combo, bridge save/load checklist).
 
+When you need a release or handoff bundle, use the canonical checklist in [`docs/live-verification.md`](live-verification.md#canonical-live-proof-bundle). It is the single place that names the required live verifier command, `Tools/.reports/live-verify-latest.json`, PlayCUA artifacts, phase-preview SSIM fixtures, and the explicit skip/offline note when `live-playcua-ssim` does not run.
+
 ## Recent commits (7 most recent)
 
 ```

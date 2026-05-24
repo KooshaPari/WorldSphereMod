@@ -71,6 +71,8 @@ pwsh Tools/wsm-live-verify.ps1 -Live -Vision
 
 Without `-Live`, stages 1–2 only (CI-equivalent offline). Without `-Vision`, PlayCUA screenshot checks skip the OmniRoute VLM backend.
 
+For the canonical release/handoff evidence bundle, use [`docs/live-verification.md`](live-verification.md#canonical-live-proof-bundle). That checklist is the source of truth for the required command output, report JSON, PlayCUA artifacts, phase-preview SSIM fixtures, and the explicit `live-playcua-ssim` skip/offline note when applicable.
+
 ## Release tag
 
 - Remote latest: **`v2.0.0-beta.5`** — [GitHub Release](https://github.com/KooshaPari/WorldSphereMod/releases/tag/v2.0.0-beta.5) (2026-05-24)

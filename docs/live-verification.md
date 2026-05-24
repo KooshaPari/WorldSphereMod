@@ -10,6 +10,51 @@ WorldSphereMod3D uses two complementary gates before treating a change as visual
 
 ---
 
+## Canonical live proof bundle
+
+Use this checklist when you need a single release or handoff bundle that proves the mod actually ran in WorldBox. It is the authoritative list for agentic proof, and it ties the runtime checks back to the artifacts reviewers need.
+
+### Prerequisites
+
+- WorldBox is installed and launched.
+- The mod is installed and enabled.
+- BridgeRPC is healthy on `127.0.0.1:8766`.
+
+### Required proof steps
+
+1. Run the live verifier:
+   - `pwsh Tools/wsm-live-verify.ps1 -Live`
+   - Add `-Vision` when you want PlayCUA screenshot checks to use the vision backend.
+2. Capture PlayCUA scenario output under `Tools/wsm3d-playcua/.reports/live-verify-artifacts/`.
+3. Collect `Tools/.reports/live-verify-latest.json`.
+4. Keep the phase-preview SSIM fixtures that were used for comparison under `docs/journeys/phase-previews/*/after.png`.
+5. Attach the scenario summary, screenshots/captures, and SSIM result to the release or handoff evidence bundle.
+6. If `live-playcua-ssim` is skipped or unavailable, say so explicitly in the bundle and note that the run is offline or otherwise blocked.
+
+### Evidence to attach
+
+- Commands run, including the exact `pwsh Tools/wsm-live-verify.ps1` invocation and any `-Live` / `-Vision` flags.
+- `Tools/.reports/live-verify-latest.json`.
+- PlayCUA screenshots or capture artifacts from `Tools/wsm3d-playcua/.reports/live-verify-artifacts/`.
+- Scenario summary from the PlayCUA run.
+- SSIM result for the selected phase-preview fixtures.
+- An explicit skip/block note when `live-playcua-ssim` did not run.
+
+### Minimum bundle format
+
+Use a short note with these fields in order:
+
+- environment readiness
+- live verify command
+- PlayCUA artifact path
+- report JSON path
+- screenshot or capture summary
+- SSIM pass/fail or skipped/offline note
+
+This bundle is the release/handoff proof set. If any item is missing, the proof is incomplete even if the offline gates passed.
+
+---
+
 ## Programmatic gate
 
 Runs without WorldBox when possible. Use this on every PR and before opening a live session.
