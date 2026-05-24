@@ -65,6 +65,25 @@ function Add-StageResult {
     }
 }
 
+function Get-StageDetails {
+    param($Raw)
+
+    if ($null -eq $Raw) {
+        return @{}
+    }
+    if ($Raw -is [System.Collections.IDictionary]) {
+        return $Raw
+    }
+    if ($Raw -is [System.Array]) {
+        $dict = $Raw | Where-Object { $_ -is [System.Collections.IDictionary] } | Select-Object -Last 1
+        if ($dict) {
+            return $dict
+        }
+        return @{}
+    }
+    return @{ value = $Raw }
+}
+
 function Invoke-Stage {
     param(
         [string]$Id,
@@ -73,10 +92,7 @@ function Invoke-Stage {
 
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     try {
-        $details = & $Body
-        if (-not $details) {
-            $details = @{}
-        }
+        $details = Get-StageDetails -Raw (& $Body)
         Add-StageResult -Id $Id -Status "passed" -Details $details -DurationMs $sw.Elapsed.TotalMilliseconds
         return $true
     } catch {
@@ -253,7 +269,7 @@ $stage1Ok = Invoke-Stage -Id "dotnet-tests" -Body {
         Write-Host ("dotnet test " + (Split-Path -Leaf $project) + " ...")
         Push-Location $repoRoot
         try {
-            & dotnet test $project -c Release --nologo
+            & dotnet test $project -c Release --nologo | Out-Null
             if ($LASTEXITCODE -ne 0) {
                 throw "dotnet test failed for $project (exit $LASTEXITCODE)"
             }
@@ -277,7 +293,7 @@ $stage2Ok = Invoke-Stage -Id "journey-mock-verify" -Body {
         throw "Missing Tools/verify-journeys.ps1"
     }
 
-    & powershell.exe -NoLogo -NoProfile -File $verifyScript
+    & powershell.exe -NoLogo -NoProfile -File $verifyScript | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "verify-journeys.ps1 failed with exit code $LASTEXITCODE"
     }
