@@ -1,0 +1,26 @@
+{
+  "id": "smoke-test-phase2",
+  "intent": "In-game smoke-test gate for Phase 2 (ProceduralBuildings). Full checklist: docs/smoke-test-phase2.md",
+  "keyframe_count": 3,
+  "passed": false,
+  "steps": [
+    {
+      "index": 0,
+      "slug": "before",
+      "intent": "ProceduralBuildings=false with VoxelEntities=true. Capture with `wsm3d screenshot phase 2 -Name before` (see docs/smoke-test-phase2.md).",
+      "screenshot_path": "frame-000.png"
+    },
+    {
+      "index": 1,
+      "slug": "after",
+      "intent": "ProceduralBuildings=true, same scene and camera. Capture with `wsm3d screenshot phase 2 -Name after` (docs/smoke-test-phase2.md).",
+      "screenshot_path": "frame-001.png"
+    },
+    {
+      "index": 2,
+      "slug": "buildings",
+      "intent": "Procedural building closeup. Capture with `wsm3d screenshot phase 2 -Name buildings` (docs/smoke-test-phase2.md).",
+      "screenshot_path": "frame-002.png"
+    }
+  ]
+}

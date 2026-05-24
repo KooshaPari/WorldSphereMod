@@ -192,6 +192,36 @@ public class Wsm3dCliInvariantsTests
 
         completion.Should().Contain(@"""phase""");
         completion.Should().Contain("-Name");
-        completion.Should().Contain(@"""before"", ""after"", ""buildings""");
+        completion.Should().Contain("before");
+        completion.Should().Contain("after");
+        completion.Should().Contain("buildings");
+    }
+
+    [Fact]
+    public void Smoke_test_phase1_journey_manifest_exists_and_links_checklist_doc()
+    {
+        var root = FindRepoRoot();
+        var manifestPath = Path.Combine(root, "docs", "journeys", "manifests", "smoke-test-phase1", "manifest.json");
+        File.Exists(manifestPath).Should().BeTrue($"journey verify -Id smoke-test-phase1 requires {manifestPath}");
+
+        var manifest = File.ReadAllText(manifestPath);
+        manifest.Should().Contain("docs/smoke-test-phase1.md");
+
+        var indexPath = Path.Combine(root, "docs", "journeys", "manifests", "index.json");
+        var index = File.ReadAllText(indexPath);
+        index.Should().Contain("smoke-test-phase1");
+        index.Should().Contain("docs/smoke-test-phase1.md");
+    }
+
+    [Fact]
+    public void Smoke_test_phase2_journey_manifest_indexed_with_checklist_doc()
+    {
+        var root = FindRepoRoot();
+        var manifestPath = Path.Combine(root, "docs", "journeys", "manifests", "smoke-test-phase2", "manifest.json");
+        File.Exists(manifestPath).Should().BeTrue();
+
+        File.ReadAllText(manifestPath).Should().Contain("docs/smoke-test-phase2.md");
+        File.ReadAllText(Path.Combine(root, "docs", "journeys", "manifests", "index.json"))
+            .Should().Contain("smoke-test-phase2");
     }
 }

@@ -48,5 +48,15 @@
     "id": "us-wsm-phase-10-lod-impostor",
     "intent": "Validate Phase 10 (LOD Impostor) gates distant entities to impostor billboards for performance.",
     "file": "us-wsm-phase-10-lod-impostor/manifest.json"
+  },
+  {
+    "id": "smoke-test-phase1",
+    "intent": "Human in-game smoke gate for Phase 1 (VoxelEntities). Checklist: docs/smoke-test-phase1.md",
+    "file": "smoke-test-phase1/manifest.json"
+  },
+  {
+    "id": "smoke-test-phase2",
+    "intent": "Human in-game smoke gate for Phase 2 (ProceduralBuildings). Checklist: docs/smoke-test-phase2.md",
+    "file": "smoke-test-phase2/manifest.json"
   }
 ]

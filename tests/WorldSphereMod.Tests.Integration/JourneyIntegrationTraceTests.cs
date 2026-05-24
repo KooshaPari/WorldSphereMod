@@ -68,7 +68,7 @@ public class JourneyIntegrationTraceTests
     [Fact]
     public void Phase_manifests_use_canonical_step_slug_sequence_with_verify_terminal_step()
     {
-        foreach (var (id, manifestPath) in LoadIndexedManifests())
+        foreach (var (id, manifestPath) in LoadIndexedManifests().Where(m => JourneyWsm3dTraceCatalog.IsPhaseJourneyManifestId(m.Id)))
         {
             var steps = LoadManifestSteps(manifestPath);
             steps.Should().HaveCount(5, $"{id} ships the 5-step phase journey flow");
@@ -216,6 +216,24 @@ public class JourneyIntegrationTraceTests
         script.Should().Contain("-Id");
         script.Should().Contain("Invoke-JourneyVerify");
         script.Should().Contain("verify $manifestPath --mock");
+    }
+
+    [Fact]
+    public void Smoke_test_manifests_use_before_after_buildings_screenshot_slugs()
+    {
+        var expectedSlugs = new[] { "before", "after", "buildings" };
+
+        foreach (var id in new[] { "smoke-test-phase1", "smoke-test-phase2" })
+        {
+            var manifestPath = LoadIndexedManifests().Single(m => m.Id == id).ManifestPath;
+            var steps = LoadManifestSteps(manifestPath);
+            steps.Should().HaveCount(3, $"{id} documents three smoke-test comparison frames");
+            steps.Select(s => s.Slug).Should().Equal(expectedSlugs);
+
+            using var manifest = JsonDocument.Parse(File.ReadAllText(manifestPath));
+            var intent = manifest.RootElement.GetProperty("intent").GetString()!;
+            intent.Should().Contain($"docs/{id}.md", $"{id} intent must link the human checklist doc");
+        }
     }
 
     [Fact]

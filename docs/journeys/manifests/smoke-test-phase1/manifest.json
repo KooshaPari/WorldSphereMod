@@ -1,0 +1,26 @@
+{
+  "id": "smoke-test-phase1",
+  "intent": "In-game smoke-test gate for Phase 1 (VoxelEntities). Full checklist: docs/smoke-test-phase1.md",
+  "keyframe_count": 3,
+  "passed": false,
+  "steps": [
+    {
+      "index": 0,
+      "slug": "before",
+      "intent": "VoxelEntities=false baseline. Capture with `wsm3d screenshot phase 1 -Name before` (see docs/smoke-test-phase1.md).",
+      "screenshot_path": "frame-000.png"
+    },
+    {
+      "index": 1,
+      "slug": "after",
+      "intent": "VoxelEntities=true, same scene and camera. Capture with `wsm3d screenshot phase 1 -Name after` (docs/smoke-test-phase1.md).",
+      "screenshot_path": "frame-001.png"
+    },
+    {
+      "index": 2,
+      "slug": "buildings",
+      "intent": "Voxel buildings closeup with VoxelEntities on. Capture with `wsm3d screenshot phase 1 -Name buildings` (docs/smoke-test-phase1.md).",
+      "screenshot_path": "frame-002.png"
+    }
+  ]
+}

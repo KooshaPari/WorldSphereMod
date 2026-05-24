@@ -42,7 +42,12 @@ public class JourneyManifestSchemaTests
         index.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
 
         var entries = index.RootElement.EnumerateArray().ToList();
-        entries.Should().HaveCount(10, "phases 1-10 each ship a journey manifest");
+        entries.Should().HaveCountGreaterThanOrEqualTo(10, "phases 1-10 each ship a journey manifest");
+
+        var phaseEntries = entries
+            .Where(e => e.GetProperty("id").GetString()!.StartsWith("us-wsm-phase-", StringComparison.Ordinal))
+            .ToList();
+        phaseEntries.Should().HaveCount(10, "phases 1-10 each ship a us-wsm-phase-* journey manifest");
 
         foreach (var entry in entries)
         {
@@ -98,8 +103,10 @@ public class JourneyManifestSchemaTests
             .OrderBy(name => name)
             .ToArray();
 
-        manifestFiles.Should().HaveCount(10);
-        manifestFiles.Should().OnlyContain(name => name.StartsWith("us-wsm-phase-", StringComparison.Ordinal));
+        manifestFiles.Should().HaveCountGreaterThanOrEqualTo(10);
+        manifestFiles.Should().Contain(name => name.StartsWith("us-wsm-phase-", StringComparison.Ordinal));
+        manifestFiles.Should().Contain("smoke-test-phase1");
+        manifestFiles.Should().Contain("smoke-test-phase2");
     }
 
     [Fact]

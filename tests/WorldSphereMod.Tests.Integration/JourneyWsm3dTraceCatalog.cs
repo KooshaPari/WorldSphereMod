@@ -59,7 +59,28 @@ internal static class JourneyWsm3dTraceCatalog
                 ["relaunch"],
                 "Invoke-Relaunch",
                 AutomatedInJourneyCapture: false),
+            ["before"] = new StepTrace(
+                "before",
+                ["screenshot"],
+                "Invoke-ScreenshotPhase",
+                AutomatedInJourneyCapture: true),
+            ["after"] = new StepTrace(
+                "after",
+                ["screenshot"],
+                "Invoke-ScreenshotPhase",
+                AutomatedInJourneyCapture: true),
+            ["buildings"] = new StepTrace(
+                "buildings",
+                ["screenshot"],
+                "Invoke-ScreenshotPhase",
+                AutomatedInJourneyCapture: true),
         };
+
+    internal static bool IsPhaseJourneyManifestId(string manifestId) =>
+        manifestId.StartsWith("us-wsm-phase-", StringComparison.Ordinal);
+
+    internal static bool IsSmokeTestManifestId(string manifestId) =>
+        manifestId.StartsWith("smoke-test-phase", StringComparison.Ordinal);
 
     internal static StepTrace VerifyStepTrace(string slug) =>
         new StepTrace(
