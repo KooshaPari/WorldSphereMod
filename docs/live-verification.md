@@ -125,13 +125,13 @@ For phase toggles and vision assertions after the world is in 3D, use:
 - Phase 9 PostFX + particles: `Tools/wsm3d-playcua/sample-scenarios/phase-9-postfx-particles.yaml` — in-game checklist: [`docs/smoke-test-phase9.md`](smoke-test-phase9.md)
 - Phase 10 LOD scale: `Tools/wsm3d-playcua/sample-scenarios/phase-10-lod.yaml` — in-game checklist: [`docs/smoke-test-phase10.md`](smoke-test-phase10.md)
 
-Bridge save/load smoke (pre/post `health` + telemetry; optional `load_save`; manual UI save/load notes):
+Bridge save/load smoke (pre/post `health` + telemetry passed; optional `load_save` still partial/skipped; manual UI save/load notes):
 
 ```powershell
 python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml
 ```
 
-Maps to the live checklist in [`bridge-scene-transition-known-issue.md`](journeys/scratch/bridge-scene-transition-known-issue.md#live-verification-checklist-required-to-clear-partial). E2E guardrails: `tests/WorldSphereMod.Tests.E2E/PlaycuaSampleScenarioInvariantsTests.cs`.
+Maps to the live checklist in [`bridge-scene-transition-known-issue.md`](journeys/scratch/bridge-scene-transition-known-issue.md#live-verification-checklist-required-to-clear-partial). The pre/post health + telemetry smoke now passes; the `load_save` transition remains skipped/partial because the step can still return `non-dict response: null`. E2E guardrails: `tests/WorldSphereMod.Tests.E2E/PlaycuaSampleScenarioInvariantsTests.cs`.
 
 ### OmniRoute environment
 

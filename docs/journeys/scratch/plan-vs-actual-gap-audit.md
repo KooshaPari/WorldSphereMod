@@ -8,7 +8,7 @@ Scope: root `PLAN.md` vs current `WorldSphereMod` code and `README.md`.
 prior audit; remaining gaps are mostly opt-in polish (voxel Laplacian smoothing,
 style procgen branch) or partial Phase 10 proxy tier.
 
-**Offline gate:** 484 tests total (481 pass / 3 skip) — Unit 151 (+ 3 skip), Integration 69, E2E 261. Journey mock (20 manifests) via `pwsh Tools/wsm-live-verify.ps1`.
+**Offline gate:** 485 tests total (482 pass / 3 skip) — Unit 151 (+ 3 skip), Integration 69, E2E 262. Journey mock (20 manifests) via `pwsh Tools/wsm-live-verify.ps1`.
 
 ## 2026-05-24 status summary
 

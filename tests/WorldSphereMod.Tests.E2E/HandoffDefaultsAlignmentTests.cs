@@ -174,6 +174,28 @@ public class HandoffDefaultsAlignmentTests
             "MeshWater is default-on in SavedSettings.cs and must be listed under Default-on in HANDOFF.md");
     }
 
+    [Fact]
+    public void Handoff_and_live_verification_docs_distinguish_playcua_capture_from_visual_proof()
+    {
+        var root = FindRepoRoot();
+        var handoff = ReadRepoFile(root, "docs", "HANDOFF.md");
+        var liveVerification = ReadRepoFile(root, "docs", "live-verification.md");
+
+        handoff.Should().Contain("PlayCUA capture + telemetry passed for `ProceduralBuildings`");
+        handoff.Should().Contain("Visual/vision approval and strict journey capture remain separate proof");
+        handoff.Should().Contain("PlayCUA capture + telemetry passed for `CloudCrossedQuadRender`");
+        handoff.Should().NotContain("GET /health returns 200 body null");
+        handoff.Should().NotContain("returns `200` with body `null`");
+        handoff.Should().NotContain("body `null`");
+        handoff.Should().NotContain("Bridge health check failed");
+        handoff.Should().Contain("bridge-health-vision and bridge-save-load-smoke");
+        handoff.Should().Contain("Full `-Live -Vision`, strict journey capture, and a true `load_save` transition remain open/manual/partial");
+
+        liveVerification.Should().Contain("pre/post `health` + telemetry passed");
+        liveVerification.Should().Contain("load_save` transition remains skipped/partial");
+        liveVerification.Should().Contain("non-dict response: null");
+    }
+
     [Theory]
     [InlineData(1, "VoxelEntities", "true")]
     [InlineData(2, "ProceduralBuildings", "true")]

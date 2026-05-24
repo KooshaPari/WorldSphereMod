@@ -28,7 +28,7 @@ Use this before merging [PR #1](https://github.com/KooshaPari/WorldSphereMod/pul
 |---|---|---|---|
 | `dotnet-build` | Yes | pass | [`build.yml`](../.github/workflows/build.yml) |
 | `dotnet format` | Yes | pass | [`lint-gate.yml`](../.github/workflows/lint-gate.yml) |
-| `dotnet-test / live verify (offline)` | Yes | pass | [`test-gate.yml`](../.github/workflows/test-gate.yml), [`live-verify-gate.yml`](../.github/workflows/live-verify-gate.yml) — **484 total / 481 passed / 0 failed** (Unit 151 + 3 skip, Integration 69, E2E 261) |
+| `dotnet-test / live verify (offline)` | Yes | pass | [`test-gate.yml`](../.github/workflows/test-gate.yml), [`live-verify-gate.yml`](../.github/workflows/live-verify-gate.yml) — **485 total / 482 passed / 0 failed** (Unit 151 + 3 skip, Integration 69, E2E 262) |
 | `journeys verify` | Yes | pass | [`journeys-gate.yml`](../.github/workflows/journeys-gate.yml) |
 | `VitePress build` | Yes | pass | [`docs-build-gate.yml`](../.github/workflows/docs-build-gate.yml) |
 | `docs npm audit` | Yes | pass | [`dependency-security-audit.yml`](../.github/workflows/dependency-security-audit.yml) |

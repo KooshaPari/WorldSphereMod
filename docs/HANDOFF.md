@@ -24,7 +24,7 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 | Active branch | `claude/research-ultraplan-fork-DdgI5` |
 | Open PR (#1) | https://github.com/KooshaPari/WorldSphereMod/pull/1 — **OPEN**, **MERGEABLE**; blocking CI green except Vercel rate limit |
 | Release tag (remote) | **`v2.0.0-beta.6`** — [release](https://github.com/KooshaPari/WorldSphereMod/releases/tag/v2.0.0-beta.6) |
-| Offline test matrix | **481 pass / 3 skip** (484 total) — Unit 151 (+ 3 skip), Integration 69, E2E 261 |
+| Offline test matrix | **482 pass / 3 skip** (485 total) — Unit 151 (+ 3 skip), Integration 69, E2E 262 |
 | Cold-start orientation | `CLAUDE.md` |
 | Full 10-phase plan | `docs/PLAN.md` |
 | Per-phase architectures | `docs/phase{2..10}-architecture.md` |
@@ -205,11 +205,11 @@ Short form:
 
 ## What's blocked
 
-- **Phase 2 procedural buildings in-game smoke** — `ProceduralBuildings` path and PlayCUA scenario `Tools/wsm3d-playcua/sample-scenarios/phase-2-procedural-buildings.yaml` are in tree; still needs live toggle + screenshot + diff-vs-canonical previews (same discipline as Phase 1).
-- **Cloud crossed-quad in-game smoke** — `CloudCrossedQuadRender` path and PlayCUA scenario `Tools/wsm3d-playcua/sample-scenarios/phase-3b-cloud-crossed-quad.yaml` are in tree; still needs live toggle + foliage/cloud screenshots + diff-vs-canonical previews (same discipline as Phase 1–2).
+- **Phase 2 procedural buildings in-game smoke** — PlayCUA capture + telemetry passed for `ProceduralBuildings` with `Tools/wsm3d-playcua/sample-scenarios/phase-2-procedural-buildings.yaml`; generated proof: `artifacts/phase-2-procedural-buildings/buildings.png`. Visual/vision approval and strict journey capture remain separate proof.
+- **Cloud crossed-quad in-game smoke** — PlayCUA capture + telemetry passed for `CloudCrossedQuadRender` with `Tools/wsm3d-playcua/sample-scenarios/phase-3b-cloud-crossed-quad.yaml`; generated proof: `artifacts/phase-3b-cloud-crossed-quad/foliage.png` and `artifacts/phase-3b-cloud-crossed-quad/clouds.png`. Visual/vision approval and strict journey capture remain separate proof.
 - **Unity 2022.3 install** — required to bake `VoxelLit.shader`, `WaterGerstner.shader`, `ProceduralSky.shader` into AssetBundles for Phases 4, 5, 8.
 - **Live verification (agentic tier)** — `.github/workflows/live-verify-gate.yml` runs offline programmatic stages (`dotnet test` + journey mock via `Tools/wsm-live-verify.ps1`, report `Tools/.reports/live-verify-latest.json`). **Nightly** (`.github/workflows/nightly.yml`) calls the same reusable workflow for offline stages before lint/stats extras. Full agentic tier on a Windows desktop requires **WorldBox running + bridge on `127.0.0.1:8766` + OmniRoute** for vision: `pwsh Tools/wsm-live-verify.ps1 -Live -Vision`. See `docs/live-verification.md`.
-  Current live blocker: `worldbox.exe` is up with a visible WorldBox window and owns `127.0.0.1:8766`; direct `GET /health` returns `200` with body `null`, but `pwsh Tools/wsm-live-verify.ps1 -Live` still fails in `live-playcua-ssim` at `Bridge health check failed at http://127.0.0.1:8766/health` before PlayCUA and SSIM run.
+- Current live status: fresh `pwsh Tools/wsm-live-verify.ps1 -Live -SkipOffline` passed with bridge-health-vision and bridge-save-load-smoke; pre/post health + telemetry passed without vision. Full `-Live -Vision`, strict journey capture, and a true `load_save` transition remain open/manual/partial, with `load_save` still sometimes skipped on `non-dict response: null`.
 - **PlayCUA sample scenarios (live runs)** — 13 YAML files in `Tools/wsm3d-playcua/sample-scenarios/` (see list below). E2E guards in `PlaycuaSampleScenarioInvariantsTests.cs`; OmniRoute vision steps need a running game + bridge (`127.0.0.1:8766`).
 - **OmniRoute API key** (optional) — for PlayCUA screenshot vision via `OMNROUTE_API_KEY` + `OMNROUTE_VISION_COMBO` (or `ANTHROPIC_API_KEY` fallback). Journey mock and offline live-verify gate work without either.
 
@@ -248,7 +248,7 @@ All paths under `Tools/wsm3d-playcua/sample-scenarios/`:
 - **Slash commands:** `/wsm-status`, `/wsm-validate-all`, `/wsm-build`, `/wsm-install`, `/wsm-relaunch`, `/wsm-log`, `/wsm-toggle`, `/wsm-screenshot`, `/wsm-journey-run`, `/wsm-doctor`.
 - **MCP:** `Tools/wsm3d-mcp/` — Python FastMCP with 18 tools, auto-registered via `.claude/mcp-servers.json`.
 - **Journey gate:** `.github/workflows/journeys-gate.yml` — OCR-assertion DSL; verify with `phenotype-journey verify <manifest> --mock`. Live capture remains the final proof step; entry point: `docs/live-verification.md`.
-- **Live-verify gate (CI):** `.github/workflows/live-verify-gate.yml` — offline `dotnet test` + journey mock (stages 1–2 of `Tools/wsm-live-verify.ps1`; **481 pass / 3 skip**, 484 total locally). Reused by **nightly** (`nightly.yml` → `live-verify-offline` job). Full harness: `pwsh Tools/wsm-live-verify.ps1` (add `-Live -Vision` for PlayCUA + SSIM + OmniRoute vision on a desktop with WorldBox + bridge).
+- **Live-verify gate (CI):** `.github/workflows/live-verify-gate.yml` — offline `dotnet test` + journey mock (stages 1–2 of `Tools/wsm-live-verify.ps1`; **482 pass / 3 skip**, 485 total locally). Reused by **nightly** (`nightly.yml` → `live-verify-offline` job). Full harness: `pwsh Tools/wsm-live-verify.ps1` (add `-Live -Vision` for PlayCUA + SSIM + OmniRoute vision on a desktop with WorldBox + bridge).
 - **ADR-0007 (conditional patch dispatch):** Landed scaffold — `PhasePatchGate.ShouldApplyHarmonyPatch` wired from `Core.Patch()`; `docs/adr/ADR-0007-conditional-patch-dispatch.md` remains **Proposed** until acceptance smoke. E2E: `ConditionalPatchDispatchInvariantsTests`.
 - **Live verify:** `docs/live-verification.md` — programmatic (`dotnet test`, journey mock, optional SSIM ≥ 0.95) vs agentic (`wsm3d-playcua` sample scenarios, OmniRoute combo, bridge save/load checklist).
 
