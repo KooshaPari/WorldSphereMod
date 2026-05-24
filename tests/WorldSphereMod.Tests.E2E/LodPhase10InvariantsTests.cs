@@ -162,4 +162,45 @@ public class LodPhase10InvariantsTests
         voxelRender.Should().Contain("Mesh m = VoxelMeshCache.Get(sp, -1, true)",
             "non-impostor tiers (Voxel and Proxy) must share the full voxel cache path");
     }
+
+    [Fact]
+    public void ProxyMeshCache_Get_stub_always_returns_null()
+    {
+        var proxyCache = ReadSourceFile("WorldSphereMod/Code/Voxel/ProxyMeshCache.cs");
+        var getBody = ExtractMethodBody(proxyCache, "public static Mesh Get(Sprite sprite)");
+
+        getBody.Should().Contain("if (sprite == null) return null",
+            "null sprite must short-circuit before cache lookup");
+        getBody.Should().Contain("return null",
+            "ProxyMeshCache.Get must remain a deferral stub until BuildProxy ships");
+        proxyCache.Should().Contain("phase10-proxy-tier-status.md",
+            "proxy cache stub must link deferral to Phase 10 status doc");
+    }
+
+    [Fact]
+    public void SpriteVoxelizer_BuildProxy_stub_documents_LodTier_Proxy_contract()
+    {
+        var voxelizer = ReadSourceFile("WorldSphereMod/Code/Voxel/SpriteVoxelizer.cs");
+        var statusDoc = ReadSourceFile("docs/journeys/scratch/phase10-proxy-tier-status.md");
+        var buildProxyBody = ExtractMethodBody(voxelizer, "public static Mesh BuildProxy(Sprite sprite)");
+
+        buildProxyBody.Should().Contain("if (sprite == null) return null");
+        buildProxyBody.Should().Contain("return null",
+            "BuildProxy must stay a null-returning stub until half-res voxelize ships");
+
+        var buildProxyIndex = voxelizer.IndexOf("public static Mesh BuildProxy(Sprite sprite)", StringComparison.Ordinal);
+        buildProxyIndex.Should().BeGreaterThan(0);
+        var buildProxyDoc = voxelizer.Substring(Math.Max(0, buildProxyIndex - 400), 400);
+        buildProxyDoc.Should().Contain("half-res",
+            "BuildProxy contract must document half-res downsample target");
+        buildProxyDoc.Should().Contain("depth=1",
+            "BuildProxy contract must document depth=1 voxelization");
+        buildProxyDoc.Should().Contain("LodTier.Proxy",
+            "BuildProxy deferral must name the mid-tier LOD label");
+
+        statusDoc.Should().Contain("LodTier { Voxel, Proxy, Impostor }",
+            "Phase 10 status doc must document the three-tier LodSelector enum");
+        statusDoc.Should().Contain("LodSelector.Select(...)` may return `LodTier.Proxy`",
+            "status doc must describe mid-band Proxy selection behavior");
+    }
 }

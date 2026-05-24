@@ -66,8 +66,10 @@ Until then, tuning `ProxyThreshold` changes **which entities are labeled Proxy**
 
 `tests/WorldSphereMod.Tests.E2E/LodPhase10InvariantsTests.cs`:
 
-- `LodSelector` exposes three tiers and proposes `Proxy` in `Select`.
-- `Proxy_tier_emit_uses_full_voxel_path_until_BuildProxy_ships` — emit never branches on `LodTier.Proxy`; `BuildProxy`/`ProxyMeshCache` stubs return null; fallthrough comment in `VoxelRender`.
+- `LodSelector_exposes_Voxel_Proxy_Impostor_mid_tier_with_hysteresis` — three tiers; `Select` proposes `Proxy` between voxel and impostor.
+- `Proxy_tier_emit_uses_full_voxel_path_until_BuildProxy_ships` — emit never branches on `LodTier.Proxy`; fallthrough comment in `VoxelRender`.
+- `ProxyMeshCache_Get_stub_always_returns_null` — `ProxyMeshCache.Get` null-guards and always returns null; links `phase10-proxy-tier-status.md`.
+- `SpriteVoxelizer_BuildProxy_stub_documents_LodTier_Proxy_contract` — `BuildProxy` null stub; XML doc names half-res / depth=1 / `LodTier.Proxy`; status doc mirrors enum and selection.
 
 ## Related docs
 
