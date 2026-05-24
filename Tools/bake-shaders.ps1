@@ -113,5 +113,5 @@ Get-Content $LogFile -Tail 12 | ForEach-Object { Write-Output "  $_" }
 
 Write-Output ""
 Write-Output "[bake] Bundles in:"
-Get-ChildItem (Join-Path $RepoRoot 'WorldSphereMod/AssetBundles') -Filter 'worldsphere' -Recurse |
+Get-ChildItem (Join-Path $RepoRoot 'WorldSphereMod/AssetBundles') -Include 'worldsphere','wsm3d-shaders' -Recurse |
     ForEach-Object { Write-Output "  $($_.FullName) — $($_.Length) bytes" }
