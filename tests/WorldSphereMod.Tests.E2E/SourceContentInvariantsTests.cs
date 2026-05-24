@@ -210,8 +210,10 @@ public class SourceContentInvariantsTests
             "backup ActorManager hook must drain bridge only — emit postfixes finish before LateUpdate flush");
 
         var survivalRunBody = ExtractMethodBody(bridgeTick, "public static void Run(bool runVoxelFrame)");
-        survivalRunBody.Should().Contain("if (!runVoxelFrame || !Core.IsWorld3D) return",
-            "backup drain must skip TickPerFrame so emit postfixes run before LateUpdate flush");
+        survivalRunBody.Should().Contain("if (!Core.IsWorld3D) return",
+            "non-3D worlds skip TickPerFrame while bridge queue drain still runs each hook");
+        survivalRunBody.Should().Contain("if (runVoxelFrame)",
+            "backup drain must gate TickPerFrame so emit postfixes run before LateUpdate flush");
         survivalRunBody.Should().Contain("VoxelFrameDriver.TickPerFrame()",
             "primary hook must still invoke pre-emit voxel work when runVoxelFrame is true");
 

@@ -1714,8 +1714,8 @@ function Invoke-PlaycuaRunAll {
             $scenario.FullName,
             "--report", $scenarioReport
         )
-        if ($VisionBackend) {
-            $pyArgs += @("--vision-backend", $VisionBackend)
+        if ($PSBoundParameters.ContainsKey("VisionBackend")) {
+            $pyArgs += @("--vision-backend", $(if ($VisionBackend) { $VisionBackend } else { "off" }))
         }
 
         Write-Info "playcua run-all: $($scenario.Name) ..."

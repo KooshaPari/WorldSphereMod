@@ -132,8 +132,10 @@ public sealed class BridgeSaveLoadStabilityInvariantsTests
             .BeLessThan(survivalRunBody.IndexOf("VoxelFrameDriver.TickPerFrame()", StringComparison.Ordinal),
             "queue drain must precede pre-emit voxel work in the primary survival hook");
 
-        survivalRunBody.Should().Contain("if (!runVoxelFrame || !Core.IsWorld3D) return",
-            "backup ActorManager drain must skip TickPerFrame so emit postfixes finish before LateUpdate flush");
+        survivalRunBody.Should().Contain("if (!Core.IsWorld3D) return",
+            "non-3D worlds skip TickPerFrame while bridge queue drain still runs each hook");
+        survivalRunBody.Should().Contain("if (runVoxelFrame)",
+            "backup ActorManager drain must gate TickPerFrame so emit postfixes finish before LateUpdate flush");
 
         bridgeTick.Should().Contain("BridgeSurvival.Run(runVoxelFrame: true)",
             "MapBox.renderStuff must run primary survival hook after save/load transitions");

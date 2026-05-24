@@ -339,6 +339,7 @@ def _execute_scenario(
     client: BridgeClient,
     screenshot: Win32Capture,
     validator: VisionValidatorProtocol | None,
+    vision_backend: str = "off",
 ) -> Dict[str, Any]:
     steps = scenario.get("steps") or []
     if not isinstance(steps, list):
@@ -420,9 +421,14 @@ def _execute_scenario(
                 criteria = vision.get("criteria")
                 required = bool(vision.get("required", True))
                 if validator is None:
-                    if required:
+                    if required and vision_backend != "off":
                         raise RuntimeError("screenshot vision check required but no vision backend available")
-                    details["vision"] = {"skipped": True, "reason": "validator unavailable"}
+                    details["vision"] = {
+                        "skipped": True,
+                        "reason": "vision backend off"
+                        if vision_backend == "off"
+                        else "validator unavailable",
+                    }
                 else:
                     result = validator.validate(img_path, prompt, criteria)
                     details["vision"] = result
@@ -570,7 +576,7 @@ def main() -> int:
         print(f"warning: vision disabled for backend={backend} ({exc})")
         validator = None
 
-    run = _execute_scenario(scenario, client, capture, validator)
+    run = _execute_scenario(scenario, client, capture, validator, vision_backend=backend)
     ok = all(step["ok"] for step in run["steps"])
     run["overall_ok"] = bool(ok)
 

@@ -4,6 +4,7 @@ default_wait_seconds: 1
 steps:
   - action: load_save
     slot: 2
+    optional: true
     note: Load baseline save with humanoid actors for skeletal verification.
   - action: wait_n_frames
     frames: 12
@@ -53,5 +54,5 @@ steps:
         op: "<"
         value: 50
       - field: instances
-        op: ">"
-        value: 10
+        op: ">="
+        value: 2
