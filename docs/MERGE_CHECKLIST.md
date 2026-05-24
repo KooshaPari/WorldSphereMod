@@ -26,7 +26,7 @@ Use this before merging [PR #1](https://github.com/KooshaPari/WorldSphereMod/pul
 |---|---|---|
 | **Vercel** (Preview + Production) | Failing | [Vercel build rate limit](https://vercel.com/koosha-paridehpours-projects?upgradeToPro=build-rate-limit) — retry after ~24h or upgrade plan. Docs deploy via GitHub Pages is green. |
 | **docs npm audit** | Was failing (`vitepress:unknown`) | Fixed in workflow: allow transitive moderate advisories when `via` is only allowlisted deps (`vite` → `vitepress`). Job uses `continue-on-error` but should pass after fix. |
-| **dotnet-test / live verify (offline)** | Was failing | Integration tests still expected `skipped_no_fixture` after harness change in `ea16da2`; fixed in tests on this branch. |
+| **dotnet-test / live verify (offline)** | Was failing | (1) Integration tests expected `skipped_no_fixture` after `ea16da2` — fixed in tests. (2) `verify-journeys.ps1` used a hardcoded Windows `Join-Path` root — fixed to prefer `tools/.cache/phenotype-journeys` and optional `PHENOTYPE_JOURNEYS_ROOT`. |
 
 Re-run failed workflows from the [PR Checks](https://github.com/KooshaPari/WorldSphereMod/pull/1/checks) tab after pushing fixes.
 

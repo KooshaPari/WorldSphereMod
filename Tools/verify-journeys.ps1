@@ -2,8 +2,14 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $manifestRoot = Join-Path $repoRoot "docs/journeys/manifests"
-$journeyRepo = "C:/Users/koosh/Dino/tools/phenotype-journeys"
 $journeyCache = Join-Path $repoRoot "tools/.cache/phenotype-journeys"
+$journeyRepo = $env:PHENOTYPE_JOURNEYS_ROOT
+if (-not $journeyRepo) {
+    $localDefault = "C:/Users/koosh/Dino/tools/phenotype-journeys"
+    if (Test-Path -LiteralPath $localDefault -PathType Container) {
+        $journeyRepo = $localDefault
+    }
+}
 
 function Resolve-PhenotypeJourneyBinary {
     $journeyCmd = Get-Command phenotype-journey -ErrorAction SilentlyContinue
@@ -12,11 +18,15 @@ function Resolve-PhenotypeJourneyBinary {
     }
 
     $candidatePaths = @(
-        (Join-Path $journeyRepo "target/release/phenotype-journey.exe"),
-        (Join-Path $journeyRepo "target/release/phenotype-journey"),
         (Join-Path $journeyCache "target/release/phenotype-journey.exe"),
         (Join-Path $journeyCache "target/release/phenotype-journey")
     )
+    if ($journeyRepo) {
+        $candidatePaths = @(
+            (Join-Path $journeyRepo "target/release/phenotype-journey.exe"),
+            (Join-Path $journeyRepo "target/release/phenotype-journey")
+        ) + $candidatePaths
+    }
 
     foreach ($candidate in $candidatePaths) {
         if (Test-Path -LiteralPath $candidate -PathType Leaf) {
