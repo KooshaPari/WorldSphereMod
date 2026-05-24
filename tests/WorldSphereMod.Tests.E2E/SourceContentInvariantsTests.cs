@@ -264,6 +264,8 @@ public class SourceContentInvariantsTests
             "telemetry must expose cached drawCalls for PlayCUA");
         bridgeServer.Should().Contain("lastNonZeroDrawCalls = _cachedLastNonZeroDrawCalls",
             "telemetry must expose last non-zero drawCalls for between-frame PlayCUA checks");
+        bridgeServer.Should().Contain("EnsureVoxelFrameDriverOnBridgeHost()",
+            "bridge DDOL host must host VoxelFrameDriver so LateUpdate flush runs after scene transitions");
         bridgeServer.Should().Contain("frameMs = _cachedFrameMs",
             "telemetry must expose cached frameMs for PlayCUA");
         bridgeServer.Should().NotContain("InvokeOnMainThread(BuildTelemetryPayload)",

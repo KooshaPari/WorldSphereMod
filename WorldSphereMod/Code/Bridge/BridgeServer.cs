@@ -58,16 +58,36 @@ namespace WorldSphereMod.Bridge
                     try { needsCreate = _rootHost.GetComponent<BridgeServer>() == null; }
                     catch { needsCreate = true; } // accessing destroyed object throws
                 }
-                if (!needsCreate) return;
+                if (!needsCreate)
+                {
+                    EnsureVoxelFrameDriverOnBridgeHost();
+                    return;
+                }
                 _rootHost = new UnityEngine.GameObject("WSM3D.BridgeServer");
                 UnityEngine.Object.DontDestroyOnLoad(_rootHost);
                 _rootHost.AddComponent<BridgeServer>();
+                EnsureVoxelFrameDriverOnBridgeHost();
                 Debug.Log("[WSM3D][Bridge] (re)created root host + BridgeServer component");
             }
             catch (Exception ex)
             {
                 EnableFailed = true;
                 Debug.LogWarning("[WSM3D][Bridge] failed to create bridge server: " + ex.Message);
+            }
+        }
+
+        static void EnsureVoxelFrameDriverOnBridgeHost()
+        {
+            if (_rootHost == null) return;
+            try
+            {
+                if (_rootHost.GetComponent<WorldSphereMod.Voxel.VoxelFrameDriver>() != null) return;
+                _rootHost.AddComponent<WorldSphereMod.Voxel.VoxelFrameDriver>();
+                Debug.Log("[WSM3D][Bridge] attached VoxelFrameDriver to bridge DDOL host for end-of-frame flush");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[WSM3D][Bridge] failed to attach VoxelFrameDriver on bridge host: " + ex.Message);
             }
         }
 

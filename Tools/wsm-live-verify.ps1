@@ -21,12 +21,16 @@
 
 .PARAMETER ListScenarios
   Print PlayCUA sample scenarios (file + name) and exit without running the pipeline.
+
+.PARAMETER SkipOffline
+  Skip Stage 1 (dotnet test) and Stage 2 (journey mock). Requires -Live.
 #>
 [CmdletBinding()]
 param(
     [switch]$Live,
     [switch]$Vision,
     [switch]$ListScenarios,
+    [switch]$SkipOffline,
     [int]$Phase = 0
 )
 
@@ -305,7 +309,17 @@ if ($ListScenarios) {
     exit 0
 }
 
+if ($SkipOffline -and -not $Live) {
+    throw "-SkipOffline requires -Live (offline stages are skipped; only live PlayCUA/SSIM runs)."
+}
+
 # Stage 1: dotnet test (unit, integration, e2e) — fail fast
+if ($SkipOffline) {
+    Invoke-SkippedStage -Id "dotnet-tests" -Reason "Skipped via -SkipOffline; run without -SkipOffline for CI parity."
+    Invoke-SkippedStage -Id "journey-mock-verify" -Reason "Skipped via -SkipOffline."
+    $stage1Ok = $true
+    $stage2Ok = $true
+} else {
 $stage1Ok = Invoke-Stage -Id "dotnet-tests" -Body {
     $projects = Get-DotnetTestProjects
     if (-not $projects -or $projects.Count -eq 0) {
@@ -372,6 +386,7 @@ $stage2Ok = Invoke-Stage -Id "journey-mock-verify" -Body {
 
 if (-not $stage2Ok) {
     Write-ReportAndExit 1
+}
 }
 
 # Stage 3: [-Live] bridge :8766, wsm3d-playcua, SSIM vs docs/journeys/phase-previews
