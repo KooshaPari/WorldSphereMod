@@ -47,7 +47,7 @@ Register-ArgumentCompleter -Native -CommandName "wsm3d.ps1", "wsm3d" -ScriptBloc
     $mainCommands = @(
         "build", "install", "launch", "kill", "relaunch", "log",
         "screenshot", "settings", "toggle", "phases", "status",
-        "journey", "watch", "help"
+        "journey", "playcua", "watch", "help"
     )
 
     # If we're at the first argument position (completing subcommand)
@@ -170,6 +170,33 @@ Register-ArgumentCompleter -Native -CommandName "wsm3d.ps1", "wsm3d" -ScriptBloc
                     ForEach-Object {
                         [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
                     }
+            }
+        }
+
+        "playcua" {
+            # playcua <run-all>
+            if ($elements.Count -le 3) {
+                @("run-all") |
+                    Where-Object { $_ -like "$wordToComplete*" } |
+                    ForEach-Object {
+                        [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+                    }
+            }
+            elseif ($arg2 -eq "run-all") {
+                if ($arg3 -eq "-VisionBackend") {
+                    @("omniroute", "anthropic", "off") |
+                        Where-Object { $_ -like "$wordToComplete*" } |
+                        ForEach-Object {
+                            [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+                        }
+                }
+                else {
+                    @("-VisionBackend") |
+                        Where-Object { $_ -like "$wordToComplete*" } |
+                        ForEach-Object {
+                            [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+                        }
+                }
             }
         }
     }

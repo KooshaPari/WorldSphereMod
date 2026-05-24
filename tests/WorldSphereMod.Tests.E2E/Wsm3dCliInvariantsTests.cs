@@ -114,4 +114,36 @@ public class Wsm3dCliInvariantsTests
         completion.Should().Contain(@"""verify"", ""capture""");
         completion.Should().Contain("-NonInteractive");
     }
+
+    [Fact]
+    public void Wsm3d_help_documents_playcua_run_all()
+    {
+        var script = ReadWsm3dScript();
+
+        script.Should().Contain("playcua run-all");
+        script.Should().Contain("-VisionBackend");
+        script.Should().Contain("function Invoke-PlaycuaRunAll");
+        script.Should().Contain("sample-scenarios");
+    }
+
+    [Fact]
+    public void Wsm3d_playcua_dispatcher_wires_run_all_subcommand()
+    {
+        var script = ReadWsm3dScript();
+
+        script.Should().MatchRegex(@"""run-all""\s*\{");
+        script.Should().Contain("Invoke-PlaycuaRunAll @params");
+        script.Should().Contain("playcua requires 'run-all' subcommand");
+    }
+
+    [Fact]
+    public void Wsm3d_completion_offers_playcua_run_all()
+    {
+        var path = Path.Combine(FindRepoRoot(), "Tools", "wsm3d.completion.ps1");
+        var completion = File.ReadAllText(path);
+
+        completion.Should().Contain(@"""run-all""");
+        completion.Should().Contain("-VisionBackend");
+        completion.Should().Contain(@"""omniroute"", ""anthropic"", ""off""");
+    }
 }

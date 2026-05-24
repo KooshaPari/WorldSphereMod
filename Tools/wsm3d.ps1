@@ -1203,6 +1203,70 @@ function Invoke-Watch {
     }
 }
 
+function Resolve-PythonCommand {
+    foreach ($name in @("python", "python3", "py")) {
+        $cmd = Get-Command $name -ErrorAction SilentlyContinue
+        if ($cmd) {
+            return $cmd.Source
+        }
+    }
+
+    throw "Python not found on PATH (required for playcua)."
+}
+
+function Invoke-PlaycuaRunAll {
+    param(
+        [ValidateSet("omniroute", "anthropic", "off")]
+        [string]$VisionBackend
+    )
+
+    $python = Resolve-PythonCommand
+    $playcuaMain = Join-Path $RepoRoot "Tools/wsm3d-playcua/main.py"
+    if (-not (Test-Path -LiteralPath $playcuaMain)) {
+        throw "Missing Tools/wsm3d-playcua/main.py"
+    }
+
+    $scenarioRoot = Join-Path $RepoRoot "Tools/wsm3d-playcua/sample-scenarios"
+    if (-not (Test-Path -LiteralPath $scenarioRoot)) {
+        throw "PlayCUA sample-scenarios directory not found at $scenarioRoot"
+    }
+
+    $scenarios = @(Get-ChildItem -Path $scenarioRoot -Filter "*.yaml" -File | Sort-Object Name)
+    if ($scenarios.Count -eq 0) {
+        throw "No YAML scenarios found under $scenarioRoot"
+    }
+
+    $artifactRoot = Join-Path $RepoRoot "Tools/wsm3d-playcua/.reports/run-all-artifacts"
+    if (-not (Test-Path -LiteralPath $artifactRoot)) {
+        New-Item -ItemType Directory -Force -Path $artifactRoot | Out-Null
+    }
+
+    $failed = @()
+    foreach ($scenario in $scenarios) {
+        $scenarioReport = Join-Path $artifactRoot ("playcua-" + $scenario.BaseName + ".json")
+        $pyArgs = @(
+            $playcuaMain,
+            $scenario.FullName,
+            "--report", $scenarioReport
+        )
+        if ($VisionBackend) {
+            $pyArgs += @("--vision-backend", $VisionBackend)
+        }
+
+        Write-Info "playcua run-all: $($scenario.Name) ..."
+        & $python @pyArgs
+        if ($LASTEXITCODE -ne 0) {
+            $failed += $scenario.Name
+        }
+    }
+
+    if ($failed.Count -gt 0) {
+        throw "playcua run-all failed for: $($failed -join ', ')"
+    }
+
+    Write-Success "playcua run-all passed $($scenarios.Count) scenario(s)."
+}
+
 function Invoke-HooksInstall {
     Write-Info "Installing git pre-commit hook..."
 
@@ -1311,6 +1375,12 @@ Commands:
   journey verify -Id <id>|<manifest-path> [-Live]
       Verify a manifest with phenotype-journey. Defaults to mock mode (--mock).
 
+  playcua run-all [-VisionBackend omniroute|anthropic|off]
+      Run every Tools/wsm3d-playcua/sample-scenarios/*.yaml via python main.py.
+      Requires bridge on 127.0.0.1:8766. Writes per-scenario JSON under
+      Tools/wsm3d-playcua/.reports/run-all-artifacts/. Omit -VisionBackend to use
+      main.py defaults (OMNROUTE_API_KEY / ANTHROPIC_API_KEY env).
+
   watch [-Launch] [-Filter <pattern>]
       Watch WorldSphereMod/Code/ for changes (default filter: *.cs). On file change
       (debounced 1500ms), run install. Optional -Launch starts the game once at
@@ -1345,8 +1415,9 @@ Examples:
   wsm3d phases enable-all
   wsm3d phases preset safe-min
   wsm3d status -Json
-  wsm3d journey verify -Id sample-journey
+  wsm3d   journey verify -Id sample-journey
   wsm3d journey verify docs/journeys/manifests/sample-journey/manifest.json -Live
+  wsm3d playcua run-all -VisionBackend omniroute
 
 "@ -ForegroundColor White
 }
@@ -1587,6 +1658,32 @@ try {
                 $params["Filter"] = $commandArgs[$commandArgs.IndexOf("-Filter") + 1]
             }
             Invoke-Watch @params
+        }
+
+        "playcua" {
+            if ($commandArgs.Count -eq 0) {
+                Write-Error-Custom "playcua requires 'run-all' subcommand"
+                Show-Help
+                exit 1
+            }
+            $subCmd = $commandArgs[0]
+            $subArgs = @(if ($commandArgs.Count -gt 1) { $commandArgs[1..($commandArgs.Count - 1)] })
+
+            switch -Exact ($subCmd) {
+                "run-all" {
+                    $params = @{}
+                    if ($subArgs -contains "-VisionBackend") {
+                        $params["VisionBackend"] = $subArgs[$subArgs.IndexOf("-VisionBackend") + 1]
+                    }
+                    Invoke-PlaycuaRunAll @params
+                }
+
+                default {
+                    Write-Error-Custom "Unknown playcua subcommand: $subCmd"
+                    Show-Help
+                    exit 1
+                }
+            }
         }
 
         "hooks" {
