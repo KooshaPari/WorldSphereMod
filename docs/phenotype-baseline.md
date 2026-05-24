@@ -73,7 +73,7 @@ Reference repo runs ~40 workflow files. This repo runs 1.
 
 | Gate | Status | Notes |
 |---|---|---|
-| `build-gate`          | 🔄 | `.github/workflows/build.yml` exists but only builds `WorldSphereAPI` for real; the main mod build is `continue-on-error: true` against zero-byte stub DLLs. Not a true gate. |
+| `build-gate`          | 🔄 | `.github/workflows/build.yml` gates `WorldSphereAPI`; mod build is best-effort (`docs/ci-mod-compile-gap.md`). Stub paths centralized in `Tools/ci-stub-worldbox-refs.sh`. |
 | `test-gate`           | ❌ | No test workflow because no tests. |
 | `lint-gate`           | ❌ | No `dotnet format`, no analyzers config, no editorconfig enforcement. |
 | `docs-build-gate`     | 🔄 | VitePress build entrypoint exists, but link-check and full journey-quality gating are still not complete. |

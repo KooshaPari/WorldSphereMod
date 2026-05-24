@@ -55,3 +55,31 @@ Recommended starting point:
 ## Expected Result
 
 Bright-facing areas should read as raised planes, while shadow-facing areas should recede. The sprite keeps its baked lighting language, but the voxel volume gains a stronger sense of sculpted form without requiring new art assets or a heavy reconstruction step.
+
+## SavedSettings (phase 1)
+
+| Spec knob | `SavedSettings` field | Default |
+|-----------|----------------------|---------|
+| enable | `VoxelLuminanceDepth` | `false` (off until voxelizer wired) |
+| `neutral_luminance` | `VoxelNeutralLuminance` | `0.5f` |
+| `shadow_recession` | `VoxelShadowRecession` | `1.0f` |
+| `inflation` (extrusion budget) | `VoxelSpriteDepth` | `3` (see `voxel-depth-extrusion-spec.md`) |
+
+Per-sprite tuning: **deferred** (global defaults only).
+
+## Implementation status (2026-05-23)
+
+| Item | Status |
+|------|--------|
+| `SavedSettings` knobs above | Done |
+| Bridge voxel cache invalidation on luminance settings change | Done |
+| `SpriteVoxelizer` hybrid DT + luminance in `BuildBalloon` / `BuildPerTexel` | **Deferred** |
+| Per-sprite / registry overrides | **Deferred** |
+| E2E source invariants (`LuminanceDepthInvariantsTests`) | Done |
+
+## Known gaps (not in first-pass scope)
+
+- **`VoxelLuminanceDepth` off by default:** No runtime effect until `SpriteVoxelizer` applies the hybrid formula after the 2D distance transform.
+- **`inflation` scalar:** Reuses `VoxelSpriteDepth` as the extrusion budget; no separate multiplier field yet.
+- **Symmetric greedy `Build()`:** Unchanged; luminance targets DT-based inflation paths (`balloon`, `organicblob`, `BuildPerTexel`) first.
+- **Minimum depth clamp:** Guardrail in spec; implement with voxelizer wiring.

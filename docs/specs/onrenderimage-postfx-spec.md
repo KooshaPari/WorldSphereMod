@@ -5,6 +5,27 @@
 > `Camera.OnRenderImage` instead of relying on URP's `RendererFeature`
 > system that WorldBox doesn't expose.
 
+## Implementation status (2026-05-23)
+
+| Spec target | Shipped today | Notes |
+|---|---|---|
+| `WSM3DPostStack` unified ping-pong chain | **Not shipped** | SSAO / SSGI / LUT are separate `MonoBehaviour` passes on `CameraManager.MainCamera`. |
+| SSAO via `OnRenderImage` + `ScreenSpaceAO.shader` | **Shipped** | `WorldSphereMod.PostFx.ScreenSpaceAO` — gated on `SSAOEnabled`, quality from `SSAOQuality`. |
+| SSGI via `OnRenderImage` | **Shipped** | `WorldSphereMod.PostFx.ScreenSpaceGI` — attach/detach via `SSGIEnabled`. |
+| LUT grade via `OnRenderImage` | **Shipped** | `WorldSphereMod.Lighting.ColorGradingLUT` — `ColorGradingLut` flag. |
+| Bloom + ACES in one stack | **Not shipped** | No BRP bloom/ACES materials in repo; chain ends at per-pass blits. |
+| `PostFX` master toggle → visible stack | **Partial** | `PostFxController` still targets URP `Volume` + `renderPostProcessing` (types usually absent in WB Managed/). Built-in passes ignore `PostFX` and use their own flags. |
+
+**Runtime wiring today**
+
+- `Core.ApplyPhaseToggle` → `PostFxController.ApplySetting` (`PostFX`), `ScreenSpaceAO.ApplySetting` (`SSAOEnabled`), `ScreenSpaceGI.ApplySetting` (`SSGIEnabled`), `ColorGradingLUT.ApplySetting` (`ColorGradingLut`).
+- `VoxelRender.TickPerFrame` reconciles PostFX / SSAO / SSGI on change only; `EnsureCreated` retries late camera bind.
+- `Mod` world-init applies persisted SSAO after scene transitions.
+
+**Gap vs this spec:** multiple `OnRenderImage` callbacks run in Unity script order (undefined relative order among SSAO, SSGI, LUT). Tier-2 work is to fold passes into `WSM3DPostStack` with ping-pong RTs and retire URP `PostFxController` for WorldBox.
+
+**E2E guardrails:** `tests/WorldSphereMod.Tests.E2E/SsaoPostFxInvariantsTests.cs`, `OnRenderImagePostFxSpecInvariantsTests.cs`.
+
 ## Goal
 
 Implement a working post-FX chain (SSAO → SSGI → Bloom → ACES tonemap → LUT

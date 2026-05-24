@@ -37,6 +37,7 @@ namespace WorldSphereMod.Fx
             public Color BaseTint;
             public float StartedAt;
             public BurstProfile Profile;
+            public bool SpriteWasEnabled;
         }
 
         static readonly Dictionary<int, BurstState> _active = new Dictionary<int, BurstState>(16);
@@ -72,7 +73,44 @@ namespace WorldSphereMod.Fx
                 return;
             }
 
-            _active.Remove(effect.GetInstanceID());
+            int key = effect.GetInstanceID();
+            if (_active.TryGetValue(key, out BurstState state))
+            {
+                RestoreSprite(effect, state);
+                _active.Remove(key);
+            }
+        }
+
+        /// <summary>
+        /// True while a voxel burst is driving render for this effect instance.
+        /// Used to opt out of Phase 5 sprite-shadow updates for hidden billboards.
+        /// </summary>
+        public static bool IsActive(BaseEffect effect)
+        {
+            return effect != null && _active.ContainsKey(effect.GetInstanceID());
+        }
+
+        static void RestoreSprite(BaseEffect effect, BurstState state)
+        {
+            if (!state.SpriteWasEnabled || effect?.sprite_renderer == null)
+            {
+                return;
+            }
+
+            effect.sprite_renderer.enabled = true;
+        }
+
+        static bool SuppressSprite(BaseEffect effect, out bool wasEnabled)
+        {
+            wasEnabled = false;
+            if (effect?.sprite_renderer == null)
+            {
+                return false;
+            }
+
+            wasEnabled = effect.sprite_renderer.enabled;
+            effect.sprite_renderer.enabled = false;
+            return true;
         }
 
         public static bool TryStart(BaseEffect effect)
@@ -127,6 +165,8 @@ namespace WorldSphereMod.Fx
                 return false;
             }
 
+            SuppressSprite(effect, out bool spriteWasEnabled);
+
             _active[key] = new BurstState
             {
                 Mesh = mesh,
@@ -135,6 +175,7 @@ namespace WorldSphereMod.Fx
                 BaseTint = effect.sprite_renderer != null ? effect.sprite_renderer.color : Color.white,
                 StartedAt = Time.time,
                 Profile = profile,
+                SpriteWasEnabled = spriteWasEnabled,
             };
 
             return true;
@@ -156,6 +197,7 @@ namespace WorldSphereMod.Fx
             Transform renderTransform = GetRenderTransform(effect);
             if (renderTransform == null || state.Mesh == null || state.Material == null)
             {
+                RestoreSprite(effect, state);
                 _active.Remove(key);
                 return;
             }
@@ -166,6 +208,7 @@ namespace WorldSphereMod.Fx
 
             if (t >= 1f)
             {
+                RestoreSprite(effect, state);
                 _active.Remove(key);
                 return;
             }

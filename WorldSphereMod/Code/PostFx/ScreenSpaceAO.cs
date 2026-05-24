@@ -62,6 +62,14 @@ namespace WorldSphereMod.PostFx
             EnsureCreated();
         }
 
+        public static void ApplyQualitySetting()
+        {
+            if (_instance != null)
+            {
+                _instance.UpdateSettings();
+            }
+        }
+
         public static void EnsureCreated()
         {
             if (!Core.IsWorld3D || !Core.savedSettings.SSAOEnabled)
@@ -188,6 +196,12 @@ namespace WorldSphereMod.PostFx
 
         void OnRenderImage(RenderTexture source, RenderTexture destination)
         {
+            if (Core.savedSettings == null || !Core.savedSettings.SSAOEnabled)
+            {
+                Graphics.Blit(source, destination);
+                return;
+            }
+
             if (_material == null)
             {
                 Graphics.Blit(source, destination);

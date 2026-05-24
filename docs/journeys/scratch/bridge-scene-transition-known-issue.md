@@ -67,15 +67,15 @@ Even with explicit Patcher.PatchAll(typeof(BridgePerFrameTick)) registered along
 
 After 6 layered fixes (MonoBehaviour DDoL on existing parent → new root → SetParent(null) → triple-callback drain → static queue → Harmony Postfix on vanilla), still 1 telemetry entry per session post-world-load.
 
-## Status: PARKED
+## Status: PARKED → superseded by 2026-05-23 PARTIAL (below)
 
 Mod features work (PostFxController + voxel render proven via prior screenshots).
 Observability degraded post-save-load.
 Bridge + log telemetry both fail after world transitions to game scene.
 
-Next session candidates:
-- Try MapBox.Update instead of renderStuff
-- Try Postfix on ActorManager.update_actors (definitely per-frame)
+Next session candidates (mostly addressed in 2026-05-23 hardening — see checklist):
+- ~~Try MapBox.Update instead of renderStuff~~ → primary hook is `MapBox.renderStuff` again (via `RefreshSphere` Prefix)
+- ~~Try Postfix on ActorManager.precalculateRenderDataParallel~~ → backup drain only (`BridgeSurvivalBackup`)
 - Move observability into the existing Postfix chain that we KNOW fires (BuildingProcRender.EmitMeshes, etc — these increment FrameDrawCalls per the telemetry that DID work before save load)
 
 
@@ -94,3 +94,90 @@ Bridge endpoints still time out (queue not draining via this hook either — Dra
 
 NFR-WSM-006 partial recovery: bridge pre-save-load, log post-save-load.
 
+## Hardening attempt (2026-05-23)
+
+**Status: PARTIAL** — code hardened in working tree; live save/load + bridge HTTP not re-verified this session.
+
+### Root cause candidate
+
+`BridgeServer.EnsureCreated()` during the `MapBox.renderStuff` Postfix can spawn a new `BridgeServer` before the old host's `OnDestroy` runs. The old `OnDestroy` called `StopListener()` and killed the replacement's HTTP accept loop (port still LISTENING, requests accepted but never processed).
+
+### Three pillars (with code links)
+
+| Pillar | What | Source |
+|--------|------|--------|
+| **1. Listener generation guard** | `OnDestroy` skips `StopListener()` when `_myGeneration < _instanceGeneration` so a stale host cannot kill the replacement accept loop | [`BridgeServer.cs`](../../../WorldSphereMod/Code/Bridge/BridgeServer.cs) |
+| **2. MapBox.renderStuff + backup drain** | `BridgeSurvival.Run`: `CaptureMainThread`, `EnsureCreated`, `DrainStaticQueue` (refreshes `_mainThreadId` each drain). Primary [`BridgePerFrameTick`](../../../WorldSphereMod/Code/Bridge/BridgePerFrameTick.cs) Postfix on `MapBox.renderStuff` (`runVoxelFrame: true`). Backup [`BridgeSurvivalBackup`](../../../WorldSphereMod/Code/Bridge/BridgePerFrameTick.cs) on `ActorManager.precalculateRenderDataParallel` (`runVoxelFrame: false`). Registered in [`Core.cs`](../../../WorldSphereMod/Code/Core.cs); `renderStuff` always entered in 3D via [`RefreshSphere`](../../../WorldSphereMod/Code/TileMapToSphere.cs) Prefix | [`BridgePerFrameTick.cs`](../../../WorldSphereMod/Code/Bridge/BridgePerFrameTick.cs), [`BridgeServer.cs`](../../../WorldSphereMod/Code/Bridge/BridgeServer.cs) (`DrainStaticQueue`, `InvokeOnMainThread`) |
+| **3. LateUpdate flush** | `VoxelFrameDriver.TickPerFrame()` from primary hook (pre-emit + log telemetry); `VoxelRender.Flush()` + `VoxelMeshCache.DrainPendingDestroy()` only in `LateUpdate` after emit postfixes | [`VoxelRender.cs`](../../../WorldSphereMod/Code/Voxel/VoxelRender.cs) (`VoxelFrameDriver`) |
+
+`Mod.PostInit` still calls `BridgeServer.EnsureCreated()` after scene transitions: [`WorldSphereMod/Code/Mod.cs`](../../../WorldSphereMod/Code/Mod.cs).
+
+Static log telemetry (10s cadence) moved into `VoxelFrameDriver.TickPerFrame()` so observability does not depend on the bridge HTTP path.
+
+### Per-frame flow (3D world loaded)
+
+```mermaid
+flowchart TD
+  RS["MapBox.renderStuff\nRefreshSphere Prefix + BridgePerFrameTick Postfix"]
+  AM["ActorManager.precalculateRenderDataParallel\nBridgeSurvivalBackup Postfix"]
+  BS["BridgeSurvival.Run"]
+  TPF["VoxelFrameDriver.TickPerFrame\npre-emit / telemetry"]
+  EMIT["Harmony emit postfixes\nBuildingProcRender, drops, etc."]
+  LU["VoxelFrameDriver.LateUpdate\nVoxelRender.Flush + cache drain"]
+  HTTP["Bridge HTTP listener thread\nInvokeOnMainThread → static queue"]
+
+  RS --> BS
+  AM -->|"backup: drain only"| BS
+  BS -->|"runVoxelFrame: true"| TPF
+  TPF --> EMIT
+  EMIT --> LU
+  BS -->|"DrainStaticQueue"| HTTP
+```
+
+### E2E source invariants (not live game)
+
+[`tests/WorldSphereMod.Tests.E2E/SourceContentInvariantsTests.cs`](../../../tests/WorldSphereMod.Tests.E2E/SourceContentInvariantsTests.cs):
+
+- `BridgePerFrameTick_drains_queue_via_MapBox_renderStuff_postfix` — primary/backup hooks, `BridgeSurvival.Run` split, generation guard string, `Mod.PostInit` + `Core.PatchAll(BridgeSurvivalBackup)`
+- `VoxelFrameDriver_LateUpdate_flushes_after_emit_postfixes_not_TickPerFrame` — flush deferred out of `TickPerFrame`
+
+### Live verification checklist (required to clear PARTIAL)
+
+Run with a build that includes the 2026-05-23 bridge/voxel hardening (working tree or post-commit).
+
+**Pre-save-load (baseline)**
+
+- [ ] Fresh launch → 3D world → `Tools/wsm3d.ps1` or MCP: `GET /health` returns JSON with `ok: true` (not `null`, no 5s stall)
+- [ ] `GET /telemetry` returns frame/cache fields
+- [ ] Player.log: `[WSM3D][Bridge] HTTP RPC listening on 127.0.0.1:8766` (or fallback port)
+- [ ] Player.log: `[WSM3D][Telemetry]` lines every ~10s from `TickPerFrame`
+
+**Save / load transition**
+
+- [ ] Load save (or trigger equivalent scene transition) → wait until world is playable in 3D
+- [ ] `GET /health` and `GET /telemetry` still return JSON (not `null`)
+- [ ] No repeating `[WSM3D][Bridge] main-thread dispatch timed out` in Player.log after load
+- [ ] `netstat`: port LISTENING; requests complete without hanging at ESTABLISHED
+- [ ] Optional: `POST /settings/<key>` still applies on main thread post-load
+
+**Listener race (generation guard)**
+
+- [ ] After load, log shows at most one active listener stop/start cycle (no silent kill of replacement listener)
+- [ ] If bridge is recreated: `[WSM3D][Bridge] (re)created root host` without subsequent accept-loop death
+
+**Voxel / render path**
+
+- [ ] Voxels still render post-load (visual smoke)
+- [ ] `[WSM3D][Telemetry]` cadence resumes post-load (log channel independent of bridge)
+
+**If still failing**
+
+- Capture Player.log from load through first failed `wsm3d` call
+- Note whether `BridgePerFrameTick` or only `BridgeSurvivalBackup` appears active (actor-count-dependent backup cadence)
+- Revisit PARKED hypotheses (DDoL destruction, `PostInit` not re-fired, non-vanilla Update starvation)
+
+### Expected outcome
+
+Pre-save-load bridge health unchanged. Post-save-load: resolved **if** the listener race was the sole failure mode. Log telemetry should remain usable via `TickPerFrame` even when HTTP is degraded.
+
+NFR-WSM-006: bridge pre-save-load (unchanged expectation); post-save-load bridge + log both need checklist above.

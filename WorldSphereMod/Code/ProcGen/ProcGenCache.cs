@@ -45,11 +45,10 @@ namespace WorldSphereMod.ProcGen
                 }
             }
 
-            Mesh m = BuildingMeshGen.Generate(asset, rules);
-            // Don't cache a null result — Generate returns null for blank construction
-            // frames; we want to retry on the next call when the sprite is non-blank
-            // rather than poisoning the cache with a permanent fallback.
-            if (m == null) return null;
+            Mesh? m = BuildingMeshGen.Generate(asset, rules);
+            // Don't cache null (blank construction / sprite not loaded) or shared fallback
+            // cubes — a transient failure must not pin a wrong mesh for this asset id.
+            if (m == null || BuildingMeshGen.IsTransientMesh(m)) return m;
 
             lock (_cache)
             {

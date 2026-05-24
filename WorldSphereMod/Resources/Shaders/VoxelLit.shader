@@ -55,6 +55,10 @@ Shader "WorldSphereMod3D/VoxelLit"
                 float _Metallic;
             CBUFFER_END
 
+            // Set each frame by TimeOfDay.ApplyFog from SavedSettings.FogDensity + SunRig.FogColor.
+            float _WSM_FogDensity;
+            float4 _WSM_FogColor;
+
             UNITY_INSTANCING_BUFFER_START(WorldSphereVoxelProps)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _InstanceColor)
             UNITY_INSTANCING_BUFFER_END(WorldSphereVoxelProps)
@@ -125,6 +129,11 @@ Shader "WorldSphereMod3D/VoxelLit"
                 float roughness = 1.0 - saturate(_Smoothness);
                 float diffuseWeight = saturate(1.0 - _Metallic * 0.75 + roughness * 0.05);
                 float3 color = (diffuse + ambient) * diffuseWeight;
+
+                float dist = distance(input.positionWS, _WorldSpaceCameraPos.xyz);
+                float fogCoord = _WSM_FogDensity * dist;
+                float fogFactor = exp2(-fogCoord * fogCoord);
+                color = lerp(_WSM_FogColor.rgb, color, fogFactor);
 
                 return half4(color, tint.a);
             }

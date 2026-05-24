@@ -21,7 +21,7 @@ namespace WorldSphereMod.Voxel
         public static void OnFinish()
         {
             try { WorldSphereMod.Worldspace.WorldUIRenderer.OnWorldUnload(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] WorldUIRenderer.OnWorldUnload: " + e.Message); }
-            try { WorldSphereMod.Voxel.VoxelMeshCache.Clear(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] VoxelMeshCache.Clear: " + e.Message); }
+            try { WorldSphereMod.Voxel.VoxelMeshCache.DrainPendingDestroy(); WorldSphereMod.Voxel.VoxelMeshCache.Clear(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] VoxelMeshCache.DrainPendingDestroy+Clear: " + e.Message); }
             try { WorldSphereMod.Voxel.SpriteVoxelizer.ClearPixelCache(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] SpriteVoxelizer.ClearPixelCache: " + e.Message); }
             try { WorldSphereMod.ProcGen.ProcGenCache.Clear(); WorldSphereMod.ProcGen.ProcGenCache.DrainPendingDestroy(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] ProcGenCache.Clear+DrainPendingDestroy: " + e.Message); }
             try { WorldSphereMod.Foliage.CrossedQuadMeshCache.Clear(); WorldSphereMod.Foliage.CrossedQuadMeshCache.DrainPendingDestroy(); } catch (System.Exception e) { Debug.LogWarning("[WSM3D] CrossedQuadMeshCache.Clear+DrainPendingDestroy: " + e.Message); }

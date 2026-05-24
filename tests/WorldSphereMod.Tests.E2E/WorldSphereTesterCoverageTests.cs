@@ -65,6 +65,20 @@ public class WorldSphereTesterCoverageTests
     }
 
     [Fact]
+    public void ImpostorBillboard_lru_stamps_use_frame_count_at_access_time()
+    {
+        var source = ReadSourceFile("WorldSphereMod/Code/LOD/ImpostorBillboard.cs");
+
+        source.Should().Contain("ulong frameStamp = (ulong)Time.frameCount;");
+        source.Should().Contain("entry.LastFrame = frameStamp;");
+        source.Should().Contain("LastFrame = frameStamp");
+        source.Should().Contain("static void Evict()");
+        source.Should().Contain("if (_atlas.Count > Capacity) Evict();");
+        source.Should().Contain("public static void Tick()",
+            "Tick remains for call-site compatibility even though LRU uses frameCount");
+    }
+
+    [Fact]
     public void LodSelector_hysteresis_requires_three_frames_before_tier_change()
     {
         var source = ReadSourceFile("WorldSphereMod/Code/LOD/LodSelector.cs");

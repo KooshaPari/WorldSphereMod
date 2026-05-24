@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text.RegularExpressions;
 using FluentAssertions;
@@ -46,10 +47,43 @@ public sealed class Phase6RigRegistryTests
         var source = ReadSource(@"WorldSphereMod/Code/Constants.cs");
 
         source.Should().Contain("ActorRigTypes");
-        foreach (var id in new[] { "human", "wolf", "bear", "eagle", "snake", "spider", "sand_spider", "dragon", "crabzilla" })
+        foreach (var id in new[] { "human", "wolf", "bear", "snake", "sand_spider", "dragon", "crabzilla" })
         {
             source.Should().Contain($"[\"{id}\"]", $"ActorRigTypes should include {id}");
         }
+    }
+
+    [Fact]
+    public void Constants_resolve_actor_rig_uses_registry_then_humanoid_default()
+    {
+        var source = ReadSource(@"WorldSphereMod/Code/Constants.cs");
+
+        source.Should().Contain("ActorRigTypes.TryGetValue");
+        source.Should().Contain("RegisterActorRig");
+        source.Should().Contain("return RigType.Humanoid");
+        source.Should().Contain("VehicleShapeHints.IsVehicleAssetId");
+    }
+
+    [Fact]
+    public void Constants_registry_omits_unconfirmed_catalog_asset_ids()
+    {
+        var source = ReadSource(@"WorldSphereMod/Code/Constants.cs");
+
+        source.Should().NotContain("[\"eagle\"]");
+        source.Should().NotContain("[\"spider\"]");
+    }
+
+    [Fact]
+    public void VoxelRender_resolves_rig_type_after_cull_and_lod()
+    {
+        var source = ReadSource(@"WorldSphereMod/Code/Voxel/VoxelRender.cs");
+
+        var cullIndex = source.IndexOf("FrustumCuller.IsVisible", StringComparison.Ordinal);
+        var rigIndex = source.IndexOf("ResolveRigType(a.asset.id)", StringComparison.Ordinal);
+        cullIndex.Should().BeGreaterThan(-1);
+        rigIndex.Should().BeGreaterThan(cullIndex, "rig type should be resolved after frustum cull");
+        source.Should().Contain("tier != WorldSphereMod.LOD.LodTier.Impostor");
+        source.Should().Contain("Constants.ResolveActorRig(assetId)");
     }
 
     [Fact]

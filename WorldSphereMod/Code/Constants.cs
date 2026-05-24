@@ -44,10 +44,8 @@ namespace WorldSphereMod
             ["elf"] = RigType.Humanoid,
             ["wolf"] = RigType.Quadruped,
             ["bear"] = RigType.Quadruped,
-            ["eagle"] = RigType.Bird,
             ["snake"] = RigType.Snake,
-            ["spider"] = RigType.Insect,
-            ["sand_spider"] = RigType.Insect,
+            ["sand_spider"] = RigType.None,
             ["dragon"] = RigType.None,
             ["crabzilla"] = RigType.None,
         };
@@ -69,11 +67,12 @@ namespace WorldSphereMod
                 return rig;
             }
 
-            // ROOT CAUSE FIX for dragonfly bug on boats/etc: default to RigType.None
-            // so unknown assets (boats, fishing_boats, vehicles, untyped projectiles)
-            // do NOT get humanoid bone deformation applied. Previously defaulted to
-            // Humanoid which produced flailing limbs on every non-mapped asset.
-            return RigType.None;
+            if (!string.IsNullOrEmpty(assetId) && Rig.VehicleShapeHints.IsVehicleAssetId(assetId))
+            {
+                return RigType.None;
+            }
+
+            return RigType.Humanoid;
         }
         public const int SpecialHeight = 4;
         public static float YConst => 1f / (81 / (Core.Sphere.HeightMult));

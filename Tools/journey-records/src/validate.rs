@@ -34,6 +34,10 @@ pub fn run(manifest: &Path, strict_assets: bool) -> anyhow::Result<()> {
         strict_assets,
     )?);
 
+    if let Some(repo_root) = find_repo_root(manifest) {
+        issues.extend(validate_embedded_doc_paths(&manifest_json, &repo_root));
+    }
+
     if !issues.is_empty() {
         return Err(anyhow!("manifest validation failed:\n- {}", issues.join("\n- ")));
     }
@@ -138,4 +142,88 @@ fn validate_optional_asset(
         issues.push(format!("{field} path {} does not exist", resolved.display()));
     }
     Ok(())
+}
+
+fn find_repo_root(manifest: &Path) -> Option<PathBuf> {
+    let mut dir = manifest.parent()?.to_path_buf();
+    loop {
+        if dir.join("WorldSphereMod.sln").is_file() {
+            return Some(dir);
+        }
+        if !dir.pop() {
+            return None;
+        }
+    }
+}
+
+fn validate_embedded_doc_paths(value: &Value, repo_root: &Path) -> Vec<String> {
+    let mut issues = Vec::new();
+    collect_doc_path_issues(value, repo_root, &mut issues);
+    issues
+}
+
+fn collect_doc_path_issues(value: &Value, repo_root: &Path, issues: &mut Vec<String>) {
+    match value {
+        Value::String(text) => {
+            for path in extract_docs_paths(text) {
+                if path.contains("..") {
+                    issues.push(format!("unsafe docs path {}", path));
+                    continue;
+                }
+                let resolved = repo_root.join(path.replace('/', std::path::MAIN_SEPARATOR_STR));
+                if !resolved.is_file() {
+                    issues.push(format!(
+                        "docs path {} does not exist ({})",
+                        path,
+                        resolved.display()
+                    ));
+                }
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                collect_doc_path_issues(item, repo_root, issues);
+            }
+        }
+        Value::Object(map) => {
+            for (key, item) in map {
+                if matches!(key.as_str(), "screenshot_path" | "recording" | "recording_gif") {
+                    if let Some(path) = item.as_str() {
+                        if path.starts_with("docs/") {
+                            let resolved =
+                                repo_root.join(path.replace('/', std::path::MAIN_SEPARATOR_STR));
+                            if !resolved.is_file() {
+                                issues.push(format!(
+                                    "{key} docs path {} does not exist ({})",
+                                    path,
+                                    resolved.display()
+                                ));
+                            }
+                        }
+                    }
+                }
+                collect_doc_path_issues(item, repo_root, issues);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn extract_docs_paths(text: &str) -> Vec<String> {
+    let mut paths = Vec::new();
+    let mut rest = text;
+    while let Some(start) = rest.find("docs/") {
+        let slice = &rest[start..];
+        let end = slice
+            .char_indices()
+            .find(|(_, ch)| ch.is_whitespace() || matches!(ch, ')' | '"' | '\'' | '>'))
+            .map(|(idx, _)| idx)
+            .unwrap_or(slice.len());
+        let candidate = slice[..end].trim_end_matches(&['.', ',', ';', ':'][..]);
+        if candidate.len() > "docs/".len() {
+            paths.push(candidate.to_string());
+        }
+        rest = &rest[start + end..];
+    }
+    paths
 }

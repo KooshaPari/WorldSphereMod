@@ -15,15 +15,36 @@ Standard → black-render cascade.
 ## Fix
 
 Install Unity 2022.3 LTS (closest available — 2022.3.54f1 or any 2022.3.x)
-via Unity Hub. Then re-bake:
+via Unity Hub. Then re-bake with [`Tools/bake-shaders.ps1`](../../../Tools/bake-shaders.ps1).
 
-```powershell
-# Update ProjectVersion.txt to '2022.3.<patch>f1'
-# Re-run Tools/bake-shaders.ps1
-```
+## Actionable checklist
 
-Bundle should then load. Workarounds (uncompressed, strict mode) did NOT
-overcome the version barrier.
+Use this order; each step is verifiable before moving on.
+
+- [ ] **Install Unity 2022.3 LTS** via Unity Hub (match game: `2022.3.54f1` or any `2022.3.x` patch).
+- [ ] **Point the bake project at 2022.3** — edit `Tools/Unity-Bake-Project/ProjectSettings/ProjectVersion.txt` so `m_EditorVersion` is `2022.3.<patch>f1` (open once in Hub if Unity rewrites settings).
+- [ ] **Pass the correct editor to the bake script** (auto-detect still prefers 2021/6000 today):
+  ```powershell
+  pwsh Tools/bake-shaders.ps1 -UnityExe "$env:ProgramFiles\Unity\Hub\Editor\2022.3.54f1\Editor\Unity.exe"
+  ```
+- [ ] **Confirm bake log** — tail `Tools/bake-shaders.log`; exit code 0 and `[WSM3D-Bake]` success lines.
+- [ ] **Confirm bundle output** — `WorldSphereMod/AssetBundles/**/worldsphere` updated (script prints paths + byte sizes).
+- [ ] **Install mod + launch WorldBox** — no NML "Failed to load asset bundle" on startup.
+- [ ] **Confirm shader load in game log** — see success criteria below.
+
+Integration tests assert the bake **infrastructure** is present (`Tools/bake-shaders.ps1`, `Tools/Unity-Bake-Project/`); they do not run Unity headless (CI has no editor).
+
+## Bake script reference
+
+| Item | Path |
+|------|------|
+| Headless bake entrypoint | [`Tools/bake-shaders.ps1`](../../../Tools/bake-shaders.ps1) |
+| Unity project (batchmode target) | `Tools/Unity-Bake-Project/` |
+| Editor bake method | `BakeShaders.BakeAll` in `Tools/Unity-Bake-Project/Assets/Editor/BakeShaders.cs` |
+| Shader sources copied at bake | `WorldSphereMod/AssetBundles/Shaders/*.shader` |
+| Bake log | `Tools/bake-shaders.log` |
+
+Workarounds (uncompressed bundles, strict mode) did **not** overcome the version barrier.
 
 ## Status
 
@@ -40,3 +61,7 @@ After Unity 2022.3 install + re-bake, expect:
 - Voxels render with vertex colors instead of Standard-lit-black
 - Magenta MountainSlope tris fixed
 - HDR skybox CubemapLighting connects to ProceduralSky.shader
+
+## Related docs
+
+- Phase 5 prep (Compound-Spheres submodule + same Unity 2022.3 requirement): [`docs/phase5-prep.md`](../../phase5-prep.md)

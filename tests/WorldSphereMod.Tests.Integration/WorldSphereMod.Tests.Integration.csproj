@@ -15,4 +15,8 @@
     <PackageReference Include="FluentAssertions" Version="8.10.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\WorldSphereAPI.csproj" />
+  </ItemGroup>
+
 </Project>

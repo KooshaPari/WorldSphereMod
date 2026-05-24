@@ -37,11 +37,6 @@ namespace WorldSphereMod.Lighting
         static readonly Color kZenithNoon = new Color(0.35f, 0.5f, 0.85f);
         static readonly Color kZenithDusk = new Color(0.14f, 0.11f, 0.24f);
 
-        static readonly Color kHorizonNight = new Color(0.05f, 0.06f, 0.1f);
-        static readonly Color kHorizonDawn = new Color(0.98f, 0.55f, 0.28f);
-        static readonly Color kHorizonNoon = new Color(0.62f, 0.78f, 0.98f);
-        static readonly Color kHorizonDusk = new Color(0.82f, 0.3f, 0.38f);
-
         public static void EnsureCreated()
         {
             if (Instance != null) return;
@@ -194,7 +189,7 @@ namespace WorldSphereMod.Lighting
 
             Color sun = SunRig.SunColor(t);
             Color zenith = SampleSkyCurve(t, kZenithNight, kZenithDawn, kZenithNoon, kZenithDusk);
-            Color horizon = SampleSkyCurve(t, kHorizonNight, kHorizonDawn, kHorizonNoon, kHorizonDusk);
+            Color horizon = SunRig.HorizonColor(t);
             Color ground = new Color(0.1f, 0.1f, 0.1f);
 
             _skyMat.SetColor(_zenith, zenith);

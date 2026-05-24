@@ -315,6 +315,12 @@ namespace WorldSphereMod.Effects
             }
             if (Core.IsWorld3D)
             {
+                BaseEffect burstEffect = __instance.GetComponent<BaseEffect>();
+                if (burstEffect != null && WorldSphereMod.Fx.VoxelParticleBurst.IsActive(burstEffect))
+                {
+                    return false;
+                }
+
                 updateshadow(__instance);
                 return false;
             }

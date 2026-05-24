@@ -6,7 +6,6 @@ using NeoModLoader.utils;
 using NeoModLoader.constants;
 using System.IO;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using static WorldSphereMod.CompoundSphereScripts;
 using static HarmonyLib.AccessTools;
 using WorldSphereMod.NewCamera;
@@ -40,24 +39,10 @@ namespace WorldSphereMod
             try
             {
                 string raw = File.ReadAllText($"{Paths.ModsConfigPath}/WorldSphereMod.json");
-                if (raw.Contains("\"TerrainSmoothing\"") && !raw.Contains("\"MountainSlopeSmoothing\""))
+                if (!SavedSettingsJson.TryDeserialize(raw, out loadedData) || loadedData == null)
                 {
-                    try
-                    {
-                        JObject obj = JObject.Parse(raw);
-                        if (obj["MountainSlopeSmoothing"] == null && obj["TerrainSmoothing"] != null)
-                        {
-                            obj["MountainSlopeSmoothing"] = obj["TerrainSmoothing"]!.Value<bool>();
-                        }
-                        raw = obj.ToString();
-                    }
-                    catch
-                    {
-                        // Fall back to the raw JSON below if the migration parse fails.
-                    }
+                    throw new FileLoadException();
                 }
-                loadedData = JsonConvert.DeserializeObject<SavedSettings>(raw);
-                if (loadedData == null) throw new FileLoadException();
             }
             catch
             {
@@ -152,9 +137,11 @@ namespace WorldSphereMod
             // AssetBundleUtils throws NRE on duplicate file IDs). Opt-in only.
             if (Core.savedSettings != null && Core.savedSettings.EnableMcPackTextures)
             {
-                InitProfiler.Measure("McPackLoader.Initialize", () =>
+                InitProfiler.Measure("TexturePackImporter.ImportAtLoad", () =>
                 {
-                    WorldSphereMod.Textures.McPackLoader.Initialize();
+                    WorldSphereMod.Import.TexturePackImporter.TryImportAtLoad();
+                    try { WorldSphereMod.Textures.McPackLoader.Initialize(); }
+                    catch { /* do not block world startup */ }
                 });
             }
             InitProfiler.Measure("Lighting.SunDriver.Init", () =>
@@ -219,9 +206,17 @@ namespace WorldSphereMod
             {
                 WorldSphereMod.Lighting.ColorGradingLUT.ApplySetting(newValue);
             }
+            if (flagName == nameof(SavedSettings.PostFX))
+            {
+                WorldSphereMod.Fx.PostFxController.ApplySetting(newValue);
+            }
             if (flagName == nameof(SavedSettings.SSAOEnabled))
             {
                 WorldSphereMod.PostFx.ScreenSpaceAO.ApplySetting(newValue);
+            }
+            if (flagName == nameof(SavedSettings.SSAOQuality))
+            {
+                WorldSphereMod.PostFx.ScreenSpaceAO.ApplyQualitySetting();
             }
             if (flagName == nameof(SavedSettings.SSGIEnabled))
             {
@@ -307,6 +302,7 @@ namespace WorldSphereMod
             }
 
             Patcher.PatchAll(typeof(WorldSphereMod.Bridge.BridgePerFrameTick));
+            Patcher.PatchAll(typeof(WorldSphereMod.Bridge.BridgeSurvivalBackup));
             Patcher.PatchAll(typeof(SphereControl));
             Patcher.PatchAll(typeof(Dist3D));
             Patcher.PatchAll(typeof(EffectPatches));

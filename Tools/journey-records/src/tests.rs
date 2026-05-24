@@ -87,6 +87,29 @@ fn validate_allows_placeholder_manifest_without_assets_in_offline_mode() {
 }
 
 #[test]
+fn validate_rejects_missing_embedded_docs_path() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("WorldSphereMod.sln"), "").unwrap();
+    let manifest = write_manifest(
+        dir.path(),
+        r#"{
+            "id": "us-wsm-phase-1-voxel-actors",
+            "intent": "See docs/journeys/scratch/does-not-exist.md for details.",
+            "steps": [
+                {
+                    "index": 0,
+                    "slug": "baseline",
+                    "intent": "Baseline.",
+                    "screenshot_path": "frame-000.png"
+                }
+            ]
+        }"#,
+    );
+
+    assert!(validate::run(&manifest, false).is_err());
+}
+
+#[test]
 fn thumbnail_copies_image_inputs() {
     let dir = tempfile::tempdir().unwrap();
     let input = dir.path().join("frame.png");

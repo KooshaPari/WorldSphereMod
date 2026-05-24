@@ -1,85 +1,57 @@
 # PLAN vs Actual Gap Audit
 
-Scope: `PLAN.md` root plan vs current `WorldSphereMod` code. I treated “landed”
-as “visible in the default install without extra manual toggles or missing
-runtime assets.” Result: several plan claims are present in code but still
-hidden by defaults, while two headline visuals are still missing outright:
-terrain refinement and real cloud meshes.
+**Last updated:** 2026-05-23
 
-## Top 10 “plan said landed, but actually broken”
+Scope: root `PLAN.md` vs current `WorldSphereMod` code and `README.md`.
+“Landed” means visible in a fresh install with current `SavedSettings` defaults
+(no extra manual toggles). Beta defaults flipped most phase flags ON since the
+prior audit; remaining gaps are mostly PLAN scope not yet implemented (cloud
+meshes) or opt-in polish (voxel Laplacian smoothing, style procgen branch).
 
-1. Terrain smoothing / biome blending / mountain slope smoothing. `MeshSmoother`
-   only runs on voxelized sprites via `VoxelMeshCache.Get()` (`WorldSphereMod/Code/Voxel/VoxelMeshCache.cs:201-206`);
-   there is no terrain-mesh smoothing or biome-blend pass anywhere in `WorldSphereMod/Code`.
-   `Tools.TrueHeight()` still just maps tile IDs to heights (`WorldSphereMod/Code/Tools.cs:336-419`).
-   Code present: no. Flag: no. Gate: no.
+## 2026-05-23 status summary
 
-2. Clouds as crossed-quads. The plan’s Phase 3 cloud claim is not implemented.
-   `Effects.cs` still routes `Cloud.update` through sprite bookkeeping
-   (`WorldSphereMod/Code/Effects.cs:258-260`), and `fx_cloud` only has a burst
-   profile in `VoxelParticleBurst` (`WorldSphereMod/Code/Fx/VoxelParticleBurst.cs:43-47`).
-   Code present: no cloud mesh path. Flag: no. Gate: only a sprite postfix.
+| Area | Prior audit (pre-beta defaults) | Current code / README |
+|---|---|---|
+| Phase defaults | Many flags default `false` | Phases 1–9 default ON per `SavedSettings.cs` and README phase table |
+| Terrain polish | “Missing” biome/mountain smoothing | `BiomeBlending` + `MountainSlopeSmoothing` implemented, default ON (`TileMapToSphere.cs`, `Terrain/TerrainSmoothing.cs`) |
+| Voxel mesh smoothing | Not called for terrain | Still voxel-only via `MeshSmoother` when `SmoothingIterations > 0` (default 0); `VoxelMeshSmoothing` default off |
+| Clouds (PLAN Phase 3) | Particle burst only | **Still gap** — `Cloud.update` → `VoxelParticleBurst.TryStart`, no crossed-quad cloud mesh |
+| Water / shadows / fog / PostFX | “Hidden by defaults” | Default ON: `MeshWater`, `HighShadows`, `DayNightCycle`, `FogDensity=0.05f`, `PostFX`, `ParticleEffects` |
+| Buildings / skeletal | Default off | Default ON: `ProceduralBuildings`, `SkeletalAnimation`; `BuildingStyleProcgen` still opt-in off |
+| Phase 10 LOD | — | README: code-complete; Proxy tier still routes to Voxel |
 
-3. Water waves. `WaterSurface` and `WaterGerstner.shader` are real
-   (`WorldSphereMod/Code/Water/WaterSurface.cs:130-195`, `WorldSphereMod/Resources/Shaders/WaterGerstner.shader:1-101`),
-   but `MeshWater` defaults off (`WorldSphereMod/Code/SavedSettings.cs:47`).
-   The Harmony hooks do fire when enabled (`WorldSphereMod/Code/Water/WaterRender.cs:16-98`),
-   but if the shader resource is missing at runtime, `EnsureMaterial()` falls
-   back to stock lit/unlit materials and the waves disappear.
+**E2E guard:** `PlanReadmePhaseCoverageTests` asserts README phase table rows exist for PLAN phases 0–10.
 
-4. Fire/smoke visuals. Particle bursts exist, but only for a fixed ID set:
-   `fx_meteorite`, `fx_explosion_wave`, `fx_fire_smoke`, `fx_antimatter_effect`,
-   `fx_napalm_flash`, plus `fx_cloud` (`WorldSphereMod/Code/Fx/VoxelParticleBurst.cs:43-47`).
-   `BaseEffectController.GetObject` does call `TryStart()` when `ParticleEffects`
-   is on (`WorldSphereMod/Code/Effects.cs:187-209`), but there is no general
-   smoke/fire system beyond those IDs. Code present: partial. Flag: `ParticleEffects=true`.
-   Gate: yes, via the `BaseEffectController.GetObject` postfix.
+## Top gaps (plan vs actual, 2026-05-23)
 
-5. Fog / day-night sky. `TimeOfDay` and `ProceduralSky` are driver-based, not
-   Harmony-postfixed. They only create when `DayNightCycle` is on or `FogDensity`
-   is nonzero (`WorldSphereMod/Code/Lighting/TimeOfDay.cs:19-83`,
-   `WorldSphereMod/Code/Lighting/ProceduralSky.cs:26-39`).
-   Defaults are off for `DayNightCycle` and `FogDensity=0`. Code present: yes.
-   Flag: off. Gate: no Harmony postfix; it is an `EnsureCreated` driver path.
+1. **Cloud crossed-quads (PLAN Phase 3).** `Effects.cs` postfix on `Cloud.update` still routes through `VoxelParticleBurst.TryStart` when `ParticleEffects` is on (`Effects.cs:272-283`). `fx_cloud` has only a burst profile in `VoxelParticleBurst.cs`. No cloud mesh path. Code: partial burst only. Default: ON (`ParticleEffects=true`). Gate: burst, not crossed-quad mesh.
 
-6. Real sun / cascaded shadows. `SunDriver` and `ShadowCascadeConfig` exist
-   (`WorldSphereMod/Code/Lighting/SunDriver.cs:18-53`,
-   `WorldSphereMod/Code/Lighting/ShadowCascadeConfig.cs:18-104`), but
-   `HighShadows` defaults off (`WorldSphereMod/Code/SavedSettings.cs:49`).
-   There is no phase patch to fire here; `Core.ApplyPhaseToggle()` just pushes
-   the setting into the driver (`WorldSphereMod/Code/Core.cs:81-86`).
-   Code present: yes. Flag: off. Gate: driver callback, not a phase postfix.
+2. **Voxel Laplacian smoothing (PLAN-adjacent).** `MeshSmoother` runs on voxel cache meshes when `SmoothingIterations > 0` (`VoxelMeshCache.cs`). Defaults: `VoxelMeshSmoothing=false`, `SmoothingIterations=0`. Not a terrain-mesh pass. Code: yes (opt-in). Flag: off. Gate: iteration count.
 
-7. PostFX. `PostFxController` is present and wired from the frame driver
-   (`WorldSphereMod/Code/Fx/PostFxController.cs:134-287`,
-   `WorldSphereMod/Code/Voxel/VoxelRender.cs:599-670`), but `PostFX` defaults
-   off (`WorldSphereMod/Code/SavedSettings.cs:58`). If URP types are absent, it
-   logs and no-ops. Code present: yes. Flag: off. Gate: driver-based, not a patch.
+3. **Building style procgen branch.** `BuildingProcRender` can use `BuildingStyleProcgen` stylized path (`BuildingProcRender.cs`). Default off while `ProceduralBuildings=true`. Users get voxelized buildings unless style toggle is on. Code: yes. Flag: style off. Gate: secondary toggle.
 
-8. Procedural buildings. The phase patch exists and does fire when enabled
-   (`WorldSphereMod/Code/ProcGen/BuildingProcRender.cs:14-146`), but
-   `ProceduralBuildings` defaults off (`WorldSphereMod/Code/SavedSettings.cs:43`).
-   So “code-complete” in docs still means “invisible unless toggled.” Code present:
-   yes. Flag: off. Gate: yes, the phase postfix fires on `BuildingManager.precalculateRenderDataParallel`.
+4. **Phase 10 Proxy LOD tier.** README documents Proxy still routes to Voxel; `LodSelector` / impostor path exists for hardware-gate fallback. Code: partial. Not a default-visible proxy mesh swap.
 
-9. Skeletal animation. `RigDriver` is implemented and reachable, but
-   `SkeletalAnimation` defaults off (`WorldSphereMod/Code/SavedSettings.cs:51`).
-   It is inline-gated inside `VoxelRender` rather than via a phase postfix, and
-   non-humanoid rigs fall back to the static voxel mesh path
-   (`WorldSphereMod/Code/Rig/RigDriver.cs:1-144`, `WorldSphereMod/Code/Voxel/VoxelRender.cs:340-430`).
-   Code present: yes. Flag: off. Gate: inline branch, not a phase postfix.
+5. **Phase 9 breadth.** Particle bursts cover fixed IDs (`fx_meteorite`, `fx_explosion_wave`, `fx_fire_smoke`, `fx_antimatter_effect`, `fx_napalm_flash`, `fx_cloud`) — not a general effect→mesh converter. Defaults ON. Gate: `BaseEffectController.GetObject` + `ParticleEffects`.
 
-10. Building style procgen hidden branch. `BuildingProcRender` has a second
-    style gate (`BuildingStyleProcgen`) that defaults off
-    (`WorldSphereMod/Code/SavedSettings.cs:43`, `WorldSphereMod/Code/ProcGen/BuildingProcRender.cs:124-146`).
-    Users can enable `ProceduralBuildings` and still stay on voxelized fallback
-    unless this extra toggle is also flipped. Code present: yes. Flag: off.
-    Gate: yes, but only after the extra style toggle is set.
+6. **Water shader asset bundle.** `WaterSurface` + `WaterGerstner.shader` exist; README notes AssetBundle bake deferred to Phase 5b. Runtime may fall back if shader resource missing (`WaterSurface.EnsureMaterial`). Default ON (`MeshWater=true`).
 
-## Bottom line
+7. **PostFX / SSAO pipeline deps.** `PostFxController` wired from frame driver; no-ops if URP types absent. Defaults ON (`PostFX`, `SSAOEnabled`). `SSGIEnabled` default off.
 
-- Working-by-default: crossed-quad foliage, worldspace UI, particle bursts.
-- Implemented but hidden: water, shadows, fog/day-night, post-FX, procedural
-  buildings, skeletal animation.
-- Still missing: terrain smoothing / biome blending / mountain smoothing, and
-  real crossed-quad cloud rendering.
+8. **Non-humanoid skeletal fallback.** `RigDriver` inline-gated in `VoxelRender`; unknown rigs use static voxel mesh. Default ON (`SkeletalAnimation=true`).
+
+9. **Live journey / smoke verification.** HANDOFF and README distinguish code defaults from live smoke-test proof. Journeys exist under `docs/journeys/manifests/`; strict-assets / capture validation still documented as open work.
+
+10. **docs/PLAN.md vs root PLAN.md.** `docs/PLAN.md` is a pointer; canonical plan is `/PLAN.md`. README links `docs/PLAN.md` (resolves via pointer). No functional gap.
+
+## Resolved since prior audit
+
+- **Defaults cascade:** Water, shadows, procedural buildings, skeletal animation, day/night, fog, PostFX, particle effects, foliage — now default ON (see `SavedSettings.cs`, README table).
+- **Biome blending:** `TileMapToSphere` + `BiomeBlending=true` by default.
+- **Mountain slope smoothing:** `Terrain/TerrainSmoothing.cs` + `MountainSlopeSmoothing=true` by default.
+
+## Bottom line (2026-05-23)
+
+- **Working by default:** voxel actors, procedural buildings, crossed-quad foliage, mesh water, sun/shadows/sky, skeletal (humanoid path), worldspace UI, day/night + fog, particle bursts (limited IDs), PostFX/SSAO when pipeline present, biome + mountain terrain polish.
+- **Still missing vs PLAN:** crossed-quad **cloud** meshes (Phase 3 cloud bullet).
+- **Opt-in / partial:** voxel Laplacian smoothing, `BuildingStyleProcgen`, Phase 10 proxy tier, general effect mesh conversion, live journey capture proof.

@@ -20,70 +20,29 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      # The WorldBox install is not available in CI. We stub the required reference
-      # assemblies so the build can run for syntax/compile validation. Real binaries
-      # come from a local WorldBox install when contributors build for distribution.
+      # WorldBox reference DLLs are not available on hosted runners. Placeholders
+      # satisfy HintPath resolution only; see docs/ci-mod-compile-gap.md.
       - name: Stub WorldBox reference DLLs
         shell: bash
-        run: |
-          set -euo pipefail
-          STUB_ROOT="$RUNNER_TEMP/worldbox-stub"
-          MANAGED="$STUB_ROOT/worldbox_Data/Managed"
-          NML="$STUB_ROOT/worldbox_Data/StreamingAssets/mods/NML"
-          NMLA="$NML/Assemblies"
-          mkdir -p "$MANAGED" "$NML" "$NMLA"
-          DLLS=(
-            "$MANAGED/Assembly-CSharp-firstpass.dll"
-            "$MANAGED/Newtonsoft.Json.dll"
-            "$MANAGED/SleekRender.dll"
-            "$MANAGED/UnityEngine.CoreModule.dll"
-            "$MANAGED/UnityEngine.InputLegacyModule.dll"
-            "$MANAGED/UnityEngine.ParticleSystemModule.dll"
-            "$MANAGED/UnityEngine.PhysicsModule.dll"
-            "$MANAGED/UnityEngine.TextRenderingModule.dll"
-            "$MANAGED/UnityEngine.TilemapModule.dll"
-            "$MANAGED/UnityEngine.UI.dll"
-            "$NML/Assembly-CSharp-Publicized.dll"
-            "$NML/NeoModLoader.dll"
-            "$NMLA/0Harmony.dll"
-            "$NMLA/Facepunch.Steamworks.Posix.dll"
-            "$NMLA/Facepunch.Steamworks.Win64.dll"
-            "$NMLA/Gameloop.Vdf.dll"
-            "$NMLA/Microsoft.CodeAnalysis.dll"
-            "$NMLA/Microsoft.CodeAnalysis.CSharp.dll"
-            "$NMLA/Mono.Cecil.dll"
-            "$NMLA/Mono.Cecil.Pdb.dll"
-            "$NMLA/MonoMod.RuntimeDetour.dll"
-            "$NMLA/MonoMod.Utils.dll"
-            "$NMLA/System.Collections.Immutable.dll"
-            "$NMLA/System.Reflection.Metadata.dll"
-            "$NMLA/System.Runtime.CompilerServices.Unsafe.dll"
-            "$NMLA/System.Text.Encoding.CodePages.dll"
-            "$NMLA/YamlDotNet.dll"
-          )
-          for d in "${DLLS[@]}"; do
-            : > "$d"  # zero-byte placeholder; build will not produce a working DLL but the project file resolves
-          done
-          echo "WORLDBOX_PATH=$STUB_ROOT" >> "$GITHUB_ENV"
+        run: bash Tools/ci-stub-worldbox-refs.sh
 
-      - name: Build WorldSphereAPI (real)
+      - name: Build WorldSphereAPI (blocking gate)
         run: dotnet build WorldSphereAPI.csproj -c Release
 
-      # NOTE: the main mod can't actually compile against zero-byte stubs.
-      # This step is left as documentation; CI's real value today is the API
-      # build above. Replace with a proper stub-DLL generator (e.g. AsmResolver)
-      # in a follow-up commit to enable full compile checks.
-      - name: Build mod (best-effort, allowed to fail)
+      # Main mod compile needs real game/NML metadata — zero-byte stubs cannot
+      # produce a loadable DLL. Kept as best-effort signal until stub generation
+      # or a self-hosted runner with WORLDBOX_PATH is wired up.
+      - name: Build mod (best-effort — see docs/ci-mod-compile-gap.md)
         continue-on-error: true
         run: dotnet build WorldSphereMod.csproj -c Release
 
       - name: Discover coverage-focused E2E tests
         run: |
           dotnet test tests/WorldSphereMod.Tests.E2E/WorldSphereMod.Tests.E2E.csproj \
-            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests" \
+            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests|FullyQualifiedName~CiWorkflowInvariantsTests" \
             --list-tests
 
       - name: Run coverage-focused E2E tests
         run: |
           dotnet test tests/WorldSphereMod.Tests.E2E/WorldSphereMod.Tests.E2E.csproj \
-            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests"
+            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests|FullyQualifiedName~CiWorkflowInvariantsTests"

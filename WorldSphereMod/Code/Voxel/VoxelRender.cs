@@ -99,7 +99,6 @@ namespace WorldSphereMod.Voxel
                 "Unlit/Texture",
                 "Unlit/Color",
                 "Standard",
-                "Sprites/Default",
             };
             var shaderLookup = new Dictionary<string, Shader>();
             foreach (var name in candidates)
@@ -743,6 +742,270 @@ namespace WorldSphereMod.Voxel
                 }
             }
         }
+
+        // Phase 1b: dropped items. No render_data[] — read Drop transform + SpriteRenderer.
+        [Phase(nameof(SavedSettings.VoxelEntities))]
+        [HarmonyPatch(typeof(Drop), nameof(Drop.updatePosition))]
+        public static class DropVoxelEmit
+        {
+            [HarmonyPostfix]
+            public static void EmitVoxel(Drop __instance)
+            {
+                if (!Core.IsWorld3D)
+                {
+                    return;
+                }
+
+                SpriteRenderer? sr = __instance._sprite_renderer;
+                if (!Core.savedSettings.VoxelEntities)
+                {
+                    if (sr != null)
+                    {
+                        sr.enabled = true;
+                    }
+
+                    return;
+                }
+
+                if (!__instance.active || sr == null)
+                {
+                    return;
+                }
+
+                if (!EnsureMaterial())
+                {
+                    return;
+                }
+
+                Sprite? sp = sr.sprite;
+                if (sp == null)
+                {
+                    return;
+                }
+
+                Vector3 cullPos = __instance.transform.position;
+                if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, 1.5f))
+                {
+                    sr.enabled = true;
+                    return;
+                }
+
+                WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, __instance.GetHashCode());
+                Color tint = sr.color;
+
+                if (tier == WorldSphereMod.LOD.LodTier.Impostor)
+                {
+                    Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
+                    Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
+                    if (im == null || im.vertexCount == 0 || imMat == null)
+                    {
+                        sr.enabled = true;
+                        return;
+                    }
+
+                    Vector3 imPos = cullPos;
+                    float imScale = Mathf.Max(__instance._scale, 0.01f) * Core.savedSettings.VoxelScaleMultiplier;
+                    Vector3 imScl = new Vector3(imScale, imScale, imScale);
+                    Quaternion br = WorldSphereMod.LOD.ImpostorBillboard.GetFacingRotation(imPos);
+                    MeshInstanceBatcher.Submit(im, imMat, Matrix4x4.TRS(imPos, br, imScl), tint);
+                    sr.enabled = false;
+                    return;
+                }
+
+                Mesh? mesh = VoxelMeshCache.Get(sp, -1, true);
+                if (mesh == null || mesh.vertexCount == 0)
+                {
+                    sr.enabled = true;
+                    return;
+                }
+
+                Vector3 pos = __instance.transform.position;
+                float scale = Mathf.Max(__instance._scale, 0.01f) * Core.savedSettings.VoxelScaleMultiplier;
+                Vector3 scl = new Vector3(scale, scale, scale);
+                scl.z = scl.x;
+                float halfHeight = mesh.bounds.size.y * 0.5f * scl.y;
+                pos.y += halfHeight;
+                float yaw = __instance.transform.eulerAngles.y;
+                Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, yaw, 0f), scl);
+                if (Submit(mesh, trs, tint))
+                {
+                    sr.enabled = false;
+                }
+                else
+                {
+                    sr.enabled = true;
+                }
+            }
+        }
+
+        // Phase 1b: projectiles. Postfix on drawProjectiles after vanilla + SetProjectile transpiler.
+        [Phase(nameof(SavedSettings.VoxelEntities))]
+        [HarmonyPatch(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.drawProjectiles))]
+        public static class ProjectileVoxelEmit
+        {
+            [HarmonyPostfix]
+            public static void EmitVoxels(QuantumSpriteAsset pAsset)
+            {
+                if (!Core.IsWorld3D)
+                {
+                    return;
+                }
+
+                if (!Core.savedSettings.VoxelEntities)
+                {
+                    RestoreProjectileSprites(pAsset);
+                    return;
+                }
+
+                if (!EnsureMaterial())
+                {
+                    return;
+                }
+
+                if (World.world == null || World.world.projectiles == null)
+                {
+                    return;
+                }
+
+                List<Projectile> list = World.world.projectiles.list;
+                if (list == null)
+                {
+                    return;
+                }
+
+                for (int i = 0; i < list.Count; i++)
+                {
+                    Projectile projectile = list[i];
+                    if (projectile == null || !projectile._alive || projectile.asset == null)
+                    {
+                        continue;
+                    }
+
+                    Sprite? sprite = ResolveProjectileSprite(projectile);
+                    if (sprite == null)
+                    {
+                        continue;
+                    }
+
+                    Vector3 pos = BuildProjectileWorldPosition(projectile);
+                    if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(pos, 1.5f))
+                    {
+                        continue;
+                    }
+
+                    WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(pos, projectile.GetHashCode());
+                    Color tint = new Color(1f, 1f, 1f, projectile.getAlpha());
+                    bool perp = Constants.PerpProjectiles.ContainsKey(projectile.asset.id);
+
+                    if (tier == WorldSphereMod.LOD.LodTier.Impostor)
+                    {
+                        Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sprite);
+                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
+                        if (im == null || im.vertexCount == 0 || imMat == null)
+                        {
+                            continue;
+                        }
+
+                        float imScale = Mathf.Max(projectile.getCurrentScale(), 0.01f) * Core.savedSettings.VoxelScaleMultiplier;
+                        Vector3 imScl = new Vector3(imScale, imScale, imScale);
+                        Quaternion br = WorldSphereMod.LOD.ImpostorBillboard.GetFacingRotation(pos);
+                        MeshInstanceBatcher.Submit(im, imMat, Matrix4x4.TRS(pos, br, imScl), tint);
+                        SuppressProjectileSprite(pAsset, pos);
+                        continue;
+                    }
+
+                    Mesh? mesh = VoxelMeshCache.Get(sprite, -1, true);
+                    if (mesh == null || mesh.vertexCount == 0)
+                    {
+                        continue;
+                    }
+
+                    float scale = Mathf.Max(projectile.getCurrentScale(), 0.01f) * Core.savedSettings.VoxelScaleMultiplier;
+                    Vector3 scl = new Vector3(scale, scale, scale);
+                    scl.z = scl.x;
+                    float halfHeight = mesh.bounds.size.y * 0.5f * scl.y;
+                    pos.y += halfHeight;
+                    Quaternion rot = perp
+                        ? projectile.rotation
+                        : Quaternion.Euler(0f, projectile.rotation.eulerAngles.y, 0f);
+                    Matrix4x4 trs = Matrix4x4.TRS(pos, rot, scl);
+                    if (Submit(mesh, trs, tint))
+                    {
+                        SuppressProjectileSprite(pAsset, pos);
+                    }
+                }
+            }
+
+            static Sprite? ResolveProjectileSprite(Projectile projectile)
+            {
+                ProjectileAsset asset = projectile.asset;
+                if (asset.frames == null || asset.frames.Length == 0)
+                {
+                    return null;
+                }
+
+                if (asset.animated)
+                {
+                    return AnimationHelper.getSpriteFromList(
+                        projectile.GetHashCode(),
+                        asset.frames,
+                        asset.animation_speed);
+                }
+
+                return asset.frames[0];
+            }
+
+            static Vector3 BuildProjectileWorldPosition(Projectile projectile)
+            {
+                Vector2 flat = projectile.getTransformedPositionWithHeight();
+                Vector3 pos = new Vector3(flat.x, flat.y, projectile.getCurrentHeight());
+                return pos.To3DTileHeight(true);
+            }
+
+            static void SuppressProjectileSprite(QuantumSpriteAsset pAsset, Vector3 worldPos)
+            {
+                if (pAsset?.group_system?._sprites == null)
+                {
+                    return;
+                }
+
+                GroupSpriteObject[] sprites = pAsset.group_system._sprites;
+                for (int i = 0; i < sprites.Length; i++)
+                {
+                    GroupSpriteObject? obj = sprites[i];
+                    if (obj == null || obj.sprite_renderer == null || !obj.sprite_renderer.enabled)
+                    {
+                        continue;
+                    }
+
+                    if (Vector3.SqrMagnitude(obj.m_transform.position - worldPos) > 0.25f)
+                    {
+                        continue;
+                    }
+
+                    obj.sprite_renderer.enabled = false;
+                    return;
+                }
+            }
+
+            static void RestoreProjectileSprites(QuantumSpriteAsset pAsset)
+            {
+                if (pAsset?.group_system?._sprites == null)
+                {
+                    return;
+                }
+
+                GroupSpriteObject[] sprites = pAsset.group_system._sprites;
+                for (int i = 0; i < sprites.Length; i++)
+                {
+                    GroupSpriteObject? obj = sprites[i];
+                    if (obj?.sprite_renderer != null)
+                    {
+                        obj.sprite_renderer.enabled = true;
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -755,7 +1018,7 @@ namespace WorldSphereMod.Voxel
         static bool _lastSkeletalState = false;
         const float kCameraLookupInterval = 0.05f;
         const int kPerfSampleWindowFrames = 60;
-        float _nextCameraLookup = 0f;
+        static float _nextCameraLookup = 0f;
         static int _perfFrameCounter;
         static float _perfDeltaTimeSum;
 
@@ -778,10 +1041,10 @@ namespace WorldSphereMod.Voxel
 
         static float _telemetryLastTime;
         static int _instancingTelemetryFrame;
-        void LateUpdate()
-        {
-            if (!Core.IsWorld3D) return;
 
+        /// <summary>Per-frame voxel/FX driver; invoked from MapBox.renderStuff Harmony hook so it survives scene transitions.</summary>
+        public static void TickPerFrame()
+        {
             if (Core.ClearVoxelMeshCacheOnFirstFrame)
             {
                 Core.ClearVoxelMeshCacheOnFirstFrame = false;
@@ -844,11 +1107,7 @@ namespace WorldSphereMod.Voxel
                 _lastSkeletalState = false;
             }
 
-            if (MeshInstanceBatcher.HasPendingSubmissions)
-            {
-                VoxelRender.Flush();
-                VoxelMeshCache.DrainPendingDestroy();
-            }
+            // Flush runs in LateUpdate after all emit postfixes for this frame.
 
             WorldSphereMod.Voxel.VoxelMeshCache.PumpQueuedBuilds(1);
             WorldSphereMod.Voxel.VoxelMeshCache.DrainCompletedBuilds(8);
@@ -878,6 +1137,14 @@ namespace WorldSphereMod.Voxel
             if (Time.time >= _nextCameraLookup)
             {
                 WorldSphereMod.Lighting.SunDriver.BindMainCamera(CameraManager.MainCamera);
+                if (Core.savedSettings.SSAOEnabled)
+                {
+                    WorldSphereMod.PostFx.ScreenSpaceAO.EnsureCreated();
+                }
+                if (Core.savedSettings.SSGIEnabled)
+                {
+                    WorldSphereMod.PostFx.ScreenSpaceGI.EnsureCreated();
+                }
                 _nextCameraLookup = Time.time + kCameraLookupInterval;
             }
 
@@ -887,19 +1154,44 @@ namespace WorldSphereMod.Voxel
 
             WorldSphereMod.Fx.Environmental.Tick();
 
-            // CRITICAL: do NOT call ApplySetting every frame -- it logs 'ApplySetting(X)' on each
-            // invocation, which at 60 FPS spams Player.log with ~60 lines/sec of synchronous file
-            // writes -> game load freezes at the preload step. Track last applied value + only
-            // call when it CHANGES. ApplyPhaseToggle paths already invoke ApplySetting on real
-            // setting changes; this LateUpdate call is a redundant reconciler.
+            // CRITICAL: do NOT call ApplySetting every frame -- PostFxController logs on each
+            // invocation. Track last applied values and reconcile only on change (bridge/API
+            // edits, load-order races). ApplyPhaseToggle also invokes ApplySetting immediately.
             bool currentPostFX = Core.savedSettings.PostFX;
             if (currentPostFX != _lastAppliedPostFX)
             {
                 _lastAppliedPostFX = currentPostFX;
                 WorldSphereMod.Fx.PostFxController.ApplySetting(currentPostFX);
             }
+
+            bool currentSSAO = Core.savedSettings.SSAOEnabled;
+            if (currentSSAO != _lastAppliedSSAOEnabled)
+            {
+                _lastAppliedSSAOEnabled = currentSSAO;
+                WorldSphereMod.PostFx.ScreenSpaceAO.ApplySetting(currentSSAO);
+            }
+
+            bool currentSSGI = Core.savedSettings.SSGIEnabled;
+            if (currentSSGI != _lastAppliedSSGIEnabled)
+            {
+                _lastAppliedSSGIEnabled = currentSSGI;
+                WorldSphereMod.PostFx.ScreenSpaceGI.ApplySetting(currentSSGI);
+            }
+        }
+
+        // Pre-emit work runs from MapBox.renderStuff (Harmony); flush must run after emit
+        // postfixes, so LateUpdate remains the end-of-frame sink.
+        void LateUpdate()
+        {
+            if (MeshInstanceBatcher.HasPendingSubmissions)
+            {
+                VoxelRender.Flush();
+                VoxelMeshCache.DrainPendingDestroy();
+            }
         }
 
         static bool _lastAppliedPostFX = false;
+        static bool _lastAppliedSSAOEnabled = false;
+        static bool _lastAppliedSSGIEnabled = false;
     }
 }

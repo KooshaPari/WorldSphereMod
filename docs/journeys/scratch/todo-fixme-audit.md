@@ -1,12 +1,13 @@
 # TODO / FIXME / HACK Audit
 
-Generated: 2026-05-21 18:50:13
+Generated: 2026-05-21 18:50:13  
+Closed: 2026-05-23 (source scan: 0 open matches under `WorldSphereMod/Code/`)
 
-| File | Line | Comment snippet |
-| --- | --- | --- |
-| WorldSphereMod/Code\Water\WaterRender.cs | 100 | // TODO Phase 4 polish: dirty-track per-tile, update only the changed cell. |
-| WorldSphereMod/Code\Voxel\VoxelRender.cs | 43 | /// TODO: wire from a world-reload Postfix once one exists in Core. Until then |
-| WorldSphereMod/Code\Voxel\VoxelRender.cs | 237 | // our name is shipped in an AssetBundle (Phase 5 TODO). |
-| WorldSphereMod/Code\Voxel\WorldUnloadPatch.cs | 15 | // TODO: three-Postfix ordering with other unload sinks is currently non-deterministic but harmless because cache contents are disjoint. |
+| File | Line | Original snippet | Status | Resolution |
+| --- | --- | --- | --- | --- |
+| WorldSphereMod/Code/Water/WaterRender.cs | 100 | TODO Phase 4 polish: dirty-track per-tile | **Closed** | Intentional deferral: full mask + mesh rebuild on `UpdateBaseLayer` only (tile-edit events, bounded mesh size). Per-tile dirty tracking reserved for Phase 4 polish if profiling shows need. |
+| WorldSphereMod/Code/Voxel/VoxelRender.cs | 43 | TODO: wire from world-reload Postfix | **Closed** | `VoxelRender.Reset()` called from `WorldUnloadPatch.OnFinish` (`Core.Sphere.Finish` Prefix). Doc comment documents the hook. |
+| WorldSphereMod/Code/Voxel/VoxelRender.cs | 237 | Phase 5 TODO (AssetBundle shader) | **Closed** | `TryCompileInlineVoxelShader` resolves via `Core.Sphere.LoadedShaders` then `Shader.Find("WSM3D/OpaqueVertexColor")`; falls back to built-in shader chain with bake instructions in comment. |
+| WorldSphereMod/Code/Voxel/WorldUnloadPatch.cs | 15 | TODO: Postfix ordering non-deterministic | **Closed** | `[HarmonyPriority(Priority.Last)]` on Prefix; comment documents deterministic ordering. `VoxelMeshCache.DrainPendingDestroy()` runs before `Clear()`. |
 
-Total matches: 4.
+Total open matches in mod source (`WorldSphereMod/Code/`): **0**.

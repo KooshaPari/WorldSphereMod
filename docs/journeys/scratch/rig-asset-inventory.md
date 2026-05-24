@@ -12,27 +12,23 @@ Source: [`Constants.ResolveActorRig`](../../../WorldSphereMod/Code/Constants.cs)
 | bear         | Quadruped |
 | crabzilla    | None |
 | dragon       | None |
-| eagle        | Bird |
 | elf          | Humanoid |
 | human        | Humanoid |
 | mage         | Humanoid |
 | orc          | Humanoid |
-| sand_spider  | Insect |
+| sand_spider  | None |
 | snake        | Snake |
-| spider       | Insect |
 | swordsman    | Humanoid |
 | villager     | Humanoid |
 | wolf         | Quadruped |
 
 ## Resolver default
 
-`ResolveActorRig` returns `RigType.Humanoid` when `assetId` is null/empty or has no mapping.
+`ResolveActorRig` returns `RigType.Humanoid` when `assetId` has no registry entry and is not a vehicle prefix match. Vehicle asset IDs (boat, ship, car, etc.) return `RigType.None` via `VehicleShapeHints.IsVehicleAssetId`.
 
 ## Rig types present in mapping
 
 - `Humanoid` (6)
 - `Quadruped` (2)
-- `Bird` (1)
 - `Snake` (1)
-- `Insect` (2)
-- `None` (2)
+- `None` (3)

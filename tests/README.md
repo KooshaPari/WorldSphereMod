@@ -25,9 +25,11 @@ are deferred until a harness exists.
 
 ### `WorldSphereMod.Tests.E2E`
 
-End-to-end / repo-shape checks that don't launch the game. The current
-sample verifies `Tools/install.ps1` exists and that
-`WorldSphereMod/mod.json` is valid JSON with a `GUID` field.
+End-to-end / repo-shape checks that don't launch the game. Includes install/
+`mod.json` validation, Taskfile/build-contract checks, and
+`CiWorkflowInvariantsTests` (CI stub manifest ↔ `WorldSphereMod.csproj`,
+shared `Tools/ci-stub-worldbox-refs.sh` usage). See `docs/ci-mod-compile-gap.md`
+for why the main mod is not a hosted-runner compile gate.
 
 ## Why most of the codebase isn't unit-testable today
 

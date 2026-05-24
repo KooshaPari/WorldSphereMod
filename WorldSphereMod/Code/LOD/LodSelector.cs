@@ -98,11 +98,7 @@ namespace WorldSphereMod.LOD
                     h.pendingFrames = 0;
                 }
             }
-            else
-            {
-                h.pending = proposed;
-                h.pendingFrames = 1;
-            }
+            else { h.pending = proposed; h.pendingFrames = 1; }
 
             _hyst[instanceId] = h;
             return h.current;

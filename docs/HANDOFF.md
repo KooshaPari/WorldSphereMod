@@ -15,7 +15,7 @@ opt-in, and journey capture tooling is in place. The remaining documented gaps
 are live capture validation and strict-assets verification for journeys. The
 current code defaults are summarized below; they are not the same thing as live
 smoke-test verification. Build is local-only (needs WorldBox reference DLLs);
-CI builds only the Unity-free API project.
+CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 
 ## Where things are
 
@@ -32,7 +32,7 @@ CI builds only the Unity-free API project.
 | Phase 5 prep (Unity 2022.3 + Compound-Spheres-3D submodule) | `docs/phase5-prep.md` |
 | Settings | `WorldSphereMod/Code/SavedSettings.cs` |
 | Build portability layer | `Directory.Build.props` (env: `WORLDBOX_PATH`) |
-| CI | `.github/workflows/build.yml` (API-only) |
+| CI | `.github/workflows/build.yml` (API gate; mod compile gap in `docs/ci-mod-compile-gap.md`) |
 | Dependency/security audit gate | `.github/workflows/dependency-security-audit.yml` |
 | Install / uninstall | `Tools/install.ps1`, `Tools/uninstall.ps1` |
 | Voxel pipeline | `WorldSphereMod/Code/Voxel/` |
@@ -56,7 +56,7 @@ CI builds only the Unity-free API project.
 | 2  Procedural building meshes          | ✅ | Current code default: `ProceduralBuildings = true`. |
 | 3a Crossed-quad foliage                | ✅ | Current code default: `CrossedQuadFoliage = true`. |
 | 3b Surface overlays + walls            | ✅ | `WorldTilemap.renderTile` Prefix + `drawWallType` Prefix wired |
-| 4  Mesh water                          | ✅ | Current code default: `MeshWater = false`. |
+| 4  Mesh water                          | ✅ | Current code default: `MeshWater = true`. |
 | 5  Sun + cascaded shadows              | ✅ | Current code defaults: `HighShadows = true`, `HdrSkybox = true`, `ColorGradingLut = true`. |
 | 6  Skeletal animation                  | ✅ | Current code default: `SkeletalAnimation = true`. |
 | 7  Worldspace UI                       | ✅ | Current code defaults: `WorldspaceUI = true`, `WorldspaceLabel3D = true`. |
@@ -74,7 +74,7 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 | `ProceduralBuildings` | `true` | 2 | Default-on building meshes |
 | `CrossedQuadFoliage` | `true` | 3a | Default-on crossed-quad foliage |
 | `BiomeBlending` | `true` | n/a | Terrain polish |
-| `MeshWater` | `false` | 4 | Default-off mesh water |
+| `MeshWater` | `true` | 4 | Default-on mesh water (Phase 4-lite) |
 | `WorldspaceHealth3D` | `true` | 7 | Worldspace HP bar style |
 | `MountainSlopeSmoothing` | `true` | n/a | Terrain polish |
 | `HighShadows` | `true` | 5 | Default-on shadow cascades |
@@ -103,20 +103,31 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 ### Default-on / currently enabled
 
 - `VoxelEntities` — Phase 1
-- `CrossedQuadFoliage` — Phase 3a/3b
 - `ProceduralBuildings` — Phase 2
-- `WorldspaceUI` — Phase 7
-- `ParticleEffects` — Phase 9 (decals + bursts)
-- `PostFX` — Phase 9
+- `CrossedQuadFoliage` — Phase 3a/3b
+- `MeshWater` — Phase 4
 - `HighShadows` — Phase 5
+- `HdrSkybox` — Phase 5b
+- `ColorGradingLut` — Phase 5b
 - `SkeletalAnimation` — Phase 6
+- `WorldspaceUI` — Phase 7
+- `WorldspaceLabel3D` — Phase 7
 - `DayNightCycle` — Phase 8
+- `PostFX` — Phase 9
+- `SSAOEnabled` — Phase 9
+- `ParticleEffects` — Phase 9 (decals + bursts)
+- `BiomeBlending` — terrain polish
+- `WorldspaceHealth3D` — worldspace HP bar style
+- `MountainSlopeSmoothing` — terrain polish
+- `WeatherRain` — weather
+- `ProfilerDump` — diagnostic overlay (default-on)
 - `FogDensity` — `0.05f` in live settings
 
 ### Default-off / opt-in
 
-- `MeshWater` — Phase 4
 - `SSGIEnabled` — Phase 9
+- `WeatherSnow` — weather
+- `WeatherLightning` — weather
 
 ### CI dependency audit gate
 
@@ -130,18 +141,10 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 
 ### Diagnostic / non-phase settings
 
-- `ProfilerDump` — diagnostic overlay default
-- `BiomeBlending` — terrain polish
-- `MountainSlopeSmoothing` — terrain polish
-- `WorldspaceHealth3D` — worldspace HP bar style
-- `SSAOEnabled` — Phase 9 ambient occlusion
-- `SSAOQuality` — diagnostic tuning value
-- `WeatherRain` — weather default
-- `WeatherSnow` — weather default
-- `WeatherLightning` — weather default
-- `LODScale` — LOD tuning default
-- `WaterDetail` — LOD tuning default
-- `FoliageDensity` — LOD tuning default
+- `SSAOQuality` — Phase 9 quality enum (`Medium`)
+- `LODScale` — Phase 10 LOD tuning (`0.5f`)
+- `WaterDetail` — Phase 10 LOD tuning (`1.0f`)
+- `FoliageDensity` — Phase 10 LOD tuning (`1.0f`)
 
 ## Local build + install
 
@@ -153,8 +156,9 @@ dotnet build WorldSphereMod.csproj -c Release    # ~5s, 0 errors
 
 NeoModLoader compiles `Code/*.cs` at runtime, so install copies sources plus
 `Assemblies/CompoundSpheres.dll`, `AssetBundles/`, `GameResources/`,
-`Locales/`, `mod.json`. CI cannot build the mod itself (needs WorldBox refs);
-it only builds `WorldSphereAPI.csproj`.
+`Locales/`, `mod.json`. CI cannot compile a loadable mod DLL without WorldBox
+refs (`docs/ci-mod-compile-gap.md`); it gates `WorldSphereAPI.csproj` and
+workflow/manifest invariants via E2E tests.
 
 ## In-game smoke test (gates Phases 2, 5, 8)
 
@@ -177,7 +181,7 @@ Short form:
 
 - **Phase 2 procedural buildings smoke test** — use the same toggle + screenshot + diff-vs-canonical flow that proved Phase 1 visibility.
 - **Unity 2022.3 install** — required to bake `VoxelLit.shader`, `WaterGerstner.shader`, `ProceduralSky.shader` into AssetBundles for Phases 4, 5, 8.
-- **Anthropic API key** (optional) — for live-mode journey verification via `phenotype-journey verify ... --api-key`. Mock mode works without it.
+- **Anthropic API key** (optional) — for live journey verification via `phenotype-journey verify ... --live`. Mock mode works without it.
 
 ## Recommended next steps
 
@@ -191,7 +195,7 @@ Short form:
 - **CLI:** `pwsh Tools/wsm3d.ps1 help` — 13 subcommands (build, install, launch, relaunch, log, toggle, journey capture, etc.).
 - **Slash commands:** `/wsm-status`, `/wsm-validate-all`, `/wsm-build`, `/wsm-install`, `/wsm-relaunch`, `/wsm-log`, `/wsm-toggle`, `/wsm-screenshot`, `/wsm-journey-run`, `/wsm-doctor`.
 - **MCP:** `Tools/wsm3d-mcp/` — Python FastMCP with 18 tools, auto-registered via `.claude/mcp-servers.json`.
-- **Journey gate:** `.github/workflows/journeys-gate.yml` — OCR-assertion DSL; verify with `phenotype-journey verify <manifest> --mode mock`. Live capture remains the final proof step, and strict-assets checks still gate manifests with screenshots.
+- **Journey gate:** `.github/workflows/journeys-gate.yml` — OCR-assertion DSL; verify with `phenotype-journey verify <manifest> --mock`. Live capture remains the final proof step, and strict-assets checks still gate manifests with screenshots.
 
 ## Recent commits (7 most recent)
 

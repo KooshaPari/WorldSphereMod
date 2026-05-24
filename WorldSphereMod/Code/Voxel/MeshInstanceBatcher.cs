@@ -108,7 +108,8 @@ namespace WorldSphereMod.Voxel
 
         public static void SetMainThread()
         {
-            _mainThreadId = Thread.CurrentThread.ManagedThreadId;
+            if (_mainThreadId == 0)
+                _mainThreadId = Thread.CurrentThread.ManagedThreadId;
         }
 
         public static void Submit(Mesh mesh, Material mat, Matrix4x4 matrix, Color tint)
@@ -325,10 +326,9 @@ namespace WorldSphereMod.Voxel
             {
                 bucket.Block.Clear();
                 Vector4 tint = bucket.Colors[i];
-                Color colorTint = new Color(tint.x, tint.y, tint.z, tint.w);
                 bucket.Block.SetVector(_colorProp, tint);
-                bucket.Block.SetColor(_baseColorProp, colorTint);
-                bucket.Block.SetColor(_colorPropUnlit, colorTint);
+                bucket.Block.SetColor(_baseColorProp, tint);
+                bucket.Block.SetColor(_colorPropUnlit, tint);
                 bucket.Block.SetColor(_emissionProp, _bakeEmission);
                 Graphics.DrawMesh(
                     key.Mesh,

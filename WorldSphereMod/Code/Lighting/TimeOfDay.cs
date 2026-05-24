@@ -18,6 +18,9 @@ namespace WorldSphereMod.Lighting
         float _worldTimeRate = 0.001f;
         const float _worldTimeLerpSpeed = 14f;
 
+        static readonly int _wsmFogDensity = Shader.PropertyToID("_WSM_FogDensity");
+        static readonly int _wsmFogColor = Shader.PropertyToID("_WSM_FogColor");
+
         public static void EnsureCreated()
         {
             if (Instance != null) return;
@@ -85,13 +88,27 @@ namespace WorldSphereMod.Lighting
                 Current = Mathf.Repeat(Current + Time.deltaTime * DaySpeed, 1f);
             }
             SunDriver.TimeOfDay = Current * 24f;
-
-            RenderSettings.fog = true;
-            RenderSettings.fogMode = FogMode.ExponentialSquared;
-            RenderSettings.fogColor = SunRig.AmbientColor(Current) * 0.8f;
-            RenderSettings.fogDensity = Core.savedSettings.FogDensity > 0f ? Core.savedSettings.FogDensity : 0.0125f;
+            ApplyFog(Current);
 
             WorldSphereMod.API.WorldSphereModAPI.RaiseTimeOfDay(Current);
+        }
+
+        static void ApplyFog(float t)
+        {
+            float density = Mathf.Max(0f, Core.savedSettings.FogDensity);
+            Color fogColor = SunRig.FogColor(t);
+
+            bool fogOn = density > 0f;
+            RenderSettings.fog = fogOn;
+            if (fogOn)
+            {
+                RenderSettings.fogMode = FogMode.ExponentialSquared;
+                RenderSettings.fogColor = fogColor;
+                RenderSettings.fogDensity = density;
+            }
+
+            Shader.SetGlobalFloat(_wsmFogDensity, density);
+            Shader.SetGlobalColor(_wsmFogColor, fogColor);
         }
     }
 }

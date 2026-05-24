@@ -178,6 +178,7 @@ public void PostInit()
         // Re-create bridge if it died during scene transition (DontDestroyOnLoad
         // doesn't survive LoadSceneMode.Single). EnsureCreated is idempotent.
         WorldSphereMod.Bridge.BridgeServer.EnsureCreated();
+        WorldSphereMod.Renderer.WSM3DRenderer.EnsureCreated();
         Core.PostInit();
         if (Object != null && Object.GetComponent<WorldSphereMod.AutoScreenshotDriver>() == null)
         {

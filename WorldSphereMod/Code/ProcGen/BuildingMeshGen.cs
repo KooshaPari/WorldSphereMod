@@ -6,21 +6,29 @@ namespace WorldSphereMod.ProcGen
     public static class BuildingMeshGen
     {
         const byte AlphaThreshold = 16;
+        static Mesh? _sharedUnreadableFallback;
 
-        public static Mesh Generate(BuildingAsset asset, BuildingRules rules)
+        /// <summary>Transient meshes must not be stored in ProcGenCache — they would poison an asset id for the session.</summary>
+        public static bool IsTransientMesh(Mesh? mesh) =>
+            mesh != null && ReferenceEquals(mesh, _sharedUnreadableFallback);
+
+        public static Mesh? Generate(BuildingAsset asset, BuildingRules rules)
         {
             if (rules == null) rules = BuildingRules.Default;
 
             Sprite? sprite = ResolveSprite(asset);
             if (sprite == null || sprite.texture == null)
             {
-                return UnitCube($"procgen:fallback:{asset?.id ?? "null"}");
+                // Sprite not loaded yet — return null so ProcGenCache retries next frame.
+                return null;
             }
             // Atlased textures imported without Read/Write enabled throw on GetPixels32.
-            // Bail with a stub cube rather than crashing the render pass.
+            // Use one shared stub cube (never cached per asset id).
             if (!sprite.texture.isReadable)
             {
-                return UnitCube($"procgen:unreadable:{asset?.id ?? "null"}");
+                if (_sharedUnreadableFallback == null)
+                    _sharedUnreadableFallback = UnitCube("procgen:shared-unreadable");
+                return _sharedUnreadableFallback;
             }
 
             Rect texRect = sprite.textureRect;

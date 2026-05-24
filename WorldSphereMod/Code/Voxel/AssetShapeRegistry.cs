@@ -3,6 +3,18 @@ using UnityEngine;
 
 namespace WorldSphereMod.Voxel
 {
+    public enum ShapeHint
+    {
+        Cylinder,
+        OrganicBlob,
+        LongX,
+        LongZ,
+        Tall,
+        Flat,
+        Mirror,
+        Auto,
+    }
+
     public static class AssetShapeRegistry
     {
         static readonly (string prefix, ShapeHint hint)[] _prefixHints =
@@ -58,14 +70,14 @@ namespace WorldSphereMod.Voxel
 
         public static ShapeHint GetShapeHint(string assetId)
         {
-            if (string.IsNullOrEmpty(assetId)) return ShapeHint.OrganicBlob;
+            if (string.IsNullOrEmpty(assetId)) return ShapeHint.Auto;
             string lower = assetId.ToLowerInvariant();
             foreach (var (prefix, hint) in _prefixHints)
             {
                 if (lower.StartsWith(prefix) || lower.Contains("_" + prefix) || lower.Contains(prefix + "_"))
                     return hint;
             }
-            return ShapeHint.OrganicBlob;
+            return ShapeHint.Auto;
         }
 
         // Resolves the InflationStyle string used by SpriteVoxelizer dispatch.
@@ -87,6 +99,7 @@ namespace WorldSphereMod.Voxel
                 ShapeHint.Tall => "lathe",
                 ShapeHint.Flat => "pertexel",
                 ShapeHint.Mirror => "balloon",
+                ShapeHint.Auto => "balloon",
                 _ => "balloon",
             };
         }

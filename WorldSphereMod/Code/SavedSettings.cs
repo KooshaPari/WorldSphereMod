@@ -30,11 +30,9 @@ public class SavedSettings
 
         // --- v2 (WorldSphereMod3D fork) additions ---
         // Phase 1: Voxel actor/item/projectile rendering. When false, falls back
-        // to the upstream camera-billboard sprite path. Defaults OFF during
-        // alpha — flip via the in-game settings tab once a build of yours is
-        // verified to render voxel meshes correctly. The wiring is in place but
-        // the supplied placeholder material is unlit; Phase 5 ships the real
-        // lit + shadow-casting shader.
+        // to the upstream camera-billboard sprite path. Default ON per ADR-0018
+        // beta cascade (README / HANDOFF / PRD); smoke-test with false for the
+        // regression gate, then verify true in-game.
         public bool VoxelEntities = true;
         // Optional Unity 2022.3 BatchRendererGroup path for batching.
         public bool UseBRG = false;
@@ -45,14 +43,23 @@ public class SavedSettings
         // Flip true only when a diagnostic needs guaranteed per-instance rendering.
         public bool ForceFallbackDrawPath = false;
         public int SmoothingIterations = 0;
-        // Sprite voxel extrusion depth: 1 keeps the old slab, 3 is the cheapest
-        // setting that reads as actual 3D depth at a glance.
+        // Symmetric Z extrusion depth for greedy Build() and styles that call
+        // SpriteVoxelizer.ResolveDepth (pertexel/greedy/extruded, balloon,
+        // organicblob, legacy-pertexel, rig BuildPerTexel). Default 3 per
+        // docs/journeys/scratch/voxel-depth-extrusion-spec.md. Ignored by lathe
+        // (sprite width) and by AssetShapeRegistry "auto" routing.
         public int VoxelSpriteDepth = 3;
+        // Luminance depth complement (docs/journeys/scratch/luminance-depth-spec.md).
+        // Phase 1 global knobs only; per-sprite tuning deferred. Hybrid DT+luminance
+        // in SpriteVoxelizer (BuildBalloon / BuildPerTexel) not wired yet — off until then.
+        public bool VoxelLuminanceDepth = false;
+        public float VoxelNeutralLuminance = 0.5f;
+        public float VoxelShadowRecession = 1.0f;
         public bool VoxelColorTonemap = true;
-        // Voxel volume style for sprite inflation. Recognized values:
-        // "pertexel" (full slab), "balloon" (distance-based profile),
-        // "lathe" (revolved 360° extrusion; depth is forced to sprite width),
-        // "extruded" (alias for pertexel for backward compatibility).
+        // Voxel volume style. "pertexel"/"greedy"/"extruded" use symmetric
+        // greedy Build() and honor VoxelSpriteDepth. "balloon"/"organicblob"
+        // vary shape but still use ResolveDepth. "lathe" ignores depth setting.
+        // "auto" defers to AssetShapeRegistry per sprite name. See spec Known gaps.
         public string VoxelInflationStyle = "pertexel";
         public float VoxelScaleMultiplier = 4.0f;
         public bool DebugVoxelOutline = false;
@@ -75,7 +82,8 @@ public class SavedSettings
         // Terrain polish: blend biome colors across tile boundaries.
         public bool BiomeBlending = true;
         // Phase 4: Mesh water surface (vs. flat tile color).
-        public bool MeshWater = false;
+        // Default ON — Phase 4-lite ship gate (ADR-0005 / beta default-on).
+        public bool MeshWater = true;
         // Worldspace health bar style: true => 3D mesh bars, false => legacy billboard quads.
         public bool WorldspaceHealth3D = true;
         // Mountain slope smoothing: smooth overlay mesh that blends the upstream
@@ -99,6 +107,9 @@ public class SavedSettings
         // Phase 8: Day/night cycle + procedural sky + fog.
         public bool DayNightCycle = true;
         public float FogDensity = 0.05f;
+        // Tier 5: Forward+ CommandBuffer renderer (docs/specs/forward-plus-renderer-spec.md).
+        // Opt-in last-resort path; defaults OFF until depth/color passes ship.
+        public bool ForwardPlusRenderer = false;
         // Phase 9: URP post-processing (bloom, color grading, vignette).
         public bool PostFX = true;
         // Phase 9: Built-in pipeline screen-space ambient occlusion (SSAO) pass.

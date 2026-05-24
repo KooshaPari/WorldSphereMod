@@ -92,3 +92,25 @@ Suggested runtime order:
 4. Submit the resulting mesh through the existing voxel actor pipeline.
 
 That gives the 3D silhouette upgrade for known rig families while keeping the current voxelizer as the compatibility floor.
+
+## Implementation status (2026-05-23)
+
+| Item | Status |
+|------|--------|
+| `AnatomicalRegion`, `AnatomicalOccupancy`, `AnatomicalVoxel`, `AnatomicalTemplate` | Done (scaffold) |
+| `AnatomicalProjectionMode` + per-rig mode map in `AnatomicalTemplateRegistry` | Done (scaffold) |
+| `AnatomicalTemplateValidation` (min voxels, 6-neighbor connectivity) | Done (scaffold) |
+| `AnatomicalTemplatePipeline.ShouldUseTemplate` / `TryBuildColorizedTemplate` | Stub — always defers |
+| Canonical voxel coordinate sets per `RigType` | Not started |
+| Sprite projection (`§2`) onto template voxels | Not started |
+| Union merge with `SpriteVoxelizer.Build()` backstop (`§5`) | Not started |
+| `VoxelMeshCache` / `RigCache` wiring (`§7` runtime order) | Not started |
+| Unit source invariants (`AnatomicalTemplateScaffoldTests`) | Done |
+
+### Research notes
+
+- **Integration point:** `VoxelMeshCache.BuildVoxelMesh` and `RigCache.GetOrBuild` already resolve `RigType` and call `SpriteVoxelizer.BuildPerTexel` for rigged actors. Template path should branch before mesh finalize, not inside `SpriteVoxelizer.Build` itself (matches phase6 note: segmentation stays cache-time).
+- **Fallback today:** `AnatomicalTemplateRegistry.TryGetTemplate` returns false for all rigs, so `ShouldUseTemplate` is false and extrusion behavior is unchanged.
+- **Humanoid vs quadruped projection:** Registry maps humanoid body to `FrontFacing`, quadruped/bird/snake to `Side`, insect to `TopSideHybrid`; limbs can override via `GetLimbProjectionMode` when projection is implemented.
+- **Next authoring step:** Add sparse `AnatomicalVoxel[]` tables per rig (cylinder/sphere stubs in local box coordinates), then implement `ProjectSpriteColor` reusing `SpriteVoxelizer.GetPixelsCached` sampling.
+- **Static / None:** `RigType.Static` and `RigType.None` are excluded from template lookup per `§4` fallback policy.

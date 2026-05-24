@@ -64,3 +64,34 @@ This should stop the "flat slab" read at a glance. A 3-voxel extrusion gives eac
 - `WorldSphereMod/Code/Voxel/SpriteVoxelizer.cs`
 - `WorldSphereMod/Code/Voxel/VoxelMeshCache.cs`
 
+## Implementation status (2026-05-23)
+
+| Item | Status |
+|------|--------|
+| `SavedSettings.VoxelSpriteDepth = 3` | Done |
+| `SpriteVoxelizer.ResolveDepth` + `Build(..., depth = -1)` | Done |
+| Symmetric Z fill + pivot at `-(depth * 0.5f) / ppu` in `Build()` | Done |
+| `VoxelMeshCache.Get(sprite, depth = -1)` passes unset depth through async build | Done |
+| Bridge cache invalidation on `VoxelSpriteDepth` change | Done |
+| Unit source invariants (`SpriteVoxelDepthExtrusionTests`) | Done |
+
+## Known gaps (not in first-pass scope)
+
+### `VoxelSpriteDepth` vs `VoxelInflationStyle`
+
+| Style / route | Honors `VoxelSpriteDepth`? | Notes |
+|---------------|---------------------------|--------|
+| `pertexel`, `greedy`, `extruded`, `extrude` | Yes | `BuildVoxelMesh` → `SpriteVoxelizer.Build(..., depth)` |
+| `balloon`, `organicblob` | Yes | `ResolveDepth(-1)` inside builder; shape still DT/Perlin |
+| `legacy-pertexel` | Yes | `BuildPerTexel` + mirrored back |
+| `lathe` | No | `BuildVoxelMesh` sets `depth = -1`; `BuildLathe` uses sprite width |
+| `auto` (global) | Per sprite | `AssetShapeRegistry.ResolveStyle` picks lathe/balloon/etc. |
+| Rig skinned path | Yes | `BuildPerTexel(sprite, -1, ...)` — not symmetric greedy slab |
+
+- **`VoxelInflationStyle` vs this spec:** Default `"pertexel"` routes to greedy symmetric `Build()` and honors `VoxelSpriteDepth`. Setting style to `"auto"` (or per-asset registry when override is `auto`) uses balloon/lathe/organicblob paths that change shape, not just depth.
+- **`BuildPerTexel` / rig paths:** Skeletal and non-humanoid rig builds use `BuildPerTexel` (Perlin column depth + mirrored back faces), not the greedy symmetric slab in `Build()`. Depth now resolves via `ResolveDepth(-1)` after the rig-cache fix.
+- **`DefaultDepth` constant:** Kept at `3` for explicit callers; prefer `depth = -1` so settings always win.
+- **`lathe` style:** Forces `depth = -1` in `VoxelMeshCache.BuildVoxelMesh`; `BuildLathe` uses sprite width as depth, ignoring `VoxelSpriteDepth`.
+- **ADR:** `VoxelSpriteDepth` default is documented here; no ADR yet (see `missing-adrs.md`).
+- **Future:** Per-region depth, color-based depth, bevel/rounding (see Problem / Not chosen sections).
+

@@ -147,3 +147,22 @@ Define a practical path for advanced lighting in **built-in** Unity (current mod
 **Next technical milestone:** keep PTGI approximation as a controlled optional built-in enhancement.
 
 **Strategic milestone:** schedule **URP migration in Phase 11**, and only then make a bounded decision on true RT GI and NVIDIA Streamline/FSR3/XeSS integration.
+
+---
+
+## 7) Implementation status (2026-05-23)
+
+**Overall:** **Research / deferred** — decision record only; no runtime rollout in the current branch.
+
+| Item | Status |
+|------|--------|
+| Spec + option analysis + phased plan (§1–6) | Done (research) |
+| Phase 0 baseline / profiling guardrails | **Deferred** |
+| Phase 1 built-in SSAO + SSR + SSGI stack | **Deferred** |
+| Phase 2 validation / biome visual passes | **Deferred** |
+| PTGI screen-space approximation (Stage-2) | **Deferred** |
+| `SavedSettings.BuiltInLightingScreenSpace` toggle | Not started |
+| DXR RT / DLSS / FSR3 / XeSS (Phase 11 gate) | **Deferred** — requires URP/HDRP migration |
+| E2E spec-on-disk invariant ([`RtPtgiDlssSpecInvariantsTests`](../../../tests/WorldSphereMod.Tests.E2E/RtPtgiDlssSpecInvariantsTests.cs)) | Done |
+
+**Next action when scheduled:** ship Phase 1 per §2 (`BuiltInLightingScreenSpace` flag-gated, default OFF) before revisiting PTGI or Phase 11 upscaling/RT paths.

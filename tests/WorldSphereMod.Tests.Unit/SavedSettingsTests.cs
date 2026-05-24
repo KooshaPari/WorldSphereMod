@@ -227,6 +227,8 @@ public class SavedSettingsTests
 
         Regex.Match(source, @"public\s+bool\s+DayNightCycle\s*=\s*true")
             .Success.Should().BeTrue("Phase 8 should default DayNightCycle to true");
+        Regex.Match(source, @"public\s+float\s+FogDensity\s*=\s*0\.05f")
+            .Success.Should().BeTrue("Phase 8 should default FogDensity to 0.05f");
     }
 
     [Fact]
@@ -273,14 +275,14 @@ public class SavedSettingsTests
     }
 
     [Fact]
-    public void SavedSettings_defaults_voxel_mesh_smoothing_off_with_one_iteration()
+    public void SavedSettings_defaults_voxel_mesh_smoothing_off_with_zero_iterations()
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+VoxelMeshSmoothing\s*=\s*true")
-            .Success.Should().BeTrue("VoxelMeshSmoothing must default to true");
+        Regex.Match(source, @"public\s+bool\s+VoxelMeshSmoothing\s*=\s*false")
+            .Success.Should().BeTrue("VoxelMeshSmoothing must default to false (ADR-0008)");
 
-        Regex.Match(source, @"public\s+int\s+SmoothingIterations\s*=\s*2")
-            .Success.Should().BeTrue("SmoothingIterations must default to 2");
+        Regex.Match(source, @"public\s+int\s+SmoothingIterations\s*=\s*0")
+            .Success.Should().BeTrue("SmoothingIterations must default to 0 when smoothing is off");
     }
 }

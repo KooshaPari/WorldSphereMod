@@ -24,12 +24,15 @@ namespace WorldSphereMod.Bridge
         HttpListener? _listener;
         Thread? _listenerThread;
         volatile bool _running;
-        int _mainThreadId;
+        static int _mainThreadId;
         int _boundPort = Port;
 
         public static bool EnableFailed;
 
         static UnityEngine.GameObject _rootHost;
+        static int _instanceGeneration;
+        int _myGeneration;
+
         public static void EnsureCreated()
         {
             try
@@ -58,14 +61,25 @@ namespace WorldSphereMod.Bridge
 
         void Awake()
         {
-            _mainThreadId = Thread.CurrentThread.ManagedThreadId;
+            CaptureMainThread();
             // Survive scene transitions (save load destroys Mod.Object's scene → bridge dies → main-thread queue stops draining → all HTTP requests time out at 5s default(T)).
             try { UnityEngine.Object.DontDestroyOnLoad(gameObject); } catch { /* root-only requirement */ }
             StartListener();
         }
 
+        /// <summary>Records Unity's main thread id once; safe to call from any per-frame vanilla hook.</summary>
+        public static void CaptureMainThread()
+        {
+            if (_mainThreadId == 0)
+            {
+                _mainThreadId = Thread.CurrentThread.ManagedThreadId;
+            }
+        }
+
         public static void DrainStaticQueue()
         {
+            // Authoritative refresh: only called from Unity main-thread Harmony hooks.
+            _mainThreadId = Thread.CurrentThread.ManagedThreadId;
             while (_mainThreadQueue.TryDequeue(out Action? work))
             {
                 try { work?.Invoke(); }
@@ -77,7 +91,13 @@ namespace WorldSphereMod.Bridge
         void LateUpdate() => DrainStaticQueue();
         void FixedUpdate() => DrainStaticQueue();
 
-        void OnDestroy() => StopListener();
+        void OnDestroy()
+        {
+            // EnsureCreated can spawn a new BridgeServer before the old host's OnDestroy
+            // runs; stopping the listener here would kill the replacement's accept loop.
+            if (_myGeneration < _instanceGeneration) return;
+            StopListener();
+        }
 
         void StartListener()
         {
@@ -253,6 +273,12 @@ namespace WorldSphereMod.Bridge
                     WriteJson(context.Response, InvokeOnMainThread(ForceDiagDumpNow));
                     return;
                 }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/texturepack/import", StringComparison.OrdinalIgnoreCase))
+                {
+                    string packPath = context.Request.QueryString["path"] ?? string.Empty;
+                    WriteJson(context.Response, InvokeOnMainThread(() => BuildTexturePackImportPayload(packPath)));
+                    return;
+                }
 
                 WriteJson(context.Response, new { ok = false, error = "not_found", path, method }, HttpStatusCode.NotFound);
             }
@@ -366,7 +392,7 @@ namespace WorldSphereMod.Bridge
 
         object BuildVoxelActorPayload(string indexText)
         {
-            if (!int.TryParse(indexText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int index) || index < 0)
+            if (!BridgeSettingParser.TryParseNonNegativeInt(indexText, out int index))
             {
                 return new { ok = false, error = "invalid_index", index = indexText };
             }
@@ -762,7 +788,7 @@ namespace WorldSphereMod.Bridge
             if (string.IsNullOrWhiteSpace(key)) return new { ok = false, error = "missing_setting_key" };
             FieldInfo? field = typeof(SavedSettings).GetField(key, SettingFlags);
             if (field == null) return new { ok = false, error = "unknown_setting", key };
-            if (!TryParseSettingValue(field.FieldType, rawValue, out object? parsed, out string parseError))
+            if (!BridgeSettingParser.TryParseSettingValue(field.FieldType, rawValue, out object? parsed, out string parseError))
                 return new { ok = false, error = parseError, key, value = rawValue };
 
             field.SetValue(Core.savedSettings, parsed);
@@ -772,7 +798,7 @@ namespace WorldSphereMod.Bridge
             // this, flipping VoxelInflationStyle / VoxelMeshSmoothing / VoxelScale etc
             // does NOT produce visible deltas because cached meshes + materials persist.
             string n = field.Name;
-            bool invalidateVoxel = n == "VoxelInflationStyle" || n == "VoxelMeshSmoothing" || n == "SmoothingIterations" || n == "VoxelScaleMultiplier" || n == "VoxelSpriteDepth" || n == "VoxelColorTonemap" || n == "ForceFallbackDrawPath";
+            bool invalidateVoxel = n == "VoxelInflationStyle" || n == "VoxelMeshSmoothing" || n == "SmoothingIterations" || n == "VoxelScaleMultiplier" || n == "VoxelSpriteDepth" || n == "VoxelLuminanceDepth" || n == "VoxelNeutralLuminance" || n == "VoxelShadowRecession" || n == "VoxelColorTonemap" || n == "ForceFallbackDrawPath";
             if (invalidateVoxel)
             {
                 try { WorldSphereMod.Voxel.VoxelMeshCache.Clear(); } catch { }
@@ -783,7 +809,7 @@ namespace WorldSphereMod.Bridge
 
         object LoadSave(string slotText)
         {
-            if (!int.TryParse(slotText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int slot) || slot < 0)
+            if (!BridgeSettingParser.TryParseNonNegativeInt(slotText, out int slot))
             {
                 return new { ok = false, error = "invalid_slot", slot = slotText };
             }
@@ -862,6 +888,17 @@ namespace WorldSphereMod.Bridge
                 enabled,
                 patchedTypes = phaseTypes
             };
+        }
+
+        object BuildTexturePackImportPayload(string packPath)
+        {
+            string trimmed = packPath?.Trim() ?? string.Empty;
+            object payload = string.IsNullOrEmpty(trimmed)
+                ? WorldSphereMod.Import.TexturePackImporter.BuildBridgeImportPayload()
+                : WorldSphereMod.Import.TexturePackImporter.BuildBridgeImportPayload(trimmed);
+            try { WorldSphereMod.Textures.McPackLoader.Initialize(); }
+            catch { /* bridge import must not take down the listener */ }
+            return payload;
         }
 
         object ForceDiagDumpNow()
@@ -947,39 +984,9 @@ namespace WorldSphereMod.Bridge
             return builder.ToString();
         }
 
-        static bool TryParseSettingValue(Type fieldType, string rawValue, out object? parsed, out string error)
-        {
-            parsed = null;
-            error = string.Empty;
-            try
-            {
-                if (fieldType == typeof(string)) { parsed = rawValue; return true; }
-                if (fieldType == typeof(bool))
-                {
-                    if (bool.TryParse(rawValue, out bool boolValue) || string.Equals(rawValue, "1", StringComparison.OrdinalIgnoreCase) || string.Equals(rawValue, "0", StringComparison.OrdinalIgnoreCase))
-                    {
-                        parsed = !string.Equals(rawValue, "0", StringComparison.OrdinalIgnoreCase) && (bool.TryParse(rawValue, out boolValue) ? boolValue : true);
-                        return true;
-                    }
-                    error = "invalid_bool";
-                    return false;
-                }
-                if (fieldType == typeof(int)) { if (int.TryParse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out int intValue)) { parsed = intValue; return true; } error = "invalid_int"; return false; }
-                if (fieldType == typeof(float)) { if (float.TryParse(rawValue, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out float floatValue)) { parsed = floatValue; return true; } error = "invalid_float"; return false; }
-                if (fieldType.IsEnum) { parsed = Enum.Parse(fieldType, rawValue, ignoreCase: true); return true; }
-                parsed = Convert.ChangeType(rawValue, fieldType, CultureInfo.InvariantCulture);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                error = "invalid_value:" + ex.Message;
-                return false;
-            }
-        }
-
         T InvokeOnMainThread<T>(Func<T> func)
         {
-            if (Thread.CurrentThread.ManagedThreadId == _mainThreadId) return func();
+            if (_mainThreadId != 0 && Thread.CurrentThread.ManagedThreadId == _mainThreadId) return func();
             using (var done = new ManualResetEventSlim(false))
             {
                 T result = default(T);

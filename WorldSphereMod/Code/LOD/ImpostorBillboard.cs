@@ -18,7 +18,6 @@ namespace WorldSphereMod.LOD
         }
 
         static readonly Dictionary<int, Entry> _atlas = new Dictionary<int, Entry>();
-        static ulong _frame;
         static long _hits;
         static long _misses;
 
@@ -195,9 +194,10 @@ namespace WorldSphereMod.LOD
         {
             if (sprite == null) return null;
             int key = sprite.GetInstanceID();
+            ulong frameStamp = (ulong)Time.frameCount;
             if (_atlas.TryGetValue(key, out var entry) && entry.Mesh != null)
             {
-                entry.LastFrame = _frame;
+                entry.LastFrame = frameStamp;
                 _atlas[key] = entry;
                 System.Threading.Interlocked.Increment(ref _hits);
                 return entry.Mesh;
@@ -205,16 +205,17 @@ namespace WorldSphereMod.LOD
             System.Threading.Interlocked.Increment(ref _misses);
             Mesh m = BuildQuad(sprite);
             m.RecalculateBounds();
-            _atlas[key] = new Entry { Mesh = m, LastFrame = _frame };
+            _atlas[key] = new Entry { Mesh = m, LastFrame = frameStamp };
             if (_atlas.Count > Capacity) Evict();
             return m;
         }
 
         public static int Count => _atlas.Count;
 
+        /// <summary>No-op; LRU stamps use <see cref="Time.frameCount"/> at access time so
+        /// ordering matches emit postfixes regardless of TickPerFrame vs precalculate order.</summary>
         public static void Tick()
         {
-            _frame++;
         }
 
         public static void Clear()

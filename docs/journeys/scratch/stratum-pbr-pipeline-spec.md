@@ -168,3 +168,30 @@ Given the stated “large cost” concern, recommend **Phase 1 first** and make 
   - used as parallax strength, or
   - deferred to phase 2.
 - Confirm whether `_MetallicGlossMap` should be single texture (roughness in alpha) or split map input in custom shader.
+
+## 10) Implementation status (2026-05-23)
+
+| Item | Status |
+|------|--------|
+| Spec + phased recommendation (§7) | Done |
+| `StratumVoxelPBR.shader` BRP scaffold (`_BaseMap` / `_NormalMap` / `_OcclusionMap` / `_MetallicGlossMap` / `_HeightMap`) | Done (albedo pass only; normal/AO/metal not sampled yet) |
+| `OpaqueVertexColor.shader` legacy fallback (§5.1) | Done (existing) |
+| `WorldSphereMod/Resources/Shaders/VoxelLit.shader` URP track (§4, Phase 2) | Scaffold only |
+| Stratum 6-map atlas importer (§3.1) | Not started |
+| Atlas metadata + hash cache | Not started |
+| Per-voxel UV generation in mesh build (§3.3) | Not started |
+| `VoxelRender` / `Core.Sphere.LoadedShaders` Stratum material path | Not started |
+| `wsm3d-shaders` bundle bake includes `StratumVoxelPBR` | Not started |
+| E2E shader-on-disk invariant (`StratumPbrPipelineInvariantsTests`) | Done |
+
+Shader sources guarded by CI (must exist on disk before bake):
+
+- `WorldSphereMod/AssetBundles/Shaders/StratumVoxelPBR.shader`
+- `Tools/Unity-Bake-Project/Assets/WSM3D/Shaders/StratumVoxelPBR.shader`
+- `WorldSphereMod/AssetBundles/Shaders/OpaqueVertexColor.shader` (fallback)
+
+## 11) Known gaps (not in Phase 1 scope)
+
+- Normal/AO/roughness/metallic/height are declared on `StratumVoxelPBR` but not wired in the fragment stage yet.
+- No runtime atlas loader or material archetype switch in `VoxelRender`.
+- URP Lit migration remains a gated Phase 2 decision (see §7).

@@ -504,23 +504,25 @@ namespace WorldSphereMod.QuantumSprites
                     Vector3 v = tActor.updatePos();
                     Vector3 tCurrentActorPos = Tools.To3DTileHeight(v, v.z + 0.1f);
                     Vector3 tActorRotation = tActor.Get3DRot();
-                    bool tHasRenderedItem = tActor.checkHasRenderedItem();
+                    // Transform updates must stay unconditional (shadow_position, cur_transform_position).
+                    // Only skip expensive sprite/item work when generic render is off.
                     bool tHasNormalRender = !tActor.asset.ignore_generic_render;
-                    Sprite tItemSpriteFinal;
-                    if (tHasRenderedItem)
+                    bool tHasRenderedItem = false;
+                    Sprite tItemSpriteFinal = null;
+                    if (tHasNormalRender)
                     {
-                        Sprite tItemSpriteMain = tActor.getRenderedItemSprite();
-                        IHandRenderer cachedHandRendererAsset = tActor.getCachedHandRendererAsset();
-                        int tColorAssetID = -900000;
-                        if (cachedHandRendererAsset.is_colored)
+                        tHasRenderedItem = tActor.checkHasRenderedItem();
+                        if (tHasRenderedItem)
                         {
-                            tColorAssetID = tActor.kingdom.kingdomColor.GetHashCode();
+                            Sprite tItemSpriteMain = tActor.getRenderedItemSprite();
+                            IHandRenderer cachedHandRendererAsset = tActor.getCachedHandRendererAsset();
+                            int tColorAssetID = -900000;
+                            if (cachedHandRendererAsset.is_colored)
+                            {
+                                tColorAssetID = tActor.kingdom.kingdomColor.GetHashCode();
+                            }
+                            tItemSpriteFinal = DynamicSprites.getCachedAtlasItemSprite(DynamicSprites.getItemSpriteID(tItemSpriteMain, tColorAssetID), tItemSpriteMain);
                         }
-                        tItemSpriteFinal = DynamicSprites.getCachedAtlasItemSprite(DynamicSprites.getItemSpriteID(tItemSpriteMain, tColorAssetID), tItemSpriteMain);
-                    }
-                    else
-                    {
-                        tItemSpriteFinal = null;
                     }
                     __instance.render_data.positions[tIndex] = tCurrentActorPos;
                     __instance.render_data.scales[tIndex] = tActorScale;
@@ -531,7 +533,9 @@ namespace WorldSphereMod.QuantumSprites
                     __instance.render_data.shadows[tIndex] = tActor.show_shadow;
                     __instance.render_data.has_item[tIndex] = tHasRenderedItem;
                     __instance.render_data.item_sprites[tIndex] = tItemSpriteFinal;
-                    AnimationFrameData tFrameData = tActor.getAnimationFrameData();
+                    bool tNeedFrameData = (tShouldRenderUnitShadows && tActor.show_shadow)
+                        || (tHasNormalRender && tHasRenderedItem);
+                    AnimationFrameData tFrameData = tNeedFrameData ? tActor.getAnimationFrameData() : null;
                     bool tHaveShadow = false;
                     if (tShouldRenderUnitShadows && tActor.show_shadow)
                     {

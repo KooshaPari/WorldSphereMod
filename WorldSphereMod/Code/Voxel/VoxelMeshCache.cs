@@ -591,7 +591,7 @@ namespace WorldSphereMod.Voxel
                 };
             }
 
-            Mesh mesh = SpriteVoxelizer.BuildPerTexel(sprite, SpriteVoxelizer.DefaultDepth, out int[] vertexToTexel);
+            Mesh mesh = SpriteVoxelizer.BuildPerTexel(sprite, -1, out int[] vertexToTexel);
             if (mesh == null || mesh.vertexCount == 0)
             {
                 return new SkinnedVoxelMesh
@@ -862,6 +862,16 @@ namespace WorldSphereMod.Voxel
             if (style == "lathe" || style == "revolved" || style == "revolve")
             {
                 return "lathe";
+            }
+
+            if (style == "organicblob" || style == "organic-blob" || style == "organic_blob")
+            {
+                return "organicblob";
+            }
+
+            if (style == "auto")
+            {
+                return "auto";
             }
 
             if (style == "0" || style == "1")

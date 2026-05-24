@@ -14,6 +14,31 @@ The mod targets modded WorldBox players who want a fully-3D look without
 sacrificing playability, and modders/researchers who want to validate
 pipeline correctness via HTTP RPC (not screenshot interpretation).
 
+### SavedSettings startup defaults (v2.2)
+
+Canonical source: `WorldSphereMod/Code/SavedSettings.cs`. Summary mirrors
+`docs/HANDOFF.md` (defaults matrix). Fresh installs start with phase flags
+**on** unless noted; bridge `/phase/<name>` reflects runtime patch state
+after toggles.
+
+| Setting | Default | Phase |
+|---|---|---|
+| `VoxelEntities` | `true` | 1 |
+| `ProceduralBuildings` | `true` | 2 |
+| `CrossedQuadFoliage` | `true` | 3 |
+| `MeshWater` | `true` | 4 |
+| `HighShadows` | `true` | 5 |
+| `HdrSkybox` | `true` | 5b |
+| `ColorGradingLut` | `true` | 5b |
+| `SkeletalAnimation` | `true` | 6 |
+| `WorldspaceUI` | `true` | 7 |
+| `WorldspaceLabel3D` | `true` | 7 |
+| `DayNightCycle` | `true` | 8 |
+| `PostFX` | `true` | 9 |
+| `SSAOEnabled` | `true` | 9 |
+| `SSGIEnabled` | `false` | 9 |
+| `ParticleEffects` | `true` | 9 |
+
 ---
 
 ## Problem Statement
@@ -158,12 +183,13 @@ per entity per frame based on screen-projected size.
 
 ---
 
-### FR-WSM-005: Mesh Water — **LANDED 2026-05-21 (enabled=true patched=5)**
+### FR-WSM-005: Mesh Water — **LANDED 2026-05-21 (enabled=true patched=5; SavedSettings.MeshWater default true)**
 
 **Description:** Replace flat water plane with Gerstner-wave displaced
 mesh updated each frame via _WaveTime uniform.
 
 **Acceptance Criteria:**
+- `SavedSettings.MeshWater` defaults to `true` on cold install
 - /phase/MeshWater enabled=true with patches >= 5
 - WaterRender.UpdateLifecycle produces visible mesh in Player.log
 - Wave amplitude > 0 at runtime
@@ -492,7 +518,7 @@ issue number for removal once merged.
 
 **Active examples:**
 - phenotype-journeys#60 (rust-toolchain bump 1.83 → 1.88)
-- phenotype-journeys#61 (--mode mock CLI alias restoration)
+- phenotype-journeys#61 (journey verify CLI contract alignment; legacy mock/live mode alias retired)
 
 ### EP-5: Latest Packages, CVE-Aware
 

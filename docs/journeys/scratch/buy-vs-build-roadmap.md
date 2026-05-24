@@ -1,8 +1,22 @@
 # Buy vs Build Roadmap
 
-Scored from the landed `replace-frustum-lod-research.md` and `replace-journeys-research.md`, plus the existing subsystem audits in `docs/journeys/scratch/`. The other `replace-*` research docs were not present when this was written, so the non-landed domains below are inferred from current code size and audit evidence.
+**Last updated:** 2026-05-23
+
+Scored from the landed `replace-*` research set in `docs/journeys/scratch/`, plus subsystem audits. Rankings below are **hypothetical buy leverage** (LOC eliminated if swapped); paired research for all five top areas is now on disk.
 
 `replace-frustum-lod-research.md` is a build-not-buy result, so it is excluded from the swap ranking. `replace-journeys-research.md` also says to keep `phenotype-journeys` and add optional tooling around it, not replace it.
+
+## Top decisions — status (2026-05-23)
+
+| Rank | Area | Research | Verdict | 2026-05-23 status |
+|------|------|----------|---------|-------------------|
+| 1 | Rig stack (`RigDriver` + `RigCache` + `HumanoidRig`) | [`replace-rig-driver-research.md`](replace-rig-driver-research.md) | **Build** | Custom path live; humanoid skinning on, non-humanoid → static voxel (`SkeletalRigVariantInvariantsTests`) |
+| 2 | Sprite voxelizer (`SpriteVoxelizer`) | [`replace-sprite-voxelizer-research.md`](replace-sprite-voxelizer-research.md) | **Build** | Production mesher unchanged; depth-extrusion + cache invariants green |
+| 3 | Decal / particle stack | [`replace-decal-particle-research.md`](replace-decal-particle-research.md) | **Build** | Runtime pools + Shuriken bursts; VFX Graph / URP decal ruled out for built-in pipeline |
+| 4 | Mesh instance batching (`MeshInstanceBatcher`) | [`replace-mesh-instance-batcher-research.md`](replace-mesh-instance-batcher-research.md) | **Build** | Queue + `DrawMeshInstanced` default; BRG / indirect path deferred unless perf proves need |
+| 5 | Water rendering | [`replace-water-research.md`](replace-water-research.md) | **Build** | Phase 4 mesh water default ON (`MeshWater`); Crest only if a forced package swap |
+
+**Test guard (2026-05-23):** `dotnet test WorldSphereMod.sln` — 276 passed, 3 skipped, 0 failed (E2E 107, Unit 144, Integration 25).
 
 ## Top 5 Highest-Leverage Library Swaps
 

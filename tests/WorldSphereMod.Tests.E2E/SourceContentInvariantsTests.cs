@@ -28,6 +28,246 @@ public class SourceContentInvariantsTests
     }
 
     [Fact]
+    public void ProcGenCache_does_not_cache_transient_fallback_meshes()
+    {
+        var cache = ReadSourceFile("WorldSphereMod/Code/ProcGen/ProcGenCache.cs");
+        var meshGen = ReadSourceFile("WorldSphereMod/Code/ProcGen/BuildingMeshGen.cs");
+
+        cache.Should().Contain("BuildingMeshGen.IsTransientMesh(m)",
+            "GetOrGenerate must skip caching shared/unreadable fallback meshes");
+        meshGen.Should().Contain("public static bool IsTransientMesh(Mesh? mesh)",
+            "BuildingMeshGen must expose transient-mesh detection for the cache layer");
+        meshGen.Should().Contain("procgen:shared-unreadable",
+            "unreadable sprites must use one shared fallback mesh, not per-asset cubes");
+        meshGen.Should().NotContain("procgen:fallback:",
+            "per-asset fallback cubes must not be generated — they poison ProcGenCache");
+        meshGen.Should().NotContain("procgen:unreadable:",
+            "per-asset unreadable cubes must not be generated — they poison ProcGenCache");
+
+        var getOrGenerateBody = ExtractMethodBody(cache, "public static Mesh? GetOrGenerate(BuildingAsset asset, BuildingRules rules)");
+        getOrGenerateBody.Should().Contain("IsTransientMesh(m)",
+            "cache insert path must guard against transient meshes");
+    }
+
+    [Fact]
+    public void WorldUnloadPatch_OnFinish_is_authoritative_deferred_destroy_and_lighting_teardown()
+    {
+        var patch = ReadSourceFile("WorldSphereMod/Code/Voxel/WorldUnloadPatch.cs");
+        var onFinish = ExtractOnFinishMethodBody(patch);
+
+        onFinish.Should().Contain("WorldSphereMod.Lighting.SunDriver.Teardown()",
+            "world unload must tear down the directional-light root so lighting does not bleed across reloads");
+
+        AssertDrainBeforeClear(onFinish, "WorldSphereMod.Voxel.VoxelMeshCache",
+            "VoxelMeshCache.Clear drops _pendingDestroy without destroying queued eviction meshes");
+        AssertDrainBeforeClear(onFinish, "WorldSphereMod.Rig.RigCache",
+            "RigCache.Clear drops _pendingDestroy without destroying evicted base meshes");
+
+        AssertClearThenDrain(onFinish, "WorldSphereMod.ProcGen.ProcGenCache",
+            "ProcGenCache.Clear enqueues meshes for deferred destroy on the main thread");
+        AssertClearThenDrain(onFinish, "WorldSphereMod.Foliage.CrossedQuadMeshCache",
+            "CrossedQuadMeshCache.Clear enqueues meshes for deferred destroy on the main thread");
+
+        onFinish.Should().Contain("WorldSphereMod.Voxel.VoxelRender.Reset()",
+            "world unload must reset VoxelRender static material/latch state");
+    }
+
+    static string ExtractOnFinishMethodBody(string patchSource)
+    {
+        const string signature = "public static void OnFinish()";
+        int headerIndex = patchSource.IndexOf(signature, StringComparison.Ordinal);
+        headerIndex.Should().BeGreaterThanOrEqualTo(0, "WorldUnloadPatch.OnFinish must exist");
+
+        int openBrace = patchSource.IndexOf('{', headerIndex);
+        openBrace.Should().BeGreaterThanOrEqualTo(0, "OnFinish must open with a '{'");
+
+        int depth = 0;
+        for (int i = openBrace; i < patchSource.Length; i++)
+        {
+            char c = patchSource[i];
+            if (c == '{')
+            {
+                depth++;
+                continue;
+            }
+
+            if (c != '}')
+            {
+                continue;
+            }
+
+            depth--;
+            if (depth == 0)
+            {
+                return patchSource.Substring(openBrace + 1, i - openBrace - 1);
+            }
+        }
+
+        throw new InvalidOperationException("Unbalanced braces while extracting OnFinish body");
+    }
+
+    static string ExtractMethodBody(string source, string signature)
+    {
+        int headerIndex = source.IndexOf(signature, StringComparison.Ordinal);
+        headerIndex.Should().BeGreaterThanOrEqualTo(0, $"method signature should exist: {signature}");
+
+        int openBrace = source.IndexOf('{', headerIndex);
+        openBrace.Should().BeGreaterThanOrEqualTo(0, "method must open with a '{'");
+
+        int depth = 0;
+        for (int i = openBrace; i < source.Length; i++)
+        {
+            char c = source[i];
+            if (c == '{')
+            {
+                depth++;
+                continue;
+            }
+
+            if (c != '}')
+            {
+                continue;
+            }
+
+            depth--;
+            if (depth == 0)
+            {
+                return source.Substring(openBrace + 1, i - openBrace - 1);
+            }
+        }
+
+        throw new InvalidOperationException("Unbalanced braces while extracting method body");
+    }
+
+    static void AssertDrainBeforeClear(string onFinish, string typeName, string because)
+    {
+        int drainIndex = onFinish.IndexOf(typeName + ".DrainPendingDestroy()", StringComparison.Ordinal);
+        int clearIndex = onFinish.IndexOf(typeName + ".Clear()", StringComparison.Ordinal);
+
+        drainIndex.Should().BeGreaterThanOrEqualTo(0, because + $" — {typeName}.DrainPendingDestroy must be wired in OnFinish");
+        clearIndex.Should().BeGreaterThanOrEqualTo(0, because + $" — {typeName}.Clear must be wired in OnFinish");
+        drainIndex.Should().BeLessThan(clearIndex, because + $" — drain must run before clear for {typeName}");
+    }
+
+    static void AssertClearThenDrain(string onFinish, string typeName, string because)
+    {
+        int clearIndex = onFinish.IndexOf(typeName + ".Clear()", StringComparison.Ordinal);
+        int drainIndex = onFinish.IndexOf(typeName + ".DrainPendingDestroy()", StringComparison.Ordinal);
+
+        clearIndex.Should().BeGreaterThanOrEqualTo(0, because + $" — {typeName}.Clear must be wired in OnFinish");
+        drainIndex.Should().BeGreaterThanOrEqualTo(0, because + $" — {typeName}.DrainPendingDestroy must be wired in OnFinish");
+        clearIndex.Should().BeLessThan(drainIndex, because + $" — clear must run before drain for {typeName}");
+    }
+
+    [Fact]
+    public void QuantumSprites_calculateactordata3D_keeps_transform_updates_but_skips_sprite_work_when_ignore_generic_render()
+    {
+        var quantumSprites = ReadSourceFile("WorldSphereMod/Code/QuantumSprites.cs");
+        var body = ExtractMethodBody(quantumSprites, "public static bool calculateactordata3D(ActorManager __instance)");
+
+        int updatePosIdx = body.IndexOf("updatePos()", StringComparison.Ordinal);
+        int getRotIdx = body.IndexOf("Get3DRot()", StringComparison.Ordinal);
+        int ignoreRenderIdx = body.IndexOf("ignore_generic_render", StringComparison.Ordinal);
+        int checkItemIdx = body.IndexOf("checkHasRenderedItem()", StringComparison.Ordinal);
+        int frameDataIdx = body.IndexOf("getAnimationFrameData()", StringComparison.Ordinal);
+
+        updatePosIdx.Should().BeGreaterThanOrEqualTo(0);
+        getRotIdx.Should().BeGreaterThan(updatePosIdx, "rotation must follow position update");
+        ignoreRenderIdx.Should().BeGreaterThan(getRotIdx, "renderability gate must come after transform bookkeeping");
+        checkItemIdx.Should().BeGreaterThan(ignoreRenderIdx, "item checks must be behind ignore_generic_render gate");
+
+        body.Should().Contain("bool tNeedFrameData = (tShouldRenderUnitShadows && tActor.show_shadow)",
+            "animation frame data should be lazy — only when shadows or held items need it");
+        body.Should().Contain("tNeedFrameData ? tActor.getAnimationFrameData() : null",
+            "getAnimationFrameData must not run unconditionally every actor");
+        frameDataIdx.Should().BeGreaterThan(checkItemIdx,
+            "lazy frame-data guard must appear after item gating is established");
+    }
+
+    [Fact]
+    public void BridgePerFrameTick_drains_queue_via_MapBox_renderStuff_postfix()
+    {
+        var bridgeTick = ReadSourceFile("WorldSphereMod/Code/Bridge/BridgePerFrameTick.cs");
+        var bridgeServer = ReadSourceFile("WorldSphereMod/Code/Bridge/BridgeServer.cs");
+        var core = ReadSourceFile("WorldSphereMod/Code/Core.cs");
+        var mod = ReadSourceFile("WorldSphereMod/Code/Mod.cs");
+
+        bridgeTick.Should().Contain("[HarmonyPatch(typeof(MapBox), nameof(MapBox.renderStuff))]",
+            "bridge queue drain must hook MapBox.renderStuff (always reached via RefreshSphere Prefix)");
+        bridgeTick.Should().Contain("[HarmonyPatch(typeof(ActorManager), nameof(ActorManager.precalculateRenderDataParallel))]",
+            "backup survival hook must drain when actor render prep runs post-transition");
+        bridgeTick.Should().Contain("BridgeSurvival.Run(",
+            "shared survival runner must wire queue drain + optional voxel tick");
+        bridgeTick.Should().Contain("BridgeServer.DrainStaticQueue()",
+            "per-frame hook must drain the static main-thread queue");
+        bridgeTick.Should().Contain("BridgeServer.EnsureCreated()",
+            "per-frame hook must recreate bridge host after scene transitions");
+        bridgeTick.Should().Contain("VoxelFrameDriver.TickPerFrame()",
+            "voxel frame driver must run from the same vanilla per-frame hook");
+        bridgeTick.Should().Contain("BridgeSurvival.Run(runVoxelFrame: true)",
+            "primary MapBox.renderStuff hook must run voxel pre-emit work");
+        bridgeTick.Should().Contain("BridgeSurvival.Run(runVoxelFrame: false)",
+            "backup ActorManager hook must drain bridge only — emit postfixes finish before LateUpdate flush");
+
+        var survivalRunBody = ExtractMethodBody(bridgeTick, "public static void Run(bool runVoxelFrame)");
+        survivalRunBody.Should().Contain("if (!runVoxelFrame || !Core.IsWorld3D) return",
+            "backup drain must skip TickPerFrame so emit postfixes run before LateUpdate flush");
+        survivalRunBody.Should().Contain("VoxelFrameDriver.TickPerFrame()",
+            "primary hook must still invoke pre-emit voxel work when runVoxelFrame is true");
+
+        var backupClassStart = bridgeTick.IndexOf("class BridgeSurvivalBackup", StringComparison.Ordinal);
+        backupClassStart.Should().BeGreaterThan(0);
+        var backupSection = bridgeTick.Substring(backupClassStart);
+        var backupPostfixInBackup = ExtractMethodBody(backupSection, "public static void Postfix()");
+        backupPostfixInBackup.Should().Contain("runVoxelFrame: false");
+        backupPostfixInBackup.Should().NotContain("TickPerFrame()",
+            "ActorManager backup must not call TickPerFrame — that runs pre-emit from MapBox.renderStuff");
+
+        core.Should().Contain("Patcher.PatchAll(typeof(WorldSphereMod.Bridge.BridgeSurvivalBackup))",
+            "backup survival patch must be registered explicitly in Core.Patch");
+        mod.Should().Contain("BridgeServer.EnsureCreated()",
+            "Mod.PostInit must re-create bridge after scene transitions");
+
+        bridgeServer.Should().Contain("static int _mainThreadId",
+            "main thread id must be static so HTTP RPC survives BridgeServer instance teardown");
+        bridgeServer.Should().Contain("_mainThreadId = Thread.CurrentThread.ManagedThreadId",
+            "DrainStaticQueue must refresh main thread id from the drain site");
+        bridgeServer.Should().Contain("_myGeneration < _instanceGeneration",
+            "OnDestroy must not stop HTTP listener when a newer BridgeServer instance exists");
+        bridgeServer.Should().Contain("if (_mainThreadId != 0 && Thread.CurrentThread.ManagedThreadId == _mainThreadId)",
+            "InvokeOnMainThread must use the captured static main thread id");
+    }
+
+    [Fact]
+    public void VoxelRender_cs_phase1b_drop_and_projectile_emit_use_shared_voxel_path()
+    {
+        var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
+
+        voxelRender.Should().Contain("[HarmonyPatch(typeof(Drop), nameof(Drop.updatePosition))]",
+            "Phase 1b must postfix Drop.updatePosition after the 3D transform gate runs");
+        voxelRender.Should().Contain("[HarmonyPatch(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.drawProjectiles))]",
+            "Phase 1b must postfix QuantumSpriteLibrary.drawProjectiles at the game draw boundary");
+        voxelRender.Should().Contain("class DropVoxelEmit",
+            "drop voxel submission should live in a dedicated phase-gated patch class");
+        voxelRender.Should().Contain("class ProjectileVoxelEmit",
+            "projectile voxel submission should live in a dedicated phase-gated patch class");
+        voxelRender.Should().Contain("World.world.projectiles.list",
+            "projectile voxel emit must iterate the same projectile list as vanilla drawProjectiles");
+
+        var dropBody = ExtractMethodBody(voxelRender, "public static void EmitVoxel(Drop __instance)");
+        dropBody.Should().Contain("!Core.savedSettings.VoxelEntities");
+        dropBody.Should().Contain("VoxelMeshCache.Get(sp");
+        dropBody.Should().Contain("Submit(mesh, trs, tint)");
+
+        var projectileBody = ExtractMethodBody(voxelRender, "public static void EmitVoxels(QuantumSpriteAsset pAsset)");
+        projectileBody.Should().Contain("!Core.savedSettings.VoxelEntities");
+        projectileBody.Should().Contain("VoxelMeshCache.Get(sprite");
+        projectileBody.Should().Contain("Submit(mesh, trs, tint)");
+        projectileBody.Should().NotContain("Thread.",
+            "Phase 1b voxel submission must stay on the main-thread draw/update path");
+    }
+
+    [Fact]
     public void VoxelRender_cs_cull_skip_path_does_not_set_has_normal_render_false()
     {
         var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
@@ -99,6 +339,26 @@ public class SourceContentInvariantsTests
     }
 
     [Fact]
+    public void VoxelFrameDriver_LateUpdate_flushes_after_emit_postfixes_not_TickPerFrame()
+    {
+        var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
+
+        var tickBody = ExtractMethodBody(voxelRender, "public static void TickPerFrame()");
+        tickBody.Should().NotContain("VoxelRender.Flush()",
+            "TickPerFrame runs from MapBox.renderStuff before emit postfixes — flush must not run there");
+        tickBody.Should().Contain("Flush runs in LateUpdate after all emit postfixes",
+            "TickPerFrame must document that flush is deferred to LateUpdate");
+
+        var lateBody = ExtractMethodBody(voxelRender, "void LateUpdate()");
+        lateBody.Should().Contain("MeshInstanceBatcher.HasPendingSubmissions",
+            "LateUpdate must gate flush on pending batcher work");
+        lateBody.Should().Contain("VoxelRender.Flush()",
+            "LateUpdate is the end-of-frame sink after Harmony emit postfixes");
+        lateBody.Should().Contain("VoxelMeshCache.DrainPendingDestroy()",
+            "mesh eviction drain must follow the LateUpdate flush");
+    }
+
+    [Fact]
     public void MeshInstanceBatcher_cs_Flush_wraps_DrawMeshInstanced_in_try_catch()
     {
         var batcher = ReadSourceFile("WorldSphereMod/Code/Voxel/MeshInstanceBatcher.cs");
@@ -107,6 +367,8 @@ public class SourceContentInvariantsTests
         batcher.Should().Contain("catch (System.InvalidOperationException",
             "MeshInstanceBatcher.Flush must catch InvalidOperationException from DrawMeshInstanced " +
             "in case the GPU runs out of instancing slots");
+        batcher.Should().Contain("if (_mainThreadId == 0)",
+            "SetMainThread must capture the Unity main thread id once, not overwrite on every drain");
     }
 
     [Fact]
@@ -120,30 +382,61 @@ public class SourceContentInvariantsTests
     }
 
     [Fact]
-    public void WorldSphereTab_cs_contains_all_eleven_TogglePhase_handlers()
+    public void WorldSphereTab_cs_wires_core_phase_toggles_via_TogglePhase()
     {
         var tab = ReadSourceFile("WorldSphereMod/Code/WorldSphereTab.cs");
 
-        var expectedHandlers = new[]
+        tab.Should().Contain("static void TogglePhase(string phaseToggleId)",
+            "WorldSphereTab must route phase buttons through a shared TogglePhase handler");
+
+        var expectedPhaseButtonIds = new[]
         {
-            "TogglePhase_VoxelEntities",
-            "TogglePhase_ProceduralBuildings",
-            "TogglePhase_CrossedQuadFoliage",
-            "ToggleBiomeBlending",
-            "TogglePhase_MeshWater",
-            "TogglePhase_HighShadows",
-            "TogglePhase_SkeletalAnimation",
-            "TogglePhase_WorldspaceUI",
-            "TogglePhase_DayNightCycle",
-            "TogglePhase_PostFX",
-            "TogglePhase_ParticleEffects"
+            "voxel_entities",
+            "procedural_buildings",
+            "crossed_quad_foliage",
+            "biome_blending",
+            "mesh_water",
+            "high_shadows",
+            "skeletal_animation",
+            "worldspace_ui",
+            "day_night_cycle",
+            "post_fx",
+            "particle_effects"
         };
 
-        foreach (var handler in expectedHandlers)
+        foreach (var buttonId in expectedPhaseButtonIds)
         {
-            tab.Should().Contain(handler,
-                $"WorldSphereTab must define {handler} to wire the phase toggle");
+            tab.Should().Contain($"\"{buttonId}\"",
+                $"WorldSphereTab 3D Phases window must expose toggle '{buttonId}'");
         }
+    }
+
+    [Fact]
+    public void WSM3DRenderer_forward_plus_scaffold_wires_command_buffer_and_settings_gate()
+    {
+        var renderer = ReadSourceFile("WorldSphereMod/Code/Renderer/WSM3DRenderer.cs");
+        var settings = ReadSourceFile("WorldSphereMod/Code/SavedSettings.cs");
+        var mod = ReadSourceFile("WorldSphereMod/Code/Mod.cs");
+
+        settings.Should().Contain("public bool ForwardPlusRenderer = false",
+            "Forward+ renderer is Tier 5 opt-in; must default OFF until passes land");
+
+        renderer.Should().Contain("WSM3D.Forward\u002B", because: "CommandBuffer must use spec name");
+        renderer.Should().Contain("CameraEvent.BeforeImageEffects",
+            "inject at BeforeImageEffects so WorldBox UI overlays cleanly");
+        renderer.Should().Contain("ForwardPlusRenderer",
+            "Execute must gate on SavedSettings.ForwardPlusRenderer");
+        renderer.Should().Contain("EnsureCreated()",
+            "renderer must expose idempotent EnsureCreated for PostInit wiring");
+
+        var executeBody = ExtractMethodBody(renderer, "public void Execute()");
+        executeBody.Should().Contain("_commandBuffer.Clear()",
+            "Execute scaffold must clear the command buffer each frame");
+        executeBody.Should().Contain("_executeStubLogged",
+            "Execute must log scaffold activation once via a guard flag");
+
+        mod.Should().Contain("WSM3DRenderer.EnsureCreated()",
+            "Mod.PostInit must attach renderer after scene transitions");
     }
 
     [Fact]

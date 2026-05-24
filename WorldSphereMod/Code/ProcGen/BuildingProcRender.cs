@@ -132,7 +132,7 @@ namespace WorldSphereMod.ProcGen
                                 {
                                     LogFirstBuildingPos(rawPos, pos, scl);
                                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
-                                    Mesh m = ProcGenCache.GetOrGenerate(b.asset, rules);
+                                    Mesh? m = ProcGenCache.GetOrGenerate(b.asset, rules);
                                     if (m == null) continue;
                                     if (VoxelRender.Submit(m, trs, Color.white))
                                     {

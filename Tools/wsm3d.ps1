@@ -18,7 +18,7 @@
   ./wsm3d.ps1 toggle -Phase VoxelEntities
   ./wsm3d.ps1 relaunch
   ./wsm3d.ps1 status -Json
-  ./wsm3d.ps1 journey list
+  ./wsm3d.ps1 journey verify -Id smoke-test-phase1
 #>
 
 $ErrorActionPreference = "Stop"
@@ -35,6 +35,22 @@ $script:PlayerLogPath = Join-Path $env:USERPROFILE "AppData/LocalLow/mkarpenko/W
 $script:ModSettingsDir = Join-Path $env:USERPROFILE "AppData/LocalLow/mkarpenko/WorldBox/mods_config"
 $script:ModSettingsFile = Join-Path $ModSettingsDir "WorldSphereMod.json"
 $script:BuiltDll = Join-Path $RepoRoot "bin/Release/net48/WorldSphereMod3D.dll"
+$script:PhenotypeJourneyRepo = "C:/Users/koosh/Dino/tools/phenotype-journeys"
+$script:PhenotypeJourneyCache = Join-Path $RepoRoot "tools/.cache/phenotype-journeys"
+
+# Phase defaults from SavedSettings.cs (also used by safe-min preset)
+$script:PhaseDefaults = @{
+    "VoxelEntities"       = $false
+    "ProceduralBuildings" = $false
+    "CrossedQuadFoliage"  = $true
+    "MeshWater"           = $false
+    "HighShadows"         = $false
+    "SkeletalAnimation"   = $false
+    "WorldspaceUI"        = $true
+    "DayNightCycle"       = $false
+    "PostFX"              = $false
+    "ParticleEffects"     = $true
+}
 
 # Phase slug to camelCase mapping
 $script:PhaseMap = @{
@@ -118,6 +134,101 @@ function Get-LatestPlayerLog {
     }
 
     return $latestLog
+}
+
+function Get-PhenotypeJourneyBinary {
+    $journeyCmd = Get-Command phenotype-journey -ErrorAction SilentlyContinue
+    if ($journeyCmd) {
+        return $journeyCmd.Source
+    }
+
+    $candidatePaths = @(
+        (Join-Path $script:PhenotypeJourneyRepo "target/release/phenotype-journey.exe"),
+        (Join-Path $script:PhenotypeJourneyRepo "target/release/phenotype-journey"),
+        (Join-Path $script:PhenotypeJourneyCache "target/release/phenotype-journey.exe"),
+        (Join-Path $script:PhenotypeJourneyCache "target/release/phenotype-journey")
+    )
+
+    foreach ($candidate in $candidatePaths) {
+        if (Test-Path $candidate) {
+            return $candidate
+        }
+    }
+
+    $buildRoots = @()
+    if (Test-Path $script:PhenotypeJourneyRepo) {
+        $buildRoots += $script:PhenotypeJourneyRepo
+    }
+    if (Test-Path $script:PhenotypeJourneyCache) {
+        $buildRoots += $script:PhenotypeJourneyCache
+    }
+
+    foreach ($root in $buildRoots) {
+        Write-Info "Building phenotype-journey from $root..."
+        Push-Location $root
+        try {
+            & cargo build --release --bin phenotype-journey
+            if ($LASTEXITCODE -ne 0) {
+                throw "cargo build failed in $root"
+            }
+        } finally {
+            Pop-Location
+        }
+
+        foreach ($candidate in $candidatePaths) {
+            if (Test-Path $candidate) {
+                return $candidate
+            }
+        }
+    }
+
+    throw "phenotype-journey not found on PATH and no local source or cache build could produce a binary. See docs/journeys/README.md."
+}
+
+function Get-PhenotypeJourneyManifestPath {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Id
+    )
+
+    $manifestPath = Join-Path $RepoRoot "docs/journeys/manifests/$Id/manifest.json"
+    if (-not (Test-Path $manifestPath)) {
+        throw "Manifest not found for journey '$Id' at $manifestPath"
+    }
+
+    return $manifestPath
+}
+
+function Resolve-JourneyVerifyTarget {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Value
+    )
+
+    if (Test-Path $Value) {
+        return (Resolve-Path $Value).Path
+    }
+
+    return Get-PhenotypeJourneyManifestPath -Id $Value
+}
+
+function Get-PhenotypeJourneyIndex {
+    $indexPath = Join-Path $RepoRoot "docs/journeys/manifests/index.json"
+    if (Test-Path $indexPath) {
+        return Get-Content $indexPath -Raw | ConvertFrom-Json
+    }
+
+    $manifestRoot = Join-Path $RepoRoot "docs/journeys/manifests"
+    $entries = @()
+    foreach ($manifest in Get-ChildItem -Path $manifestRoot -Recurse -Filter "manifest.json" -File -ErrorAction SilentlyContinue | Sort-Object FullName) {
+        $entries += [PSCustomObject]@{
+            id = Split-Path -Path (Split-Path -Parent $manifest.FullName) -Leaf
+            intent = ""
+            file = [System.IO.Path]::GetRelativePath($manifestRoot, $manifest.FullName)
+        }
+    }
+
+    return $entries
 }
 
 function Convert-DurationToMilliseconds {
@@ -716,12 +827,7 @@ function Invoke-SettingsSet {
         throw "Key '$Key' not found in settings."
     }
 
-    if (Get-Process worldbox -ErrorAction SilentlyContinue) {
-        if (-not $Force) {
-            Write-Warn "WorldBox is running. Refusing to write settings because the game may overwrite this change on the next save."
-            throw "Re-run with -Force if you intentionally want to patch settings while WorldBox is running."
-        }
-    }
+    Assert-SettingsWritable -Force:$Force
 
     # Coerce value to match the original type
     $orig = $settings.$Key
@@ -757,24 +863,22 @@ function Invoke-Toggle {
     Write-Success "Toggled $phaseName = $($settings.$phaseName)"
 }
 
+function Assert-SettingsWritable {
+    param([switch]$Force)
+
+    if (Get-Process worldbox -ErrorAction SilentlyContinue) {
+        if (-not $Force) {
+            Write-Warn "WorldBox is running. Refusing to write settings because the game may overwrite this change on the next save."
+            throw "Re-run with -Force if you intentionally want to patch settings while WorldBox is running."
+        }
+    }
+}
+
 function Invoke-PhasesList {
     param([switch]$Json)
 
     $settings = Get-SettingsJson
-
-    # Hardcoded defaults from SavedSettings.cs
-    $defaults = @{
-        "VoxelEntities"      = $false
-        "ProceduralBuildings" = $false
-        "CrossedQuadFoliage"  = $true
-        "MeshWater"          = $false
-        "HighShadows"        = $false
-        "SkeletalAnimation"  = $false
-        "WorldspaceUI"       = $true
-        "DayNightCycle"      = $false
-        "PostFX"             = $false
-        "ParticleEffects"    = $true
-    }
+    $defaults = $script:PhaseDefaults
 
     if ($Json) {
         $phases = @()
@@ -801,6 +905,51 @@ function Invoke-PhasesList {
             Write-Host "$phaseName$(' ' * $pad)$current$(' ' * 5)$default"
         }
         Write-Host ""
+    }
+}
+
+function Invoke-PhasesEnableAll {
+    param([switch]$Force)
+
+    Assert-SettingsWritable -Force:$Force
+    $settings = Get-SettingsJson
+
+    foreach ($phaseName in $script:PhaseDefaults.Keys) {
+        if ($settings | Get-Member -Name $phaseName) {
+            $settings.$phaseName = $true
+        }
+    }
+
+    Set-SettingsJson $settings
+    Write-Success "Enabled all $($script:PhaseDefaults.Count) phase flags."
+}
+
+function Invoke-PhasesPreset {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Preset,
+
+        [switch]$Force
+    )
+
+    switch ($Preset.ToLowerInvariant()) {
+        "safe-min" {
+            Assert-SettingsWritable -Force:$Force
+            $settings = Get-SettingsJson
+
+            foreach ($phaseName in $script:PhaseDefaults.Keys) {
+                if ($settings | Get-Member -Name $phaseName) {
+                    $settings.$phaseName = $script:PhaseDefaults[$phaseName]
+                }
+            }
+
+            Set-SettingsJson $settings
+            Write-Success "Applied preset '$Preset' (SavedSettings factory defaults)."
+        }
+
+        default {
+            throw "Unknown phases preset '$Preset'. Supported: safe-min"
+        }
     }
 }
 
@@ -869,41 +1018,22 @@ function Invoke-Status {
     }
 }
 
-function Invoke-JourneyList {
-    Write-Info "Listing journeys (via phenotype-journey)..."
-    $journeyCmd = Get-Command phenotype-journey -ErrorAction SilentlyContinue
-    if (-not $journeyCmd) {
-        throw "phenotype-journey not on PATH. See docs/journeys/README.md for setup."
-    }
-    & phenotype-journey list
-}
-
-function Invoke-JourneyRun {
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$Id
-    )
-
-    Write-Info "Running journey $Id (via phenotype-journey)..."
-    $journeyCmd = Get-Command phenotype-journey -ErrorAction SilentlyContinue
-    if (-not $journeyCmd) {
-        throw "phenotype-journey not on PATH. See docs/journeys/README.md for setup."
-    }
-    & phenotype-journey run -id $Id
-}
-
 function Invoke-JourneyVerify {
     param(
         [Parameter(Mandatory=$true)]
-        [string]$Id
+        [string]$Manifest,
+        [switch]$Live
     )
 
-    Write-Info "Verifying journey $Id (via phenotype-journey)..."
-    $journeyCmd = Get-Command phenotype-journey -ErrorAction SilentlyContinue
-    if (-not $journeyCmd) {
-        throw "phenotype-journey not on PATH. See docs/journeys/README.md for setup."
+    $modeLabel = if ($Live) { "live" } else { "mock" }
+    Write-Info "Verifying journey $Manifest ($modeLabel mode)..."
+    $journeyBinary = Get-PhenotypeJourneyBinary
+    $manifestPath = Resolve-JourneyVerifyTarget -Value $Manifest
+    if ($Live) {
+        & $journeyBinary verify $manifestPath --live
+    } else {
+        & $journeyBinary verify $manifestPath --mock
     }
-    & phenotype-journey verify -id $Id
 }
 
 function Invoke-JourneyCapture {
@@ -1169,17 +1299,17 @@ Commands:
   phases list [-Json]
       List all 10 phase flags with current and default values. Use -Json for machine-readable output.
 
-  journey list
-      List available journeys (delegates to phenotype-journey CLI).
+  phases enable-all [-Force]
+      Turn every phase flag on (smoke tests / full-stack repros). Refuses while WorldBox is running unless -Force.
+
+  phases preset safe-min [-Force]
+      Reset all phase flags to SavedSettings factory defaults (minimal stable baseline).
 
   journey capture -Id <id> [-NonInteractive]
       Capture screenshots for a journey manifest by ID.
 
-  journey run -Id <id>
-      Run a journey by ID (delegates to phenotype-journey CLI).
-
-  journey verify -Id <id>
-      Verify a journey by ID (delegates to phenotype-journey CLI).
+  journey verify -Id <id>|<manifest-path> [-Live]
+      Verify a manifest with phenotype-journey. Defaults to mock mode (--mock).
 
   watch [-Launch] [-Filter <pattern>]
       Watch WorldSphereMod/Code/ for changes (default filter: *.cs). On file change
@@ -1212,8 +1342,11 @@ Examples:
   wsm3d screenshot -Path .\crop.png -Region 100,100,800,600
   wsm3d journey capture -Id sample-journey -NonInteractive
   wsm3d toggle -Phase voxel_entities
+  wsm3d phases enable-all
+  wsm3d phases preset safe-min
   wsm3d status -Json
-  wsm3d journey list
+  wsm3d journey verify -Id sample-journey
+  wsm3d journey verify docs/journeys/manifests/sample-journey/manifest.json -Live
 
 "@ -ForegroundColor White
 }
@@ -1371,6 +1504,26 @@ try {
                     Invoke-PhasesList @params
                 }
 
+                "enable-all" {
+                    $params = @{
+                        Force = $subArgs -contains "-Force"
+                    }
+                    Invoke-PhasesEnableAll @params
+                }
+
+                "preset" {
+                    if ($subArgs.Count -eq 0 -or $subArgs[0].StartsWith("-")) {
+                        Write-Error-Custom "phases preset requires a preset name (e.g. safe-min)"
+                        Show-Help
+                        exit 1
+                    }
+                    $params = @{
+                        Preset = $subArgs[0]
+                        Force = $subArgs -contains "-Force"
+                    }
+                    Invoke-PhasesPreset @params
+                }
+
                 default {
                     Write-Error-Custom "Unknown phases subcommand: $subCmd"
                     Show-Help
@@ -1381,7 +1534,7 @@ try {
 
         "journey" {
             if ($commandArgs.Count -eq 0) {
-                    Write-Error-Custom "journey requires 'capture', 'list', 'run', or 'verify' subcommand"
+                Write-Error-Custom "journey requires 'capture' or 'verify' subcommand"
                 Show-Help
                 exit 1
             }
@@ -1398,23 +1551,18 @@ try {
                     Invoke-JourneyCapture @params
                 }
 
-                "list" {
-                    Invoke-JourneyList
-                }
-
-                "run" {
-                    $params = @{}
-                    if ($subArgs -contains "-Id") {
-                        $params["Id"] = $subArgs[$subArgs.IndexOf("-Id") + 1]
-                    }
-                    Invoke-JourneyRun @params
-                }
-
                 "verify" {
                     $params = @{}
                     if ($subArgs -contains "-Id") {
-                        $params["Id"] = $subArgs[$subArgs.IndexOf("-Id") + 1]
+                        $params["Manifest"] = $subArgs[$subArgs.IndexOf("-Id") + 1]
+                    } elseif ($subArgs.Count -gt 0 -and -not $subArgs[0].StartsWith("-")) {
+                        $params["Manifest"] = $subArgs[0]
+                    } else {
+                        Write-Error-Custom "journey verify requires a manifest ID (-Id) or manifest path"
+                        Show-Help
+                        exit 1
                     }
+                    $params["Live"] = $subArgs -contains "-Live"
                     Invoke-JourneyVerify @params
                 }
 
