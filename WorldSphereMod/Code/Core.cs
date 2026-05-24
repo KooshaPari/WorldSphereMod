@@ -205,25 +205,18 @@ namespace WorldSphereMod
             {
                 WorldSphereMod.Lighting.CubemapLighting.ApplySetting(newValue);
             }
-            if (flagName == nameof(SavedSettings.ColorGradingLut))
-            {
-                WorldSphereMod.Lighting.ColorGradingLUT.ApplySetting(newValue);
-            }
             if (flagName == nameof(SavedSettings.PostFX))
             {
-                WorldSphereMod.Fx.PostFxController.ApplySetting(newValue);
+                WorldSphereMod.PostFx.WSM3DPostStack.ApplySetting(newValue);
             }
-            if (flagName == nameof(SavedSettings.SSAOEnabled))
+            if (flagName == nameof(SavedSettings.ColorGradingLut) ||
+                flagName == nameof(SavedSettings.SSAOEnabled) ||
+                flagName == nameof(SavedSettings.SSAOQuality) ||
+                flagName == nameof(SavedSettings.SSGIEnabled) ||
+                flagName == nameof(SavedSettings.BloomEnabled) ||
+                flagName == nameof(SavedSettings.ACESTonemapping))
             {
-                WorldSphereMod.PostFx.ScreenSpaceAO.ApplySetting(newValue);
-            }
-            if (flagName == nameof(SavedSettings.SSAOQuality))
-            {
-                WorldSphereMod.PostFx.ScreenSpaceAO.ApplyQualitySetting();
-            }
-            if (flagName == nameof(SavedSettings.SSGIEnabled))
-            {
-                WorldSphereMod.PostFx.ScreenSpaceGI.ApplySetting(newValue);
+                WorldSphereMod.PostFx.WSM3DPostStack.RefreshMaterials();
             }
             if (flagName == nameof(SavedSettings.WeatherRain) ||
                 flagName == nameof(SavedSettings.WeatherSnow) ||
@@ -416,8 +409,8 @@ namespace WorldSphereMod
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] MakeCamera3D failed: " + ex.Message); }
             try { WorldSphereMod.Lighting.CubemapLighting.EnsureCreated(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] CubemapLighting failed: " + ex.Message); }
-            try { WorldSphereMod.Lighting.ColorGradingLUT.EnsureCreated(); }
-            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] ColorGradingLUT failed: " + ex.Message); }
+            try { WorldSphereMod.PostFx.WSM3DPostStack.EnsureCreated(); }
+            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] WSM3DPostStack failed: " + ex.Message); }
             // Drive ProceduralSky.EnsureCreated AFTER IsWorld3D has flipped true.
             // The earlier InitProfiler-wrapped call during Mod.Init early-returns
             // because Core.IsWorld3D is still false at that point — so the skybox

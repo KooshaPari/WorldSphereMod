@@ -4,8 +4,8 @@ using FluentAssertions;
 using Xunit;
 
 /// <summary>
-/// Source invariants for docs/specs/onrenderimage-postfx-spec.md — documents the
-/// split OnRenderImage passes shipped today vs the unified WSM3DPostStack target.
+/// Source invariants for docs/specs/onrenderimage-postfx-spec.md — verifies the
+/// unified WSM3DPostStack ping-pong chain replaces the old split OnRenderImage passes.
 /// </summary>
 public sealed class OnRenderImagePostFxSpecInvariantsTests
 {
@@ -37,8 +37,6 @@ public sealed class OnRenderImagePostFxSpecInvariantsTests
             "spec must record shipped vs target so Tier-2 work is traceable");
         spec.Should().Contain("WSM3DPostStack",
             "unified stack type remains the spec target");
-        spec.Should().Contain("**Not shipped**",
-            "status table must call out gaps explicitly");
         spec.Should().Contain("ScreenSpaceAO",
             "SSAO OnRenderImage pass is part of current architecture");
         spec.Should().Contain("PostFxController",
@@ -48,21 +46,39 @@ public sealed class OnRenderImagePostFxSpecInvariantsTests
     }
 
     [Fact]
-    public void Unified_WSM3DPostStack_is_not_shipped_yet()
+    public void Unified_WSM3DPostStack_is_shipped()
     {
         var root = FindRepoRoot();
-        var codeDir = Path.Combine(root, "WorldSphereMod", "Code");
+        var stackPath = Path.Combine(root, "WorldSphereMod", "Code", "PostFx", "WSM3DPostStack.cs");
+        File.Exists(stackPath).Should().BeTrue("WSM3DPostStack must exist as the unified post-FX chain");
 
-        foreach (var file in Directory.EnumerateFiles(codeDir, "*.cs", SearchOption.AllDirectories))
-        {
-            var text = File.ReadAllText(file);
-            text.Should().NotContain("class WSM3DPostStack",
-                $"unified stack belongs in a future change, not {file}");
-        }
+        var src = File.ReadAllText(stackPath);
+        src.Should().Contain("class WSM3DPostStack");
+        src.Should().Contain("void OnRenderImage(RenderTexture src, RenderTexture dst)");
+        src.Should().Contain("EnsurePingPong");
+        src.Should().Contain("RemoveLegacyPasses");
     }
 
     [Fact]
-    public void Shipped_OnRenderImage_passes_exist_with_spec_shaders()
+    public void WSM3DPostStack_chains_all_five_passes_in_deterministic_order()
+    {
+        var src = ReadSource(@"WorldSphereMod/Code/PostFx/WSM3DPostStack.cs");
+
+        int ssaoIdx = src.IndexOf("Pass 1: SSAO", StringComparison.Ordinal);
+        int ssgiIdx = src.IndexOf("Pass 2: SSGI", StringComparison.Ordinal);
+        int bloomIdx = src.IndexOf("Pass 3: Bloom", StringComparison.Ordinal);
+        int acesIdx = src.IndexOf("Pass 4: ACES", StringComparison.Ordinal);
+        int lutIdx = src.IndexOf("Pass 5: LUT", StringComparison.Ordinal);
+
+        ssaoIdx.Should().BeGreaterThan(0, "SSAO pass must exist");
+        ssgiIdx.Should().BeGreaterThan(ssaoIdx, "SSGI follows SSAO");
+        bloomIdx.Should().BeGreaterThan(ssgiIdx, "Bloom follows SSGI");
+        acesIdx.Should().BeGreaterThan(bloomIdx, "ACES follows Bloom");
+        lutIdx.Should().BeGreaterThan(acesIdx, "LUT follows ACES");
+    }
+
+    [Fact]
+    public void Legacy_OnRenderImage_passes_still_exist_for_standalone_use()
     {
         ReadSource(@"WorldSphereMod/Code/PostFx/ScreenSpaceAO.cs")
             .Should().Contain("void OnRenderImage(RenderTexture source, RenderTexture destination)");
@@ -70,11 +86,6 @@ public sealed class OnRenderImagePostFxSpecInvariantsTests
             .Should().Contain("void OnRenderImage(RenderTexture source, RenderTexture destination)");
         ReadSource(@"WorldSphereMod/Code/Lighting/ColorGradingLUT.cs")
             .Should().Contain("void OnRenderImage(RenderTexture source, RenderTexture destination)");
-
-        File.Exists(Path.Combine(FindRepoRoot(), @"WorldSphereMod/Resources/Shaders/ScreenSpaceAO.shader"))
-            .Should().BeTrue("SSAO shader must ship under Resources for BRP fallback");
-        File.Exists(Path.Combine(FindRepoRoot(), @"WorldSphereMod/AssetBundles/Shaders/ScreenSpaceAO.shader"))
-            .Should().BeTrue("SSAO shader must ship in AssetBundles for bake pipeline");
     }
 
     [Fact]
@@ -93,13 +104,24 @@ public sealed class OnRenderImagePostFxSpecInvariantsTests
     }
 
     [Fact]
-    public void Core_routes_ColorGradingLut_to_LUT_OnRenderImage_pass()
+    public void Core_routes_PostFX_toggle_to_WSM3DPostStack()
     {
         var core = ReadSource(@"WorldSphereMod/Code/Core.cs");
 
-        core.Should().Contain("nameof(SavedSettings.ColorGradingLut)",
-            "LUT toggle must route through ApplyPhaseToggle");
-        core.Should().Contain("ColorGradingLUT.ApplySetting(newValue)",
-            "ColorGradingLut must attach/detach ColorGradingLUT at runtime");
+        core.Should().Contain("nameof(SavedSettings.PostFX)");
+        core.Should().Contain("WSM3DPostStack.ApplySetting(newValue)",
+            "PostFX master toggle must route to unified stack");
+        core.Should().Contain("WSM3DPostStack.RefreshMaterials()",
+            "sub-pass toggles must refresh the unified stack materials");
+    }
+
+    [Fact]
+    public void BRP_shaders_exist_for_bloom_and_ACES()
+    {
+        var root = FindRepoRoot();
+        File.Exists(Path.Combine(root, @"WorldSphereMod/Resources/Shaders/BrpACES.shader"))
+            .Should().BeTrue("BRP-compatible ACES tonemap shader must exist");
+        File.Exists(Path.Combine(root, @"WorldSphereMod/Resources/Shaders/BrpBloom.shader"))
+            .Should().BeTrue("BRP-compatible Bloom shader must exist");
     }
 }

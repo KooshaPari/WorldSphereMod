@@ -31,7 +31,8 @@ namespace WorldSphereMod.PostFx
         static readonly float[] IntensityByQuality = { 0.8f, 1.0f, 1.1f };
 
         static ScreenSpaceAO? _instance;
-        static readonly Vector4[] Kernel = new Vector4[MaxSamples];
+        internal static readonly Vector4[] Kernel = new Vector4[MaxSamples];
+        static bool _kernelBuilt;
         Material? _material;
         bool _initializing;
 
@@ -141,8 +142,9 @@ namespace WorldSphereMod.PostFx
             _initializing = false;
         }
 
-        void BuildKernel()
+        internal static void BuildKernelStatic()
         {
+            if (_kernelBuilt) return;
             System.Random rng = new System.Random(1337);
             for (int i = 0; i < Kernel.Length; i++)
             {
@@ -157,7 +159,10 @@ namespace WorldSphereMod.PostFx
                 float scale = (i + 1f) / Kernel.Length;
                 Kernel[i] = new Vector4(sample.x, sample.y, 0f, scale);
             }
+            _kernelBuilt = true;
         }
+
+        void BuildKernel() => BuildKernelStatic();
 
         void UpdateSettings()
         {

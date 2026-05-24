@@ -69,7 +69,20 @@ namespace WorldSphereMod.Voxel
         {
                 if (_materialAttempted || _material != null)
                 {
-                    if ((MeshInstanceBatcher.UseFallbackPath || !Core.savedSettings.UseBRG) && _material != null && _material.enableInstancing)
+                    if (_material != null && _material.shader != null &&
+                        _material.shader.name == "Standard" &&
+                        Core.Sphere.LoadedShaders.ContainsKey("OpaqueVertexColor"))
+                    {
+                        Material? upgrade = TryCompileInlineVoxelShader();
+                        if (upgrade != null)
+                        {
+                            Object.Destroy(_material);
+                            _material = upgrade;
+                            McPackLoader.ApplyToMaterial(_material);
+                            Debug.Log("[WSM3D] Voxel material upgraded from Standard to OpaqueVertexColor (late bundle load).");
+                        }
+                    }
+                    if (MeshInstanceBatcher.UseFallbackPath && _material != null && _material.enableInstancing)
                     {
                         _material.enableInstancing = false;
                     }
@@ -131,7 +144,7 @@ namespace WorldSphereMod.Voxel
                 if (s == null) continue;
                 Material m = new Material(s) { name = "WSM3D.Voxel.Placeholder" };
                 m.enableInstancing = true;
-                if (MeshInstanceBatcher.UseFallbackPath || Core.savedSettings.UseBRG)
+                if (MeshInstanceBatcher.UseFallbackPath)
                 {
                     m.enableInstancing = false;
                 }
@@ -235,7 +248,7 @@ namespace WorldSphereMod.Voxel
                 if (existing == null) existing = Shader.Find("WSM3D/OpaqueVertexColor");
                 if (existing != null)
                 {
-                    Material inlineMaterial = new Material(existing) { name = "WSM3D.Voxel.OpaqueVertexColor" };
+                    Material inlineMaterial = new Material(existing) { name = "WSM3D.Voxel.OpaqueVertexColor", enableInstancing = true };
                     ConfigureVoxelMaterial(inlineMaterial, "WSM3D/OpaqueVertexColor");
                     ConfigureVertexColorShaderMode(inlineMaterial, "WSM3D/OpaqueVertexColor");
                     McPackLoader.ApplyToMaterial(inlineMaterial);
@@ -1165,21 +1178,21 @@ namespace WorldSphereMod.Voxel
             if (currentPostFX != _lastAppliedPostFX)
             {
                 _lastAppliedPostFX = currentPostFX;
-                WorldSphereMod.Fx.PostFxController.ApplySetting(currentPostFX);
+                WorldSphereMod.PostFx.WSM3DPostStack.ApplySetting(currentPostFX);
             }
 
             bool currentSSAO = Core.savedSettings.SSAOEnabled;
             if (currentSSAO != _lastAppliedSSAOEnabled)
             {
                 _lastAppliedSSAOEnabled = currentSSAO;
-                WorldSphereMod.PostFx.ScreenSpaceAO.ApplySetting(currentSSAO);
+                WorldSphereMod.PostFx.WSM3DPostStack.RefreshMaterials();
             }
 
             bool currentSSGI = Core.savedSettings.SSGIEnabled;
             if (currentSSGI != _lastAppliedSSGIEnabled)
             {
                 _lastAppliedSSGIEnabled = currentSSGI;
-                WorldSphereMod.PostFx.ScreenSpaceGI.ApplySetting(currentSSGI);
+                WorldSphereMod.PostFx.WSM3DPostStack.RefreshMaterials();
             }
         }
 

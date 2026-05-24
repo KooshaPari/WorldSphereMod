@@ -18,7 +18,8 @@ namespace WorldSphereMod.PostFx
         static readonly int IntensityId = Shader.PropertyToID("_Intensity");
 
         static ScreenSpaceGI? _instance;
-        static readonly Vector4[] Kernel = new Vector4[MaxSamples];
+        internal static readonly Vector4[] Kernel = new Vector4[MaxSamples];
+        static bool _kernelBuilt;
         Material? _material;
         bool _initializing;
 
@@ -120,8 +121,9 @@ namespace WorldSphereMod.PostFx
             _initializing = false;
         }
 
-        void BuildKernel()
+        internal static void BuildKernelStatic()
         {
+            if (_kernelBuilt) return;
             System.Random rng = new System.Random(4242);
             for (int i = 0; i < Kernel.Length; i++)
             {
@@ -135,7 +137,10 @@ namespace WorldSphereMod.PostFx
                 sample.Normalize();
                 Kernel[i] = new Vector4(sample.x, sample.y, 0f, 0f);
             }
+            _kernelBuilt = true;
         }
+
+        void BuildKernel() => BuildKernelStatic();
 
         void UpdateSettings()
         {

@@ -226,6 +226,8 @@ namespace WorldSphereMod.UI
                 new ButtonData("color_grading_lut",    "color_grading_lut_description",    "WorldSphereMod/ModIcon",       Core.savedSettings.ColorGradingLut,      TogglePhase),
                 new ButtonData("ssao_enabled",         "ssao_enabled_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.SSAOEnabled,          TogglePhase),
                 new ButtonData("ssgi_enabled",         "ssgi_enabled_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.SSGIEnabled,          TogglePhase),
+                new ButtonData("bloom_enabled",        "bloom_enabled_description",        "WorldSphereMod/ModIcon",       Core.savedSettings.BloomEnabled,         TogglePhase),
+                new ButtonData("aces_tonemapping",     "aces_tonemapping_description",     "WorldSphereMod/ModIcon",       Core.savedSettings.ACESTonemapping,      TogglePhase),
                 new ButtonData("skeletal_animation",   "skeletal_animation_description",   "WorldSphereMod/Rotate",        Core.savedSettings.SkeletalAnimation,   TogglePhase),
                 new ButtonData("worldspace_ui",        "worldspace_ui_description",        "WorldSphereMod/Camera",        Core.savedSettings.WorldspaceUI,        TogglePhase),
                 new ButtonData("worldspace_health_3d", "worldspace_health_3d_description", "WorldSphereMod/ModIcon",      Core.savedSettings.WorldspaceHealth3D,  TogglePhase),
@@ -870,6 +872,8 @@ namespace WorldSphereMod.UI
                 case "procedural_buildings": return "ProceduralBuildings";
                 case "skeletal_animation": return "SkeletalAnimation";
                 case "ssgi_enabled": return "SSGIEnabled";
+                case "bloom_enabled": return "BloomEnabled";
+                case "aces_tonemapping": return "ACESTonemapping";
                 case "voxel_entities": return "VoxelEntities";
                 case "worldspace_ui": return "WorldspaceUI";
                 default: return string.Empty;

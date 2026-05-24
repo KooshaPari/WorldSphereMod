@@ -120,6 +120,8 @@ public class SavedSettings
         public SsaoQuality SSAOQuality = SsaoQuality.Medium;
         // Phase 9: Built-in pipeline screen-space global illumination (SSGI) pass.
         public bool SSGIEnabled = false;
+        public bool BloomEnabled = false;
+        public bool ACESTonemapping = true;
         public bool ParticleEffects = true;
         public bool WeatherRain = true;
         public bool WeatherSnow = false;

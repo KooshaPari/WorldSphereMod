@@ -1,0 +1,273 @@
+using UnityEngine;
+using WorldSphereMod.NewCamera;
+
+namespace WorldSphereMod.PostFx
+{
+    public sealed class WSM3DPostStack : MonoBehaviour
+    {
+        static WSM3DPostStack _instance;
+        static readonly int BloomTexId = Shader.PropertyToID("_BloomTex");
+        static readonly int ExposureId = Shader.PropertyToID("_Exposure");
+        static readonly int ThresholdId = Shader.PropertyToID("_Threshold");
+        static readonly int IntensityId = Shader.PropertyToID("_Intensity");
+
+        Material _ssaoMat;
+        Material _ssgiMat;
+        Material _bloomMat;
+        Material _acesMat;
+        Material _lutMat;
+        Texture2D _lutTexture;
+        RenderTexture _ping;
+        RenderTexture _pong;
+        bool _initialized;
+
+        public static void EnsureCreated()
+        {
+            if (!Core.IsWorld3D) return;
+            if (Core.savedSettings == null || !Core.savedSettings.PostFX) return;
+
+            Camera cam = ResolveMainCamera();
+            if (cam == null) return;
+
+            if (cam.GetComponent<WSM3DPostStack>() == null)
+                cam.gameObject.AddComponent<WSM3DPostStack>();
+        }
+
+        public static void ApplySetting(bool enabled)
+        {
+            Camera cam = ResolveMainCamera();
+            if (cam == null) return;
+
+            if (!enabled)
+            {
+                var existing = cam.GetComponent<WSM3DPostStack>();
+                if (existing != null) Destroy(existing);
+                _instance = null;
+                return;
+            }
+
+            EnsureCreated();
+        }
+
+        public static void RefreshMaterials()
+        {
+            if (_instance != null) _instance.InitMaterials();
+        }
+
+        static Camera ResolveMainCamera()
+        {
+            return CameraManager.MainCamera != null ? CameraManager.MainCamera : null;
+        }
+
+        void Awake()
+        {
+            if (_instance != null)
+            {
+                Destroy(this);
+                return;
+            }
+            _instance = this;
+
+            Camera cam = GetComponent<Camera>();
+            if (cam != null) cam.depthTextureMode |= DepthTextureMode.Depth;
+
+            RemoveLegacyPasses();
+            InitMaterials();
+        }
+
+        void OnDestroy()
+        {
+            ReleasePingPong();
+            if (_instance == this) _instance = null;
+        }
+
+        void RemoveLegacyPasses()
+        {
+            Camera cam = GetComponent<Camera>();
+            if (cam == null) return;
+
+            var ssao = cam.GetComponent<ScreenSpaceAO>();
+            if (ssao != null) Destroy(ssao);
+
+            var ssgi = cam.GetComponent<ScreenSpaceGI>();
+            if (ssgi != null) Destroy(ssgi);
+
+            var lut = cam.GetComponent<Lighting.ColorGradingLUT>();
+            if (lut != null) Destroy(lut);
+        }
+
+        void InitMaterials()
+        {
+            _ssaoMat = TryLoadMaterial("Shaders/ScreenSpaceAO", "Hidden/ScreenSpaceAO");
+            _ssgiMat = TryLoadMaterial("Shaders/ScreenSpaceGI", "Hidden/ScreenSpaceGI");
+            _bloomMat = TryLoadMaterial("Shaders/BrpBloom", "Hidden/WSM3D/BrpBloom");
+            _acesMat = TryLoadMaterial("Shaders/BrpACES", "Hidden/WSM3D/BrpACES");
+
+            Shader lutShader = null;
+            if (Core.Sphere.LoadedShaders.TryGetValue("ColorGradingLUT", out var bundled) && bundled != null)
+                lutShader = bundled;
+            lutShader ??= Shader.Find("WSM3D/ColorGradingLUT");
+            lutShader ??= Resources.Load<Shader>("Shaders/ColorGradingLUT");
+            lutShader ??= Shader.Find("Hidden/ColorGradingLUT");
+            if (lutShader != null)
+            {
+                _lutMat = new Material(lutShader) { name = "WSM3D.PostStack.LUT" };
+                _lutTexture = Resources.Load<Texture2D>("LUT/default");
+                if (_lutTexture != null && _lutMat.HasProperty("_LutTex"))
+                    _lutMat.SetTexture("_LutTex", _lutTexture);
+                else if (_lutTexture != null && _lutMat.HasProperty("_LookupTex"))
+                    _lutMat.SetTexture("_LookupTex", _lutTexture);
+                if (_lutMat.HasProperty("_LutParams"))
+                    _lutMat.SetVector("_LutParams", new Vector4(16f / 256f, 1f / 16f, 1f, 0f));
+            }
+
+            if (_ssaoMat != null)
+            {
+                ScreenSpaceAO.BuildKernelStatic();
+                ApplySSAOParams();
+            }
+
+            if (_ssgiMat != null)
+            {
+                ScreenSpaceGI.BuildKernelStatic();
+                ApplySSGIParams();
+            }
+
+            _initialized = true;
+            Debug.Log($"[WSM3D] WSM3DPostStack initialized: SSAO={_ssaoMat != null} SSGI={_ssgiMat != null} Bloom={_bloomMat != null} ACES={_acesMat != null} LUT={_lutMat != null}");
+        }
+
+        static Material TryLoadMaterial(string resourcePath, string fallbackName)
+        {
+            Shader shader = Resources.Load<Shader>(resourcePath);
+            shader ??= Shader.Find(fallbackName);
+            return shader != null ? new Material(shader) : null;
+        }
+
+        void ApplySSAOParams()
+        {
+            if (_ssaoMat == null) return;
+            int qi = Core.savedSettings != null ? (int)Core.savedSettings.SSAOQuality : 1;
+            int[] samples = { 8, 12, 16 };
+            float[] radii = { 1.6f, 2.0f, 2.4f };
+            float[] biases = { 0.0015f, 0.0012f, 0.001f };
+            float[] intensities = { 0.8f, 1.0f, 1.1f };
+            qi = Mathf.Clamp(qi, 0, 2);
+
+            _ssaoMat.SetInt("_SampleCount", samples[qi]);
+            _ssaoMat.SetVectorArray("_Samples", ScreenSpaceAO.Kernel);
+            _ssaoMat.SetFloat("_Radius", radii[qi]);
+            _ssaoMat.SetFloat("_Bias", biases[qi]);
+            _ssaoMat.SetFloat("_Intensity", intensities[qi]);
+        }
+
+        void ApplySSGIParams()
+        {
+            if (_ssgiMat == null) return;
+            _ssgiMat.SetInt("_SampleCount", ScreenSpaceGI.Kernel.Length);
+            _ssgiMat.SetVectorArray("_Samples", ScreenSpaceGI.Kernel);
+            _ssgiMat.SetFloat("_Radius", ScreenSpaceGI.DefaultRadius);
+            _ssgiMat.SetFloat("_Intensity", ScreenSpaceGI.DefaultIntensity);
+        }
+
+        void EnsurePingPong(RenderTexture src)
+        {
+            if (_ping != null && _ping.width == src.width && _ping.height == src.height) return;
+            ReleasePingPong();
+            _ping = RenderTexture.GetTemporary(src.descriptor);
+            _pong = RenderTexture.GetTemporary(src.descriptor);
+        }
+
+        void ReleasePingPong()
+        {
+            if (_ping != null) { RenderTexture.ReleaseTemporary(_ping); _ping = null; }
+            if (_pong != null) { RenderTexture.ReleaseTemporary(_pong); _pong = null; }
+        }
+
+        void OnRenderImage(RenderTexture src, RenderTexture dst)
+        {
+            if (!_initialized || Core.savedSettings == null || !Core.savedSettings.PostFX)
+            {
+                Graphics.Blit(src, dst);
+                return;
+            }
+
+            bool anyPass = false;
+            anyPass |= Core.savedSettings.SSAOEnabled && _ssaoMat != null;
+            anyPass |= Core.savedSettings.SSGIEnabled && _ssgiMat != null;
+            anyPass |= Core.savedSettings.BloomEnabled && _bloomMat != null;
+            anyPass |= Core.savedSettings.ACESTonemapping && _acesMat != null;
+            anyPass |= Core.savedSettings.ColorGradingLut && _lutMat != null;
+
+            if (!anyPass)
+            {
+                Graphics.Blit(src, dst);
+                return;
+            }
+
+            EnsurePingPong(src);
+            RenderTexture cur = src;
+            RenderTexture next = _ping;
+
+            // Pass 1: SSAO
+            if (Core.savedSettings.SSAOEnabled && _ssaoMat != null)
+            {
+                Graphics.Blit(cur, next, _ssaoMat);
+                Swap(ref cur, ref next);
+            }
+
+            // Pass 2: SSGI
+            if (Core.savedSettings.SSGIEnabled && _ssgiMat != null)
+            {
+                Graphics.Blit(cur, next, _ssgiMat);
+                Swap(ref cur, ref next);
+            }
+
+            // Pass 3: Bloom (threshold → blur H → blur V → composite)
+            if (Core.savedSettings.BloomEnabled && _bloomMat != null)
+            {
+                int w = src.width / 4;
+                int h = src.height / 4;
+                RenderTexture bloomA = RenderTexture.GetTemporary(w, h, 0, src.format);
+                RenderTexture bloomB = RenderTexture.GetTemporary(w, h, 0, src.format);
+
+                Graphics.Blit(cur, bloomA, _bloomMat, 0); // threshold
+                Graphics.Blit(bloomA, bloomB, _bloomMat, 1); // blur H
+                Graphics.Blit(bloomB, bloomA, _bloomMat, 2); // blur V
+                // second blur pass for softer glow
+                Graphics.Blit(bloomA, bloomB, _bloomMat, 1);
+                Graphics.Blit(bloomB, bloomA, _bloomMat, 2);
+
+                _bloomMat.SetTexture(BloomTexId, bloomA);
+                Graphics.Blit(cur, next, _bloomMat, 3); // composite
+                Swap(ref cur, ref next);
+
+                RenderTexture.ReleaseTemporary(bloomA);
+                RenderTexture.ReleaseTemporary(bloomB);
+            }
+
+            // Pass 4: ACES tonemap
+            if (Core.savedSettings.ACESTonemapping && _acesMat != null)
+            {
+                _acesMat.SetFloat(ExposureId, 1.0f);
+                Graphics.Blit(cur, next, _acesMat);
+                Swap(ref cur, ref next);
+            }
+
+            // Pass 5: LUT color grading (final)
+            if (Core.savedSettings.ColorGradingLut && _lutMat != null && _lutTexture != null)
+            {
+                Graphics.Blit(cur, dst, _lutMat);
+            }
+            else
+            {
+                Graphics.Blit(cur, dst);
+            }
+        }
+
+        static void Swap(ref RenderTexture a, ref RenderTexture b)
+        {
+            (a, b) = (b, a);
+        }
+    }
+}
