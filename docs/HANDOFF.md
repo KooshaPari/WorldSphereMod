@@ -215,10 +215,11 @@ Short form:
 
 ## Recommended next steps
 
-1. Smoke-test Phase 2 procedural buildings the same way Phase 1 was proven: toggle `ProceduralBuildings`, capture screenshots, and diff against canonical output.
-2. Implement ADR-0006 (Phase 6 Step 9 DrawProceduralIndirect skinning) — 2–3 day estimate if we decide to replace the visible skinned-mesh path with GPU-resident batching later.
-3. Install Unity 2022.3 + clone `Compound-Spheres-3D` submodule; bake the four shaders into platform AssetBundles under `WorldSphereMod/AssetBundles/{win,linux,osx}/worldsphere`.
-4. Flip ADR-0007 status to **Accepted** after safe-min / per-phase toggle smoke confirms init gate matches runtime `PhasePatchManager` behavior.
+1. **Visual verification with populated world** — load a save with kingdoms/actors and confirm voxel actors render. The GPU instancing pipeline was fixed (`751e0da`): OpaqueVertexColor shader + late bundle upgrade + enableInstancing=true. Pipeline confirmed working (EmitVoxels fires, DrawMeshInstanced succeeds), but only tested with empty worlds so far.
+2. Smoke-test Phase 2 procedural buildings the same way Phase 1 was proven: toggle `ProceduralBuildings`, capture screenshots, and diff against canonical output.
+3. Rebake `wsm3d-shaders` bundle — 4 of 6 shaders (GerstnerWater, ScreenSpaceAO, ColorGradingLUT, Impostor) still load with empty names (corrupted in bake). The shader sources are fixed for built-in RP, but the bundle binary needs regenerating in Unity 2022.3.
+4. Implement ADR-0006 (Phase 6 Step 9 DrawProceduralIndirect skinning) — 2–3 day estimate if we decide to replace the visible skinned-mesh path with GPU-resident batching later.
+5. Flip ADR-0007 status to **Accepted** after safe-min / per-phase toggle smoke confirms init gate matches runtime `PhasePatchManager` behavior.
 
 ## PlayCUA sample scenarios (13 YAML)
 
