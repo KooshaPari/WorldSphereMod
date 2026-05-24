@@ -1,13 +1,11 @@
 name: nightly
 
 # Scheduled regression check: runs daily at 06:00 UTC + manual dispatch.
-# Executes unit, e2e, and integration tests; validates journeys manifests;
-# lints the codebase.
+# Offline verification (dotnet test + journey mock) reuses live-verify-gate stages.
 
 on:
   schedule:
     # 06:00 UTC (9pm PT / 6am UTC) — chosen to avoid peak GitHub Actions queues.
-    # Convert to your timezone: 2am PST, 5am EST, 11am CET, 3pm JST.
     - cron: "0 6 * * *"
   workflow_dispatch: {}
 
@@ -20,61 +18,16 @@ permissions:
   checks: write
 
 jobs:
-  nightly:
-    name: Regression Check
+  live-verify-offline:
+    uses: ./.github/workflows/live-verify-gate.yml
+
+  nightly-extras:
+    name: Lint & dashboard
+    needs: live-verify-offline
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v5
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.x"
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-
-      - name: Restore NuGet packages
-        run: dotnet restore
-
-      - name: Run unit tests
-        run: dotnet test tests/WorldSphereMod.Tests.Unit -c Release --logger "trx;LogFileName=unit.trx"
-
-      - name: Run e2e tests
-        run: dotnet test tests/WorldSphereMod.Tests.E2E -c Release --logger "trx;LogFileName=e2e.trx"
-
-      - name: Run integration tests
-        # Integration tests are a placeholder; allow failure for now.
-        run: dotnet test tests/WorldSphereMod.Tests.Integration -c Release --logger "trx;LogFileName=integration.trx" || true
-
-      - name: Validate journeys manifests (mock mode)
-        shell: bash
-        run: |
-          set -euo pipefail
-          JOURNEYS_DIR="${{ runner.temp }}/phenotype-journeys"
-          git clone --depth 1 https://github.com/phenotype-org/phenotype-journeys.git "$JOURNEYS_DIR" 2>/dev/null || true
-
-          if [ -d "$JOURNEYS_DIR" ]; then
-            cd "$JOURNEYS_DIR"
-            # Build CLI (assumes a Makefile or just target)
-            if [ -f Makefile ]; then
-              make cli || true
-            elif command -v just &>/dev/null; then
-              just cli || true
-            fi
-
-            # Verify all manifests in mock mode
-            for manifest in manifests/*.yaml manifests/*.yml 2>/dev/null; do
-              if [ -f "$manifest" ]; then
-                echo "Validating $manifest (mock mode)..."
-                journeys validate "$manifest" --mode=mock || true
-              fi
-            done
-            echo "Journeys validation complete."
-          else
-            echo "::warning::phenotype-journeys not available; skipping manifest validation."
-          fi
 
       - name: Lint (if Justfile exists)
         shell: bash
@@ -85,19 +38,18 @@ jobs:
             echo "::info::Justfile or 'just' not found; skipping lint."
           fi
 
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: |
-            **/unit.trx
-            **/e2e.trx
-            **/integration.trx
-          retention-days: 30
+      - name: Generate stats dashboard
+        shell: pwsh
+        run: pwsh Tools/wsm3d-stats.ps1
 
+  notify-on-failure:
+    name: Notify on failure
+    needs: [live-verify-offline, nightly-extras]
+    if: failure()
+    runs-on: ubuntu-latest
+
+    steps:
       - name: Comment on latest commit if tests failed
-        if: failure()
         uses: actions/github-script@v8
         with:
           script: |
@@ -112,5 +64,4 @@ jobs:
               body: message,
             }).catch(err => {
               console.error("Failed to post comment:", err);
-              // Non-blocking; don't fail the job.
             });

@@ -149,4 +149,17 @@ public class CiWorkflowInvariantsTests
             @"wsm-live-verify\.ps1|wsm3d-playcua|wsm-ssim-compare|vision-backend|127\.0\.0\.1:8766",
             "CI must not wire the live bridge/playcua/SSIM agentic stage");
     }
+
+    [Fact]
+    public void Nightly_workflow_reuses_offline_live_verify_gate()
+    {
+        var yaml = ReadRepoFile(".github/workflows/nightly.yml");
+
+        yaml.Should().Contain(
+            "./.github/workflows/live-verify-gate.yml",
+            "nightly must call the shared offline live-verify gate instead of duplicating dotnet/journey steps");
+        yaml.Should().NotMatchRegex(
+            @"phenotype-org/phenotype-journeys|journeys validate",
+            "nightly must not use the legacy phenotype-org journey clone loop");
+    }
 }
