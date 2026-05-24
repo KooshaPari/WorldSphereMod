@@ -255,6 +255,19 @@ wsm3d journey verify -Id smoke-test-phase1
 Use `journey verify` for both mock and live verification. Mock mode is the default; pass `-Live` to map to `phenotype-journey verify --live`.
 :::
 
+## Stats dashboard (`wsm3d-stats.ps1`)
+
+`Tools/wsm3d-stats.ps1` scans the repository (unit/E2E test counts, LOC, patch files, journey manifests, git velocity, release tags, recent CI runs) and writes a VitePress-ready markdown report to `docs/dashboard.md`. The file is auto-generated — do not hand-edit it.
+
+```powershell
+# Regenerate locally (same command as nightly)
+pwsh Tools/wsm3d-stats.ps1
+```
+
+The **nightly** workflow (`.github/workflows/nightly.yml`) runs this script after the offline live-verify gate. When `docs/dashboard.md` is produced, the workflow uploads it as a GitHub Actions artifact named `wsm3d-stats-dashboard` (download from the run’s **Artifacts** section). The committed copy in the repo may lag until someone regenerates and pushes; the artifact is the freshest nightly snapshot.
+
+View the rendered page at [Stats dashboard](/dashboard) when docs are deployed.
+
 ## See also
 
 - **[PLAN.md](/PLAN)** — 10-phase roadmap with file-level granularity
