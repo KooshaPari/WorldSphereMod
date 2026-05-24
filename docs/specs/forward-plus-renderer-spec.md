@@ -1,5 +1,19 @@
 # WSM3D Forward+ Hand-Roll Renderer — Full Spec (SOTA, 2026)
 
+## Implementation status (2026-05-23)
+
+| Spec target | Shipped today | Notes |
+|---|---|---|
+| `WSM3DRenderer` CommandBuffer shell | **Shipped** | `EnsureCreated`, `BeforeImageEffects`, settings gate. |
+| `AllocateTargets` full-screen RTs | **Stub** | `GetTemporaryRT` for depth/color/AO; no `ReleaseTemporaryRT` / pass wiring yet. |
+| Tile-grid dimension constants | **Shipped** | `TileSizePx`, reference 1920×1080 tile counts, `MaxLightsPerTile`, `MaxDynamicLights`. |
+| Depth prepass | **Not shipped** | |
+| Tile light cull (compute / CPU) | **Not shipped** | |
+| Color pass + Forward+ shader | **Not shipped** | |
+| Post-FX chain + composite | **Not shipped** | |
+
+**E2E guardrails:** `tests/WorldSphereMod.Tests.E2E/ForwardPlusRendererSpecInvariantsTests.cs`, `SourceContentInvariantsTests.WSM3DRenderer_forward_plus_scaffold_wires_command_buffer_and_settings_gate`.
+
 > **Status:** Tier 5 design — 1-2 week effort, last-resort if AssetBundle
 > shader bake (Tier 1) + custom RenderFeature (Tier 2) don't close visual
 > gaps. Documented now so a focused session can execute.

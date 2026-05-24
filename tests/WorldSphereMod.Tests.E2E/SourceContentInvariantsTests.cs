@@ -432,6 +432,8 @@ public class SourceContentInvariantsTests
         var executeBody = ExtractMethodBody(renderer, "public void Execute()");
         executeBody.Should().Contain("_commandBuffer.Clear()",
             "Execute scaffold must clear the command buffer each frame");
+        executeBody.Should().Contain("AllocateTargets()",
+            "Execute must reserve RTs via AllocateTargets stub");
         executeBody.Should().Contain("_executeStubLogged",
             "Execute must log scaffold activation once via a guard flag");
 

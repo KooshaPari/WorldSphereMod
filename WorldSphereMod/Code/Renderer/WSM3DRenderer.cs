@@ -11,6 +11,20 @@ namespace WorldSphereMod.Renderer
     {
         public const string CommandBufferName = "WSM3D.Forward+";
 
+        /// <summary>Screen-space tile size for Forward+ light culling (spec §2).</summary>
+        public const int TileSizePx = 16;
+
+        /// <summary>Reference resolution for tile-grid sizing (1920×1080 → 120×68 tiles).</summary>
+        public const int ReferenceWidthPx = 1920;
+        public const int ReferenceHeightPx = 1080;
+        public const int ReferenceTileCountX = 120;
+        public const int ReferenceTileCountY = 68;
+        public const int ReferenceTileCount = 8160;
+
+        /// <summary>Per-tile light cap and global dynamic-light budget (spec §2, performance table).</summary>
+        public const int MaxLightsPerTile = 32;
+        public const int MaxDynamicLights = 256;
+
         static WSM3DRenderer? _instance;
         static bool _executeStubLogged;
 
@@ -20,6 +34,12 @@ namespace WorldSphereMod.Renderer
         static readonly int DepthRtId = Shader.PropertyToID("_WSM3D_DepthRT");
         static readonly int ColorRtId = Shader.PropertyToID("_WSM3D_ColorRT");
         static readonly int AoRtId = Shader.PropertyToID("_WSM3D_AORT");
+
+        public static int TileCountX(int screenWidthPx) =>
+            (screenWidthPx + TileSizePx - 1) / TileSizePx;
+
+        public static int TileCountY(int screenHeightPx) =>
+            (screenHeightPx + TileSizePx - 1) / TileSizePx;
 
         public static void EnsureCreated()
         {
@@ -118,7 +138,24 @@ namespace WorldSphereMod.Renderer
             }
 
             _commandBuffer.Clear();
-            // Tier 2 scaffold: AllocateTargets / DepthPrepass / TileLightCull / ColorPass / PostFXChain / Composite — deferred.
+            AllocateTargets();
+            // DepthPrepass / TileLightCull / ColorPass / PostFXChain / Composite — deferred.
+        }
+
+        void AllocateTargets()
+        {
+            if (_commandBuffer == null || _camera == null)
+            {
+                return;
+            }
+
+            int w = Mathf.Max(1, _camera.pixelWidth);
+            int h = Mathf.Max(1, _camera.pixelHeight);
+
+            // Stub: reserve full-screen RTs for depth prepass, color pass, and SSAO (spec §1, §3, §5).
+            _commandBuffer.GetTemporaryRT(DepthRtId, w, h, 0, FilterMode.Point, RenderTextureFormat.RFloat);
+            _commandBuffer.GetTemporaryRT(ColorRtId, w, h, 0, FilterMode.Bilinear, RenderTextureFormat.ARGBHalf);
+            _commandBuffer.GetTemporaryRT(AoRtId, w, h, 0, FilterMode.Bilinear, RenderTextureFormat.R8);
         }
     }
 }
