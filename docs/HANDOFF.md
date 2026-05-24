@@ -188,10 +188,10 @@ Short form:
 ## What's blocked
 
 - **Phase 2 procedural buildings in-game smoke** — `ProceduralBuildings` path and PlayCUA scenario `Tools/wsm3d-playcua/sample-scenarios/phase-2-procedural-buildings.yaml` are in tree; still needs live toggle + screenshot + diff-vs-canonical previews (same discipline as Phase 1).
-- **Cloud crossed-quad in-game smoke** — `CloudCrossedQuadRender` is wired through `Effects.cs` and `WorldUnloadPatch`; E2E invariants cover submit/clear paths. No PlayCUA scenario yet — verify cloud/foliage effect sprites visually with `CrossedQuadFoliage` on.
+- **Cloud crossed-quad in-game smoke** — `CloudCrossedQuadRender` path and PlayCUA scenario `Tools/wsm3d-playcua/sample-scenarios/phase-3b-cloud-crossed-quad.yaml` are in tree; still needs live toggle + foliage/cloud screenshots + diff-vs-canonical previews (same discipline as Phase 1–2).
 - **Unity 2022.3 install** — required to bake `VoxelLit.shader`, `WaterGerstner.shader`, `ProceduralSky.shader` into AssetBundles for Phases 4, 5, 8.
 - **Live verification (agentic tier)** — `.github/workflows/live-verify-gate.yml` runs offline programmatic stages (`dotnet test` + journey mock via `Tools/wsm-live-verify.ps1`, report `Tools/.reports/live-verify-latest.json`). Bridge + `wsm3d-playcua` + optional SSIM require `-Live` on a Windows desktop. See `docs/live-verification.md`.
-- **PlayCUA sample scenarios (live runs)** — YAML in `Tools/wsm3d-playcua/sample-scenarios/`: `bridge-health-vision.yaml`, `phase-1-voxel-actors.yaml`, `phase-2-procedural-buildings.yaml`. E2E guards in `PlaycuaSampleScenarioInvariantsTests.cs`; OmniRoute vision steps need a running game + bridge (`127.0.0.1:8766`).
+- **PlayCUA sample scenarios (live runs)** — YAML in `Tools/wsm3d-playcua/sample-scenarios/`: `bridge-health-vision.yaml`, `phase-1-voxel-actors.yaml`, `phase-2-procedural-buildings.yaml`, `phase-3b-cloud-crossed-quad.yaml` (plus `phase-3-crossed-quad-foliage.yaml`, `phase-4-mesh-water.yaml`, `phase-5-high-shadows.yaml`). E2E guards in `PlaycuaSampleScenarioInvariantsTests.cs`; OmniRoute vision steps need a running game + bridge (`127.0.0.1:8766`).
 - **OmniRoute API key** (optional) — for PlayCUA screenshot vision via `OMNROUTE_API_KEY` + `OMNROUTE_VISION_COMBO` (or `ANTHROPIC_API_KEY` fallback). Journey mock and offline live-verify gate work without either.
 
 ## Recommended next steps
