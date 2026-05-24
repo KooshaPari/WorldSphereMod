@@ -29,9 +29,33 @@ description: Use when working on WorldSphereMod3D fork — building, installing,
 | `install` | Run install.ps1 to copy DLL + assets to mod folder | `& "C:/Users/koosh/Dev/WorldSphereMod/install.ps1"` |
 | `launch` | Steam launch WorldBox (triggers NML compile + load) | `Start-Process "steam://rungameid/1206560"` |
 | `tail-log` | Stream Player.log for [WSM3D] tags or compile errors | `Get-Content -Path "$env:USERPROFILE/AppData/LocalLow/mkarpenko/WorldBox/Player.log" -Wait -Tail 50` |
-| `journey` | Verify a render validation journey (Tools/wsm3d.ps1) | `& "C:/Users/koosh/Dev/WorldSphereMod/Tools/wsm3d.ps1" journey verify -Id "phase_1_voxel"` |
+| `journey` | Verify a render validation journey (Tools/wsm3d.ps1) | `& "C:/Users/koosh/Dev/WorldSphereMod/Tools/wsm3d.ps1" journey verify -Id us-wsm-phase-1-voxel-actors` |
+| `live-verify` | Offline CI gate: dotnet test + all journey mock verifies | `pwsh Tools/wsm-live-verify.ps1` → `Tools/.reports/live-verify-latest.json` |
 
 ## Common workflows
+
+### Pre-merge validation (all phases, offline)
+
+Matches `/wsm-validate-all`, `task live-verify`, and `live-verify-gate.yml`:
+
+```pwsh
+cd C:/Users/koosh/Dev/WorldSphereMod
+pwsh Tools/wsm-live-verify.ps1
+```
+
+Stages: (1) `dotnet test` on `tests/WorldSphereMod.Tests.{Unit,Integration,E2E}`,
+(2) `Tools/verify-journeys.ps1` (`phenotype-journey verify --mock` for every manifest),
+(3) live PlayCUA/SSIM **skipped** unless you pass `-Live`.
+
+Individual stages when debugging:
+
+```pwsh
+task test-all                                    # dotnet only
+pwsh Tools/verify-journeys.ps1                   # all journey mocks
+pwsh Tools/wsm3d.ps1 journey verify -Id us-wsm-phase-2-mesh-buildings
+```
+
+Phase IDs: `docs/journeys/manifests/index.json` (`us-wsm-phase-1-voxel-actors` … `us-wsm-phase-10-lod-impostor`).
 
 ### Verify a Phase toggle works in-game
 1. Ensure the Phase toggle is wired in `WorldSphereTab.cs` CreateButtons pattern
@@ -75,16 +99,16 @@ Select-String -Path "$env:USERPROFILE/AppData/LocalLow/mkarpenko/WorldBox/Player
 4. Build, install, test in-game
 
 ### Verify a Phenotype journey for Phase validation
-1. Journey manifests live in `docs/journeys/manifests/` (YAML)
-2. Invoke via Tools/wsm3d.ps1:
+1. Manifests: `docs/journeys/manifests/us-wsm-phase-<N>-*/manifest.json` (indexed in `index.json`)
+2. Single phase (mock, default):
    ```pwsh
-   & "C:/Users/koosh/Dev/WorldSphereMod/Tools/wsm3d.ps1" `
-     journey verify -Id "phase_N_validation"
+   pwsh Tools/wsm3d.ps1 journey verify -Id us-wsm-phase-1-voxel-actors
    ```
-   Mock verification is the default. Add `-Live` for live-session validation.
-3. Check output screenshots in `C:/tmp/wsm3d-renders/` for visual correctness when you run capture separately.
-4. Cross-reference Player.log for compile + render errors during the journey verify pass.
-5. Use `wsm3d journey capture` when you need screenshots without verification.
+   Or: `phenotype-journey verify docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json --mock`
+3. All phases offline: `pwsh Tools/wsm-live-verify.ps1` or `pwsh Tools/verify-journeys.ps1`
+4. Add `-Live` on `journey verify` or `wsm-live-verify.ps1 -Live` for bridge/PlayCUA/SSIM (see `docs/live-verification.md`)
+5. Capture without verify: `pwsh Tools/wsm3d.ps1 journey capture -Id <id>`
+6. Screenshots land under journey manifest dirs / `Tools/wsm3d-capture` output; cross-check `Player.log` for `[WSM3D]` and NML compile lines when validating in-game
 
 ## Pitfalls (real, observed)
 

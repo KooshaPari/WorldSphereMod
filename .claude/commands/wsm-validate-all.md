@@ -1,96 +1,89 @@
 ---
-description: Run all 10 phase journeys and aggregate results
+description: Offline CI-equivalent validation — dotnet test + journey mock verify
 ---
 
 # wsm-validate-all
 
-Execute the entire test suite (all 10 phase journeys) back-to-back.
+Run the full **offline** programmatic gate before merge or release. Matches
+`.github/workflows/live-verify-gate.yml` stages 1–2 and `task live-verify`.
 
 ## What This Does
 
-1. Verifies journeys for phases 1–10 in sequence
-2. Collects pass/fail status for each phase
-3. Reports aggregate results and timings
-4. Fails early if any phase fails (stops further execution)
+1. **dotnet test** — unit, integration, and E2E projects under `tests/` (Release)
+2. **Journey mock verify** — `Tools/verify-journeys.ps1` runs
+   `phenotype-journey verify <manifest> --mock` for every manifest under
+   `docs/journeys/manifests/` (all 10 phase journeys + any other manifests)
+3. **Skips live stages** — bridge, PlayCUA, and SSIM require `-Live` (local only)
+4. Writes `Tools/.reports/live-verify-latest.json` with per-stage status
 
 This is the primary validation workflow before shipping a build.
 
 ## Steps
 
+From the repo root (`C:/Users/koosh/Dev/WorldSphereMod`):
+
 ```pwsh
 $wsmRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$journeys = @(
-    "docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json",
-    "docs/journeys/manifests/us-wsm-phase-2-mesh-buildings/manifest.json",
-    "docs/journeys/manifests/us-wsm-phase-3-crossed-foliage/manifest.json",
-    "docs/journeys/manifests/us-wsm-phase-4-mesh-water/manifest.json",
-    "docs/journeys/manifests/us-wsm-phase-5-shadows/manifest.json",
-    "docs/journeys/manifests/us-wsm-phase-6-skeletal/manifest.json",
-    "docs/journeys/manifests/us-wsm-phase-7-worldspace-ui/manifest.json",
-    "docs/journeys/manifests/us-wsm-phase-8-day-night/manifest.json",
-    "docs/journeys/manifests/us-wsm-phase-9-postfx/manifest.json",
-    "docs/journeys/manifests/us-wsm-phase-10-lod-impostor/manifest.json"
-)
-$results = @{}
-$totalStart = Get-Date
-
-foreach ($journey in $journeys) {
-    $name = Split-Path (Split-Path $journey -Parent) -Leaf
-    Write-Host "Running $name..."
-    & pwsh -File "$wsmRoot/Tools/wsm3d.ps1" journey verify $journey
-    $results[$name] = $LASTEXITCODE -eq 0
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "✗ $name failed. Stopping."
-        break
-    }
+Push-Location $wsmRoot
+try {
+    & pwsh -NoProfile -File "$wsmRoot/Tools/wsm-live-verify.ps1"
+    exit $LASTEXITCODE
+} finally {
+    Pop-Location
 }
-
-$totalElapsed = (Get-Date) - $totalStart
-Write-Host "`nValidation Summary:"
-$passed = ($results.Values | Where-Object { $_ }).Count
-$failed = ($results.Values | Where-Object { -not $_ }).Count
-Write-Host "Passed: $passed/$($journeys.Count)"
-Write-Host "Failed: $failed/$($journeys.Count)"
-Write-Host "Total time: $($totalElapsed.TotalMinutes)m"
-
-if ($failed -gt 0) { exit 1 }
 ```
+
+Equivalent: `task live-verify` or `powershell -File Tools/wsm-live-verify.ps1`.
+
+### Debug individual stages
+
+```pwsh
+# Stage 1 only
+dotnet test tests/WorldSphereMod.Tests.Unit -c Release --nologo
+dotnet test tests/WorldSphereMod.Tests.Integration -c Release --nologo
+dotnet test tests/WorldSphereMod.Tests.E2E -c Release --nologo
+
+# Stage 2 only (all manifests, mock)
+pwsh -NoProfile -File Tools/verify-journeys.ps1
+
+# Single phase journey (mock)
+pwsh Tools/wsm3d.ps1 journey verify -Id us-wsm-phase-1-voxel-actors
+```
+
+### Live tier (optional, not part of validate-all)
+
+```pwsh
+pwsh Tools/wsm-live-verify.ps1 -Live              # bridge + PlayCUA + SSIM
+pwsh Tools/wsm3d.ps1 journey verify -Id <id> -Live # live phenotype-journey
+```
+
+See `docs/live-verification.md`.
 
 ## Expected output (all pass)
 
 ```
-Running phase 1...
-✓ us-wsm-phase-1-buildings PASSED (38s)
-Running phase 2...
-✓ us-wsm-phase-2-procedural PASSED (42s)
-Running phase 3...
-✓ us-wsm-phase-3-complex PASSED (45s)
+dotnet test WorldSphereMod.Tests.Unit ...
+dotnet test WorldSphereMod.Tests.Integration ...
+dotnet test WorldSphereMod.Tests.E2E ...
+OK .../docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json
 ...
-Running phase 10...
-✓ us-wsm-phase-10-lod PASSED (41s)
-
-Validation Summary:
-Passed: 10/10
-Failed: 0/10
-Total time: 6.3m
+Verified 10 journey manifest(s).
+Report: Tools/.reports/live-verify-latest.json
 ```
 
-## Expected output (one phase fails)
+Report JSON includes `overallOk: true` and stages `dotnet-tests`,
+`journey-mock-verify`, `live-playcua-ssim` (skipped).
+
+## Expected output (failure)
 
 ```
-Running phase 1...
-✓ us-wsm-phase-1-buildings PASSED (38s)
-Running phase 2...
-✗ us-wsm-phase-2-procedural FAILED
-  - Building 2 gable roof: OCR confidence 0.32 < 0.50
-✗ Phase 2 failed. Stopping.
-
-Validation Summary:
-Passed: 1/10
-Failed: 1/10 (phases 2-10 skipped)
-Total time: 1.4m
+dotnet test WorldSphereMod.Tests.Integration ...
+# test failure output
+Stage dotnet-tests failed.
+Report: Tools/.reports/live-verify-latest.json
 ```
 
-Mock verification is the default for these journeys. Use `-Live` when you need live-session validation.
+Or journey mock failure from `verify-journeys.ps1` / `phenotype-journey` with
+non-zero exit; harness stops at stage 2 and sets `overallOk: false`.
 
-Use this before merging to verify all phases work correctly.
+Use this before merging to match CI `live-verify-gate` and nightly offline stages.
