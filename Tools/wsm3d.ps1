@@ -5,7 +5,7 @@
 
 .DESCRIPTION
   One-file command dispatcher for WSM3D development. Routes to subcommands:
-    build, install, launch, kill, relaunch, log, profile, render-budget, screenshot, settings, toggle, status, doctor, submodule, journey, watch, help.
+    build, install, launch, kill, relaunch, log, profile, render-budget, screenshot, settings, toggle, status, doctor, validate, setup, submodule, journey, watch, help.
 
 .EXAMPLE
   ./wsm3d.ps1 build
@@ -19,6 +19,7 @@
   ./wsm3d.ps1 relaunch
   ./wsm3d.ps1 status -Json
   ./wsm3d.ps1 journey verify -Id smoke-test-phase1
+  ./wsm3d.ps1 validate
 #>
 
 $ErrorActionPreference = "Stop"
@@ -1731,6 +1732,37 @@ function Invoke-PlaycuaRunAll {
     Write-Success "playcua run-all passed $($scenarios.Count) scenario(s)."
 }
 
+function Invoke-SetupPhase5 {
+    $setupScript = Join-Path $ToolsDir "setup-compound-spheres-3d.ps1"
+    if (-not (Test-Path -LiteralPath $setupScript)) {
+        throw "Missing $setupScript"
+    }
+
+    & $setupScript
+    if ($LASTEXITCODE -ne 0) {
+        throw "setup-compound-spheres-3d.ps1 failed (exit $LASTEXITCODE)"
+    }
+}
+
+function Invoke-Validate {
+    $liveVerifyScript = Join-Path $RepoRoot "Tools/wsm-live-verify.ps1"
+    if (-not (Test-Path -LiteralPath $liveVerifyScript)) {
+        throw "Missing Tools/wsm-live-verify.ps1"
+    }
+
+    Write-Info "validate: offline CI gate (dotnet test + journey mock; same as /wsm-validate-all)..."
+    Push-Location $RepoRoot
+    try {
+        & $liveVerifyScript
+        if ($LASTEXITCODE -ne 0) {
+            throw "validate failed (exit $LASTEXITCODE). Report: $script:LiveVerifyReportPath"
+        }
+        Write-Success "validate passed. Report: $script:LiveVerifyReportPath"
+    } finally {
+        Pop-Location
+    }
+}
+
 function Invoke-SubmoduleInit {
     $gitCmd = Get-Command git -ErrorAction SilentlyContinue
     if (-not $gitCmd) {
@@ -1887,10 +1919,21 @@ Commands:
       Install the repo-tracked git pre-commit hooks. Sets git config core.hooksPath .githooks.
       Run once after clone.
 
+  setup phase5
+      Print Phase 5 fork/submodule prep for KooshaPari/Compound-Spheres-3D
+      (Tools/setup-compound-spheres-3d.ps1). Links docs/phase5-prep.md; does not
+      add the submodule unless you run the commented commands in that script.
+
   submodule init
       Initialize git submodules (External/Compound-Spheres) via
       git submodule update --init --recursive. Use after clone when doctor reports
       git_submodules fail.
+
+  validate
+      Offline CI-equivalent gate: runs Tools/wsm-live-verify.ps1 (dotnet test +
+      journey mock verify). Skips bridge, PlayCUA, and SSIM (use wsm-live-verify.ps1 -Live).
+      Writes Tools/.reports/live-verify-latest.json. Matches /wsm-validate-all and
+      live-verify-gate.yml stages 1-2.
 
   help
       Show this help text.
@@ -1921,6 +1964,8 @@ Examples:
   wsm3d doctor
   wsm3d doctor -Json
   wsm3d submodule init
+  wsm3d validate
+  wsm3d setup phase5
   wsm3d   journey verify -Id sample-journey
   wsm3d journey verify docs/journeys/manifests/sample-journey/manifest.json -Live
   wsm3d playcua run-all -VisionBackend omniroute
@@ -2110,6 +2155,10 @@ try {
             Invoke-Doctor @params
         }
 
+        "validate" {
+            Invoke-Validate
+        }
+
         "phases" {
             if ($commandArgs.Count -eq 0) {
                 Write-Error-Custom "phases requires 'list' subcommand"
@@ -2254,6 +2303,27 @@ try {
 
                 default {
                     Write-Error-Custom "Unknown hooks subcommand: $subCmd"
+                    Show-Help
+                    exit 1
+                }
+            }
+        }
+
+        "setup" {
+            if ($commandArgs.Count -eq 0) {
+                Write-Error-Custom "setup requires 'phase5' subcommand"
+                Show-Help
+                exit 1
+            }
+            $subCmd = $commandArgs[0]
+
+            switch -Exact ($subCmd) {
+                "phase5" {
+                    Invoke-SetupPhase5
+                }
+
+                default {
+                    Write-Error-Custom "Unknown setup subcommand: $subCmd"
                     Show-Help
                     exit 1
                 }

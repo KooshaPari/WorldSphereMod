@@ -46,8 +46,8 @@ Register-ArgumentCompleter -Native -CommandName "wsm3d.ps1", "wsm3d" -ScriptBloc
     # Main subcommands
     $mainCommands = @(
         "build", "install", "launch", "kill", "relaunch", "log",
-        "screenshot", "settings", "toggle", "phases", "status", "doctor",
-        "journey", "playcua", "watch", "hooks", "submodule", "help"
+        "screenshot", "settings", "toggle", "phases", "status", "doctor", "validate",
+        "journey", "playcua", "watch", "hooks", "setup", "submodule", "help"
     )
 
     # If we're at the first argument position (completing subcommand)
@@ -203,6 +203,16 @@ Register-ArgumentCompleter -Native -CommandName "wsm3d.ps1", "wsm3d" -ScriptBloc
         "doctor" {
             if ($elements.Count -le 3) {
                 @("-Json") |
+                    Where-Object { $_ -like "$wordToComplete*" } |
+                    ForEach-Object {
+                        [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+                    }
+            }
+        }
+
+        "setup" {
+            if ($elements.Count -le 3) {
+                @("phase5") |
                     Where-Object { $_ -like "$wordToComplete*" } |
                     ForEach-Object {
                         [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
