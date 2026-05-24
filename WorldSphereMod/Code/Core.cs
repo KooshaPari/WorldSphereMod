@@ -281,13 +281,9 @@ namespace WorldSphereMod
             {
                 var phaseAttr = type.GetCustomAttribute<PhaseAttribute>();
                 var hasPatch = type.GetCustomAttribute<HarmonyPatch>() != null;
-                if (phaseAttr != null)
+                if (!PhasePatchGate.ShouldApplyHarmonyPatch(type, savedSettings))
                 {
-                    // Skip this type if its phase flag is off.
-                    var flagField = typeof(SavedSettings).GetField(phaseAttr.SettingsFlagName);
-                    if (flagField == null) continue; // Flag doesn't exist (shouldn't happen).
-                    var flagValue = (bool)flagField.GetValue(savedSettings);
-                    if (!flagValue) continue; // Phase is disabled, skip patching.
+                    continue;
                 }
 
                 // Only patch this type if it has a [HarmonyPatch] attribute.

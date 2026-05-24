@@ -162,6 +162,10 @@ export default defineConfig({
                         link: "/adr/ADR-0006-phase-6-step-9-drawprocedural-skinning",
                     },
                     {
+                        text: "0007 — Conditional Harmony patch dispatch",
+                        link: "/adr/ADR-0007-conditional-patch-dispatch",
+                    },
+                    {
                         text: "0007 — NML precompiled detection followup",
                         link: "/adr/ADR-0007-nml-precompiled-detection-followup",
                     },

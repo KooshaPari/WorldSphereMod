@@ -11,6 +11,7 @@ decision with context, alternatives, and consequences. They are
 | [0003](/adr/0003-reflective-urp-bindings) | Reflective URP bindings (`ShadowCascadeConfig` + `PostFxController`) | Accepted |
 | [0004](/adr/0004-rigid-skinning-over-blended) | Rigid (one-bone-per-vertex) skinning over blended for voxel meshes | Accepted |
 | [0005](/adr/0005-default-on-flags-per-phase-ship-gate) | Per-phase `SavedSettings` flag flips default-on only after in-game validation | Accepted |
+| [ADR-0007](/adr/ADR-0007-conditional-patch-dispatch) | Conditional Harmony patch dispatch (`[Phase]` + `PhasePatchGate`) | Proposed |
 | [0011](/adr/0011-phase-1-visibility-postmortem) | Phase 1 visibility postmortem | Accepted |
 | [0012](/adr/0012-phase-2-procedural-not-rendering) | Phase 2 procedural-mesh path silent no-op | Accepted |
 | [0013](/adr/0013-flush-gate-silently-drops-foliage) | MeshInstanceBatcher Flush gate silently dropped Phase 3+ submits | Accepted |
