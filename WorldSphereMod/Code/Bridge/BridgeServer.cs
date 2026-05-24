@@ -44,6 +44,15 @@ namespace WorldSphereMod.Bridge
         static long _cachedDrawCalls;
         static long _cachedLastNonZeroDrawCalls;
         static long _cachedInstances;
+        static int _telemetryCacheFrame = -1;
+        static int _telemetryProbeSuccessFrame = -1;
+
+        /// <summary>
+        /// When true, <see cref="Voxel.VoxelFrameDriver"/> submits the debug sanity probe each
+        /// LateUpdate so /telemetry lastNonZeroDrawCalls is populated for PlayCUA without
+        /// blocking POST /settings on a stalled main-thread queue.
+        /// </summary>
+        public static volatile bool LiveTelemetryProbeEnabled;
 
         public static void EnsureCreated()
         {
@@ -117,6 +126,50 @@ namespace WorldSphereMod.Bridge
             {
                 try { work?.Invoke(); }
                 catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] main-thread work failed: " + ex.Message); }
+            }
+
+            int frame = Time.frameCount;
+            if (frame != _telemetryCacheFrame)
+            {
+                _telemetryCacheFrame = frame;
+                RefreshTelemetryCache();
+            }
+
+            TryRunLiveTelemetryProbeEndOfFrame();
+        }
+
+        /// <summary>
+        /// Submit the optional sanity probe, flush batched draws, and refresh /telemetry cache.
+        /// Call from MapBox.renderStuff Postfix and from <see cref="LateUpdate"/> — not from
+        /// <see cref="Update"/> (emit postfixes have not run yet).
+        /// </summary>
+        public static void TryRunLiveTelemetryProbeEndOfFrame()
+        {
+            int frame = Time.frameCount;
+            if (frame == _telemetryProbeSuccessFrame) return;
+
+            try
+            {
+                if (Core.savedSettings == null) return;
+                if (!LiveTelemetryProbeEnabled && !Core.savedSettings.DebugSanityCube) return;
+                if (!Core.IsWorld3D && !LiveTelemetryProbeEnabled) return;
+
+                WorldSphereMod.Voxel.SanityTestCube.Draw();
+                if (WorldSphereMod.Voxel.MeshInstanceBatcher.HasPendingSubmissions)
+                {
+                    WorldSphereMod.Voxel.VoxelRender.Flush();
+                    WorldSphereMod.Voxel.VoxelMeshCache.DrainPendingDestroy();
+                }
+
+                RefreshTelemetryCache();
+                if (_cachedLastNonZeroDrawCalls > 0L)
+                {
+                    _telemetryProbeSuccessFrame = frame;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[WSM3D][Bridge] telemetry probe failed: " + ex.Message);
             }
         }
 
@@ -194,6 +247,7 @@ namespace WorldSphereMod.Bridge
                 _boundPort = port;
                 _listenerThread = new Thread(ListenLoop) { IsBackground = true, Name = "WSM3D BridgeServer" };
                 _listenerThread.Start();
+                LiveTelemetryProbeEnabled = true;
                 Debug.Log($"[WSM3D][Bridge] HTTP RPC listening on 127.0.0.1:{port}");
                 return true;
             }
@@ -229,6 +283,7 @@ namespace WorldSphereMod.Bridge
         void StopListener()
         {
             _running = false;
+            LiveTelemetryProbeEnabled = false;
             try { _listener?.Stop(); } catch { }
             try { _listener?.Close(); } catch { }
             if (_listenerThread != null && _listenerThread.IsAlive && Thread.CurrentThread.ManagedThreadId != _listenerThread.ManagedThreadId)
@@ -327,7 +382,7 @@ namespace WorldSphereMod.Bridge
                 {
                     string key = path.Substring("/settings/".Length);
                     string rawValue = context.Request.QueryString["value"] ?? string.Empty;
-                    WriteJson(context.Response, InvokeOnMainThread(() => UpdateSetting(key, rawValue)));
+                    WriteJson(context.Response, UpdateSettingQueued(key, rawValue));
                     return;
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/load_save", StringComparison.OrdinalIgnoreCase))
@@ -866,7 +921,12 @@ namespace WorldSphereMod.Bridge
 
         string BuildSettingsJson() => JsonConvert.SerializeObject(Core.savedSettings ?? new SavedSettings(), Formatting.Indented);
 
-        object UpdateSetting(string key, string rawValue)
+        /// <summary>
+        /// Apply a settings mutation from the HTTP listener thread without blocking on
+        /// <see cref="InvokeOnMainThread{T}"/> (PlayCUA bootstrap must not stall when the
+        /// main thread queue is backed up during load).
+        /// </summary>
+        object UpdateSettingQueued(string key, string rawValue)
         {
             if (string.IsNullOrWhiteSpace(key)) return new { ok = false, error = "missing_setting_key" };
             FieldInfo? field = typeof(SavedSettings).GetField(key, SettingFlags);
@@ -875,20 +935,33 @@ namespace WorldSphereMod.Bridge
                 return new { ok = false, error = parseError, key, value = rawValue };
 
             field.SetValue(Core.savedSettings, parsed);
-            Core.SaveSettings();
-            if (field.FieldType == typeof(bool)) Core.ApplyPhaseToggle(field.Name, (bool)parsed);
-            // Cache + material invalidation for render-affecting settings -- without
-            // this, flipping VoxelInflationStyle / VoxelMeshSmoothing / VoxelScale etc
-            // does NOT produce visible deltas because cached meshes + materials persist.
-            string n = field.Name;
-            bool invalidateVoxel = n == "VoxelInflationStyle" || n == "VoxelMeshSmoothing" || n == "SmoothingIterations" || n == "VoxelScaleMultiplier" || n == "VoxelSpriteDepth" || n == "VoxelLuminanceDepth" || n == "VoxelNeutralLuminance" || n == "VoxelShadowRecession" || n == "VoxelColorTonemap" || n == "ForceFallbackDrawPath";
-            if (invalidateVoxel)
+            try { Core.SaveSettings(); } catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] SaveSettings failed: " + ex.Message); }
+
+            string fieldName = field.Name;
+            bool invalidateVoxel = fieldName == "VoxelInflationStyle" || fieldName == "VoxelMeshSmoothing" || fieldName == "SmoothingIterations" || fieldName == "VoxelScaleMultiplier" || fieldName == "VoxelSpriteDepth" || fieldName == "VoxelLuminanceDepth" || fieldName == "VoxelNeutralLuminance" || fieldName == "VoxelShadowRecession" || fieldName == "VoxelColorTonemap" || fieldName == "ForceFallbackDrawPath";
+            bool applyPhase = field.FieldType == typeof(bool);
+            bool phaseValue = applyPhase && parsed is bool b && b;
+
+            _mainThreadQueue.Enqueue(() =>
             {
-                try { WorldSphereMod.Voxel.VoxelMeshCache.Clear(); } catch { }
-                try { WorldSphereMod.Voxel.VoxelRender.Reset(); } catch { }
-            }
-            return new { ok = true, key = field.Name, value = parsed };
+                try
+                {
+                    if (applyPhase) Core.ApplyPhaseToggle(fieldName, phaseValue);
+                    if (invalidateVoxel)
+                    {
+                        try { WorldSphereMod.Voxel.VoxelMeshCache.Clear(); } catch { }
+                        try { WorldSphereMod.Voxel.VoxelRender.Reset(); } catch { }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning("[WSM3D][Bridge] deferred setting apply failed for " + fieldName + ": " + ex.Message);
+                }
+            });
+
+            return new { ok = true, key = fieldName, value = parsed, queued = true };
         }
+
 
         object LoadSave(string slotText)
         {
