@@ -67,9 +67,11 @@ jobs:
           }
 
           if [ -f CHANGELOG.md ]; then
-            NOTES=$(extract_section "## [Unreleased]")
-            if [ -z "$NOTES" ] && [ -n "$VER" ]; then
+            if [ -n "$VER" ]; then
               NOTES=$(extract_section "## [${VER}]")
+            fi
+            if [ -z "$NOTES" ]; then
+              NOTES=$(extract_section "## [Unreleased]")
             fi
             NOTES="${NOTES:0:5000}"
             if [ -z "$NOTES" ]; then

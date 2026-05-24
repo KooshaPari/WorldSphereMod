@@ -28,7 +28,7 @@ $journeyId = $ARGS[0]
 $result = & pwsh -File "$wsmRoot/Tools/wsm3d.ps1" journey verify -Id $journeyId
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Journey failed. Reading failure summary..."
-    $manifest = Get-Content "journeys/$journeyId/manifest.verified.json" | ConvertFrom-Json
+    $manifest = Get-Content "docs/journeys/manifests/$journeyId/manifest.verified.json" | ConvertFrom-Json
     Write-Host "Failed assertions:"
     $manifest.assertions | Where-Object { -not $_.passed } | ForEach-Object {
         Write-Host "  - $($_.description): $($_.reason)"
