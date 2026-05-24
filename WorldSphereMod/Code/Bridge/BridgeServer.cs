@@ -247,6 +247,7 @@ namespace WorldSphereMod.Bridge
                 _boundPort = port;
                 _listenerThread = new Thread(ListenLoop) { IsBackground = true, Name = "WSM3D BridgeServer" };
                 _listenerThread.Start();
+                WorldSphereMod.Voxel.SanityTestCube.Reset();
                 LiveTelemetryProbeEnabled = true;
                 Debug.Log($"[WSM3D][Bridge] HTTP RPC listening on 127.0.0.1:{port}");
                 return true;
@@ -284,6 +285,7 @@ namespace WorldSphereMod.Bridge
         {
             _running = false;
             LiveTelemetryProbeEnabled = false;
+            try { WorldSphereMod.Voxel.SanityTestCube.Reset(); } catch { }
             try { _listener?.Stop(); } catch { }
             try { _listener?.Close(); } catch { }
             if (_listenerThread != null && _listenerThread.IsAlive && Thread.CurrentThread.ManagedThreadId != _listenerThread.ManagedThreadId)
@@ -922,9 +924,8 @@ namespace WorldSphereMod.Bridge
         string BuildSettingsJson() => JsonConvert.SerializeObject(Core.savedSettings ?? new SavedSettings(), Formatting.Indented);
 
         /// <summary>
-        /// Apply a settings mutation from the HTTP listener thread without blocking on
-        /// <see cref="InvokeOnMainThread{T}"/> (PlayCUA bootstrap must not stall when the
-        /// main thread queue is backed up during load).
+        /// Apply a settings mutation by parsing on the listener thread and deferring Unity
+        /// mutation + persistence onto the main thread queue.
         /// </summary>
         object UpdateSettingQueued(string key, string rawValue)
         {
@@ -933,9 +934,6 @@ namespace WorldSphereMod.Bridge
             if (field == null) return new { ok = false, error = "unknown_setting", key };
             if (!BridgeSettingParser.TryParseSettingValue(field.FieldType, rawValue, out object? parsed, out string parseError))
                 return new { ok = false, error = parseError, key, value = rawValue };
-
-            field.SetValue(Core.savedSettings, parsed);
-            try { Core.SaveSettings(); } catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] SaveSettings failed: " + ex.Message); }
 
             string fieldName = field.Name;
             bool invalidateVoxel = fieldName == "VoxelInflationStyle" || fieldName == "VoxelMeshSmoothing" || fieldName == "SmoothingIterations" || fieldName == "VoxelScaleMultiplier" || fieldName == "VoxelSpriteDepth" || fieldName == "VoxelLuminanceDepth" || fieldName == "VoxelNeutralLuminance" || fieldName == "VoxelShadowRecession" || fieldName == "VoxelColorTonemap" || fieldName == "ForceFallbackDrawPath";
@@ -946,6 +944,14 @@ namespace WorldSphereMod.Bridge
             {
                 try
                 {
+                    if (Core.savedSettings == null)
+                    {
+                        Debug.LogWarning("[WSM3D][Bridge] deferred setting apply skipped because savedSettings is null for " + fieldName);
+                        return;
+                    }
+
+                    field.SetValue(Core.savedSettings, parsed);
+                    try { Core.SaveSettings(); } catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] SaveSettings failed: " + ex.Message); }
                     if (applyPhase) Core.ApplyPhaseToggle(fieldName, phaseValue);
                     if (invalidateVoxel)
                     {

@@ -254,6 +254,23 @@ public class SourceContentInvariantsTests
             "/health must not be serialized through the timeout-prone main-thread dispatcher");
         bridgeServer.Should().Contain("public static void RefreshTelemetryCache()",
             "telemetry cache must be callable after MeshInstanceBatcher.Flush");
+        bridgeServer.Should().Contain("UpdateSettingQueued(string key, string rawValue)",
+            "settings POST must keep the listener-thread entrypoint explicit");
+        var updateSettingBody = ExtractMethodBody(bridgeServer, "object UpdateSettingQueued(string key, string rawValue)");
+        updateSettingBody.Should().Contain("_mainThreadQueue.Enqueue(() =>",
+            "settings updates must enqueue Unity mutation and persistence work");
+        updateSettingBody.Should().Contain("Core.SaveSettings()",
+            "settings persistence must happen on the main thread queue");
+        int enqueueIndex = updateSettingBody.IndexOf("_mainThreadQueue.Enqueue(() =>", StringComparison.Ordinal);
+        int fieldSetIndex = updateSettingBody.IndexOf("field.SetValue(Core.savedSettings, parsed);", StringComparison.Ordinal);
+        int saveSettingsIndex = updateSettingBody.IndexOf("Core.SaveSettings();", StringComparison.Ordinal);
+        enqueueIndex.Should().BeGreaterThanOrEqualTo(0);
+        fieldSetIndex.Should().BeGreaterThan(enqueueIndex,
+            "savedSettings mutation must be deferred into the queued main-thread work");
+        saveSettingsIndex.Should().BeGreaterThan(enqueueIndex,
+            "settings persistence must be deferred into the queued main-thread work");
+        bridgeServer.Should().Contain("WorldSphereMod.Voxel.SanityTestCube.Reset();",
+            "bridge start/stop must reset probe state so live telemetry cannot reuse stale positions");
         var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
         voxelRender.Should().Contain("Bridge.BridgeServer.RefreshTelemetryCache()",
             "telemetry must refresh after flush so drawCalls reflect the completed frame");
@@ -272,6 +289,24 @@ public class SourceContentInvariantsTests
             "telemetry must expose cached frameMs for PlayCUA");
         bridgeServer.Should().NotContain("InvokeOnMainThread(BuildTelemetryPayload)",
             "/telemetry must not block on the 5s main-thread dispatcher");
+    }
+
+    [Fact]
+    public void SanityTestCube_live_probe_refreshes_position_each_draw_and_keeps_normal_caching()
+    {
+        var cube = ReadSourceFile("WorldSphereMod/Code/Voxel/SanityTestCube.cs");
+
+        cube.Should().Contain("bool liveProbe = Bridge.BridgeServer.LiveTelemetryProbeEnabled");
+        cube.Should().Contain("TryEnsureProbePosition(bool liveProbe)");
+        cube.Should().Contain("ResolveLiveProbePosition()");
+        cube.Should().Contain("LastActorPos = ResolveLiveProbePosition();",
+            "live probe positioning must derive from current world state each draw");
+        cube.Should().Contain("if (_hasLastActorPos) return true;",
+            "normal DebugSanityCube behavior should still retain its first sampled position");
+        cube.Should().Contain("World.world != null && MapBox.width > 0 && MapBox.height > 0",
+            "live probe fallback should derive from the current world center when available");
+        cube.Should().Contain("Reset()",
+            "probe state must be reset when bridge telemetry starts or stops");
     }
 
     [Fact]

@@ -261,6 +261,28 @@ public class Wsm3dCliInvariantsTests
     }
 
     [Fact]
+    public void Wsm3d_install_and_relaunch_forward_NoBuild_as_named_SkipBuild()
+    {
+        var script = ReadWsm3dScript();
+
+        var installBlock = Regex.Match(
+            script,
+            @"function Invoke-Install[\s\S]*?function Invoke-Launch");
+        installBlock.Success.Should().BeTrue("Invoke-Install must exist before Invoke-Launch");
+        installBlock.Groups[0].Value.Should().Contain("$installParams[\"SkipBuild\"] = $true");
+        installBlock.Groups[0].Value.Should().Contain("& (Join-Path $ToolsDir \"install.ps1\") @installParams");
+
+        var relaunchBlock = Regex.Match(
+            script,
+            @"function Invoke-Relaunch[\s\S]*?function Invoke-Log");
+        relaunchBlock.Success.Should().BeTrue("Invoke-Relaunch must exist before Invoke-Log");
+        relaunchBlock.Groups[0].Value.Should().Contain("$installParams = @{");
+        relaunchBlock.Groups[0].Value.Should().Contain("Launch = $true");
+        relaunchBlock.Groups[0].Value.Should().Contain("$installParams[\"NoBuild\"] = $true");
+        relaunchBlock.Groups[0].Value.Should().Contain("Invoke-Install @installParams");
+    }
+
+    [Fact]
     public void Wsm3d_help_documents_doctor_subcommand()
     {
         var script = ReadWsm3dScript();
