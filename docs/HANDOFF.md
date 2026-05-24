@@ -2,7 +2,7 @@
 
 Canonical "next session starts here" doc for WorldSphereMod3D.
 
-**Last updated:** 2026-05-23
+**Last updated:** 2026-05-23 (`b37a14c`)
 
 ## TL;DR
 
@@ -22,7 +22,9 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 | Thing | Location |
 |---|---|
 | Active branch | `claude/research-ultraplan-fork-DdgI5` |
-| Open draft PR | https://github.com/KooshaPari/WorldSphereMod/pull/1 |
+| Open PR (#1) | https://github.com/KooshaPari/WorldSphereMod/pull/1 — **OPEN**, **MERGEABLE**; blocking CI green except Vercel rate limit |
+| Release tag (remote) | **`v2.0.0-beta.4`** latest; **`v2.0.0-beta.5`** if sibling agent tags this branch |
+| Offline test matrix | **417 passed / 0 failed** — Unit 151 (+ 3 skip), Integration 67, E2E 199 |
 | Cold-start orientation | `CLAUDE.md` |
 | Full 10-phase plan | `docs/PLAN.md` |
 | Per-phase architectures | `docs/phase{2..10}-architecture.md` |
@@ -174,11 +176,15 @@ refs (`docs/ci-mod-compile-gap.md`); it gates `WorldSphereAPI.csproj` and
 workflow/manifest invariants via E2E tests.
 
 **Compound-Spheres submodule** — `External/Compound-Spheres` is pinned to upstream
-`MelvinShwuaner/Compound-Spheres` `main` (we cannot push fork fixes without
-write access). The mod still ships the vendored `CompoundSpheres.dll`, not a
-submodule build. Optional local patch `dd78b11` (null guard on
+`MelvinShwuaner/Compound-Spheres` `main` at SHA **`73a7b77`** (we cannot push fork
+fixes without write access). The mod still ships the vendored `CompoundSpheres.dll`,
+not a submodule build. Optional local patch `dd78b11` (null guard on
 `Material.SetTexture` in `SphereManager` init) or an equivalent Harmony patch —
 see `docs/ci-mod-compile-gap.md` § "`External/Compound-Spheres` submodule".
+
+**Push hygiene** — push the parent repo with
+`git push --no-recurse-submodules origin HEAD` so submodule pointers are not
+accidentally updated on remote.
 
 ## In-game smoke test (gates Phases 2, 5, 8)
 
@@ -202,7 +208,7 @@ Short form:
 - **Phase 2 procedural buildings in-game smoke** — `ProceduralBuildings` path and PlayCUA scenario `Tools/wsm3d-playcua/sample-scenarios/phase-2-procedural-buildings.yaml` are in tree; still needs live toggle + screenshot + diff-vs-canonical previews (same discipline as Phase 1).
 - **Cloud crossed-quad in-game smoke** — `CloudCrossedQuadRender` path and PlayCUA scenario `Tools/wsm3d-playcua/sample-scenarios/phase-3b-cloud-crossed-quad.yaml` are in tree; still needs live toggle + foliage/cloud screenshots + diff-vs-canonical previews (same discipline as Phase 1–2).
 - **Unity 2022.3 install** — required to bake `VoxelLit.shader`, `WaterGerstner.shader`, `ProceduralSky.shader` into AssetBundles for Phases 4, 5, 8.
-- **Live verification (agentic tier)** — `.github/workflows/live-verify-gate.yml` runs offline programmatic stages (`dotnet test` + journey mock via `Tools/wsm-live-verify.ps1`, report `Tools/.reports/live-verify-latest.json`). **Nightly** (`.github/workflows/nightly.yml`) calls the same reusable workflow for offline stages before lint/stats extras. Bridge + `wsm3d-playcua` + optional SSIM require `-Live` on a Windows desktop. See `docs/live-verification.md`.
+- **Live verification (agentic tier)** — `.github/workflows/live-verify-gate.yml` runs offline programmatic stages (`dotnet test` + journey mock via `Tools/wsm-live-verify.ps1`, report `Tools/.reports/live-verify-latest.json`). **Nightly** (`.github/workflows/nightly.yml`) calls the same reusable workflow for offline stages before lint/stats extras. Full agentic tier on a Windows desktop requires **WorldBox running + bridge on `127.0.0.1:8766` + OmniRoute** for vision: `pwsh Tools/wsm-live-verify.ps1 -Live -Vision`. See `docs/live-verification.md`.
 - **PlayCUA sample scenarios (live runs)** — 13 YAML files in `Tools/wsm3d-playcua/sample-scenarios/` (see list below). E2E guards in `PlaycuaSampleScenarioInvariantsTests.cs`; OmniRoute vision steps need a running game + bridge (`127.0.0.1:8766`).
 - **OmniRoute API key** (optional) — for PlayCUA screenshot vision via `OMNROUTE_API_KEY` + `OMNROUTE_VISION_COMBO` (or `ANTHROPIC_API_KEY` fallback). Journey mock and offline live-verify gate work without either.
 
@@ -241,20 +247,20 @@ All paths under `Tools/wsm3d-playcua/sample-scenarios/`:
 - **Slash commands:** `/wsm-status`, `/wsm-validate-all`, `/wsm-build`, `/wsm-install`, `/wsm-relaunch`, `/wsm-log`, `/wsm-toggle`, `/wsm-screenshot`, `/wsm-journey-run`, `/wsm-doctor`.
 - **MCP:** `Tools/wsm3d-mcp/` — Python FastMCP with 18 tools, auto-registered via `.claude/mcp-servers.json`.
 - **Journey gate:** `.github/workflows/journeys-gate.yml` — OCR-assertion DSL; verify with `phenotype-journey verify <manifest> --mock`. Live capture remains the final proof step; entry point: `docs/live-verification.md`.
-- **Live-verify gate (CI):** `.github/workflows/live-verify-gate.yml` — offline `dotnet test` + journey mock (stages 1–2 of `Tools/wsm-live-verify.ps1`). Reused by **nightly** (`nightly.yml` → `live-verify-offline` job). Full harness: `pwsh Tools/wsm-live-verify.ps1` (add `-Live` for PlayCUA scenarios + SSIM).
+- **Live-verify gate (CI):** `.github/workflows/live-verify-gate.yml` — offline `dotnet test` + journey mock (stages 1–2 of `Tools/wsm-live-verify.ps1`; **417 passed / 0 failed** locally). Reused by **nightly** (`nightly.yml` → `live-verify-offline` job). Full harness: `pwsh Tools/wsm-live-verify.ps1` (add `-Live -Vision` for PlayCUA + SSIM + OmniRoute vision on a desktop with WorldBox + bridge).
 - **ADR-0007 (conditional patch dispatch):** Landed scaffold — `PhasePatchGate.ShouldApplyHarmonyPatch` wired from `Core.Patch()`; `docs/adr/ADR-0007-conditional-patch-dispatch.md` remains **Proposed** until acceptance smoke. E2E: `ConditionalPatchDispatchInvariantsTests`.
 - **Live verify:** `docs/live-verification.md` — programmatic (`dotnet test`, journey mock, optional SSIM ≥ 0.95) vs agentic (`wsm3d-playcua` sample scenarios, OmniRoute combo, bridge save/load checklist).
 
 ## Recent commits (7 most recent)
 
 ```
-72327a0 feat(texturepack): enumerate block PNGs and write manifest stub
-dceb9d3 feat(wsm3d): add screenshot phase subcommand for smoke-test captures
-42ed96f feat(wsm3d-mcp): add live verification MCP tools
-f135dd5 Add ADR-0006 GPU procedural skinning scaffold.
-465d445 docs(readme): add Testing section for verification gates
-95b3a5b ci: wire nightly to reusable live-verify-gate offline stages
-017bfd2 docs: add Phase 2 procedural buildings smoke-test checklist
+b37a14c chore: stop tracking generated docs/dashboard.md
+f259afa test(cli): E2E invariants for wsm3d validate and restore setup tests
+7e4958b feat(tools): add Compound-Spheres-3D Phase 5 setup script
+d595224 fix(test): scope install doctor e2e to install.ps1 invariant only
+0e900ce test(cli): E2E invariants for wsm3d validate command
+2ce50c6 docs: add smoke-test index to VitePress nav and HANDOFF
+3d54afe docs: add smoke-test index to VitePress nav and HANDOFF
 ```
 
 ## Important caveats / non-obvious gotchas
@@ -280,8 +286,8 @@ f135dd5 Add ADR-0006 GPU procedural skinning scaffold.
   hard-bind to it.
 - **GUID is `worldsphere3d.fork`.** Co-installable with upstream
   `WorldSphereMod`. Enable only one at a time in NeoModLoader.
-- **Compound-Spheres pin.** Submodule stays at upstream `main`; fork commit
-  `dd78b11` is optional locally only (`docs/ci-mod-compile-gap.md`).
+- **Compound-Spheres pin.** Submodule stays at upstream `main` SHA **`73a7b77`**;
+  fork commit `dd78b11` is optional locally only (`docs/ci-mod-compile-gap.md`).
 
 ## Where to look for what
 
@@ -308,6 +314,9 @@ f135dd5 Add ADR-0006 GPU procedural skinning scaffold.
 ## Branch / PR hygiene
 
 - Push to `claude/research-ultraplan-fork-DdgI5`, not `main`.
+- Use `git push --no-recurse-submodules origin HEAD` (submodule pinned at `73a7b77`).
+- **PR #1** is OPEN and MERGEABLE; all blocking CI gates green except Vercel deploy rate limit (non-blocking).
+- Pre-merge checklist: [`docs/MERGE_CHECKLIST.md`](MERGE_CHECKLIST.md).
 - One PR per phase; commits within a phase can be incremental.
 - After a phase smoke-tests clean: flip its `SavedSettings` flag default,
   update the README phase table, update this doc's "What's shipped" row.

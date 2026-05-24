@@ -20,13 +20,15 @@ Use this before merging [PR #1](https://github.com/KooshaPari/WorldSphereMod/pul
 
 **CI summary (all checks on this PR):** https://github.com/KooshaPari/WorldSphereMod/pull/1/checks
 
-### Current check status (2026-05-24, `87a763f`)
+### Current check status (2026-05-23, `b37a14c`)
+
+**PR #1:** OPEN, **MERGEABLE** — https://github.com/KooshaPari/WorldSphereMod/pull/1
 
 | Check | Blocking? | Status | Notes |
 |---|---|---|---|
 | `dotnet-build` | Yes | pass | [`build.yml`](../.github/workflows/build.yml) |
 | `dotnet format` | Yes | pass | [`lint-gate.yml`](../.github/workflows/lint-gate.yml) |
-| `dotnet-test / live verify (offline)` | Yes | pass | [`test-gate.yml`](../.github/workflows/test-gate.yml), [`live-verify-gate.yml`](../.github/workflows/live-verify-gate.yml) |
+| `dotnet-test / live verify (offline)` | Yes | pass | [`test-gate.yml`](../.github/workflows/test-gate.yml), [`live-verify-gate.yml`](../.github/workflows/live-verify-gate.yml) — **417 passed / 0 failed** (Unit 151 + 3 skip, Integration 67, E2E 199) |
 | `journeys verify` | Yes | pass | [`journeys-gate.yml`](../.github/workflows/journeys-gate.yml) |
 | `VitePress build` | Yes | pass | [`docs-build-gate.yml`](../.github/workflows/docs-build-gate.yml) |
 | `docs npm audit` | Yes | pass | [`dependency-security-audit.yml`](../.github/workflows/dependency-security-audit.yml) |
@@ -38,7 +40,7 @@ Use this before merging [PR #1](https://github.com/KooshaPari/WorldSphereMod/pul
 | **Vercel** (GitHub status) | **No** | fail | [Free-tier deploy rate limit](https://vercel.com/koosha-paridehpours-projects?upgradeToPro=build-rate-limit) — retry ~24h or upgrade |
 | **Deploy Vercel Preview** | **No** | fail | Same quota (`api-deployments-free-per-day`); docs proof is **VitePress build** + GitHub Pages |
 
-**Merge readiness:** all blocking repo gates green; Vercel preview/production failures are external quota only.
+**Merge readiness:** all **blocking** repo gates green; Vercel preview/production failures are external quota only.
 
 ### Known / external check failures (not repo code)
 
@@ -61,14 +63,27 @@ pwsh Tools/wsm-live-verify.ps1
 - Report: `Tools/.reports/live-verify-latest.json`
 - Details: [`docs/live-verification.md`](live-verification.md), [`docs/HANDOFF.md`](HANDOFF.md) (Dev tooling)
 
-Optional desktop proof (not required to merge): `pwsh Tools/wsm-live-verify.ps1 -Live` with WorldBox + bridge on `127.0.0.1:8766`.
+Optional desktop proof (not required to merge): full agentic tier needs **WorldBox running + bridge on `127.0.0.1:8766` + OmniRoute** (for vision):
+
+```powershell
+pwsh Tools/wsm-live-verify.ps1 -Live -Vision
+```
+
+Without `-Live`, stages 1–2 only (CI-equivalent offline). Without `-Vision`, PlayCUA screenshot checks skip the OmniRoute VLM backend.
+
+## Release tag
+
+- Remote latest: **`v2.0.0-beta.4`** (as of 2026-05-23)
+- If a sibling agent tags **`v2.0.0-beta.5`** on this branch, update this doc and [`HANDOFF.md`](HANDOFF.md) to match; otherwise treat beta.4 as latest on remote
 
 ## Submodule pin (do not bump casually)
 
 - Path: `External/Compound-Spheres` → upstream [`MelvinShwuaner/Compound-Spheres`](https://github.com/MelvinShwuaner/Compound-Spheres) `main`
+- **Pinned SHA:** `73a7b77` — do not bump casually
 - The mod ships **vendored** `WorldSphereMod/Assemblies/CompoundSpheres.dll`, not a submodule MSBuild compile
 - Keep the parent-repo submodule SHA on upstream `main` unless we own a fork with write access
 - Optional local-only patch `dd78b11` (null guard on `Material.SetTexture`) — see [`docs/ci-mod-compile-gap.md`](ci-mod-compile-gap.md) § "`External/Compound-Spheres` submodule"
+- **Push parent repo with:** `git push --no-recurse-submodules origin HEAD` (avoids accidental submodule pointer pushes)
 
 ## Co-install GUID warning
 
