@@ -86,11 +86,11 @@ uninstall:
 
 # Run VitePress docs dev server.
 docs-dev:
-    npm run docs:dev
+    npm --prefix docs run docs:dev
 
 # Build VitePress static site.
 docs-build:
-    npm run docs:build
+    npm --prefix docs run docs:build
 
 # ── Lint / Format ─────────────────────────────────────────────────────────
 
