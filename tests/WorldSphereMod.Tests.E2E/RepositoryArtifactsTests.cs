@@ -80,6 +80,25 @@ public class RepositoryArtifactsTests
     }
 
     [Fact]
+    public void Mod_json_version_matches_changelog_release_section()
+    {
+        var root = FindRepoRoot();
+        var versionFile = File.ReadAllText(Path.Combine(root, "VERSION")).Trim();
+        versionFile.Should().NotBeNullOrWhiteSpace();
+
+        var changelogPath = Path.Combine(root, "CHANGELOG.md");
+        File.Exists(changelogPath).Should().BeTrue($"CHANGELOG.md must exist at {changelogPath}");
+        var changelog = File.ReadAllText(changelogPath);
+
+        changelog.Should().Contain(
+            $"## [{versionFile}]",
+            "CHANGELOG.md must declare a release section for the current VERSION — release.yml reads [Unreleased] or ## [<version>]");
+
+        using var doc = LoadModJson(root);
+        doc.RootElement.GetProperty("version").GetString().Should().Be(versionFile);
+    }
+
+    [Fact]
     public void Phase_architecture_docs_exist()
     {
         var root = FindRepoRoot();

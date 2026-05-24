@@ -1,10 +1,10 @@
 name: release
 
-# Alpha tag release pipeline: build WorldSphereAPI, extract changelog from CHANGELOG.md,
+# Tag release pipeline: build WorldSphereAPI, extract changelog from CHANGELOG.md,
 # and publish a pre-release GitHub Release with artifacts.
 #
 # Triggers:
-# 1. push: tags: ['v*']           — automatically on tag push (e.g., git push origin v2.0.0-alpha.0)
+# 1. push: tags: ['v*']           — automatically on tag push (e.g., git push origin v2.0.0-beta.0)
 # 2. workflow_dispatch: inputs.version — manual dispatch with a custom version string
 
 on:
@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release (e.g., v2.0.0-alpha.0)"
+        description: "Version to release (e.g., v2.0.0-beta.0)"
         required: true
         type: string
 
@@ -51,21 +51,34 @@ jobs:
         id: changelog
         shell: bash
         run: |
-          # Extract the [Unreleased] section from CHANGELOG.md
+          TAG="${{ github.ref_name }}"
+          if [ -z "$TAG" ] || [ "$TAG" = "HEAD" ]; then
+            TAG="${{ inputs.version }}"
+          fi
+          VER="${TAG#v}"
+
+          extract_section() {
+            local header="$1"
+            awk -v header="$header" '
+              $0 == header { flag=1; next }
+              flag && /^## \[/ { flag=0 }
+              flag
+            ' CHANGELOG.md | sed -e '/^$/d'
+          }
+
           if [ -f CHANGELOG.md ]; then
-            # Use awk to extract text between [Unreleased] and the next version header
-            NOTES=$(awk '/^## \[Unreleased\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md | sed -e '/^$/d')
-            # Limit to 5000 chars after extraction to avoid broken pipe
+            NOTES=$(extract_section "## [Unreleased]")
+            if [ -z "$NOTES" ] && [ -n "$VER" ]; then
+              NOTES=$(extract_section "## [${VER}]")
+            fi
             NOTES="${NOTES:0:5000}"
-            # If empty, use a default message
             if [ -z "$NOTES" ]; then
-              NOTES="Alpha release — see CHANGELOG.md for details."
+              NOTES="Release ${TAG} — see CHANGELOG.md for details."
             fi
           else
-            NOTES="Alpha release"
+            NOTES="Release ${TAG}"
           fi
 
-          # Safely output to GitHub output using EOF delimiter
           {
             echo "body<<EOF"
             echo "$NOTES"

@@ -9,6 +9,12 @@ tmp_*
 docs/.vitepress/dist/
 docs/.vitepress/cache/
 
+# docs npm audit (dependency-security-audit workflow / local `npm audit` in docs/)
+docs/audit-report.json
+
+# Tools/wsm3d-stats.ps1 generated dashboard
+docs/dashboard.md
+
 # npm
 **/node_modules/
 
