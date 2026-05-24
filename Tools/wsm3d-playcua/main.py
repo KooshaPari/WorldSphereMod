@@ -553,7 +553,12 @@ def main() -> int:
     client = BridgeClient(args.host, args.port, args.bridge_timeout)
     if not args.no_healthcheck:
         health = client.health()
-        if not isinstance(health, dict) or not health.get("ok", True):
+        if (
+            not isinstance(health, dict)
+            or "ok" not in health
+            or not isinstance(health.get("ok"), bool)
+            or not health.get("ok")
+        ):
             print("Bridge health check failed:", health)
             return 1
 
