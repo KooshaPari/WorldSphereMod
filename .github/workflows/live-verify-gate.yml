@@ -1,0 +1,84 @@
+name: live-verify-gate
+
+# Programmatic live-verification gate (offline only): dotnet test + journey mock verify.
+# Mirrors programmatic stages 1–2 of the local live-verify harness (no bridge / playcua / SSIM).
+
+on:
+  pull_request:
+  push:
+    branches: [main, "claude/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-verify-offline:
+    name: live verify (offline)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            5.0.x
+            8.0.x
+
+      # See docs/ci-mod-compile-gap.md — placeholders for HintPath resolution only.
+      - name: Stub WorldBox reference DLLs
+        shell: bash
+        run: bash Tools/ci-stub-worldbox-refs.sh
+
+      - name: Run dotnet test (unit, integration, e2e)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for project in \
+            tests/WorldSphereMod.Tests.Unit \
+            tests/WorldSphereMod.Tests.Integration \
+            tests/WorldSphereMod.Tests.E2E; do
+            if [ -d "$project" ]; then
+              echo "dotnet test $project ..."
+              dotnet test "$project" -c Release --nologo
+            else
+              echo "::notice::$project not present — skipping."
+            fi
+          done
+
+      - name: Install Rust 1.88
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup install 1.88.0
+          rustup default 1.88.0
+          rustc --version
+          cargo --version
+
+      - name: Build phenotype-journey (tools/.cache)
+        shell: bash
+        env:
+          RUSTUP_TOOLCHAIN: "1.88.0"
+        run: |
+          set -euo pipefail
+          cache_root="tools/.cache/phenotype-journeys"
+          if [ ! -d "$cache_root/.git" ]; then
+            git clone --depth 1 https://github.com/KooshaPari/phenotype-journeys "$cache_root"
+          fi
+          cd "$cache_root"
+          cargo build --release --bin phenotype-journey
+          "$PWD/target/release/phenotype-journey" --version || true
+
+      - name: Verify journeys (mock / offline)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & "${{ github.workspace }}/Tools/verify-journeys.ps1"
+
+      - name: Upload live-verify report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-verify-offline-report
+          path: Tools/.reports/live-verify-latest.json
+          if-no-files-found: ignore

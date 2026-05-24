@@ -132,4 +132,21 @@ public class CiWorkflowInvariantsTests
         doc.Should().Contain("WorldSphereAPI");
         doc.Should().Contain("zero-byte", "the doc must explain why placeholders cannot compile the mod");
     }
+
+    [Fact]
+    public void Live_verify_gate_workflow_runs_offline_dotnet_test_and_journey_mock()
+    {
+        var yaml = ReadRepoFile(".github/workflows/live-verify-gate.yml");
+
+        yaml.Should().Contain(
+            "Tools/ci-stub-worldbox-refs.sh",
+            "live-verify-gate must stub WorldBox refs like other dotnet workflows");
+        yaml.Should().Contain("dotnet test");
+        yaml.Should().MatchRegex(
+            @"verify-journeys\.ps1|Tools/verify-journeys",
+            "offline gate must invoke the shared journey mock verifier");
+        yaml.Should().NotMatchRegex(
+            @"wsm-live-verify\.ps1|wsm3d-playcua|wsm-ssim-compare|vision-backend|127\.0\.0\.1:8766",
+            "CI must not wire the live bridge/playcua/SSIM agentic stage");
+    }
 }
