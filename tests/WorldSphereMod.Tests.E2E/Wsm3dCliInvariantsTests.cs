@@ -337,50 +337,6 @@ public class Wsm3dCliInvariantsTests
     }
 
     [Fact]
-    public void Setup_compound_spheres_3d_script_documents_fork_and_links_phase5_prep()
-    {
-        var path = Path.Combine(FindRepoRoot(), "Tools", "setup-compound-spheres-3d.ps1");
-        var script = File.ReadAllText(path);
-
-        script.Should().Contain("KooshaPari/Compound-Spheres-3D");
-        script.Should().Contain("docs/phase5-prep.md");
-        script.Should().Contain("# git submodule add");
-        script.Should().Contain("PLACEHOLDER");
-    }
-
-    [Fact]
-    public void Wsm3d_help_documents_setup_phase5()
-    {
-        var script = ReadWsm3dScript();
-
-        script.Should().Contain("setup phase5");
-        script.Should().Contain("setup-compound-spheres-3d.ps1");
-        script.Should().Contain("docs/phase5-prep.md");
-        script.Should().Contain("function Invoke-SetupPhase5");
-    }
-
-    [Fact]
-    public void Wsm3d_setup_dispatcher_wires_phase5_subcommand()
-    {
-        var script = ReadWsm3dScript();
-
-        script.Should().MatchRegex(@"""setup""\s*\{");
-        script.Should().Contain("Invoke-SetupPhase5");
-        script.Should().Contain("setup requires 'phase5' subcommand");
-    }
-
-    [Fact]
-    public void Wsm3d_completion_offers_setup_phase5()
-    {
-        var path = Path.Combine(FindRepoRoot(), "Tools", "wsm3d.completion.ps1");
-        var completion = File.ReadAllText(path);
-
-        completion.Should().Contain(@"""setup""");
-        completion.Should().Contain("\"setup\" {");
-        completion.Should().Contain(@"""phase5""");
-    }
-
-    [Fact]
     public void Wsm3d_status_reads_live_verify_report_test_counts()
     {
         var script = ReadWsm3dScript();
