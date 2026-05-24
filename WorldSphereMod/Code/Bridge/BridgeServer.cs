@@ -1054,10 +1054,11 @@ namespace WorldSphereMod.Bridge
                         if (tile == null || tile.Type.ocean) continue;
                         try
                         {
+                            if (mapBox.units == null) { Debug.LogWarning("[WSM3D][Bridge] spawn_units: mapBox.units is null"); break; }
                             mapBox.units.createNewUnit(race, tile);
                             spawned++;
                         }
-                        catch { }
+                        catch (Exception spawnEx) { Debug.LogWarning($"[WSM3D][Bridge] spawn_units[{i}]: {spawnEx.GetType().Name}: {spawnEx.Message}\n{spawnEx.StackTrace}"); break; }
                     }
                     Debug.Log($"[WSM3D][Bridge] spawn_units: spawned {spawned}/{count} {race} units");
                 }

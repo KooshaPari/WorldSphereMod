@@ -1154,14 +1154,6 @@ namespace WorldSphereMod.Voxel
             if (Time.time >= _nextCameraLookup)
             {
                 WorldSphereMod.Lighting.SunDriver.BindMainCamera(CameraManager.MainCamera);
-                if (Core.savedSettings.SSAOEnabled)
-                {
-                    WorldSphereMod.PostFx.ScreenSpaceAO.EnsureCreated();
-                }
-                if (Core.savedSettings.SSGIEnabled)
-                {
-                    WorldSphereMod.PostFx.ScreenSpaceGI.EnsureCreated();
-                }
                 _nextCameraLookup = Time.time + kCameraLookupInterval;
             }
 
@@ -1171,8 +1163,8 @@ namespace WorldSphereMod.Voxel
 
             WorldSphereMod.Fx.Environmental.Tick();
 
-            // CRITICAL: do NOT call ApplySetting every frame -- PostFxController logs on each
-            // invocation. Track last applied values and reconcile only on change (bridge/API
+            // CRITICAL: do NOT call ApplySetting every frame. The post stack may rebuild
+            // resources or log on state changes; reconcile only on change (bridge/API
             // edits, load-order races). ApplyPhaseToggle also invokes ApplySetting immediately.
             bool currentPostFX = Core.savedSettings.PostFX;
             if (currentPostFX != _lastAppliedPostFX)
@@ -1200,14 +1192,14 @@ namespace WorldSphereMod.Voxel
         // postfixes, so LateUpdate remains the end-of-frame sink.
         void LateUpdate()
         {
+            Bridge.BridgeServer.DrainStaticQueue();
+
             if (MeshInstanceBatcher.HasPendingSubmissions)
             {
                 VoxelRender.Flush();
                 VoxelMeshCache.DrainPendingDestroy();
             }
 
-            // Always sample after the emit phase so /telemetry sees the last flush counters
-            // even when this frame had nothing new to submit.
             Bridge.BridgeServer.RefreshTelemetryCache();
         }
 
