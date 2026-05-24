@@ -250,6 +250,16 @@ public class SourceContentInvariantsTests
             "health must expose cached isWorld3D for PlayCUA without blocking on Unity");
         bridgeServer.Should().NotContain("WriteJson(context.Response, InvokeOnMainThread(BuildHealthPayload));",
             "/health must not be serialized through the timeout-prone main-thread dispatcher");
+        bridgeServer.Should().Contain("RefreshTelemetryCache()",
+            "telemetry counters must be cached on the main thread for lock-free /telemetry");
+        bridgeServer.Should().Contain("WriteJson(context.Response, BuildTelemetryPayload());",
+            "/telemetry must bypass InvokeOnMainThread so PlayCUA assert_telemetry does not get null");
+        bridgeServer.Should().Contain("drawCalls = _cachedDrawCalls",
+            "telemetry must expose cached drawCalls for PlayCUA");
+        bridgeServer.Should().Contain("frameMs = _cachedFrameMs",
+            "telemetry must expose cached frameMs for PlayCUA");
+        bridgeServer.Should().NotContain("InvokeOnMainThread(BuildTelemetryPayload)",
+            "/telemetry must not block on the 5s main-thread dispatcher");
     }
 
     [Fact]

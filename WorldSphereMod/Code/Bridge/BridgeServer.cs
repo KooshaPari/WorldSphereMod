@@ -37,6 +37,13 @@ namespace WorldSphereMod.Bridge
         static string _cachedHealthVersion = "unknown";
         static bool _cachedIsWorld3D;
 
+        /// <summary>Last-known perf counters for lock-free /telemetry (PlayCUA assert_telemetry).</summary>
+        static float _cachedFrameMs;
+        static float _cachedVoxelCacheHit;
+        static float _cachedImpostorCacheHit;
+        static long _cachedDrawCalls;
+        static long _cachedInstances;
+
         public static void EnsureCreated()
         {
             try
@@ -85,6 +92,7 @@ namespace WorldSphereMod.Bridge
             // Authoritative refresh: only called from Unity main-thread Harmony hooks.
             _mainThreadId = Thread.CurrentThread.ManagedThreadId;
             RefreshHealthCache();
+            RefreshTelemetryCache();
             while (_mainThreadQueue.TryDequeue(out Action? work))
             {
                 try { work?.Invoke(); }
@@ -98,6 +106,26 @@ namespace WorldSphereMod.Bridge
             {
                 _cachedHealthVersion = Core.savedSettings != null ? Core.savedSettings.Version : "unknown";
                 _cachedIsWorld3D = Core.IsWorld3D;
+            }
+            catch
+            {
+                // Unity objects may be mid-teardown during scene transitions.
+            }
+        }
+
+        static void RefreshTelemetryCache()
+        {
+            try
+            {
+                _cachedFrameMs = Time.unscaledDeltaTime * 1000f;
+                _cachedVoxelCacheHit = SafeHitRate(
+                    () => WorldSphereMod.Voxel.VoxelMeshCache.HitCount,
+                    () => WorldSphereMod.Voxel.VoxelMeshCache.MissCount);
+                _cachedImpostorCacheHit = SafeHitRate(
+                    () => WorldSphereMod.LOD.ImpostorBillboard.HitCount,
+                    () => WorldSphereMod.LOD.ImpostorBillboard.MissCount);
+                _cachedDrawCalls = SafeLong(() => WorldSphereMod.Voxel.MeshInstanceBatcher.FrameDrawCalls);
+                _cachedInstances = SafeLong(() => WorldSphereMod.Voxel.MeshInstanceBatcher.FrameInstances);
             }
             catch
             {
@@ -216,7 +244,11 @@ namespace WorldSphereMod.Bridge
                         WriteJson(context.Response, BuildHealthPayload());
                         return;
                     }
-                    if (string.Equals(path, "/telemetry", StringComparison.OrdinalIgnoreCase)) { WriteJson(context.Response, InvokeOnMainThread(BuildTelemetryPayload)); return; }
+                    if (string.Equals(path, "/telemetry", StringComparison.OrdinalIgnoreCase))
+                    {
+                        WriteJson(context.Response, BuildTelemetryPayload());
+                        return;
+                    }
                     if (string.Equals(path, "/settings", StringComparison.OrdinalIgnoreCase)) { WriteRawJson(context.Response, InvokeOnMainThread(BuildSettingsJson)); return; }
                     if (string.Equals(path, "/voxel/sprite", StringComparison.OrdinalIgnoreCase))
                     {
@@ -799,11 +831,11 @@ namespace WorldSphereMod.Bridge
 
         object BuildTelemetryPayload() => new
         {
-            frameMs = Time.unscaledDeltaTime * 1000f,
-            voxelCacheHit = SafeHitRate(() => WorldSphereMod.Voxel.VoxelMeshCache.HitCount, () => WorldSphereMod.Voxel.VoxelMeshCache.MissCount),
-            impostorCacheHit = SafeHitRate(() => WorldSphereMod.LOD.ImpostorBillboard.HitCount, () => WorldSphereMod.LOD.ImpostorBillboard.MissCount),
-            drawCalls = SafeLong(() => WorldSphereMod.Voxel.MeshInstanceBatcher.FrameDrawCalls),
-            instances = SafeLong(() => WorldSphereMod.Voxel.MeshInstanceBatcher.FrameInstances)
+            frameMs = _cachedFrameMs,
+            voxelCacheHit = _cachedVoxelCacheHit,
+            impostorCacheHit = _cachedImpostorCacheHit,
+            drawCalls = _cachedDrawCalls,
+            instances = _cachedInstances,
         };
 
         string BuildSettingsJson() => JsonConvert.SerializeObject(Core.savedSettings ?? new SavedSettings(), Formatting.Indented);
