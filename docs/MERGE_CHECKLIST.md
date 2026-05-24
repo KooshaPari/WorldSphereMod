@@ -20,15 +20,35 @@ Use this before merging [PR #1](https://github.com/KooshaPari/WorldSphereMod/pul
 
 **CI summary (all checks on this PR):** https://github.com/KooshaPari/WorldSphereMod/pull/1/checks
 
+### Current check status (2026-05-24, `87a763f`)
+
+| Check | Blocking? | Status | Notes |
+|---|---|---|---|
+| `dotnet-build` | Yes | pass | [`build.yml`](../.github/workflows/build.yml) |
+| `dotnet format` | Yes | pass | [`lint-gate.yml`](../.github/workflows/lint-gate.yml) |
+| `dotnet-test / live verify (offline)` | Yes | pass | [`test-gate.yml`](../.github/workflows/test-gate.yml), [`live-verify-gate.yml`](../.github/workflows/live-verify-gate.yml) |
+| `journeys verify` | Yes | pass | [`journeys-gate.yml`](../.github/workflows/journeys-gate.yml) |
+| `VitePress build` | Yes | pass | [`docs-build-gate.yml`](../.github/workflows/docs-build-gate.yml) |
+| `docs npm audit` | Yes | pass | [`dependency-security-audit.yml`](../.github/workflows/dependency-security-audit.yml) |
+| `NuGet vulnerability audit` | Yes | pass | same workflow |
+| `journey-records cargo audit` | Yes | pass | same workflow |
+| `semgrep-cloud-platform/scan` | Advisory | pass | Semgrep Cloud |
+| Socket Security (PR + project) | Advisory | pass | socket.dev |
+| CodeRabbit | Advisory | pass | review skipped |
+| **Vercel** (GitHub status) | **No** | fail | [Free-tier deploy rate limit](https://vercel.com/koosha-paridehpours-projects?upgradeToPro=build-rate-limit) — retry ~24h or upgrade |
+| **Deploy Vercel Preview** | **No** | fail | Same quota (`api-deployments-free-per-day`); docs proof is **VitePress build** + GitHub Pages |
+
+**Merge readiness:** all blocking repo gates green; Vercel preview/production failures are external quota only.
+
 ### Known / external check failures (not repo code)
 
 | Check | Status | Owner / action |
 |---|---|---|
-| **Vercel** (Preview + Production) | Failing | [Vercel build rate limit](https://vercel.com/koosha-paridehpours-projects?upgradeToPro=build-rate-limit) — retry after ~24h or upgrade plan. Docs deploy via GitHub Pages is green. |
-| **docs npm audit** | Was failing (`vitepress:unknown`) | Fixed in workflow: allow transitive moderate advisories when `via` is only allowlisted deps (`vite` → `vitepress`). Job uses `continue-on-error` but should pass after fix. |
-| **dotnet-test / live verify (offline)** | Was failing | (1) Integration tests expected `skipped_no_fixture` after `ea16da2` — fixed in tests. (2) `verify-journeys.ps1` used a hardcoded Windows `Join-Path` root — fixed to prefer `tools/.cache/phenotype-journeys` and optional `PHENOTYPE_JOURNEYS_ROOT`. |
+| **Vercel** (Preview + Production) | Failing | [Vercel build rate limit](https://vercel.com/koosha-paridehpours-projects?upgradeToPro=build-rate-limit) — retry after ~24h or upgrade plan. Docs deploy via GitHub Pages + `VitePress build` gate are green. |
+| **docs npm audit** | pass | Fixed in workflow: allow transitive moderate advisories when `via` is only allowlisted deps (`vite` → `vitepress`). |
+| **dotnet-test / live verify (offline)** | pass | Integration `skipped_no_fixture` + `verify-journeys.ps1` path fixes landed on branch. |
 
-Re-run failed workflows from the [PR Checks](https://github.com/KooshaPari/WorldSphereMod/pull/1/checks) tab after pushing fixes.
+Re-run failed workflows from the [PR Checks](https://github.com/KooshaPari/WorldSphereMod/pull/1/checks) tab after pushing fixes (Vercel only when quota resets).
 
 ## Live-verify offline (local, CI-equivalent)
 
