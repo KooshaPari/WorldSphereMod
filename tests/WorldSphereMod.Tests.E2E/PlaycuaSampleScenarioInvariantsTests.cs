@@ -55,8 +55,15 @@ public sealed class PlaycuaSampleScenarioInvariantsTests
     }
 
     [Fact]
-    public void Phase_1_voxel_actors_scenario_still_exists_on_disk()
+    public void Phase_1_voxel_actors_scenario_exists_and_toggles_saved_setting()
     {
-        ReadRepoFile(Phase1ScenarioRelative).Should().Contain("name: phase-1-voxel-actors");
+        var yaml = ReadRepoFile(Phase1ScenarioRelative);
+
+        yaml.Should().Contain("name: phase-1-voxel-actors");
+        yaml.Should().Contain("action: toggle_flag");
+        yaml.Should().Contain("key: VoxelEntities");
+        yaml.Should().Contain("action: screenshot");
+        yaml.Should().Contain("must_contain_voxel_actors: true");
+        yaml.Should().Contain("action: assert_telemetry");
     }
 }
