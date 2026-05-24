@@ -10,6 +10,7 @@ Supported step actions:
   - load_save
   - wait_n_frames
   - toggle_flag
+  - set_setting
   - screenshot
   - assert_telemetry
 """
@@ -106,6 +107,9 @@ class BridgeClient:
 
     def toggle_flag(self, key: str, value: bool) -> Dict[str, Any]:
         return self._request_json("POST", f"/settings/{key}", {"value": str(value).lower()})
+
+    def set_setting(self, key: str, value: str) -> Dict[str, Any]:
+        return self._request_json("POST", f"/settings/{urllib.parse.quote(key, safe='')}", {"value": value})
 
 
 def _run_wait_n_frames(frames: int, fps: float) -> None:
@@ -381,6 +385,22 @@ def _execute_scenario(
             if not key:
                 raise ValueError(f"toggle_flag step #{index} missing key")
             payload = client.toggle_flag(key, value)
+            ok = bool(payload.get("ok"))
+            details = payload
+        elif action == "set_setting":
+            key = str(raw_step.get("key") or raw_step.get("setting"))
+            raw_value = raw_step.get("value")
+            if not key:
+                raise ValueError(f"set_setting step #{index} missing key")
+            if raw_value is None:
+                raise ValueError(f"set_setting step #{index} missing value")
+            if isinstance(raw_value, bool):
+                value_text = str(raw_value).lower()
+            elif isinstance(raw_value, (int, float)):
+                value_text = format(_coerce_number(raw_value), "g")
+            else:
+                value_text = str(raw_value)
+            payload = client.set_setting(key, value_text)
             ok = bool(payload.get("ok"))
             details = payload
         elif action == "screenshot":
