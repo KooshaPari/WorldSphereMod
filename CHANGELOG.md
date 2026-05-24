@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.6] - 2026-05-24
+
+E2E invariant wave (+26 tests since beta.5) and live-verification documentation hardening. Offline gate: **473 passed / 0 failed** (476 total, 3 skipped).
+
+### Tests & docs
+
+- **E2E coverage** — phase 3b tile overlays/walls, terrain biome blending, building style procgen opt-in, voxel frame driver PostFX reconciler, phase 1b drop/projectile emits, day/night fog, mesh water fallback, anatomical template stubs, procgen cache poison guard, quantum sprites perf skip, proxy/forward+/texture-pack invariants.
+- **Live proof bundle** — canonical checklist in [`docs/live-verification.md`](docs/live-verification.md); PlayCUA [`sample-scenarios/README.md`](Tools/wsm3d-playcua/sample-scenarios/README.md); `wsm-live-verify.ps1 -ListScenarios`.
+- **Gap audits** — [`plan-vs-actual-gap-audit.md`](docs/journeys/scratch/plan-vs-actual-gap-audit.md) marks cloud crossed-quad **landed**; [`infra-investment-roadmap.md`](docs/journeys/scratch/infra-investment-roadmap.md) refreshed.
+- **Screenshots** — [`docs/screenshots/README.md`](docs/screenshots/README.md) capture layout for SSIM fixtures.
+
+### Tooling
+
+- **CONTRIBUTING** — expanded offline/live verification flow (437→476 test matrix documented in handoff docs).
+
+[2.0.0-beta.6]: https://github.com/kooshapari/WorldSphereMod/compare/v2.0.0-beta.5...v2.0.0-beta.6
+
 ## [2.0.0-beta.5] - 2026-05-23
 
 Syncs repo version metadata with tags `v2.0.0-beta.0`–`beta.4` already on remote; this release captures stabilization work since `v2.0.0-beta.4`.

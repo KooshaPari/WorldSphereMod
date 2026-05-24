@@ -1,7 +1,7 @@
 {
     "name": "WorldSphereMod3D",
     "author": "Melvin Shwuaner (fork)",
-    "version": "2.0.0-beta.5",
+    "version": "2.0.0-beta.6",
     "description": "Hard fork of WorldSphereMod that finishes the 3D conversion: voxelized actors/items, procedural building meshes, crossed-quad foliage, mesh water, directional sun + cascaded shadows, skeletal animation, worldspace UI. Co-installable with upstream WorldSphereMod. If the icon is red, your hardware lacks compute shader / GPU instancing support.",
     "GUID": "worldsphere3d.fork",
     "iconPath":  "GameResources/WorldSphereMod/Logo.png"

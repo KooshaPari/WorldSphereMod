@@ -6,7 +6,7 @@ Single entry point for in-game smoke checklists, PlayCUA scenarios, journey mani
 
 | Gate | Scope | Command |
 |------|-------|---------|
-| **Offline gate** | **450 tests** (447 passed, 3 skipped) + journey mock (20 manifests) | `pwsh Tools/wsm-live-verify.ps1` |
+| **Offline gate** | **476 tests** (473 passed, 3 skipped) + journey mock (20 manifests) | `pwsh Tools/wsm-live-verify.ps1` |
 
 ---
 
