@@ -58,5 +58,45 @@
     "id": "smoke-test-phase2",
     "intent": "Human in-game smoke gate for Phase 2 (ProceduralBuildings). Checklist: docs/smoke-test-phase2.md",
     "file": "smoke-test-phase2/manifest.json"
+  },
+  {
+    "id": "smoke-test-phase3",
+    "intent": "Human in-game smoke gate for Phase 3 (CrossedQuadFoliage). Checklist: docs/smoke-test-phase3.md",
+    "file": "smoke-test-phase3/manifest.json"
+  },
+  {
+    "id": "smoke-test-phase4",
+    "intent": "Human in-game smoke gate for Phase 4 (MeshWater). Checklist: docs/smoke-test-phase4.md",
+    "file": "smoke-test-phase4/manifest.json"
+  },
+  {
+    "id": "smoke-test-phase5",
+    "intent": "Human in-game smoke gate for Phase 5 (HighShadows + HdrSkybox). Checklist: docs/smoke-test-phase5.md",
+    "file": "smoke-test-phase5/manifest.json"
+  },
+  {
+    "id": "smoke-test-phase6",
+    "intent": "Human in-game smoke gate for Phase 6 (SkeletalAnimation). Checklist: docs/smoke-test-phase6.md",
+    "file": "smoke-test-phase6/manifest.json"
+  },
+  {
+    "id": "smoke-test-phase7",
+    "intent": "Human in-game smoke gate for Phase 7 (WorldspaceUI). Checklist: docs/smoke-test-phase7.md",
+    "file": "smoke-test-phase7/manifest.json"
+  },
+  {
+    "id": "smoke-test-phase8",
+    "intent": "Human in-game smoke gate for Phase 8 (DayNightCycle). Checklist: docs/smoke-test-phase8.md",
+    "file": "smoke-test-phase8/manifest.json"
+  },
+  {
+    "id": "smoke-test-phase9",
+    "intent": "Human in-game smoke gate for Phase 9 (PostFX). Checklist: docs/smoke-test-phase9.md",
+    "file": "smoke-test-phase9/manifest.json"
+  },
+  {
+    "id": "smoke-test-phase10",
+    "intent": "Human in-game smoke gate for Phase 10 (LOD impostor). Checklist: docs/smoke-test-phase10.md",
+    "file": "smoke-test-phase10/manifest.json"
   }
 ]

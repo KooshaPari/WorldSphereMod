@@ -107,6 +107,29 @@ public class JourneyManifestSchemaTests
         manifestFiles.Should().Contain(name => name.StartsWith("us-wsm-phase-", StringComparison.Ordinal));
         manifestFiles.Should().Contain("smoke-test-phase1");
         manifestFiles.Should().Contain("smoke-test-phase2");
+        manifestFiles.Should().Contain("smoke-test-phase3");
+        manifestFiles.Should().Contain("smoke-test-phase4");
+        manifestFiles.Should().Contain("smoke-test-phase5");
+        manifestFiles.Should().Contain("smoke-test-phase6");
+        manifestFiles.Should().Contain("smoke-test-phase7");
+        manifestFiles.Should().Contain("smoke-test-phase8");
+        manifestFiles.Should().Contain("smoke-test-phase9");
+        manifestFiles.Should().Contain("smoke-test-phase10");
+    }
+
+    [Fact]
+    public void Smoke_test_manifest_index_lists_phases_1_through_10()
+    {
+        var root = TestRepo.FindRoot();
+        using var index = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, IndexRelative)));
+
+        var smokeIds = index.RootElement.EnumerateArray()
+            .Select(e => e.GetProperty("id").GetString()!)
+            .Where(id => id.StartsWith("smoke-test-phase", StringComparison.Ordinal))
+            .ToList();
+
+        smokeIds.Should().BeEquivalentTo(
+            Enumerable.Range(1, 10).Select(n => $"smoke-test-phase{n}"));
     }
 
     [Fact]

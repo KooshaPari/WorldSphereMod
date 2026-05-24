@@ -74,6 +74,46 @@ internal static class JourneyWsm3dTraceCatalog
                 ["screenshot"],
                 "Invoke-ScreenshotPhase",
                 AutomatedInJourneyCapture: true),
+            ["foliage"] = new StepTrace(
+                "foliage",
+                ["screenshot"],
+                "Invoke-ScreenshotPhase",
+                AutomatedInJourneyCapture: true),
+            ["water"] = new StepTrace(
+                "water",
+                ["screenshot"],
+                "Invoke-ScreenshotPhase",
+                AutomatedInJourneyCapture: true),
+            ["shadows-sky"] = new StepTrace(
+                "shadows-sky",
+                ["screenshot"],
+                "Invoke-ScreenshotPhase",
+                AutomatedInJourneyCapture: true),
+            ["skeletal"] = new StepTrace(
+                "skeletal",
+                ["screenshot"],
+                "Invoke-ScreenshotPhase",
+                AutomatedInJourneyCapture: true),
+            ["ui"] = new StepTrace(
+                "ui",
+                ["screenshot"],
+                "Invoke-ScreenshotPhase",
+                AutomatedInJourneyCapture: true),
+            ["day-night"] = new StepTrace(
+                "day-night",
+                ["screenshot"],
+                "Invoke-ScreenshotPhase",
+                AutomatedInJourneyCapture: true),
+            ["postfx"] = new StepTrace(
+                "postfx",
+                ["screenshot"],
+                "Invoke-ScreenshotPhase",
+                AutomatedInJourneyCapture: true),
+            ["lod"] = new StepTrace(
+                "lod",
+                ["screenshot"],
+                "Invoke-ScreenshotPhase",
+                AutomatedInJourneyCapture: true),
         };
 
     internal static bool IsPhaseJourneyManifestId(string manifestId) =>

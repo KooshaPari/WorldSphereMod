@@ -1,0 +1,26 @@
+{
+  "id": "smoke-test-phase3",
+  "intent": "In-game smoke-test gate for Phase 3 (CrossedQuadFoliage). Full checklist: docs/smoke-test-phase3.md",
+  "keyframe_count": 3,
+  "passed": false,
+  "steps": [
+    {
+      "index": 0,
+      "slug": "before",
+      "intent": "CrossedQuadFoliage=false with prior phases on. Capture with `wsm3d screenshot phase 3 -Name before` (see docs/smoke-test-phase3.md).",
+      "screenshot_path": "frame-000.png"
+    },
+    {
+      "index": 1,
+      "slug": "after",
+      "intent": "CrossedQuadFoliage=true, same scene and camera. Capture with `wsm3d screenshot phase 3 -Name after` (docs/smoke-test-phase3.md).",
+      "screenshot_path": "frame-001.png"
+    },
+    {
+      "index": 2,
+      "slug": "foliage",
+      "intent": "Tree/bush closeup with crossed-quad foliage on. Capture with `wsm3d screenshot phase 3 -Name foliage` (docs/smoke-test-phase3.md).",
+      "screenshot_path": "frame-002.png"
+    }
+  ]
+}

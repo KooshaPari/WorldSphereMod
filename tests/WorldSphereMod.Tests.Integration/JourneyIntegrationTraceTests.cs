@@ -219,16 +219,28 @@ public class JourneyIntegrationTraceTests
     }
 
     [Fact]
-    public void Smoke_test_manifests_use_before_after_buildings_screenshot_slugs()
+    public void Smoke_test_manifests_use_before_after_closeup_screenshot_slugs()
     {
-        var expectedSlugs = new[] { "before", "after", "buildings" };
+        var closeupByPhase = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["smoke-test-phase1"] = "buildings",
+            ["smoke-test-phase2"] = "buildings",
+            ["smoke-test-phase3"] = "foliage",
+            ["smoke-test-phase4"] = "water",
+            ["smoke-test-phase5"] = "shadows-sky",
+            ["smoke-test-phase6"] = "skeletal",
+            ["smoke-test-phase7"] = "ui",
+            ["smoke-test-phase8"] = "day-night",
+            ["smoke-test-phase9"] = "postfx",
+            ["smoke-test-phase10"] = "lod",
+        };
 
-        foreach (var id in new[] { "smoke-test-phase1", "smoke-test-phase2" })
+        foreach (var (id, closeup) in closeupByPhase)
         {
             var manifestPath = LoadIndexedManifests().Single(m => m.Id == id).ManifestPath;
             var steps = LoadManifestSteps(manifestPath);
             steps.Should().HaveCount(3, $"{id} documents three smoke-test comparison frames");
-            steps.Select(s => s.Slug).Should().Equal(expectedSlugs);
+            steps.Select(s => s.Slug).Should().Equal(new[] { "before", "after", closeup });
 
             using var manifest = JsonDocument.Parse(File.ReadAllText(manifestPath));
             var intent = manifest.RootElement.GetProperty("intent").GetString()!;

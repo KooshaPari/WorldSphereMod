@@ -1,0 +1,26 @@
+{
+  "id": "smoke-test-phase8",
+  "intent": "In-game smoke-test gate for Phase 8 (DayNightCycle). Full checklist: docs/smoke-test-phase8.md",
+  "keyframe_count": 3,
+  "passed": false,
+  "steps": [
+    {
+      "index": 0,
+      "slug": "before",
+      "intent": "DayNightCycle=false with prior phases on. Capture with `wsm3d screenshot phase 8 -Name before` (see docs/smoke-test-phase8.md).",
+      "screenshot_path": "frame-000.png"
+    },
+    {
+      "index": 1,
+      "slug": "after",
+      "intent": "DayNightCycle=true, same scene and camera. Capture with `wsm3d screenshot phase 8 -Name after` (docs/smoke-test-phase8.md).",
+      "screenshot_path": "frame-001.png"
+    },
+    {
+      "index": 2,
+      "slug": "day-night",
+      "intent": "Sky color cycle closeup (dawn/noon/dusk). Capture with `wsm3d screenshot phase 8 -Name day-night` (docs/smoke-test-phase8.md).",
+      "screenshot_path": "frame-002.png"
+    }
+  ]
+}
