@@ -76,6 +76,8 @@
     <Reference Include="SleekRender">
       <HintPath>$(WorldBoxManaged)/SleekRender.dll</HintPath>
     </Reference>
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Collections.Immutable">
       <HintPath>$(WorldBoxNMLAssemblies)/System.Collections.Immutable.dll</HintPath>
     </Reference>

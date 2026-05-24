@@ -21,28 +21,28 @@ namespace WorldSphereMod.Import
 
         public sealed class TexturePackCandidate
         {
-            public string SourcePath { get; init; } = string.Empty;
-            public bool IsZip { get; init; }
+            public string SourcePath { get; set; } = string.Empty;
+            public bool IsZip { get; set; }
         }
 
         public sealed class PackMetaInfo
         {
-            public int PackFormat { get; init; }
-            public string Description { get; init; } = string.Empty;
+            public int PackFormat { get; set; }
+            public string Description { get; set; } = string.Empty;
         }
 
         public sealed class ImportAtLoadResult
         {
-            public bool ScanRootExists { get; init; }
-            public string ScanRoot { get; init; } = string.Empty;
-            public string CacheRoot { get; init; } = string.Empty;
-            public IReadOnlyList<string> ScannedPaths { get; init; } = Array.Empty<string>();
-            public IReadOnlyList<string> ValidatedPaths { get; init; } = Array.Empty<string>();
-            public string? SelectedPackPath { get; init; }
-            public PackMetaInfo? SelectedPackMeta { get; init; }
-            public int KnownMappingCount { get; init; }
-            public bool AtlasImportStubbed { get; init; } = true;
-            public string Message { get; init; } = string.Empty;
+            public bool ScanRootExists { get; set; }
+            public string ScanRoot { get; set; } = string.Empty;
+            public string CacheRoot { get; set; } = string.Empty;
+            public IReadOnlyList<string> ScannedPaths { get; set; } = Array.Empty<string>();
+            public IReadOnlyList<string> ValidatedPaths { get; set; } = Array.Empty<string>();
+            public string? SelectedPackPath { get; set; }
+            public PackMetaInfo? SelectedPackMeta { get; set; }
+            public int KnownMappingCount { get; set; }
+            public bool AtlasImportStubbed { get; set; } = true;
+            public string Message { get; set; } = string.Empty;
         }
 
         static string DefaultModConfigRoot =>
