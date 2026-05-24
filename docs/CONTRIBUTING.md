@@ -109,13 +109,16 @@ bridge, PlayCUA, or SSIM required.
 
 ```powershell
 pwsh Tools/wsm-live-verify.ps1
+pwsh Tools/wsm-live-verify.ps1 -ListScenarios   # enumerate PlayCUA scenarios for -Live
 ```
 
+- Offline matrix: **434 pass / 3 skip** (437 total) — Unit, Integration, E2E via `dotnet test`
 - Report: `Tools/.reports/live-verify-latest.json`
-- Deep dive: [`live-verification.md`](live-verification.md)
+- Deep dive: [`live-verification.md`](live-verification.md); live proof bundle: [`#canonical-live-proof-bundle`](live-verification.md#canonical-live-proof-bundle)
 
 Optional desktop proof (not required to merge): `pwsh Tools/wsm-live-verify.ps1 -Live`
-with WorldBox + mod installed and BridgeRPC on `127.0.0.1:8766`.
+with WorldBox + mod installed and BridgeRPC on `127.0.0.1:8766`. See the
+[canonical live proof bundle](live-verification.md#canonical-live-proof-bundle).
 
 ### 9.3 PlayCUA (agentic / live desktop)
 
@@ -136,8 +139,10 @@ pwsh Tools/wsm3d.ps1 playcua run-all
 pwsh Tools/wsm3d.ps1 playcua run-all -VisionBackend omniroute   # optional VLM gate
 ```
 
-Scenarios live under `Tools/wsm3d-playcua/sample-scenarios/`. Phase-specific
-in-game checklists: `docs/smoke-test-phase*.md`.
+Scenarios live under `Tools/wsm3d-playcua/sample-scenarios/` — see
+[`sample-scenarios/README.md`](../Tools/wsm3d-playcua/sample-scenarios/README.md)
+(catalog, vision gates, run matrix). Phase-specific in-game checklists:
+`docs/smoke-test-phase*.md`.
 
 ### 9.4 Commit and PR conventions
 
