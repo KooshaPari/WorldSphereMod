@@ -17,11 +17,10 @@ callable without a host present and returns `(false, null)`.
 
 ### `WorldSphereMod.Tests.Integration`
 
-Reserved for tests that exercise the main `WorldSphereMod3D` assembly
-against a stubbed or in-process WorldBox harness. **Currently a
-placeholder** — the main mod cannot be loaded without UnityEngine plus
-WorldBox's `Assembly-CSharp*.dll` reference set, so real integration tests
-are deferred until a harness exists.
+Unity-free repo integration tests: journey manifest paths, `mod.json`/install
+contracts, bake tooling, visual-regression harness preflight, and
+`Tools/wsm3d.ps1` journey trace invariants. Gated in `test-gate.yml` and
+`task test-integration`. Does not launch WorldBox.
 
 ### `WorldSphereMod.Tests.E2E`
 
@@ -50,12 +49,27 @@ reference DLLs aren't redistributable. The pragmatic split is:
 3. Use the E2E tier for everything we *can* verify without Unity —
    manifest files, install scripts, asset paths, JSON schemas.
 
+## Live verification
+
+**Entry point:** [`docs/live-verification.md`](../docs/live-verification.md)
+
+| Gate | What runs from this repo |
+|------|---------------------------|
+| Programmatic | `dotnet test` (all three tiers locally; CI: unit + integration in `test-gate.yml`) + `pwsh Tools/wsm3d.ps1 journey verify -Id <id>` (mock) + optional SSIM vs `docs/journeys/phase-previews/` (threshold 0.95 — see harness design doc) |
+| Agentic (local only) | `Tools/wsm3d-playcua` scenarios + OmniRoute vision (`OMNROUTE_BASE_URL`, `OMNROUTE_VISION_COMBO`, dashboard API key) + bridge save/load checklist in `docs/journeys/scratch/bridge-scene-transition-known-issue.md` |
+
 ## Running locally
 
 ```bash
-dotnet build tests/WorldSphereMod.Tests.Unit/WorldSphereMod.Tests.Unit.csproj -c Release
-dotnet test  tests/WorldSphereMod.Tests.Unit/WorldSphereMod.Tests.Unit.csproj
+task test-all
+# or per tier:
+dotnet test tests/WorldSphereMod.Tests.Unit/
+dotnet test tests/WorldSphereMod.Tests.Integration/
+dotnet test tests/WorldSphereMod.Tests.E2E/
 ```
 
-Integration and E2E projects build and run with the same commands; only
-the Unit tier currently has a meaningful assertion.
+Journey mock preflight (no game):
+
+```powershell
+pwsh Tools/wsm3d.ps1 journey verify -Id smoke-test-phase1
+```

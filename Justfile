@@ -113,6 +113,9 @@ release-check: release-prep
 journeys:
     powershell.exe -NoLogo -NoProfile -File Tools/verify-journeys.ps1
 
+# Semi-deterministic pipeline: dotnet tests, journey mock verify, optional -Live playcua+SSIM.
+live-verify *ARGS='':
+    powershell.exe -NoLogo -NoProfile -File Tools/wsm-live-verify.ps1 {{ARGS}}
 # Build journey-records crate.
 journey-records-build:
     cargo build --manifest-path tools/journey-records/Cargo.toml --release

@@ -46,6 +46,7 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 | LOD / impostor / culler | `WorldSphereMod/Code/LOD/` |
 | Profiler | `WorldSphereMod/Code/Perf/` |
 | World-unload sink | `WorldSphereMod/Code/Voxel/WorldUnloadPatch.cs` |
+| Live verification (programmatic + agentic gates) | `docs/live-verification.md` |
 
 ## What's shipped (per phase)
 
@@ -181,7 +182,8 @@ Short form:
 
 - **Phase 2 procedural buildings smoke test** — use the same toggle + screenshot + diff-vs-canonical flow that proved Phase 1 visibility.
 - **Unity 2022.3 install** — required to bake `VoxelLit.shader`, `WaterGerstner.shader`, `ProceduralSky.shader` into AssetBundles for Phases 4, 5, 8.
-- **Anthropic API key** (optional) — for live journey verification via `phenotype-journey verify ... --live`. Mock mode works without it.
+- **Live verification** — programmatic gate (`dotnet test` + journey mock) runs in CI; agentic gate (`wsm3d-playcua` + OmniRoute vision combo, optional SSIM) is local-only. See `docs/live-verification.md`.
+- **OmniRoute API key** (optional) — for PlayCUA screenshot vision via `OMNROUTE_API_KEY` + `OMNROUTE_VISION_COMBO` (or `ANTHROPIC_API_KEY` fallback). Journey mock mode works without either.
 
 ## Recommended next steps
 
@@ -195,7 +197,8 @@ Short form:
 - **CLI:** `pwsh Tools/wsm3d.ps1 help` — 13 subcommands (build, install, launch, relaunch, log, toggle, journey capture, etc.).
 - **Slash commands:** `/wsm-status`, `/wsm-validate-all`, `/wsm-build`, `/wsm-install`, `/wsm-relaunch`, `/wsm-log`, `/wsm-toggle`, `/wsm-screenshot`, `/wsm-journey-run`, `/wsm-doctor`.
 - **MCP:** `Tools/wsm3d-mcp/` — Python FastMCP with 18 tools, auto-registered via `.claude/mcp-servers.json`.
-- **Journey gate:** `.github/workflows/journeys-gate.yml` — OCR-assertion DSL; verify with `phenotype-journey verify <manifest> --mock`. Live capture remains the final proof step, and strict-assets checks still gate manifests with screenshots.
+- **Journey gate:** `.github/workflows/journeys-gate.yml` — OCR-assertion DSL; verify with `phenotype-journey verify <manifest> --mock`. Live capture remains the final proof step; entry point: `docs/live-verification.md`.
+- **Live verify:** `docs/live-verification.md` — programmatic (`dotnet test`, journey mock, optional SSIM ≥ 0.95) vs agentic (`wsm3d-playcua`, OmniRoute combo, bridge save/load checklist).
 
 ## Recent commits (7 most recent)
 

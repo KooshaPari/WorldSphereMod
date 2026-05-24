@@ -161,6 +161,11 @@ tasks:
     cmds:
       - powershell.exe -NoLogo -NoProfile -File Tools/verify-journeys.ps1
 
+  live-verify:
+    desc: "Semi-deterministic pipeline: dotnet tests, journey mock verify, optional -Live playcua+SSIM."
+    cmds:
+      - powershell.exe -NoLogo -NoProfile -File Tools/wsm-live-verify.ps1 {{.CLI_ARGS}}
+
   # Build journey-records crate.
   journey-records-build:
     desc: "Build journey-records rust scaffold."
