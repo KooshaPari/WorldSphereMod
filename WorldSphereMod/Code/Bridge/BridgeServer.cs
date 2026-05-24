@@ -92,7 +92,6 @@ namespace WorldSphereMod.Bridge
             // Authoritative refresh: only called from Unity main-thread Harmony hooks.
             _mainThreadId = Thread.CurrentThread.ManagedThreadId;
             RefreshHealthCache();
-            RefreshTelemetryCache();
             while (_mainThreadQueue.TryDequeue(out Action? work))
             {
                 try { work?.Invoke(); }
@@ -113,7 +112,8 @@ namespace WorldSphereMod.Bridge
             }
         }
 
-        static void RefreshTelemetryCache()
+        /// <summary>Sample perf counters after MeshInstanceBatcher.Flush for lock-free /telemetry.</summary>
+        public static void RefreshTelemetryCache()
         {
             try
             {

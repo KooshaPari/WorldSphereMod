@@ -250,8 +250,11 @@ public class SourceContentInvariantsTests
             "health must expose cached isWorld3D for PlayCUA without blocking on Unity");
         bridgeServer.Should().NotContain("WriteJson(context.Response, InvokeOnMainThread(BuildHealthPayload));",
             "/health must not be serialized through the timeout-prone main-thread dispatcher");
-        bridgeServer.Should().Contain("RefreshTelemetryCache()",
-            "telemetry counters must be cached on the main thread for lock-free /telemetry");
+        bridgeServer.Should().Contain("public static void RefreshTelemetryCache()",
+            "telemetry cache must be callable after MeshInstanceBatcher.Flush");
+        var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
+        voxelRender.Should().Contain("Bridge.BridgeServer.RefreshTelemetryCache()",
+            "telemetry must refresh after flush so drawCalls reflect the completed frame");
         bridgeServer.Should().Contain("WriteJson(context.Response, BuildTelemetryPayload());",
             "/telemetry must bypass InvokeOnMainThread so PlayCUA assert_telemetry does not get null");
         bridgeServer.Should().Contain("drawCalls = _cachedDrawCalls",
