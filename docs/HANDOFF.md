@@ -34,6 +34,8 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 | Settings | `WorldSphereMod/Code/SavedSettings.cs` |
 | Build portability layer | `Directory.Build.props` (env: `WORLDBOX_PATH`) |
 | CI | `.github/workflows/build.yml` (API gate; mod compile gap in `docs/ci-mod-compile-gap.md`) |
+| Nightly regression | `.github/workflows/nightly.yml` — reuses `live-verify-gate.yml` offline stages, then lint/stats extras |
+| Live-verify gate (reusable) | `.github/workflows/live-verify-gate.yml` |
 | Dependency/security audit gate | `.github/workflows/dependency-security-audit.yml` |
 | Install / uninstall | `Tools/install.ps1`, `Tools/uninstall.ps1` |
 | Voxel pipeline | `WorldSphereMod/Code/Voxel/` |
@@ -53,7 +55,7 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 
 | Phase | State | Notes |
 |---|---|---|
-| 0  Fork plumbing                       | ✅ | Build portability, GUID `worldsphere3d.fork`, settings v2, API v2, task/journey gates, capability discovery, opt-in profiler overlay, journey capture tooling |
+| 0  Fork plumbing                       | ✅ | Build portability, GUID `worldsphere3d.fork`, settings v2, API v2, task/journey gates, capability discovery, opt-in profiler overlay, journey capture tooling; ADR-0007 conditional patch dispatch **landed scaffold** (`PhasePatchGate` + E2E invariants; ADR status still Proposed until per-phase smoke) |
 | 1  Voxel actors + buildings            | ✅ | Current code default: `VoxelEntities = true`. Smoke-test verification is documented elsewhere and should not be inferred from the default alone. |
 | 2  Procedural building meshes          | ✅ | Current code default: `ProceduralBuildings = true`. |
 | 3a Crossed-quad foliage                | ✅ | Current code default: `CrossedQuadFoliage = true`. |
@@ -191,8 +193,8 @@ Short form:
 - **Phase 2 procedural buildings in-game smoke** — `ProceduralBuildings` path and PlayCUA scenario `Tools/wsm3d-playcua/sample-scenarios/phase-2-procedural-buildings.yaml` are in tree; still needs live toggle + screenshot + diff-vs-canonical previews (same discipline as Phase 1).
 - **Cloud crossed-quad in-game smoke** — `CloudCrossedQuadRender` path and PlayCUA scenario `Tools/wsm3d-playcua/sample-scenarios/phase-3b-cloud-crossed-quad.yaml` are in tree; still needs live toggle + foliage/cloud screenshots + diff-vs-canonical previews (same discipline as Phase 1–2).
 - **Unity 2022.3 install** — required to bake `VoxelLit.shader`, `WaterGerstner.shader`, `ProceduralSky.shader` into AssetBundles for Phases 4, 5, 8.
-- **Live verification (agentic tier)** — `.github/workflows/live-verify-gate.yml` runs offline programmatic stages (`dotnet test` + journey mock via `Tools/wsm-live-verify.ps1`, report `Tools/.reports/live-verify-latest.json`). Bridge + `wsm3d-playcua` + optional SSIM require `-Live` on a Windows desktop. See `docs/live-verification.md`.
-- **PlayCUA sample scenarios (live runs)** — YAML in `Tools/wsm3d-playcua/sample-scenarios/`: `bridge-health-vision.yaml`, `phase-1-voxel-actors.yaml`, `phase-2-procedural-buildings.yaml`, `phase-3b-cloud-crossed-quad.yaml` (plus `phase-3-crossed-quad-foliage.yaml`, `phase-4-mesh-water.yaml`, `phase-5-high-shadows.yaml`). E2E guards in `PlaycuaSampleScenarioInvariantsTests.cs`; OmniRoute vision steps need a running game + bridge (`127.0.0.1:8766`).
+- **Live verification (agentic tier)** — `.github/workflows/live-verify-gate.yml` runs offline programmatic stages (`dotnet test` + journey mock via `Tools/wsm-live-verify.ps1`, report `Tools/.reports/live-verify-latest.json`). **Nightly** (`.github/workflows/nightly.yml`) calls the same reusable workflow for offline stages before lint/stats extras. Bridge + `wsm3d-playcua` + optional SSIM require `-Live` on a Windows desktop. See `docs/live-verification.md`.
+- **PlayCUA sample scenarios (live runs)** — 13 YAML files in `Tools/wsm3d-playcua/sample-scenarios/` (see list below). E2E guards in `PlaycuaSampleScenarioInvariantsTests.cs`; OmniRoute vision steps need a running game + bridge (`127.0.0.1:8766`).
 - **OmniRoute API key** (optional) — for PlayCUA screenshot vision via `OMNROUTE_API_KEY` + `OMNROUTE_VISION_COMBO` (or `ANTHROPIC_API_KEY` fallback). Journey mock and offline live-verify gate work without either.
 
 ## Recommended next steps
@@ -200,7 +202,29 @@ Short form:
 1. Smoke-test Phase 2 procedural buildings the same way Phase 1 was proven: toggle `ProceduralBuildings`, capture screenshots, and diff against canonical output.
 2. Implement ADR-0006 (Phase 6 Step 9 DrawProceduralIndirect skinning) — 2–3 day estimate if we decide to replace the visible skinned-mesh path with GPU-resident batching later.
 3. Install Unity 2022.3 + clone `Compound-Spheres-3D` submodule; bake the four shaders into platform AssetBundles under `WorldSphereMod/AssetBundles/{win,linux,osx}/worldsphere`.
-4. Conditional Harmony patch dispatch (if wave-5 lands the ADR-0007 work).
+4. Flip ADR-0007 status to **Accepted** after safe-min / per-phase toggle smoke confirms init gate matches runtime `PhasePatchManager` behavior.
+
+## PlayCUA sample scenarios (13 YAML)
+
+All paths under `Tools/wsm3d-playcua/sample-scenarios/`:
+
+| File | Purpose |
+|---|---|
+| `bridge-health-vision.yaml` | Bridge `/health` + vision screenshot smoke |
+| `bridge-save-load-smoke.yaml` | Pre/post health, optional `load_save`, manual notes |
+| `phase-1-voxel-actors.yaml` | `VoxelEntities` toggle + voxel vision asserts |
+| `phase-2-procedural-buildings.yaml` | `ProceduralBuildings` toggle + building vision |
+| `phase-3-crossed-quad-foliage.yaml` | Crossed-quad foliage toggle + screenshots |
+| `phase-3b-cloud-crossed-quad.yaml` | `CrossedQuadFoliage` + cloud crossed-quad vision |
+| `phase-4-mesh-water.yaml` | Mesh water phase smoke |
+| `phase-5-high-shadows.yaml` | High shadows + HDR skybox |
+| `phase-6-skeletal-animation.yaml` | Skeletal animation phase smoke |
+| `phase-7-worldspace-ui.yaml` | Worldspace UI / labels |
+| `phase-8-day-night.yaml` | Day/night cycle + sky |
+| `phase-9-postfx-particles.yaml` | PostFX + particles |
+| `phase-10-lod.yaml` | LOD / impostor tuning |
+
+(`smoke-test.sh` is a helper script, not counted in the 13.)
 
 ## Dev tooling
 
@@ -208,19 +232,20 @@ Short form:
 - **Slash commands:** `/wsm-status`, `/wsm-validate-all`, `/wsm-build`, `/wsm-install`, `/wsm-relaunch`, `/wsm-log`, `/wsm-toggle`, `/wsm-screenshot`, `/wsm-journey-run`, `/wsm-doctor`.
 - **MCP:** `Tools/wsm3d-mcp/` — Python FastMCP with 18 tools, auto-registered via `.claude/mcp-servers.json`.
 - **Journey gate:** `.github/workflows/journeys-gate.yml` — OCR-assertion DSL; verify with `phenotype-journey verify <manifest> --mock`. Live capture remains the final proof step; entry point: `docs/live-verification.md`.
-- **Live-verify gate (CI):** `.github/workflows/live-verify-gate.yml` — offline `dotnet test` + journey mock (stages 1–2 of `Tools/wsm-live-verify.ps1`). Full harness: `pwsh Tools/wsm-live-verify.ps1` (add `-Live` for PlayCUA scenarios + SSIM).
+- **Live-verify gate (CI):** `.github/workflows/live-verify-gate.yml` — offline `dotnet test` + journey mock (stages 1–2 of `Tools/wsm-live-verify.ps1`). Reused by **nightly** (`nightly.yml` → `live-verify-offline` job). Full harness: `pwsh Tools/wsm-live-verify.ps1` (add `-Live` for PlayCUA scenarios + SSIM).
+- **ADR-0007 (conditional patch dispatch):** Landed scaffold — `PhasePatchGate.ShouldApplyHarmonyPatch` wired from `Core.Patch()`; `docs/adr/ADR-0007-conditional-patch-dispatch.md` remains **Proposed** until acceptance smoke. E2E: `ConditionalPatchDispatchInvariantsTests`.
 - **Live verify:** `docs/live-verification.md` — programmatic (`dotnet test`, journey mock, optional SSIM ≥ 0.95) vs agentic (`wsm3d-playcua` sample scenarios, OmniRoute combo, bridge save/load checklist).
 
 ## Recent commits (7 most recent)
 
 ```
-9e5ca57 fix(ci): normalize live-verify stage details when dotnet emits pipeline output
-af87b4a feat(foliage): wire CloudCrossedQuadRender into effects and world unload
-f157584 ci: add live-verify-gate for offline dotnet test and journey mock
-55c5627 feat(wsm3d-playcua): add Phase 2 procedural buildings sample scenario
-600e227 fix(import): add ZIP compression refs and settable texture-pack DTOs
-c5a1582 feat(wsm3d-playcua): add OmniRoute vision backend and stabilize Compound-Spheres
-26b56a9 feat(tooling): add live verification harness with SSIM gate and tests
+72327a0 feat(texturepack): enumerate block PNGs and write manifest stub
+dceb9d3 feat(wsm3d): add screenshot phase subcommand for smoke-test captures
+42ed96f feat(wsm3d-mcp): add live verification MCP tools
+f135dd5 Add ADR-0006 GPU procedural skinning scaffold.
+465d445 docs(readme): add Testing section for verification gates
+95b3a5b ci: wire nightly to reusable live-verify-gate offline stages
+017bfd2 docs: add Phase 2 procedural buildings smoke-test checklist
 ```
 
 ## Important caveats / non-obvious gotchas
