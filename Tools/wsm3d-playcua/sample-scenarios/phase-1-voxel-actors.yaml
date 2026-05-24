@@ -12,7 +12,7 @@ steps:
     required: true
     note: Bridge health proxy — game must be rendering before phase toggle.
     checks:
-      - field: drawCalls
+      - field: lastNonZeroDrawCalls
         op: ">"
         value: 0
       - field: frameMs

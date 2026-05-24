@@ -16,7 +16,7 @@ steps:
     required: true
     note: Game must be rendering before LOD tuning.
     checks:
-      - field: drawCalls
+      - field: lastNonZeroDrawCalls
         op: ">"
         value: 0
       - field: frameMs

@@ -262,6 +262,8 @@ public class SourceContentInvariantsTests
             "/telemetry must bypass InvokeOnMainThread so PlayCUA assert_telemetry does not get null");
         bridgeServer.Should().Contain("drawCalls = _cachedDrawCalls",
             "telemetry must expose cached drawCalls for PlayCUA");
+        bridgeServer.Should().Contain("lastNonZeroDrawCalls = _cachedLastNonZeroDrawCalls",
+            "telemetry must expose last non-zero drawCalls for between-frame PlayCUA checks");
         bridgeServer.Should().Contain("frameMs = _cachedFrameMs",
             "telemetry must expose cached frameMs for PlayCUA");
         bridgeServer.Should().NotContain("InvokeOnMainThread(BuildTelemetryPayload)",

@@ -42,6 +42,7 @@ namespace WorldSphereMod.Bridge
         static float _cachedVoxelCacheHit;
         static float _cachedImpostorCacheHit;
         static long _cachedDrawCalls;
+        static long _cachedLastNonZeroDrawCalls;
         static long _cachedInstances;
 
         public static void EnsureCreated()
@@ -125,6 +126,10 @@ namespace WorldSphereMod.Bridge
                     () => WorldSphereMod.LOD.ImpostorBillboard.HitCount,
                     () => WorldSphereMod.LOD.ImpostorBillboard.MissCount);
                 _cachedDrawCalls = SafeLong(() => WorldSphereMod.Voxel.MeshInstanceBatcher.FrameDrawCalls);
+                if (_cachedDrawCalls > 0L)
+                {
+                    _cachedLastNonZeroDrawCalls = _cachedDrawCalls;
+                }
                 _cachedInstances = SafeLong(() => WorldSphereMod.Voxel.MeshInstanceBatcher.FrameInstances);
             }
             catch
@@ -835,6 +840,7 @@ namespace WorldSphereMod.Bridge
             voxelCacheHit = _cachedVoxelCacheHit,
             impostorCacheHit = _cachedImpostorCacheHit,
             drawCalls = _cachedDrawCalls,
+            lastNonZeroDrawCalls = _cachedLastNonZeroDrawCalls,
             instances = _cachedInstances,
         };
 

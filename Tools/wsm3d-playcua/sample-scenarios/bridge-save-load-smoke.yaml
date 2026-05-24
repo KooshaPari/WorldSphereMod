@@ -12,7 +12,7 @@ steps:
     required: true
     note: Pre-save-load telemetry baseline before any scene transition.
     checks:
-      - field: drawCalls
+      - field: lastNonZeroDrawCalls
         op: ">"
         value: 0
   - action: load_save
@@ -42,7 +42,7 @@ steps:
     required: true
     note: Post-reload telemetry — frame/cache fields must respond after save/load.
     checks:
-      - field: drawCalls
+      - field: lastNonZeroDrawCalls
         op: ">"
         value: 0
       - field: frameMs
