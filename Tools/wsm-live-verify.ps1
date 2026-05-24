@@ -373,11 +373,7 @@ if (-not $Live) {
             $afterFixture = Join-Path $phaseDir.FullName "after.png"
             $beforeFixture = Join-Path $phaseDir.FullName "before.png"
             if (-not (Test-Path -LiteralPath $afterFixture)) {
-                $liveDetails.ssimComparisons += [ordered]@{
-                    phase  = $phaseDir.Name
-                    status = "skipped_no_fixture"
-                }
-                continue
+                throw "Missing required live SSIM fixture: $($phaseDir.FullName)\after.png"
             }
 
             $capturePath = Join-Path $captureRoot ($phaseDir.Name + "-live.png")

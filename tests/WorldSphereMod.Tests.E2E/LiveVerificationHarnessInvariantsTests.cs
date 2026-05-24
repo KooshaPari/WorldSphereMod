@@ -132,4 +132,13 @@ public class LiveVerificationHarnessInvariantsTests
         yamlOnDisk.Should().Contain("phase-1-voxel-actors.yaml");
         yamlOnDisk.Should().Contain("phase-2-procedural-buildings.yaml");
     }
+
+    [Fact]
+    public void Wsm_live_verify_live_stage_fails_when_required_after_fixture_is_missing()
+    {
+        var script = ReadRepoFile(LiveVerifyScriptRelative);
+
+        script.Should().Contain("Missing required live SSIM fixture");
+        script.Should().NotContain("skipped_no_fixture");
+    }
 }

@@ -18,7 +18,7 @@ Runs without WorldBox when possible. Use this on every PR and before opening a l
 |-------|----------------|-------------------|
 | **dotnet test** | API surface, install/manifest contracts, bridge source invariants, harness preflight | `task test-all` or `dotnet test tests/WorldSphereMod.Tests.{Unit,Integration,E2E}/` |
 | **Journey mock** | Manifest JSON, step slugs, canonical preview PNGs exist; `phenotype-journey` schema/OCR preflight (not pixel truth) | `pwsh Tools/wsm3d.ps1 journey verify -Id <phase-id>` (default mock) or `phenotype-journey verify <manifest> --mock` |
-| **SSIM (optional)** | Captured frames match canonical `docs/journeys/phase-previews/<phase>/before.png` and `after.png` | Local only today — see [SSIM optional gate](#ssim-optional-gate) |
+| **SSIM (optional)** | Captured frames match canonical `docs/journeys/phase-previews/<phase>/before.png` and `after.png` | Local only today — see [SSIM optional gate](#ssim-optional-gate). In `Tools/wsm-live-verify.ps1 -Live`, any selected phase preview directory missing `after.png` fails the live SSIM stage. |
 
 Mock journey verification is **not** a substitute for screenshots of the running game; it catches manifest drift and missing assets early.
 
@@ -31,6 +31,7 @@ When `Tools/wsm3d-capture` (or `wsm3d screenshot`) has fresh captures, compare t
 - **Metric:** SSIM (structural similarity)
 - **Pass threshold:** `>= 0.95` per compared pair (`before`→`before.png`, `after`→`after.png`)
 - **On failure:** emit diff PNG, stats JSON, and the captured frame for triage
+- **Live mode requirement:** if a phase preview directory is selected for SSIM, `after.png` must exist; missing required fixtures fail the live stage instead of being reported as skipped.
 
 The pixel-diff backend is not wired in CI yet (integration tests only assert path/checklist contracts). Treat SSIM as an optional local hardening step until the harness lands in a workflow.
 

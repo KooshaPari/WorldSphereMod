@@ -32,7 +32,19 @@ public class LiveVerifyHarnessStructureTests
         script.Should().Contain("phase-previews");
         script.Should().Contain("Get-PhasePreviewDirectories");
         script.Should().Contain("after.png");
+        script.Should().Contain("Missing required live SSIM fixture");
         script.ToLowerInvariant().Should().Contain("ssim");
+    }
+
+    [Fact]
+    public void Live_verify_harness_requires_after_fixture_for_live_ssim()
+    {
+        var script = HarnessScript;
+
+        script.Should().MatchRegex(
+            @"if\s*\(\s*-\s*not\s*\(\s*Test-Path[^\r\n]+after\.png[^\r\n]*\)\s*\)\s*\{[\s\S]*throw\s+""Missing required live SSIM fixture",
+            "-Live must fail when a selected phase preview is missing after.png");
+        script.Should().NotContain("skipped_no_fixture");
     }
 
     [Fact]
