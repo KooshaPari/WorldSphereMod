@@ -155,10 +155,9 @@ function Get-DotnetTestResultFromOutput {
 function Test-BridgeHealthy {
     try {
         $response = Invoke-RestMethod -Uri $bridgeUrl -Method Get -TimeoutSec 8
-        return ($response -is [System.Collections.IDictionary] -and
-                $response.Contains("ok") -and
-                $response.ok -is [bool] -and
-                $response.ok -eq $true)
+        if ($null -eq $response) { return $false }
+        $ok = $response.ok
+        return ($ok -is [bool] -and $ok -eq $true)
     } catch {
         return $false
     }
