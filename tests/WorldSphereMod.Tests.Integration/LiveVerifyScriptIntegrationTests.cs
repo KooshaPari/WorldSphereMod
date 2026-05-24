@@ -90,7 +90,9 @@ public class LiveVerifyScriptIntegrationTests
         script.Should().Contain("after.png");
         script.Should().Contain("Invoke-SsimCompare");
         script.Should().Contain("Invoke-WindowCapture");
-        script.Should().Contain("skipped_no_fixture");
+        script.Should().Contain("if (-not (Test-Path -LiteralPath $afterFixture))");
+        script.Should().Contain("throw \"Missing required live SSIM fixture:");
+        script.Should().NotContain("skipped_no_fixture");
         script.Should().Contain("skipped_capture_failed");
         script.Should().Contain("ssim-captures");
     }

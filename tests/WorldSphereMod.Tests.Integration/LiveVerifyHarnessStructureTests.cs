@@ -27,6 +27,8 @@ public class LiveVerifyHarnessStructureTests
         script.Should().Contain("Stage 4:");
 
         script.Should().Contain("dotnet test");
+        script.Should().Contain("testCounts");
+        script.Should().Contain("Get-DotnetTestResultFromOutput");
         script.Should().Contain("verify-journeys.ps1");
         script.Should().Contain("live-verify-latest.json");
         script.Should().Contain("phase-previews");
@@ -41,9 +43,8 @@ public class LiveVerifyHarnessStructureTests
     {
         var script = HarnessScript;
 
-        script.Should().MatchRegex(
-            @"if\s*\(\s*-\s*not\s*\(\s*Test-Path[^\r\n]+after\.png[^\r\n]*\)\s*\)\s*\{[\s\S]*throw\s+""Missing required live SSIM fixture",
-            "-Live must fail when a selected phase preview is missing after.png");
+        script.Should().Contain("if (-not (Test-Path -LiteralPath $afterFixture))");
+        script.Should().Contain("throw \"Missing required live SSIM fixture:");
         script.Should().NotContain("skipped_no_fixture");
     }
 

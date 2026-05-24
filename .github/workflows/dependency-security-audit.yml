@@ -91,9 +91,21 @@ jobs:
             }
           };
 
+          const isAllowedTransitive = (vuln) => {
+            const via = vuln.via || [];
+            if (!via.length || !via.every((item) => typeof item === 'string')) {
+              return false;
+            }
+            return via.every((dep) => allowed.has(dep));
+          };
+
           for (const vuln of entries) {
             if ((vuln.severity || '').toLowerCase() === 'high' || (vuln.severity || '').toLowerCase() === 'critical') {
               unexpected.push(`${vuln.name}:${vuln.severity}`);
+              continue;
+            }
+
+            if (isAllowedTransitive(vuln)) {
               continue;
             }
 

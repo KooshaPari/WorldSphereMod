@@ -18,6 +18,18 @@ Use this before merging [PR #1](https://github.com/KooshaPari/WorldSphereMod/pul
 
 **Nightly** ([`nightly.yml`](../.github/workflows/nightly.yml)) reuses `live-verify-gate` offline, then lint/stats extras — confirm on `main` after merge if the PR branch did not run it.
 
+**CI summary (all checks on this PR):** https://github.com/KooshaPari/WorldSphereMod/pull/1/checks
+
+### Known / external check failures (not repo code)
+
+| Check | Status | Owner / action |
+|---|---|---|
+| **Vercel** (Preview + Production) | Failing | [Vercel build rate limit](https://vercel.com/koosha-paridehpours-projects?upgradeToPro=build-rate-limit) — retry after ~24h or upgrade plan. Docs deploy via GitHub Pages is green. |
+| **docs npm audit** | Was failing (`vitepress:unknown`) | Fixed in workflow: allow transitive moderate advisories when `via` is only allowlisted deps (`vite` → `vitepress`). Job uses `continue-on-error` but should pass after fix. |
+| **dotnet-test / live verify (offline)** | Was failing | Integration tests still expected `skipped_no_fixture` after harness change in `ea16da2`; fixed in tests on this branch. |
+
+Re-run failed workflows from the [PR Checks](https://github.com/KooshaPari/WorldSphereMod/pull/1/checks) tab after pushing fixes.
+
 ## Live-verify offline (local, CI-equivalent)
 
 Matches `live-verify-gate` and nightly offline stages (no bridge, PlayCUA, or SSIM):
