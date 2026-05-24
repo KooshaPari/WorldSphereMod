@@ -43,4 +43,10 @@ WSM3D Doctor
 [WARN] Required checks passed with 2 optional warning(s).
 ```
 
-Run again after fixing paths, `git submodule update --init`, or launching WorldBox with the mod.
+Run again after fixing paths, `wsm3d submodule init` (or `git submodule update --init --recursive`), or launching WorldBox with the mod.
+
+When `git_submodules` fails, run:
+
+```pwsh
+pwsh Tools/wsm3d.ps1 submodule init
+```

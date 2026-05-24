@@ -5,7 +5,7 @@
 
 .DESCRIPTION
   One-file command dispatcher for WSM3D development. Routes to subcommands:
-    build, install, launch, kill, relaunch, log, profile, render-budget, screenshot, settings, toggle, status, doctor, journey, watch, help.
+    build, install, launch, kill, relaunch, log, profile, render-budget, screenshot, settings, toggle, status, doctor, submodule, journey, watch, help.
 
 .EXAMPLE
   ./wsm3d.ps1 build
@@ -300,7 +300,7 @@ function Get-GitSubmoduleDoctorRows {
             }
             $detail = switch ($flag) {
                 " " { "initialized at pinned commit" }
-                "-" { "not initialized — run: git submodule update --init --recursive" }
+                "-" { "not initialized — run: wsm3d submodule init" }
                 "+" { "checkout differs from index — run: git submodule update" }
                 "U" { "merge conflict in submodule" }
                 default { $text }
@@ -1306,9 +1306,12 @@ function Invoke-Doctor {
     if ($subFail.Count -gt 0) {
         $checks += New-DoctorCheck -Id "git_submodules" -Status "fail" -Required $true `
             -Message "$($subFail.Count) submodule(s) need attention" `
-            -Details @{ submodules = @($submoduleRows | ForEach-Object {
-                [ordered]@{ path = $_.path; status = $_.status; detail = $_.detail }
-            }) }
+            -Details @{
+                submodules = @($submoduleRows | ForEach-Object {
+                    [ordered]@{ path = $_.path; status = $_.status; detail = $_.detail }
+                })
+                remediation = "Run: wsm3d submodule init"
+            }
     } elseif ($subWarn.Count -gt 0) {
         $checks += New-DoctorCheck -Id "git_submodules" -Status "warn" -Required $true `
             -Message "$($subWarn.Count) submodule(s) out of sync with index" `
@@ -1680,6 +1683,27 @@ function Invoke-PlaycuaRunAll {
     Write-Success "playcua run-all passed $($scenarios.Count) scenario(s)."
 }
 
+function Invoke-SubmoduleInit {
+    $gitCmd = Get-Command git -ErrorAction SilentlyContinue
+    if (-not $gitCmd) {
+        throw "git not found on PATH"
+    }
+
+    Push-Location $RepoRoot
+    try {
+        foreach ($path in $script:GitSubmodulePaths) {
+            Write-Info "Initializing submodule $path..."
+            & git submodule update --init --recursive $path
+            if ($LASTEXITCODE -ne 0) {
+                throw "git submodule update --init --recursive failed for $path (exit $LASTEXITCODE)"
+            }
+        }
+        Write-Success "Submodule(s) initialized: $($script:GitSubmodulePaths -join ', ')"
+    } finally {
+        Pop-Location
+    }
+}
+
 function Invoke-HooksInstall {
     Write-Info "Installing git pre-commit hook..."
 
@@ -1814,6 +1838,11 @@ Commands:
       Install the repo-tracked git pre-commit hooks. Sets git config core.hooksPath .githooks.
       Run once after clone.
 
+  submodule init
+      Initialize git submodules (External/Compound-Spheres) via
+      git submodule update --init --recursive. Use after clone when doctor reports
+      git_submodules fail.
+
   help
       Show this help text.
 
@@ -1842,6 +1871,7 @@ Examples:
   wsm3d status -Json
   wsm3d doctor
   wsm3d doctor -Json
+  wsm3d submodule init
   wsm3d   journey verify -Id sample-journey
   wsm3d journey verify docs/journeys/manifests/sample-journey/manifest.json -Live
   wsm3d playcua run-all -VisionBackend omniroute
@@ -2175,6 +2205,27 @@ try {
 
                 default {
                     Write-Error-Custom "Unknown hooks subcommand: $subCmd"
+                    Show-Help
+                    exit 1
+                }
+            }
+        }
+
+        "submodule" {
+            if ($commandArgs.Count -eq 0) {
+                Write-Error-Custom "submodule requires 'init' subcommand"
+                Show-Help
+                exit 1
+            }
+            $subCmd = $commandArgs[0]
+
+            switch -Exact ($subCmd) {
+                "init" {
+                    Invoke-SubmoduleInit
+                }
+
+                default {
+                    Write-Error-Custom "Unknown submodule subcommand: $subCmd"
                     Show-Help
                     exit 1
                 }

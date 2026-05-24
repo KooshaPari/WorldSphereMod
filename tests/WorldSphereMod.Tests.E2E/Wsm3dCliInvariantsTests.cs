@@ -271,4 +271,47 @@ public class Wsm3dCliInvariantsTests
         completion.Should().Contain("\"doctor\" {");
         completion.Should().Contain("-Json");
     }
+
+    [Fact]
+    public void Wsm3d_help_documents_submodule_init()
+    {
+        var script = ReadWsm3dScript();
+
+        script.Should().Contain("submodule init");
+        script.Should().Contain("External/Compound-Spheres");
+        script.Should().Contain("function Invoke-SubmoduleInit");
+        script.Should().Contain("git submodule update --init --recursive");
+        script.Should().Contain("wsm3d submodule init");
+    }
+
+    [Fact]
+    public void Wsm3d_submodule_dispatcher_wires_init_subcommand()
+    {
+        var script = ReadWsm3dScript();
+
+        script.Should().MatchRegex(@"""init""\s*\{");
+        script.Should().Contain("Invoke-SubmoduleInit");
+        script.Should().Contain("submodule requires 'init' subcommand");
+        script.Should().Contain("$script:GitSubmodulePaths");
+    }
+
+    [Fact]
+    public void Wsm3d_doctor_git_submodules_fail_recommends_submodule_init()
+    {
+        var script = ReadWsm3dScript();
+
+        script.Should().Contain("remediation = \"Run: wsm3d submodule init\"");
+        script.Should().Contain("not initialized — run: wsm3d submodule init");
+    }
+
+    [Fact]
+    public void Wsm3d_completion_offers_submodule_init()
+    {
+        var path = Path.Combine(FindRepoRoot(), "Tools", "wsm3d.completion.ps1");
+        var completion = File.ReadAllText(path);
+
+        completion.Should().Contain(@"""submodule""");
+        completion.Should().Contain("\"submodule\" {");
+        completion.Should().Contain(@"""init""");
+    }
 }
