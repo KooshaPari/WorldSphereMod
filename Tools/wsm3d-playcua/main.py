@@ -109,6 +109,8 @@ class BridgeClient:
         with urllib.request.urlopen(request, timeout=self.timeout) as resp:
             body = resp.read().decode("utf-8")
             data = json.loads(body) if body else {}
+            if data is None:
+                return {"ok": False, "error": "null_response", "raw": body[:120]}
             if not isinstance(data, dict):
                 return {"ok": False, "error": f"non-dict response: {body[:120]}"}
             return data
@@ -391,7 +393,13 @@ def _execute_scenario(
                 raise ValueError(f"load_save step #{index} requires non-negative slot")
             payload = client.load_save(slot)
             ok = bool(payload.get("ok"))
-            details = payload
+            details = dict(payload)
+            if ok and payload.get("queued"):
+                settle_frames = int(raw_step.get("settle_frames", 150))
+                settle_fps = float(raw_step.get("settle_fps", raw_step.get("fps", 30)))
+                _run_wait_n_frames(settle_frames, settle_fps)
+                details["settle_frames"] = settle_frames
+                details["settle_fps"] = settle_fps
         elif action == "wait_n_frames":
             frames = int(raw_step.get("frames", raw_step.get("count", 0)))
             fps = float(raw_step.get("fps", raw_step.get("frame_rate", 30)))

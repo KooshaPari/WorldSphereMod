@@ -390,7 +390,7 @@ namespace WorldSphereMod.Bridge
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/load_save", StringComparison.OrdinalIgnoreCase))
                 {
                     string slotText = context.Request.QueryString["slot"] ?? string.Empty;
-                    WriteJson(context.Response, InvokeOnMainThread(() => LoadSave(slotText)));
+                    WriteJson(context.Response, LoadSaveQueued(slotText));
                     return;
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && (string.Equals(path, "/actions/screenshot", StringComparison.OrdinalIgnoreCase) || string.Equals(path, "/screenshot/now", StringComparison.OrdinalIgnoreCase)))
@@ -969,7 +969,11 @@ namespace WorldSphereMod.Bridge
         }
 
 
-        object LoadSave(string slotText)
+        /// <summary>
+        /// Queue save load on the main thread and return immediately. Synchronous InvokeOnMainThread
+        /// often timed out during loadWorld (5s), serializing null to PlayCUA as non-dict response.
+        /// </summary>
+        object LoadSaveQueued(string slotText)
         {
             if (!BridgeSettingParser.TryParseNonNegativeInt(slotText, out int slot))
             {
@@ -982,15 +986,29 @@ namespace WorldSphereMod.Bridge
                 return new { ok = false, error = "missing_save", slot, path };
             }
 
-            if (World.world == null || World.world.save_manager == null)
+            int queuedSlot = slot;
+            string queuedPath = path;
+            _mainThreadQueue.Enqueue(() =>
             {
-                return new { ok = false, error = "world_not_ready", slot, path };
-            }
+                try
+                {
+                    if (World.world == null || World.world.save_manager == null)
+                    {
+                        Debug.LogWarning("[WSM3D][Bridge] load_save skipped: world_not_ready slot=" + queuedSlot);
+                        return;
+                    }
 
-            SaveManager.setCurrentPathAndId(path, slot);
-            World.world.save_manager.prepareLoading();
-            World.world.save_manager.loadWorld(path);
-            return new { ok = true, slot, path };
+                    SaveManager.setCurrentPathAndId(queuedPath, queuedSlot);
+                    World.world.save_manager.prepareLoading();
+                    World.world.save_manager.loadWorld(queuedPath);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning("[WSM3D][Bridge] load_save failed slot=" + queuedSlot + ": " + ex.Message);
+                }
+            });
+
+            return new { ok = true, slot, path, queued = true };
         }
 
         object CaptureScreenshot(string outputPath)

@@ -711,22 +711,63 @@ function Invoke-Install {
     }
 }
 
+function Get-WorldBoxProcesses {
+    $names = @('worldbox', 'WorldBox')
+    $found = @()
+    foreach ($name in $names) {
+        $found += @(Get-Process -Name $name -ErrorAction SilentlyContinue)
+    }
+    return $found | Sort-Object -Property Id -Unique
+}
+
+function Wait-WorldBoxExit {
+    param([int]$MaxSeconds = 45)
+
+    $deadline = (Get-Date).AddSeconds($MaxSeconds)
+    while ((Get-Date) -lt $deadline) {
+        if (-not (Get-WorldBoxProcesses)) {
+            return $true
+        }
+        foreach ($proc in Get-WorldBoxProcesses) {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+        }
+        Start-Sleep -Seconds 2
+    }
+    return -not (Get-WorldBoxProcesses)
+}
+
 function Invoke-Launch {
+    if (Get-WorldBoxProcesses) {
+        Write-Warn "WorldBox already running; skipping launch to avoid duplicate-instance modal."
+        return
+    }
+
+    $exe = Join-Path $WorldBoxPath "worldbox.exe"
     Write-Info "Launching WorldBox..."
-    Start-Process "steam://rungameid/1206560"
+    if (Test-Path -LiteralPath $exe) {
+        Start-Process -FilePath $exe -WorkingDirectory $WorldBoxPath | Out-Null
+    } else {
+        Start-Process "steam://rungameid/1206560" | Out-Null
+    }
     Write-Success "WorldBox launched."
 }
 
 function Invoke-Kill {
-    $proc = Get-Process worldbox -ErrorAction SilentlyContinue
-    if (-not $proc) {
+    $procs = Get-WorldBoxProcesses
+    if (-not $procs -or $procs.Count -eq 0) {
         Write-Warn "WorldBox not running."
         return
     }
 
-    Write-Warn "Killing WorldBox process..."
-    Stop-Process -InputObject $proc -Force
-    Write-Success "WorldBox killed."
+    Write-Warn ("Killing {0} WorldBox process(es)..." -f $procs.Count)
+    foreach ($proc in $procs) {
+        Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+    }
+    if (Wait-WorldBoxExit) {
+        Write-Success "WorldBox killed."
+    } else {
+        Write-Warn "WorldBox may still be running after kill timeout."
+    }
 }
 
 function Invoke-Relaunch {
@@ -734,6 +775,9 @@ function Invoke-Relaunch {
 
     Write-Info "Relaunching: kill + install + launch..."
     Invoke-Kill
+    if (-not (Wait-WorldBoxExit)) {
+        throw "WorldBox did not exit after kill; close duplicate-instance dialogs and retry."
+    }
     Start-Sleep -Seconds 2
     $installParams = @{
         Launch = $true

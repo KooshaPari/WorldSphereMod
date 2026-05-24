@@ -502,6 +502,18 @@ if (-not $Live) {
         Invoke-BridgeLiveBootstrap -Port $bridgePort
         $liveDetails.bridgeBootstrap = @{ VoxelEntities = $true; DebugSanityCube = $true }
         if ($Vision) {
+            try {
+                $loadUri = "http://127.0.0.1:$bridgePort/actions/load_save?slot=2"
+                $loadResp = Invoke-RestMethod -Method Post -Uri $loadUri -TimeoutSec 20
+                $liveDetails.loadSaveSlot2 = $loadResp
+                if ($loadResp.ok -and $loadResp.queued) {
+                    Write-Host "Queued load_save slot=2; waiting 20s for world transition..."
+                    Start-Sleep -Seconds 20
+                }
+            } catch {
+                Write-Warning ("load_save slot=2 bootstrap failed: {0}" -f $_.Exception.Message)
+                $liveDetails.loadSaveSlot2 = @{ ok = $false; error = $_.Exception.Message }
+            }
             Wait-BridgeWorldSettle -Port $bridgePort
             $liveDetails.worldSettle = $true
         }
