@@ -3,7 +3,7 @@
 WorldSphereMod3D PlayCUA runner.
 
 Executes YAML scenario scripts that drive the in-game BridgeRPC server and validate
-both telemetry and screenshot content with Anthropic Claude Opus vision.
+both telemetry and screenshot content with OmniRoute or Anthropic vision backends.
 
 Supported step actions:
   - load_save
@@ -16,19 +16,23 @@ Supported step actions:
 from __future__ import annotations
 
 import argparse
-import base64
 import json
 import os
 import re
-import subprocess
 import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+
+from vision import (
+    OmniRouteVisionValidator,
+    VisionValidationError,
+    VisionValidator,
+    VisionValidatorProtocol,
+)
 
 try:
     import yaml
@@ -241,89 +245,6 @@ class Win32Capture:
         return out_path
 
 
-class VisionValidationError(RuntimeError):
-    pass
-
-
-class VisionValidator:
-    """Use Anthropic vision (Claude) to validate screenshot content."""
-
-    def __init__(self, api_key: str | None, model: str = "claude-3-opus-20240229") -> None:
-        self.model = model
-        self.api_key = api_key
-        self.client = None
-
-        if api_key:
-            try:
-                import anthropic
-
-                self.client = anthropic.Anthropic(api_key=api_key)
-            except Exception as exc:
-                raise VisionValidationError("Anthropic SDK import failed; install with `pip install anthropic`.") from exc
-
-    def _build_prompt(self, prompt: str, criteria: Any) -> str:
-        block = json.dumps(criteria, indent=2, sort_keys=True) if criteria else "{}"
-        return (
-            "You are a strict visual regression checker for an end-to-end automation pipeline. "
-            "Evaluate the screenshot against the exact criteria and return only JSON."
-            "The JSON shape must be: "
-            '{"passes": bool, "reason": "text", "confidence": 0.0-1.0}.'
-            "\\n"
-            f"Scenario prompt: {prompt}\\n"
-            f"Expected criteria:\\n{block}"
-        )
-
-    def validate(self, image_path: Path, prompt: str, criteria: Any) -> Dict[str, Any]:
-        if self.client is None:
-            raise VisionValidationError("Anthropic client unavailable (missing API key)")
-        if not image_path.exists():
-            raise VisionValidationError(f"screenshot not found: {image_path}")
-
-        image_data = base64.b64encode(image_path.read_bytes()).decode("ascii")
-
-        msg = self.client.messages.create(
-            model=self.model,
-            max_tokens=1024,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": self._build_prompt(prompt, criteria)},
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "image/png",
-                                "data": image_data,
-                            },
-                        },
-                    ],
-                }
-            ],
-        )
-
-        full = ""
-        for block in msg.content:
-            if getattr(block, "type", "") == "text":
-                full += getattr(block, "text", "")
-            elif isinstance(block, str):
-                full += block
-
-        if not full.strip():
-            return {"passes": False, "reason": "empty vision model response"}
-
-        match = re.search(r"\{.*\}", full, re.S)
-        if not match:
-            return {"passes": False, "reason": f"vision response not json: {full[:180]}"}
-
-        try:
-            parsed = json.loads(match.group(0))
-        except Exception as exc:
-            return {"passes": False, "reason": f"vision json parse failed: {exc}"}
-
-        return parsed if isinstance(parsed, dict) else {"passes": False, "reason": "vision response was not an object"}
-
-
 def _telemetry_value(payload: Dict[str, Any], name: str) -> Any:
     key = name.strip()
     if key in payload:
@@ -381,7 +302,12 @@ def _assert_telemetry(step: Dict[str, Any], client: BridgeClient) -> Tuple[bool,
     return True, "telemetry checks passed"
 
 
-def _execute_scenario(scenario: Dict[str, Any], client: BridgeClient, screenshot: Win32Capture, validator: VisionValidator | None) -> Dict[str, Any]:
+def _execute_scenario(
+    scenario: Dict[str, Any],
+    client: BridgeClient,
+    screenshot: Win32Capture,
+    validator: VisionValidatorProtocol | None,
+) -> Dict[str, Any]:
     steps = scenario.get("steps") or []
     if not isinstance(steps, list):
         raise ValueError("steps must be a list")
@@ -441,7 +367,7 @@ def _execute_scenario(scenario: Dict[str, Any], client: BridgeClient, screenshot
                 required = bool(vision.get("required", True))
                 if validator is None:
                     if required:
-                        raise RuntimeError("screenshot vision check required but no Anthropic client available")
+                        raise RuntimeError("screenshot vision check required but no vision backend available")
                     details["vision"] = {"skipped": True, "reason": "validator unavailable"}
                 else:
                     result = validator.validate(img_path, prompt, criteria)
@@ -473,6 +399,36 @@ def _execute_scenario(scenario: Dict[str, Any], client: BridgeClient, screenshot
     }
 
 
+def _default_vision_backend() -> str:
+    if os.getenv("OMNROUTE_API_KEY", "").strip():
+        return "omniroute"
+    if os.getenv("ANTHROPIC_API_KEY", "").strip():
+        return "anthropic"
+    return "off"
+
+
+def _omniroute_model_from_env() -> str:
+    return (os.getenv("OMNROUTE_VISION_MODEL") or os.getenv("OMNROUTE_VISION_COMBO") or "").strip()
+
+
+def _create_vision_validator(args: argparse.Namespace) -> VisionValidatorProtocol | None:
+    backend = args.vision_backend or _default_vision_backend()
+    if backend == "off":
+        return None
+    if backend == "omniroute":
+        return OmniRouteVisionValidator(
+            api_key=args.omniroute_key,
+            base_url=args.omniroute_base_url,
+            model=args.omniroute_model,
+            timeout_s=args.omniroute_timeout,
+        )
+    if backend == "anthropic":
+        if not args.anthropic_key:
+            raise VisionValidationError("Anthropic vision selected but ANTHROPIC_API_KEY is missing")
+        return VisionValidator(args.anthropic_key, args.anthropic_model)
+    raise ValueError(f"unknown vision backend: {backend}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run WorldSphereMod3D PlayCUA scenario(s)")
     parser.add_argument("scenario", help="Path to YAML scenario")
@@ -484,6 +440,36 @@ def parse_args() -> argparse.Namespace:
         "--report",
         default="Tools/wsm3d-playcua/.reports/latest.json",
         help="Report output path",
+    )
+    parser.add_argument(
+        "--vision-backend",
+        choices=["omniroute", "anthropic", "off"],
+        default=None,
+        help=(
+            "Vision provider (default: omniroute if OMNROUTE_API_KEY set, "
+            "else anthropic if ANTHROPIC_API_KEY set, else off)"
+        ),
+    )
+    parser.add_argument(
+        "--omniroute-base-url",
+        default=os.getenv("OMNROUTE_BASE_URL", "http://127.0.0.1:20128/v1"),
+        help="OmniRoute OpenAI-compatible base URL (or OMNROUTE_BASE_URL)",
+    )
+    parser.add_argument(
+        "--omniroute-key",
+        default=os.getenv("OMNROUTE_API_KEY", ""),
+        help="OmniRoute API key (or OMNROUTE_API_KEY env)",
+    )
+    parser.add_argument(
+        "--omniroute-model",
+        default=_omniroute_model_from_env(),
+        help="OmniRoute model or combo (OMNROUTE_VISION_MODEL or OMNROUTE_VISION_COMBO)",
+    )
+    parser.add_argument(
+        "--omniroute-timeout",
+        type=float,
+        default=120.0,
+        help="HTTP timeout seconds for OmniRoute vision requests",
     )
     parser.add_argument(
         "--anthropic-model",
@@ -511,13 +497,12 @@ def main() -> int:
             return 1
 
     capture = Win32Capture()
-    validator = None
-    if args.anthropic_key:
-        try:
-            validator = VisionValidator(args.anthropic_key, args.anthropic_model)
-        except Exception as exc:
-            print(f"warning: vision disabled ({exc})")
-            validator = None
+    backend = args.vision_backend or _default_vision_backend()
+    try:
+        validator = _create_vision_validator(args)
+    except Exception as exc:
+        print(f"warning: vision disabled for backend={backend} ({exc})")
+        validator = None
 
     run = _execute_scenario(scenario, client, capture, validator)
     ok = all(step["ok"] for step in run["steps"])
