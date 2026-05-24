@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text.RegularExpressions;
 using FluentAssertions;
 using Xunit;
 
@@ -130,5 +131,26 @@ public class BuildingProcGenInvariantsTests
 
         registerBody.Should().Contain("ProcGenCache.Invalidate(assetId)",
             "rules overrides must drop cached meshes so orientation/openings regenerate");
+    }
+
+    [Fact]
+    public void ProcGenCache_must_not_retain_transient_fallback_meshes()
+    {
+        var cache = ReadSourceFile("WorldSphereMod/Code/ProcGen/ProcGenCache.cs");
+        var meshGen = ReadSourceFile("WorldSphereMod/Code/ProcGen/BuildingMeshGen.cs");
+
+        Regex.IsMatch(meshGen, @"public\s+static\s+bool\s+IsTransientMesh\s*\(\s*Mesh\?\s*mesh\s*\)")
+            .Should().BeTrue("BuildingMeshGen must expose transient-mesh detection for the cache layer");
+
+        Regex.IsMatch(meshGen, @"ReferenceEquals\s*\(\s*mesh\s*,\s*_sharedUnreadableFallback\s*\)")
+            .Should().BeTrue("transient detection must identify the shared unreadable fallback mesh");
+
+        Regex.IsMatch(cache, @"if\s*\(\s*m\s*==\s*null\s*\|\|\s*BuildingMeshGen\.IsTransientMesh\s*\(\s*m\s*\)\s*\)\s*return\s+m\s*;")
+            .Should().BeTrue("GetOrGenerate must skip caching null and transient fallback meshes");
+
+        meshGen.Should().NotMatchRegex(@"procgen:fallback:",
+            "per-asset fallback cubes must not be generated — they poison ProcGenCache");
+        meshGen.Should().NotMatchRegex(@"procgen:unreadable:",
+            "per-asset unreadable cubes must not be generated — they poison ProcGenCache");
     }
 }
