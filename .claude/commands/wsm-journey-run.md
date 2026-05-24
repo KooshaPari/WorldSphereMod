@@ -5,11 +5,11 @@ argument-hint: <journey id> (required)
 
 # wsm-journey-run
 
-Execute a single test journey and stream the results.
+Verify a single journey by ID and stream the results.
 
 ## What This Does
 
-1. Runs a journey by ID (e.g., `us-wsm-phase-1-buildings`)
+1. Verifies a journey by ID (e.g., `us-wsm-phase-1-buildings`)
 2. Streams the journey output to console
 3. On failure, parses `manifest.verified.json` to summarize OCR assertion failures
 4. Reports final pass/fail status
@@ -25,7 +25,7 @@ if ($ARGS.Count -eq 0) {
     exit 1
 }
 $journeyId = $ARGS[0]
-$result = & pwsh -File "$wsmRoot/Tools/wsm3d.ps1" journey run -Id $journeyId
+$result = & pwsh -File "$wsmRoot/Tools/wsm3d.ps1" journey verify -Id $journeyId
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Journey failed. Reading failure summary..."
     $manifest = Get-Content "journeys/$journeyId/manifest.verified.json" | ConvertFrom-Json
@@ -68,4 +68,6 @@ Journey FAILED. Failed assertions:
   - Building 3 color: Pixel variance 12% > 5% tolerance
 ```
 
-Use `/wsm-validate-all` to run all 10 phase journeys at once.
+By default this uses mock verification. Use `-Live` when you want to validate against a live game session.
+
+Use `/wsm-validate-all` to verify all 10 phase journeys at once.

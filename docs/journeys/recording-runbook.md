@@ -72,10 +72,12 @@ but the capture discipline applies to any future journey added under
 
 Use both layers, but do not confuse them:
 
-- `phenotype-journey verify --mode mock` checks manifest shape and OCR
-  expectations without needing the game.
-- `phenotype-journey verify --mode live` checks the actual captured frames
-  and should be run once the screenshots are in place.
+- `phenotype-journey verify <manifest> --mock` checks manifest shape and
+  OCR expectations without needing the game.
+- `phenotype-journey verify <manifest> --live` checks the actual captured
+  frames and should be run once the screenshots are in place.
+
+These are the supported phenotype-journey flags for verification.
 
 ## Live capture checklist
 

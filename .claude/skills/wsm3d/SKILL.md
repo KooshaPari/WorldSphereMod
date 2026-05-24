@@ -29,7 +29,7 @@ description: Use when working on WorldSphereMod3D fork — building, installing,
 | `install` | Run install.ps1 to copy DLL + assets to mod folder | `& "C:/Users/koosh/Dev/WorldSphereMod/install.ps1"` |
 | `launch` | Steam launch WorldBox (triggers NML compile + load) | `Start-Process "steam://rungameid/1206560"` |
 | `tail-log` | Stream Player.log for [WSM3D] tags or compile errors | `Get-Content -Path "$env:USERPROFILE/AppData/LocalLow/mkarpenko/WorldBox/Player.log" -Wait -Tail 50` |
-| `journey` | Run a render validation journey (Tools/wsm3d.ps1) | `& "C:/Users/koosh/Dev/WorldSphereMod/Tools/wsm3d.ps1" -Journey "phase_1_voxel"` |
+| `journey` | Verify a render validation journey (Tools/wsm3d.ps1) | `& "C:/Users/koosh/Dev/WorldSphereMod/Tools/wsm3d.ps1" journey verify -Id "phase_1_voxel"` |
 
 ## Common workflows
 
@@ -74,17 +74,17 @@ Select-String -Path "$env:USERPROFILE/AppData/LocalLow/mkarpenko/WorldBox/Player
 3. **Render check:** Ensure `VoxelRender.cs` Postfix respects the phase's enabled flag before setting `has_normal_render[i] = false`
 4. Build, install, test in-game
 
-### Run a Phenotype journey for Phase validation
+### Verify a Phenotype journey for Phase validation
 1. Journey manifests live in `docs/journeys/manifests/` (YAML)
 2. Invoke via Tools/wsm3d.ps1:
    ```pwsh
    & "C:/Users/koosh/Dev/WorldSphereMod/Tools/wsm3d.ps1" `
-     -Journey "phase_N_validation" `
-     -GamePath "C:/Program Files (x86)/Steam/steamapps/common/worldbox" `
-     -OutputDir "C:/tmp/wsm3d-renders"
+     journey verify -Id "phase_N_validation"
    ```
-3. Check output screenshots in `C:/tmp/wsm3d-renders/` for visual correctness
-4. Cross-reference Player.log for compile + render errors during the journey run
+   Mock verification is the default. Add `-Live` for live-session validation.
+3. Check output screenshots in `C:/tmp/wsm3d-renders/` for visual correctness when you run capture separately.
+4. Cross-reference Player.log for compile + render errors during the journey verify pass.
+5. Use `wsm3d journey capture` when you need screenshots without verification.
 
 ## Pitfalls (real, observed)
 

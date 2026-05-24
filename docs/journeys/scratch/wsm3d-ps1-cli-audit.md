@@ -12,10 +12,11 @@ Scope: `Tools/wsm3d.ps1`, `Tools/wsm3d.completion.ps1`, and the journey docs tha
 
 ## Findings
 
+- Historical note: the dispatcher/help references below reflected the older CLI shape at the time of this audit. The current canonical journey contract is `journey verify -Id <id>` or `journey verify <manifest-path>`, with `capture` still supported as a separate path.
 - Undocumented / orphaned subcommand: `journey capture -Id <id> [-NonInteractive]`.
   - `Invoke-JourneyCapture` exists in `Tools/wsm3d.ps1:791` and ends with a success message at `Tools/wsm3d.ps1:868`.
-  - The dispatcher only accepts `journey list`, `journey run`, and `journey verify` at `Tools/wsm3d.ps1:1255-1284`.
-  - `Show-Help` documents only `journey list`, `journey run`, and `journey verify` at `Tools/wsm3d.ps1:1052-1058`.
+  - The dispatcher/help snapshot from the audit era reflected an older journey enumeration/run split; the current contract is `journey verify` plus `journey capture`.
+  - `Show-Help` documents only `journey verify` and `journey capture` in the current completion/help path.
   - `Tools/wsm3d.completion.ps1` still offers `capture`, and `docs/journeys/CONTRIBUTING.md:72` tells users to run it.
 - Flag casing consistency:
   - External CLI flags are consistently PascalCase with a single leading dash: `-Key`, `-Value`, `-Force`, `-Json`, `-DryRun`, `-Launch`, `-NoBuild`, `-Tail`, `-Follow`, `-Grep`, `-Path`, `-WindowOnly`, `-Filter`, `-Phase`, `-Id`, `-Configuration`.

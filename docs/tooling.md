@@ -28,9 +28,7 @@ dotnet tool install --global --add-source ./Tools/wsm3d-cli-nupkg ./Tools/wsm3d-
 | `settings set` | `<key> <value>` | Write a SavedSettings flag. Accepts bool/int/float strings. |
 | `toggle` | `<key>` | Flip a bool SavedSettings flag. Useful in hot-reload loops. |
 | `status` | | Print game PID, mod folder path, last build time. |
-| `journey list` | | Show all manifest IDs in `Tools/journeys/manifests/`. |
-| `journey run` | `-Id <id>` `[-Seed <int>]` | Execute a manifest: spawn world, run screenshot+OCR assertions, return exit code. |
-| `journey verify` | `-Id <id>` | Dry-run a manifest (check assertions only, don't launch game). |
+| `journey verify` | `-Id <id>` or `<manifest-path>` `[-Live]` | Resolve a manifest by ID or path and verify it with `phenotype-journey verify <manifest> --mock` by default. |
 | `watch` | `[-Dir <path>]` | Poll `Code/` folder (or `-Dir` path) for changes; auto-rebuild + reinstall + reload on save. Debounce 1s. |
 | `help` | `[<command>]` | Print command reference. |
 
@@ -49,8 +47,8 @@ wsm3d toggle VoxelActors
 # Watch for edits and hot-reload
 wsm3d watch -Dir .\WorldSphereMod\Code
 
-# Run a journey manifest
-wsm3d journey run -Id smoke-test-phase1 -Seed 12345
+# Verify a journey manifest in mock mode
+wsm3d journey verify -Id smoke-test-phase1
 
 # Stream the game log
 wsm3d log -Follow
@@ -93,9 +91,9 @@ The server listens on `stdio` (Claude Code integration) or HTTP port `8766` (rem
 | `wsm3d_settings_set` | `key: string`, `value: string` | Confirmation or error |
 | `wsm3d_toggle` | `key: string` | New bool value |
 | `wsm3d_status` | | JSON: {pid, mod_folder, last_build, uptime_seconds} |
-| `wsm3d_journey_list` | | JSON array of manifest IDs |
-| `wsm3d_journey_run` | `id: string`, `seed: int \| null` | Exit code, screenshot path, assertion results |
-| `wsm3d_journey_verify` | `id: string` | Assertion dry-run results |
+| `wsm3d_journey_list` | | Deprecated wrapper-local alias that returns local manifest IDs only |
+| `wsm3d_journey_run` | `id: string` | Deprecated wrapper-local alias that performs mock verification only |
+| `wsm3d_journey_verify` | `ref: string`, `live: bool \| null` | Assertion results from `phenotype-journey verify` |
 | `wsm3d_watch` | `dir: string \| null` | Watch event stream (file changed → rebuild → reinstall event) |
 | `wsm3d_get_worldbox_path` | | Detected or env-configured WorldBox path |
 | `wsm3d_get_version` | | CLI + server version string |
@@ -125,7 +123,7 @@ Ten Claude Code slash commands that wrap the most common workflows. Each is a co
 | `/wsm-screenshot` | `wsm3d screenshot` | Capture screen; auto-timestamps. |
 | `/wsm-status` | `wsm3d status` | Check build time, game PID, mod folder. |
 | `/wsm-toggle` | Prompt for flag, then `wsm3d toggle <flag>` | Runtime feature toggle. |
-| `/wsm-journey` | Prompt for manifest ID, then `wsm3d journey run` | Run a test manifest. |
+| `/wsm-journey` | Prompt for manifest ID, then `wsm3d journey verify` | Verify a test manifest in mock mode. |
 | `/wsm-watch` | `wsm3d watch` | Auto-rebuild on save. |
 
 Type `/wsm-` and hit Tab to see all available commands in Claude Code.
@@ -140,7 +138,7 @@ The skill is invoked automatically when your prompt mentions a **phase**, **jour
 
 ## Phenotype journeys and manifests
 
-A **journey manifest** is a YAML file under `Tools/journeys/manifests/` that describes a test scenario: spawn a world with a seed, take a screenshot, assert pixel patterns on screen, and report a pass/fail.
+A **journey manifest** is a JSON file under `docs/journeys/manifests/<id>/manifest.json` that describes a test scenario: spawn a world with a seed, take a screenshot, assert pixel patterns on screen, and report a pass/fail.
 
 ### Capturing a screenshot journey
 
@@ -164,9 +162,9 @@ steps:
       - type: must_contain
         text: "Voxel"
         confidence: 0.8
-"@ | Set-Content .\Tools\journeys\manifests\smoke-test-my-phase.yaml
+"@ | Set-Content .\docs\journeys\manifests\smoke-test-my-phase\manifest.json
 # 5. Run it
-wsm3d journey run -Id smoke-test-my-phase
+wsm3d journey verify -Id smoke-test-my-phase
 ```
 
 ### OCR assertion DSL
@@ -197,7 +195,7 @@ assertions:
     code: 0
 ```
 
-See schema at `Tools/journeys/schema.json` for the full manifest structure.
+See the manifest files under `docs/journeys/manifests/` for the full structure and current field shape.
 
 ## Hot-reload watch
 
@@ -249,12 +247,12 @@ Or, automate the assertion:
 # Build, install, launch, wait, screenshot, and verify with a journey
 wsm3d build && wsm3d install && wsm3d launch
 Start-Sleep -Seconds 15
-wsm3d journey run -Id smoke-test-phase1 -Seed 999
+wsm3d journey verify -Id smoke-test-phase1
 # Exit code 0 = all assertions passed
 ```
 
 ::: warning
-The `journey run` command blocks until the game world loads, assertions complete, and the game exits. Allow 30–60 seconds per run in a CI environment.
+Use `journey verify` for both mock and live verification. Mock mode is the default; pass `-Live` to map to `phenotype-journey verify --live`.
 :::
 
 ## See also

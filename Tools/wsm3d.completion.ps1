@@ -89,9 +89,16 @@ Register-ArgumentCompleter -Native -CommandName "wsm3d.ps1", "wsm3d" -ScriptBloc
         }
 
         "phases" {
-            # phases <list>
+            # phases <list|enable-all|preset>
             if ($elements.Count -le 3) {
-                @("list") |
+                @("list", "enable-all", "preset") |
+                    Where-Object { $_ -like "$wordToComplete*" } |
+                    ForEach-Object {
+                        [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+                    }
+            }
+            elseif ($arg2 -eq "preset" -and $elements.Count -le 4) {
+                @("safe-min") |
                     Where-Object { $_ -like "$wordToComplete*" } |
                     ForEach-Object {
                         [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
@@ -100,16 +107,16 @@ Register-ArgumentCompleter -Native -CommandName "wsm3d.ps1", "wsm3d" -ScriptBloc
         }
 
         "journey" {
-            # journey <list|run|verify|capture>
+            # journey <verify|capture>
             if ($elements.Count -le 3) {
-                @("list", "run", "verify", "capture") |
+                @("verify", "capture") |
                     Where-Object { $_ -like "$wordToComplete*" } |
                     ForEach-Object {
                         [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
                     }
             }
-            # journey run/verify/capture -Id <journey-id>
-            elseif ($arg2 -in @("run", "verify", "capture")) {
+            # journey verify/capture -Id <journey-id>
+            elseif ($arg2 -in @("verify", "capture")) {
                 if ($arg3 -eq "-Id") {
                     # Load journey IDs from manifest
                     $journeyIds = @()

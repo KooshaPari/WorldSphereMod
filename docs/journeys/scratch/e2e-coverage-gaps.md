@@ -19,10 +19,10 @@ Scope: `docs/journeys/manifests/*/manifest.json` vs `PLAN.md` phases 1-10, plus 
 
 ## Harness support
 
-`Tools/wsm3d.ps1` adds the operational driver for journeys: `journey list`, `journey run`, `journey verify`, `journey capture`, `settings toggle`, and `screenshot`. It can toggle phase flags and capture manifest steps, but it does not add scenario diversity beyond what the manifest declares.
+`Tools/wsm3d.ps1` adds the operational driver for journeys: `journey verify`, `journey capture`, `settings toggle`, and `screenshot`. The old legacy enumeration/run flow is superseded by the manifest/id-based verify flow. It can toggle phase flags and capture manifest steps, but it does not add scenario diversity beyond what the manifest declares.
 
 `Tools/wsm3d-mcp/` mirrors that surface for MCP use:
-- `wsm3d_mcp/tools/journey.py` shells to `phenotype-journey list/run/verify`.
+- `wsm3d_mcp/tools/journey.py` shells to `phenotype-journey verify` with manifest-path or `-Id` input; the historical `list/run` pair is obsolete.
 - `wsm3d_mcp/tools/settings.py` toggles SavedSettings booleans.
 - `wsm3d_mcp/tools/game.py` handles launch/kill/screenshot.
 - `wsm3d_mcp/server.py` exposes those as `journey_*`, `settings_*`, and `game_*` tools.

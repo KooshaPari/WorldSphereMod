@@ -8,7 +8,7 @@ Execute the entire test suite (all 10 phase journeys) back-to-back.
 
 ## What This Does
 
-1. Runs journeys for phases 1–10 in sequence
+1. Verifies journeys for phases 1–10 in sequence
 2. Collects pass/fail status for each phase
 3. Reports aggregate results and timings
 4. Fails early if any phase fails (stops further execution)
@@ -19,17 +19,28 @@ This is the primary validation workflow before shipping a build.
 
 ```pwsh
 $wsmRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$phases = @(1..10)
+$journeys = @(
+    "docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json",
+    "docs/journeys/manifests/us-wsm-phase-2-mesh-buildings/manifest.json",
+    "docs/journeys/manifests/us-wsm-phase-3-crossed-foliage/manifest.json",
+    "docs/journeys/manifests/us-wsm-phase-4-mesh-water/manifest.json",
+    "docs/journeys/manifests/us-wsm-phase-5-shadows/manifest.json",
+    "docs/journeys/manifests/us-wsm-phase-6-skeletal/manifest.json",
+    "docs/journeys/manifests/us-wsm-phase-7-worldspace-ui/manifest.json",
+    "docs/journeys/manifests/us-wsm-phase-8-day-night/manifest.json",
+    "docs/journeys/manifests/us-wsm-phase-9-postfx/manifest.json",
+    "docs/journeys/manifests/us-wsm-phase-10-lod-impostor/manifest.json"
+)
 $results = @{}
 $totalStart = Get-Date
 
-foreach ($phase in $phases) {
-    $journeyId = "us-wsm-phase-$phase-*"
-    Write-Host "Running phase $phase..."
-    & pwsh -File "$wsmRoot/Tools/wsm3d.ps1" journey run -Id $journeyId
-    $results["phase-$phase"] = $LASTEXITCODE -eq 0
+foreach ($journey in $journeys) {
+    $name = Split-Path (Split-Path $journey -Parent) -Leaf
+    Write-Host "Running $name..."
+    & pwsh -File "$wsmRoot/Tools/wsm3d.ps1" journey verify $journey
+    $results[$name] = $LASTEXITCODE -eq 0
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "✗ Phase $phase failed. Stopping."
+        Write-Host "✗ $name failed. Stopping."
         break
     }
 }
@@ -38,8 +49,8 @@ $totalElapsed = (Get-Date) - $totalStart
 Write-Host "`nValidation Summary:"
 $passed = ($results.Values | Where-Object { $_ }).Count
 $failed = ($results.Values | Where-Object { -not $_ }).Count
-Write-Host "Passed: $passed/10"
-Write-Host "Failed: $failed/10"
+Write-Host "Passed: $passed/$($journeys.Count)"
+Write-Host "Failed: $failed/$($journeys.Count)"
 Write-Host "Total time: $($totalElapsed.TotalMinutes)m"
 
 if ($failed -gt 0) { exit 1 }
@@ -79,5 +90,7 @@ Passed: 1/10
 Failed: 1/10 (phases 2-10 skipped)
 Total time: 1.4m
 ```
+
+Mock verification is the default for these journeys. Use `-Live` when you need live-session validation.
 
 Use this before merging to verify all phases work correctly.

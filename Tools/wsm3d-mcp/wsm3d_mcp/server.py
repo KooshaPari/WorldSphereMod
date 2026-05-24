@@ -42,18 +42,18 @@ logger = logging.getLogger("wsm3d_mcp")
 # FastMCP Server
 # ============================================================================
 
-    mcp = FastMCP(
-        "wsm3d",
-        instructions=(
-            "WorldSphereMod3D unified MCP server. "
-            "game_* tools: game process management and screenshots. "
-            "log_* tools: Player.log analysis (tail, grep, clear). "
-            "settings_* tools: SavedSettings.json I/O. "
-            "build_*: mod compilation and deployment (wraps wsm3d.ps1). "
-            "journey_*: phenotype-journey integration. "
-            "codex_*: codex CLI helpers."
-        ),
-    )
+mcp = FastMCP(
+    "wsm3d",
+    instructions=(
+        "WorldSphereMod3D unified MCP server. "
+        "game_* tools: game process management and screenshots. "
+        "log_* tools: Player.log analysis (tail, grep, clear). "
+        "settings_* tools: SavedSettings.json I/O. "
+        "build_*: mod compilation and deployment (wraps wsm3d.ps1). "
+        "journey_*: phenotype-journey integration. "
+        "codex_*: codex CLI helpers."
+    ),
+)
 
 # ============================================================================
 # GAME CONTROL TOOLS
@@ -207,8 +207,8 @@ async def mod_relaunch(ctx: Context, no_build: bool = False) -> dict:
 @mcp.tool()
 async def journey_list(ctx: Context) -> dict:
     """
-    List available phenotype-journey manifests.
-    Returns {journeys: list[{id: str, intent: str}]}.
+    Deprecated wrapper-local alias that lists local manifest IDs for compatibility.
+    Returns {ok: bool, deprecated: bool, warning: str, journeys: list[{id: str, intent: str}]}.
     """
     return await journey.journey_list()
 
@@ -216,19 +216,19 @@ async def journey_list(ctx: Context) -> dict:
 @mcp.tool()
 async def journey_run(ctx: Context, journey_id: str) -> dict:
     """
-    Run a phenotype-journey by ID.
-    Returns {ok: bool, manifest_path: str, recording_path: str, verified_path: str}.
+    Deprecated wrapper-local alias that runs mock verification by ID for compatibility.
+    Returns {ok: bool, deprecated: bool, warning: str, manifest_path: str}.
     """
     return await journey.journey_run(journey_id)
 
 
 @mcp.tool()
-async def journey_verify(ctx: Context, journey_id: str) -> dict:
+async def journey_verify(ctx: Context, journey_ref: str, live: bool = False) -> dict:
     """
-    Verify a journey result.
-    Returns {ok: bool, score: float, violations: list[str]}.
+    Verify a journey manifest by ID or path.
+    Returns {ok: bool, mode: str, score: float, violations: list[str]}.
     """
-    return await journey.journey_verify(journey_id)
+    return await journey.journey_verify(journey_ref, live)
 
 
 # ============================================================================

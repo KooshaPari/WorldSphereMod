@@ -95,13 +95,13 @@ Strict asset validation requires each step screenshot to exist and resolves opti
 
 Mock mode uses Tesseract OCR locally (no API key needed):
 ```powershell
-phenotype-journey verify docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json --mode mock
+phenotype-journey verify docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json --mock
 ```
 
 Live mode (with Anthropic's Vision API) requires `ANTHROPIC_API_KEY`:
 ```powershell
 $env:ANTHROPIC_API_KEY = "sk-..."
-phenotype-journey verify docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json --mode live
+phenotype-journey verify docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json --live
 ```
 
 Mock mode is free + deterministic; use it for local iteration. Live mode is more accurate on OCR-mangled text.
@@ -114,7 +114,7 @@ git commit -m "feat: journey for Phase 1 voxel actors"
 git push origin feat/phase-1-voxel-actors
 ```
 
-The CI gate `.github/workflows/journeys-gate.yml` will re-run `phenotype-journey verify` in live mode. If it passes in CI, your journey is solid.
+The CI gate `.github/workflows/journeys-gate.yml` will re-run `phenotype-journey verify --live`. If it passes in CI, your journey is solid.
 
 ## Assertion DSL
 

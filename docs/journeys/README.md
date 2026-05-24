@@ -365,9 +365,8 @@ cargo build --release
 
 **Usage**:
 ```bash
-phenotype-journey verify \
-  --manifest docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json \
-  --screenshot-dir docs/journeys/manifests/us-wsm-phase-1-voxel-actors
+phenotype-journey verify docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json --mock
+phenotype-journey verify docs/journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json --live
 ```
 
 Output: Updated `manifest.json` with:
@@ -405,13 +404,17 @@ The `index.json` at `docs/journeys/manifests/index.json` lists all journeys:
 ]
 ```
 
-A journey runner can enumerate all journeys via this index and verify them in batch:
+Journey verification is driven per manifest. For batch runs, use `task journeys`,
+`just journeys`, or a loop over manifest paths.
 
 ```bash
-phenotype-journey verify-all \
-  --index docs/journeys/manifests/index.json \
-  --screenshot-dir docs/journeys/manifests
+# Example:
+for manifest in docs/journeys/manifests/*/manifest.json; do
+  phenotype-journey verify "$manifest" --mock
+done
 ```
+
+Mock mode is the default contract and maps to `phenotype-journey verify <manifest> --mock`. Use `--live` only when validating against live captures.
 
 ## WSM3D-Specific Notes
 

@@ -7,7 +7,7 @@ Goal: turn the existing phase preview screenshots into a repeatable regression g
 - Canonical fixtures already exist at `docs/journeys/phase-previews/<phase>/before.png` and `after.png`.
 - `Tools/wsm3d-capture` is the preferred capture primitive because it targets the running WorldBox window directly.
 - `Tools/wsm3d.ps1 screenshot` stays available as the manual fallback and debug path.
-- `phenotype-journey verify --mode mock` remains a manifest/schema preflight, not the visual diff gate.
+- `phenotype-journey verify <manifest> --mock` remains a manifest/schema preflight, not the visual diff gate.
 
 ## Workflow
 
@@ -44,7 +44,7 @@ Goal: turn the existing phase preview screenshots into a repeatable regression g
 
 - `Tools/wsm3d-capture` should own window capture and file output.
 - `Tools/wsm3d.ps1 screenshot` should remain the human-friendly wrapper for ad hoc captures.
-- `phenotype-journey verify --mode mock` can still run as a preflight step to catch manifest drift, but it should not be treated as proof that the visuals are correct.
+- `phenotype-journey verify <manifest> --mock` can still run as a preflight step to catch manifest drift, but it should not be treated as proof that the visuals are correct.
 
 ## Failure Modes
 

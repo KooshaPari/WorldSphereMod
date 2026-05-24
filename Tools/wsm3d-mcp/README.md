@@ -91,9 +91,16 @@ The config at `.claude/mcp-servers.json` has two entries:
 
 ### Phenotype Journeys
 
-- `journey_list()` → {journeys: list[{id, intent}]}
-- `journey_run(id)` → {ok, manifest_path, recording_path, verified_path}
-- `journey_verify(id)` → {ok, score, violations: list[str]}
+- `journey_verify(ref, live=False)` → {ok, mode, score, violations: list[str]}
+- `journey_list()` → deprecated wrapper-local alias that lists local manifest IDs only
+- `journey_run(id)` → deprecated wrapper-local alias that performs mock verification only
+
+Examples:
+
+```powershell
+wsm3d journey verify -Id smoke-test-phase1
+wsm3d journey verify .\docs\journeys\manifests\us-wsm-phase-1-voxel-actors\manifest.json -Live
+```
 
 ### Codex integration
 

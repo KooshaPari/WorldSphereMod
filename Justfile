@@ -111,44 +111,7 @@ release-check: release-prep
 
 # Verify all Phenotype journey manifests in mock mode (offline, deterministic).
 journeys:
-    #!/bin/bash
-    set -euo pipefail
-
-    # Try to find phenotype-journey on PATH; if not, build it locally.
-    if command -v phenotype-journey &> /dev/null; then
-      PJ_BIN="phenotype-journey"
-      echo "Using phenotype-journey from PATH"
-    else
-      CACHE_DIR="tools/.cache/phenotype-journeys"
-      PJ_BIN="$CACHE_DIR/target/release/phenotype-journey"
-
-      if [ ! -f "$PJ_BIN" ]; then
-        echo "Building phenotype-journey to $CACHE_DIR..."
-        mkdir -p "$CACHE_DIR"
-        if ! git clone https://github.com/KooshaPari/phenotype-journeys "$CACHE_DIR" 2>&1 | grep -v "Cloning into"; then
-          echo "✗ Failed to clone phenotype-journeys"
-          exit 1
-        fi
-        cd "$CACHE_DIR"
-        if ! cargo build --release --bin phenotype-journey 2>&1 | tail -10; then
-          echo ""
-          echo "✗ Build failed (requires Rust nightly for edition2024)"
-          echo "  Install: rustup default nightly"
-          echo "  Then: just journeys"
-          exit 1
-        fi
-        cd - > /dev/null
-      fi
-    fi
-
-    echo ""
-    echo "Verifying manifests in mock mode..."
-    for manifest in $(find docs/journeys/manifests -maxdepth 2 -name "manifest.json" | sort); do
-      phase_id=$(basename $(dirname "$manifest"))
-      "$PJ_BIN" verify "$manifest" --mode mock 2>&1 | head -1 && echo "  ✓ $phase_id"
-    done
-    echo ""
-    echo "All manifests verified."
+    powershell.exe -NoLogo -NoProfile -File Tools/verify-journeys.ps1
 
 # Build journey-records crate.
 journey-records-build:
