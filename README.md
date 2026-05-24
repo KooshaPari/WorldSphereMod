@@ -70,6 +70,73 @@ dotnet build WorldSphereMod.csproj -c Release
 If `WORLDBOX_PATH` is unset the build falls back to the default Steam
 location for the host OS (see `Directory.Build.props`).
 
+## Testing
+
+Full gate layout (programmatic vs agentic, OmniRoute vision, bridge checklist):
+[`docs/live-verification.md`](docs/live-verification.md).
+
+### dotnet test
+
+Fast, CI-friendly checks — API surface, install/manifest contracts, bridge source
+invariants, harness preflight:
+
+```powershell
+dotnet test tests/WorldSphereMod.Tests.Unit
+dotnet test tests/WorldSphereMod.Tests.Integration
+dotnet test tests/WorldSphereMod.Tests.E2E
+```
+
+Or run the full suite via the CLI: `./Tools/wsm3d.ps1 test` (same three projects).
+
+### wsm-live-verify.ps1
+
+Orchestrates the programmatic pipeline and optional live stages; writes
+`Tools/.reports/live-verify-latest.json`:
+
+```powershell
+# Offline (CI-equivalent): dotnet test + journey mock verify
+pwsh Tools/wsm-live-verify.ps1
+
+# With WorldBox + bridge on :8766: PlayCUA scenarios + optional SSIM
+pwsh Tools/wsm-live-verify.ps1 -Live
+pwsh Tools/wsm-live-verify.ps1 -Live -Vision   # OmniRoute vision on screenshot steps
+```
+
+Stages: (1) `dotnet test` unit/integration/e2e, (2) `phenotype-journey verify --mock`,
+(3) `[-Live]` bridge + all `sample-scenarios/*.yaml` + SSIM vs `phase-previews/`,
+(4) JSON report.
+
+### playcua run-all
+
+Agentic gate — requires a running game, mod installed, and BridgeRPC on
+`127.0.0.1:8766`. Runs every YAML under `Tools/wsm3d-playcua/sample-scenarios/`:
+
+```powershell
+pip install -r Tools/wsm3d-playcua/requirements.txt
+pwsh Tools/wsm3d.ps1 launch
+Start-Sleep -Seconds 20
+pwsh Tools/wsm3d.ps1 playcua run-all
+pwsh Tools/wsm3d.ps1 playcua run-all -VisionBackend omniroute
+```
+
+Per-scenario artifacts land in `Tools/wsm3d-playcua/.reports/run-all-artifacts/`.
+
+### CI gates
+
+| Workflow | What it enforces |
+|---|---|
+| `build.yml` | `dotnet build` Release |
+| `test-gate.yml` | Unit + integration tests (E2E not in this gate) |
+| `live-verify-gate.yml` | Offline stages 1–2 of `wsm-live-verify.ps1` (`dotnet test` + journey mock) |
+| `lint-gate.yml` | Format / analyzers |
+| `journeys-gate.yml` | Journey JSON + fixture PNGs when `docs/journeys/**` changes |
+| `docs-build-gate.yml` | Docs site build when docs change |
+| `nightly.yml` | Full test matrix including E2E (integration may be allowed to fail) |
+
+**PR merge bar:** green `build`, `test-gate`, `lint-gate`, `journeys-gate` (when
+journeys change), and `docs-build-gate` (when docs change). PlayCUA, OmniRoute
+vision, and live journey capture stay local until a Windows game runner exists.
+
 ## API
 
 External mods linking against `WorldSphereAPI.dll` keep the v1 surface
