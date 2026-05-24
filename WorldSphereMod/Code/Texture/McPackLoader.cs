@@ -1,95 +1,43 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Newtonsoft.Json;
 using UnityEngine;
 using NeoModLoader.utils;
+using WorldSphereMod.Import;
 
 namespace WorldSphereMod.Textures
 {
     public static class McPackLoader
     {
-        public sealed class AtlasRect
-        {
-            public int X { get; set; }
-            public int Y { get; set; }
-            public int Width { get; set; }
-            public int Height { get; set; }
-            public float UvX { get; set; }
-            public float UvY { get; set; }
-            public float UvWidth { get; set; }
-            public float UvHeight { get; set; }
-        }
-
-        public sealed class TextureMapping
-        {
-            [JsonProperty("mc_block_name")]
-            public string McBlockName { get; set; } = string.Empty;
-
-            [JsonProperty("wsm3d_class")]
-            public string Wsm3dClass { get; set; } = string.Empty;
-
-            [JsonProperty("rect")]
-            public AtlasRect Rect { get; set; } = new();
-
-            [JsonProperty("normal_rect")]
-            public AtlasRect? NormalRect { get; set; }
-        }
-
-        public sealed class McPackManifest
-        {
-            [JsonProperty("pack_name")]
-            public string PackName { get; set; } = string.Empty;
-
-            [JsonProperty("source_path")]
-            public string SourcePath { get; set; } = string.Empty;
-
-            [JsonProperty("source_hash")]
-            public string SourceHash { get; set; } = string.Empty;
-
-            [JsonProperty("atlas_rgb")]
-            public string AtlasRgb { get; set; } = string.Empty;
-
-            [JsonProperty("atlas_bundle")]
-            public string? AtlasBundle { get; set; }
-
-            [JsonProperty("atlas_normal")]
-            public string? AtlasNormal { get; set; }
-
-            [JsonProperty("atlas_width")]
-            public int AtlasWidth { get; set; }
-
-            [JsonProperty("atlas_height")]
-            public int AtlasHeight { get; set; }
-
-            [JsonProperty("mappings")]
-            public List<TextureMapping> Mappings { get; set; } = new();
-        }
-
         static readonly int _mainTexId = Shader.PropertyToID("_MainTex");
         static readonly int _baseMapId = Shader.PropertyToID("_BaseMap");
         static readonly int _normalMapId = Shader.PropertyToID("_BumpMap");
         static readonly string _bundleAtlasAssetName = "atlas";
 
-        static readonly string ConfigRoot = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            "AppData",
-            "LocalLow",
-            "mkarpenko",
-            "WorldBox",
-            "mods_config",
-            "wsm3d-texturepack");
+        static readonly string ConfigRoot = TexturePackImporter.GetImportCacheRoot();
 
         static bool _initialized;
         static bool _isLoaded;
         static Texture2D? _mainAtlas;
         static Texture2D? _normalAtlas;
-        static McPackManifest? _manifest;
+        static McPackManifestIO.McPackManifest? _manifest;
 
-        public static void Initialize()
+        public static void Initialize(string? manifestStubPath = null)
         {
             if (_initialized) return;
             _initialized = true;
+
+            if (!IsMcPackTexturesEnabled())
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(manifestStubPath)
+                && File.Exists(manifestStubPath)
+                && TryBindImporterStubManifest(manifestStubPath))
+            {
+                return;
+            }
 
             if (!Directory.Exists(ConfigRoot))
             {
@@ -97,15 +45,6 @@ namespace WorldSphereMod.Textures
             }
 
             TryLoadLatestManifest();
-            if (!_isLoaded)
-            {
-                return;
-            }
-
-            if (_manifest == null || _manifest.Mappings.Count == 0)
-            {
-                return;
-            }
         }
 
         public static void ApplyToMaterial(Material material)
@@ -125,6 +64,27 @@ namespace WorldSphereMod.Textures
             {
                 material.SetTexture(_normalMapId, _normalAtlas);
             }
+        }
+
+        static bool IsMcPackTexturesEnabled() =>
+            Core.savedSettings != null && Core.savedSettings.EnableMcPackTextures;
+
+        static bool TryBindImporterStubManifest(string manifestPath)
+        {
+            if (!McPackManifestIO.TryParseManifestFile(manifestPath, out var manifest, out bool isImporterStub)
+                || !isImporterStub)
+            {
+                return false;
+            }
+
+            _manifest = manifest;
+            _isLoaded = false;
+            _mainAtlas = null;
+            _normalAtlas = null;
+            Debug.Log(
+                $"[WSM3D] Texturepack manifest stub bound '{manifest.PackName}' " +
+                $"({manifest.Mappings.Count} mappings, atlas import pending).");
+            return true;
         }
 
         static void TryLoadLatestManifest()
@@ -164,8 +124,21 @@ namespace WorldSphereMod.Textures
                 return;
             }
 
-            if (!TryReadManifest(latestManifest, out var manifest))
+            if (!McPackManifestIO.TryParseManifestFile(latestManifest, out var manifest, out bool isImporterStub))
             {
+                Debug.LogWarning($"[WSM3D] Failed to parse manifest '{latestManifest}'.");
+                return;
+            }
+
+            if (isImporterStub)
+            {
+                TryBindImporterStubManifest(latestManifest);
+                return;
+            }
+
+            if (!McPackManifestIO.HasAtlasPayload(manifest))
+            {
+                Debug.LogWarning($"[WSM3D] Manifest '{latestManifest}' has no atlas_rgb or atlas_bundle path.");
                 return;
             }
 
@@ -179,43 +152,18 @@ namespace WorldSphereMod.Textures
             {
                 _mainAtlas = LoadAtlasBundle(Path.Combine(manifestDir, manifest.AtlasBundle));
             }
+
             if (string.IsNullOrWhiteSpace(manifest.AtlasNormal) == false)
             {
-                _normalAtlas = LoadAtlasFile(Path.Combine(Path.GetDirectoryName(latestManifest)!, manifest.AtlasNormal!));
+                _normalAtlas = LoadAtlasFile(Path.Combine(manifestDir, manifest.AtlasNormal!));
             }
+
             _isLoaded = _mainAtlas != null;
             if (_isLoaded)
             {
-                Debug.Log($"[WSM3D] Loaded WSM3D MCPack atlas '{manifest.PackName}' ({manifest.AtlasWidth}x{manifest.AtlasHeight}) with {_manifest.Mappings.Count} mapping entries.");
-            }
-        }
-
-        static bool TryReadManifest(string manifestPath, out McPackManifest manifest)
-        {
-            manifest = new McPackManifest();
-            try
-            {
-                string text = File.ReadAllText(manifestPath);
-                var parsed = JsonConvert.DeserializeObject<McPackManifest>(text);
-                if (parsed == null)
-                {
-                    Debug.LogWarning($"[WSM3D] Failed to parse manifest '{manifestPath}'.");
-                    return false;
-                }
-
-                if (string.IsNullOrWhiteSpace(parsed.AtlasRgb))
-                {
-                    Debug.LogWarning($"[WSM3D] Manifest '{manifestPath}' has no atlas_rgb path.");
-                    return false;
-                }
-
-                manifest = parsed;
-                return true;
-            }
-            catch
-            {
-                Debug.LogWarning($"[WSM3D] Error reading manifest '{manifestPath}'.");
-                return false;
+                Debug.Log(
+                    $"[WSM3D] Loaded WSM3D MCPack atlas '{manifest.PackName}' " +
+                    $"({manifest.AtlasWidth}x{manifest.AtlasHeight}) with {_manifest.Mappings.Count} mapping entries.");
             }
         }
 
@@ -276,6 +224,7 @@ namespace WorldSphereMod.Textures
                 return null;
             }
         }
+
         // Reflection-based PNG decoder. Both 'Texture2D.LoadImage(byte[])' (legacy
         // instance method, deprecated since Unity 2018 but still in the runtime
         // assembly) and 'UnityEngine.ImageConversion.LoadImage(Texture2D, byte[])'
@@ -320,8 +269,8 @@ namespace WorldSphereMod.Textures
             {
                 Debug.LogWarning($"[WSM3D] TryLoadPngViaReflection threw: {ex.GetType().Name}: {ex.Message}");
             }
+
             return false;
         }
-
     }
 }

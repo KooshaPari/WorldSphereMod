@@ -139,8 +139,11 @@ namespace WorldSphereMod
             {
                 InitProfiler.Measure("TexturePackImporter.ImportAtLoad", () =>
                 {
-                    WorldSphereMod.Import.TexturePackImporter.TryImportAtLoad();
-                    try { WorldSphereMod.Textures.McPackLoader.Initialize(); }
+                    var importResult = WorldSphereMod.Import.TexturePackImporter.TryImportAtLoad();
+                    try
+                    {
+                        WorldSphereMod.Textures.McPackLoader.Initialize(importResult.ManifestStubPath);
+                    }
                     catch { /* do not block world startup */ }
                 });
             }

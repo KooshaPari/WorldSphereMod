@@ -526,26 +526,27 @@ namespace WorldSphereMod.Import
                 };
             }
 
-            var result = TryImportAtLoad(scanRoot, cacheRoot);
-            return new
-            {
-                ok = true,
-                mode = "scan",
-                scan_root = result.ScanRoot,
-                cache_root = result.CacheRoot,
-                scan_root_exists = result.ScanRootExists,
-                scanned = result.ScannedPaths,
-                validated = result.ValidatedPaths,
-                selected = result.SelectedPackPath,
-                pack_format = result.SelectedPackMeta?.PackFormat,
-                description = result.SelectedPackMeta?.Description,
-                block_textures_found = result.BlockTextureNames.Count,
-                known_mappings = result.KnownMappingCount,
-                known_mapped_in_pack = result.KnownMappedInPackCount,
-                manifest_stub_path = result.ManifestStubPath,
-                atlas_import_stubbed = result.AtlasImportStubbed,
-                message = result.Message,
-            };
+            return BuildBridgeImportPayload(TryImportAtLoad(scanRoot, cacheRoot));
         }
+
+        public static object BuildBridgeImportPayload(ImportAtLoadResult result) => new
+        {
+            ok = true,
+            mode = "scan",
+            scan_root = result.ScanRoot,
+            cache_root = result.CacheRoot,
+            scan_root_exists = result.ScanRootExists,
+            scanned = result.ScannedPaths,
+            validated = result.ValidatedPaths,
+            selected = result.SelectedPackPath,
+            pack_format = result.SelectedPackMeta?.PackFormat,
+            description = result.SelectedPackMeta?.Description,
+            block_textures_found = result.BlockTextureNames.Count,
+            known_mappings = result.KnownMappingCount,
+            known_mapped_in_pack = result.KnownMappedInPackCount,
+            manifest_stub_path = result.ManifestStubPath,
+            atlas_import_stubbed = result.AtlasImportStubbed,
+            message = result.Message,
+        };
     }
 }

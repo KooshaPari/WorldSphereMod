@@ -893,10 +893,20 @@ namespace WorldSphereMod.Bridge
         object BuildTexturePackImportPayload(string packPath)
         {
             string trimmed = packPath?.Trim() ?? string.Empty;
-            object payload = string.IsNullOrEmpty(trimmed)
-                ? WorldSphereMod.Import.TexturePackImporter.BuildBridgeImportPayload()
-                : WorldSphereMod.Import.TexturePackImporter.BuildBridgeImportPayload(trimmed);
-            try { WorldSphereMod.Textures.McPackLoader.Initialize(); }
+            string? manifestStubPath = null;
+            object payload;
+            if (string.IsNullOrEmpty(trimmed))
+            {
+                var importResult = WorldSphereMod.Import.TexturePackImporter.TryImportAtLoad();
+                manifestStubPath = importResult.ManifestStubPath;
+                payload = WorldSphereMod.Import.TexturePackImporter.BuildBridgeImportPayload(importResult);
+            }
+            else
+            {
+                payload = WorldSphereMod.Import.TexturePackImporter.BuildBridgeImportPayload(trimmed);
+            }
+
+            try { WorldSphereMod.Textures.McPackLoader.Initialize(manifestStubPath); }
             catch { /* bridge import must not take down the listener */ }
             return payload;
         }

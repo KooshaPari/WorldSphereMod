@@ -31,7 +31,7 @@ public sealed class McTexturePackImporterInvariantsTests
         core.Should().Contain("savedSettings.EnableMcPackTextures");
         core.Should().Contain("TexturePackImporter.TryImportAtLoad");
         core.Should().Contain("TexturePackImporter.ImportAtLoad");
-        core.Should().Contain("McPackLoader.Initialize");
+        core.Should().Contain("McPackLoader.Initialize(importResult.ManifestStubPath)");
     }
 
     [Fact]
@@ -55,6 +55,16 @@ public sealed class McTexturePackImporterInvariantsTests
             "scan/validate importer stays Unity-free; Core binds baked atlases");
         registry.Should().Contain("grass_block_top");
         registry.Should().Contain("biome_grass");
+    }
+
+    [Fact]
+    public void McPackLoader_binds_importer_manifest_stub_when_enabled()
+    {
+        var loader = ReadSource(@"WorldSphereMod/Code/Texture/McPackLoader.cs");
+        loader.Should().Contain("Initialize(string? manifestStubPath");
+        loader.Should().Contain("TryBindImporterStubManifest");
+        loader.Should().Contain("EnableMcPackTextures");
+        loader.Should().Contain("Texturepack manifest stub bound");
     }
 
     [Fact]
