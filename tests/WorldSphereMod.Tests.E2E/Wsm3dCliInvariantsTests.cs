@@ -170,18 +170,29 @@ public class Wsm3dCliInvariantsTests
         script.Should().Contain("phase-$Phase-$Name.png");
     }
 
-    [Fact]
-    public void Wsm3d_phase_screenshot_names_match_smoke_test_phase1_docs()
+    [Theory]
+    [InlineData(1, "docs/smoke-test-phase1.md", "phase-1-before.png", "phase-1-after.png", "phase-1-buildings.png", "buildings")]
+    [InlineData(2, "docs/smoke-test-phase2.md", "phase-2-before.png", "phase-2-after.png", "phase-2-buildings.png", "buildings")]
+    [InlineData(3, "docs/smoke-test-phase3.md", "phase-3-before.png", "phase-3-after.png", "phase-3-foliage.png", "foliage")]
+    [InlineData(4, "docs/smoke-test-phase4.md", "phase-4-before.png", "phase-4-after.png", "phase-4-water.png", "water")]
+    [InlineData(5, "docs/smoke-test-phase5.md", "phase-5-before.png", "phase-5-after.png", "phase-5-shadows-sky.png", "shadows-sky")]
+    public void Wsm3d_phase_screenshot_names_match_smoke_test_docs(
+        int phase,
+        string smokeDocRelative,
+        string beforePng,
+        string afterPng,
+        string closeupPng,
+        string closeupSlug)
     {
         var root = FindRepoRoot();
-        var smokeTest = File.ReadAllText(Path.Combine(root, "docs", "smoke-test-phase1.md"));
+        var smokeTest = File.ReadAllText(Path.Combine(root, smokeDocRelative.Replace('/', Path.DirectorySeparatorChar)));
 
         var script = ReadWsm3dScript();
-        script.Should().Contain(@"""before"", ""after"", ""buildings""");
+        script.Should().Contain($@"{phase} = @(""before"", ""after"", ""{closeupSlug}"")");
 
-        smokeTest.Should().Contain("phase-1-before.png");
-        smokeTest.Should().Contain("phase-1-after.png");
-        smokeTest.Should().Contain("phase-1-buildings.png");
+        smokeTest.Should().Contain(beforePng);
+        smokeTest.Should().Contain(afterPng);
+        smokeTest.Should().Contain(closeupPng);
     }
 
     [Fact]
@@ -195,6 +206,9 @@ public class Wsm3dCliInvariantsTests
         completion.Should().Contain("before");
         completion.Should().Contain("after");
         completion.Should().Contain("buildings");
+        completion.Should().Contain("foliage");
+        completion.Should().Contain("water");
+        completion.Should().Contain("shadows-sky");
     }
 
     [Fact]
@@ -223,5 +237,38 @@ public class Wsm3dCliInvariantsTests
         File.ReadAllText(manifestPath).Should().Contain("docs/smoke-test-phase2.md");
         File.ReadAllText(Path.Combine(root, "docs", "journeys", "manifests", "index.json"))
             .Should().Contain("smoke-test-phase2");
+    }
+
+    [Fact]
+    public void Wsm3d_help_documents_doctor_subcommand()
+    {
+        var script = ReadWsm3dScript();
+
+        script.Should().Contain("doctor [-Json]");
+        script.Should().Contain("BridgeRPC :8766");
+        script.Should().Contain("OmniRoute :20128");
+        script.Should().Contain("function Invoke-Doctor");
+        script.Should().Contain("git_submodules");
+        script.Should().Contain("phenotype_journey");
+    }
+
+    [Fact]
+    public void Wsm3d_doctor_dispatcher_wires_json_flag()
+    {
+        var script = ReadWsm3dScript();
+
+        script.Should().MatchRegex(@"""doctor""\s*\{");
+        script.Should().Contain("Invoke-Doctor @params");
+    }
+
+    [Fact]
+    public void Wsm3d_completion_offers_doctor_and_json_flag()
+    {
+        var path = Path.Combine(FindRepoRoot(), "Tools", "wsm3d.completion.ps1");
+        var completion = File.ReadAllText(path);
+
+        completion.Should().Contain(@"""doctor""");
+        completion.Should().Contain("\"doctor\" {");
+        completion.Should().Contain("-Json");
     }
 }
