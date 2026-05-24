@@ -65,7 +65,12 @@ python Tools/wsm3d-playcua/smoke.py
 python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/bridge-health-vision.yaml
 ```
 
-For phase toggles and vision assertions on voxel content, use scenarios such as `Tools/wsm3d-playcua/sample-scenarios/phase-1-voxel-actors.yaml` after the world is in 3D.
+For phase toggles and vision assertions after the world is in 3D, use:
+
+- Phase 1 voxel actors: `Tools/wsm3d-playcua/sample-scenarios/phase-1-voxel-actors.yaml`
+- Phase 2 procedural buildings: `Tools/wsm3d-playcua/sample-scenarios/phase-2-procedural-buildings.yaml`
+
+E2E guardrails: `tests/WorldSphereMod.Tests.E2E/PlaycuaSampleScenarioInvariantsTests.cs`.
 
 ### OmniRoute environment
 
@@ -95,6 +100,7 @@ $env:OMNROUTE_API_KEY = "<from OmniRoute dashboard → Endpoints>"
 $env:OMNROUTE_BASE_URL = "http://127.0.0.1:20128/v1"
 $env:OMNROUTE_VISION_COMBO = "wsm3d-vision-frontier"
 python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/phase-1-voxel-actors.yaml
+python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/phase-2-procedural-buildings.yaml
 ```
 
 ---

@@ -13,12 +13,14 @@ namespace WorldSphereMod.Effects
        public bool SeperateSprite;
        public float ExtraHeight;
         public bool OnGround;
-       public EffectData(bool isUpright, bool SeperateSprite = false, float ExtraHeight = 0, bool OnGround = true)
+       public bool EmitCrossedQuad;
+       public EffectData(bool isUpright, bool SeperateSprite = false, float ExtraHeight = 0, bool OnGround = true, bool emitCrossedQuad = false)
        {
             IsUpright = isUpright;
             this.ExtraHeight = ExtraHeight;
             this.SeperateSprite = SeperateSprite;
             this.OnGround = OnGround;
+            EmitCrossedQuad = emitCrossedQuad;
        }
     }
     public static class EffectManager

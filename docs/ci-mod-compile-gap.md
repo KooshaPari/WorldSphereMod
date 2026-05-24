@@ -57,8 +57,56 @@ Priority order from `docs/phenotype-baseline.md` item 21:
 2. Generated compilable stubs → mod build becomes a hard failure on hosted runners.
 3. Keep best-effort mod build but rename the job step so it is not mistaken for a gate.
 
+## `External/Compound-Spheres` submodule (upstream pin)
+
+The terrain backend lives at
+[`MelvinShwuaner/Compound-Spheres`](https://github.com/MelvinShwuaner/Compound-Spheres).
+We keep the git submodule pointer on **upstream `main`** (currently
+`73a7b77`), not on fork-only commits.
+
+| Topic | Detail |
+|---|---|
+| **Why not push our fixes upstream?** | We do not have write access to `MelvinShwuaner/Compound-Spheres`. `git push` to `origin` is rejected unless Melvin grants collaborator access or merges a PR. |
+| **What ships in the mod today** | `WorldSphereMod/Assemblies/CompoundSpheres.dll` (vendored binary). `WorldSphereMod.csproj` references that DLL, not a `<ProjectReference>` to the submodule (see comment at the CompoundSpheres `HintPath`). |
+| **Why the submodule exists** | Source reference, diff review, and future `Compound-Spheres-3D` fork (`docs/phase5-prep.md`). It is not the active MSBuild compile input. |
+| **Building submodule source in-tree** | Compiling `External/Compound-Spheres/CompoundSpheres.csproj` alongside the mod currently hits duplicate `AssemblyInfo` / project-output conflicts; that path is deferred. |
+
+### Optional local patch: `dd78b11` (`SetTexture` guard)
+
+Commit `dd78b11` on branch `main` in a **local-only** submodule checkout adds a null
+guard before `Material.SetTexture("TextureArray", …)` in
+`CompoundSpheres/SphereManager.cs` (init path when material or texture array is
+missing). It is **not** on upstream `main` and **cannot** be pushed to
+`MelvinShwuaner/Compound-Spheres` without upstream accepting it.
+
+To apply locally (does not change the pinned submodule SHA in the parent repo):
+
+```powershell
+cd External/Compound-Spheres
+git fetch origin
+git cherry-pick dd78b11
+# rebuild CompoundSpheres.dll in Unity 2022.3 and copy into WorldSphereMod/Assemblies/
+```
+
+To match the repo pin (upstream `main` only):
+
+```powershell
+cd External/Compound-Spheres
+git checkout 73a7b77
+cd ../..
+git add External/Compound-Spheres
+```
+
+**Runtime alternative (no DLL rebuild):** Harmony patch on
+`CompoundSpheres.SphereManager` init — same guard intent as `dd78b11`; see
+`WorldSphereMod.csproj` comment (2026-05-23).
+
+Parent-repo submodule SHA should stay at upstream `main` until we own a fork
+(e.g. `KooshaPari/Compound-Spheres-3D`) or upstream merges the fix.
+
 ## Related docs
 
 - `tests/README.md` — test tier split (API vs mod vs E2E)
 - `docs/HANDOFF.md` — local build + install
+- `docs/phase5-prep.md` — planned `Compound-Spheres-3D` fork + DLL swap
 - `Directory.Build.props` — `WORLDBOX_PATH` / `WorldBoxPath` resolution

@@ -161,6 +161,13 @@ NeoModLoader compiles `Code/*.cs` at runtime, so install copies sources plus
 refs (`docs/ci-mod-compile-gap.md`); it gates `WorldSphereAPI.csproj` and
 workflow/manifest invariants via E2E tests.
 
+**Compound-Spheres submodule** — `External/Compound-Spheres` is pinned to upstream
+`MelvinShwuaner/Compound-Spheres` `main` (we cannot push fork fixes without
+write access). The mod still ships the vendored `CompoundSpheres.dll`, not a
+submodule build. Optional local patch `dd78b11` (null guard on
+`Material.SetTexture` in `SphereManager` init) or an equivalent Harmony patch —
+see `docs/ci-mod-compile-gap.md` § "`External/Compound-Spheres` submodule".
+
 ## In-game smoke test (gates Phases 2, 5, 8)
 
 The user-driven gate. See `docs/smoke-test-phase1.md` for the full checklist.
@@ -235,6 +242,8 @@ d6f520f Fix release workflow: broken pipe in CHANGELOG extraction
   hard-bind to it.
 - **GUID is `worldsphere3d.fork`.** Co-installable with upstream
   `WorldSphereMod`. Enable only one at a time in NeoModLoader.
+- **Compound-Spheres pin.** Submodule stays at upstream `main`; fork commit
+  `dd78b11` is optional locally only (`docs/ci-mod-compile-gap.md`).
 
 ## Where to look for what
 

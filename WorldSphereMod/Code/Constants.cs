@@ -28,7 +28,7 @@ namespace WorldSphereMod
             {"fx_boulder", new EffectData(true) },
             {"fx_explosion_wave", new EffectData(false) },
             {"fx_tile_effect", new EffectData(false) },
-            {"fx_cloud", new EffectData(false, true, 21, false) }
+            {"fx_cloud", new EffectData(false, true, 21, false, emitCrossedQuad: true) }
         };
         public static readonly ConcurrentDictionary<string, bool> PerpActors = new ConcurrentDictionary<string, bool>();
         public static readonly ConcurrentDictionary<string, bool> PerpBuildings = new ConcurrentDictionary<string, bool>();
