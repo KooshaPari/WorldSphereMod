@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using static WorldSphereMod.Effects.EffectManager;
 using static WorldSphereMod.Constants;
+using WorldSphereMod.Fx;
 namespace WorldSphereMod.Effects
 {
     public struct EffectData
@@ -89,6 +90,10 @@ namespace WorldSphereMod.Effects
             }
 
             WorldSphereMod.Fx.VoxelParticleBurst.TryStart(Effect);
+            if (CloudCrossedQuadRender.IsEnabled(Data))
+            {
+                CloudCrossedQuadRender.TryStart(Effect, Data);
+            }
         }
         public static void RotateToPlayer(Transform transform, Vector3 Position)
         {
@@ -127,6 +132,11 @@ namespace WorldSphereMod.Effects
                 WorldSphereMod.Fx.VoxelParticleBurst.TryStart(Effect);
             }
             WorldSphereMod.Fx.VoxelParticleBurst.Update(Effect);
+            if (CloudCrossedQuadRender.IsEnabled(Data))
+            {
+                CloudCrossedQuadRender.TryStart(Effect, Data);
+            }
+            CloudCrossedQuadRender.Update(Effect);
         }
         public static void UpdateShadow(SpriteShadow Shadow)
         {
@@ -145,6 +155,7 @@ namespace WorldSphereMod.Effects
         }
         public static void DestroyEffect(BaseEffect Effect)
         {
+            CloudCrossedQuadRender.Clear(Effect);
             WorldSphereMod.Fx.VoxelParticleBurst.Clear(Effect);
             if(Effect.sprite_renderer != null)
             {
@@ -201,6 +212,18 @@ namespace WorldSphereMod.Effects
                 return;
             }
             EffectData data = GetData(__result);
+            if (data.EmitCrossedQuad)
+            {
+                if (CloudCrossedQuadRender.IsEnabled(data))
+                {
+                    CloudCrossedQuadRender.TryStart(__result, data);
+                }
+                if (Core.savedSettings.ParticleEffects)
+                {
+                    WorldSphereMod.Fx.VoxelParticleBurst.TryStart(__result);
+                }
+                return;
+            }
             if (data.SeperateSprite)
             {
                 if (__result.sprite_renderer.gameObject == __result.gameObject)
