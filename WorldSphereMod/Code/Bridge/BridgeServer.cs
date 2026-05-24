@@ -416,6 +416,19 @@ namespace WorldSphereMod.Bridge
                     return;
                 }
 
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/spawn_units", StringComparison.OrdinalIgnoreCase))
+                {
+                    string countText = context.Request.QueryString["count"] ?? "10";
+                    string race = context.Request.QueryString["race"] ?? "human";
+                    WriteJson(context.Response, SpawnUnitsQueued(countText, race));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/generate_world", StringComparison.OrdinalIgnoreCase))
+                {
+                    WriteJson(context.Response, GenerateWorldQueued());
+                    return;
+                }
+
                 WriteJson(context.Response, new { ok = false, error = "not_found", path, method }, HttpStatusCode.NotFound);
             }
             catch (Exception ex)
@@ -1009,6 +1022,74 @@ namespace WorldSphereMod.Bridge
             });
 
             return new { ok = true, slot, path, queued = true };
+        }
+
+        object SpawnUnitsQueued(string countText, string race)
+        {
+            if (!BridgeSettingParser.TryParseNonNegativeInt(countText, out int count))
+                return new { ok = false, error = "invalid_count", count = countText };
+            count = Math.Min(count, 200);
+
+            _mainThreadQueue.Enqueue(() =>
+            {
+                try
+                {
+                    if (World.world == null || MapBox.instance == null)
+                    {
+                        Debug.LogWarning("[WSM3D][Bridge] spawn_units skipped: world_not_ready");
+                        return;
+                    }
+
+                    var mapBox = MapBox.instance;
+                    int mapW = MapBox.width;
+                    int mapH = MapBox.height;
+                    int spawned = 0;
+                    var rng = new System.Random();
+
+                    for (int i = 0; i < count; i++)
+                    {
+                        int x = rng.Next(mapW / 4, 3 * mapW / 4);
+                        int y = rng.Next(mapH / 4, 3 * mapH / 4);
+                        WorldTile tile = mapBox.GetTile(x, y);
+                        if (tile == null || tile.Type.ocean) continue;
+                        try
+                        {
+                            mapBox.units.createNewUnit(race, tile);
+                            spawned++;
+                        }
+                        catch { }
+                    }
+                    Debug.Log($"[WSM3D][Bridge] spawn_units: spawned {spawned}/{count} {race} units");
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning("[WSM3D][Bridge] spawn_units failed: " + ex.Message);
+                }
+            });
+
+            return new { ok = true, count, race, queued = true };
+        }
+
+        object GenerateWorldQueued()
+        {
+            _mainThreadQueue.Enqueue(() =>
+            {
+                try
+                {
+                    if (MapBox.instance == null)
+                    {
+                        Debug.LogWarning("[WSM3D][Bridge] generate_world skipped: MapBox not ready");
+                        return;
+                    }
+                    MapBox.instance.generateNewMap();
+                    Debug.Log("[WSM3D][Bridge] generate_world: new map generated");
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning("[WSM3D][Bridge] generate_world failed: " + ex.Message);
+                }
+            });
+            return new { ok = true, queued = true };
         }
 
         object CaptureScreenshot(string outputPath)
