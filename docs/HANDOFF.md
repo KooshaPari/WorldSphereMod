@@ -2,7 +2,7 @@
 
 Canonical "next session starts here" doc for WorldSphereMod3D.
 
-**Last updated:** 2026-05-23 (`b37a14c`)
+**Last updated:** 2026-05-24 (`3bf2ad9`; `f5a93ae` or newer after pull)
 
 ## TL;DR
 
@@ -24,7 +24,7 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 | Active branch | `claude/research-ultraplan-fork-DdgI5` |
 | Open PR (#1) | https://github.com/KooshaPari/WorldSphereMod/pull/1 — **OPEN**, **MERGEABLE**; blocking CI green except Vercel rate limit |
 | Release tag (remote) | **`v2.0.0-beta.5`** — [release](https://github.com/KooshaPari/WorldSphereMod/releases/tag/v2.0.0-beta.5) |
-| Offline test matrix | **418 passed / 0 failed** (421 total, 3 skip) — Unit 151 (+ 3 skip), Integration 67, E2E 200 |
+| Offline test matrix | **418 pass / 3 skip** (421 total) — Unit 151 (+ 3 skip), Integration 67, E2E 200+ |
 | Cold-start orientation | `CLAUDE.md` |
 | Full 10-phase plan | `docs/PLAN.md` |
 | Per-phase architectures | `docs/phase{2..10}-architecture.md` |
@@ -60,7 +60,7 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 | LOD / impostor / culler | `WorldSphereMod/Code/LOD/` |
 | Profiler | `WorldSphereMod/Code/Perf/` |
 | World-unload sink | `WorldSphereMod/Code/Voxel/WorldUnloadPatch.cs` |
-| Live verification (programmatic + agentic gates) | `docs/live-verification.md` |
+| Live verification (programmatic + agentic gates) | `docs/live-verification.md` — canonical live proof bundle: [`#canonical-live-proof-bundle`](live-verification.md#canonical-live-proof-bundle) |
 
 ## What's shipped (per phase)
 
@@ -247,7 +247,7 @@ All paths under `Tools/wsm3d-playcua/sample-scenarios/`:
 - **Slash commands:** `/wsm-status`, `/wsm-validate-all`, `/wsm-build`, `/wsm-install`, `/wsm-relaunch`, `/wsm-log`, `/wsm-toggle`, `/wsm-screenshot`, `/wsm-journey-run`, `/wsm-doctor`.
 - **MCP:** `Tools/wsm3d-mcp/` — Python FastMCP with 18 tools, auto-registered via `.claude/mcp-servers.json`.
 - **Journey gate:** `.github/workflows/journeys-gate.yml` — OCR-assertion DSL; verify with `phenotype-journey verify <manifest> --mock`. Live capture remains the final proof step; entry point: `docs/live-verification.md`.
-- **Live-verify gate (CI):** `.github/workflows/live-verify-gate.yml` — offline `dotnet test` + journey mock (stages 1–2 of `Tools/wsm-live-verify.ps1`; **418 passed / 0 failed** locally). Reused by **nightly** (`nightly.yml` → `live-verify-offline` job). Full harness: `pwsh Tools/wsm-live-verify.ps1` (add `-Live -Vision` for PlayCUA + SSIM + OmniRoute vision on a desktop with WorldBox + bridge).
+- **Live-verify gate (CI):** `.github/workflows/live-verify-gate.yml` — offline `dotnet test` + journey mock (stages 1–2 of `Tools/wsm-live-verify.ps1`; **418 pass / 3 skip**, 421 total locally). Reused by **nightly** (`nightly.yml` → `live-verify-offline` job). Full harness: `pwsh Tools/wsm-live-verify.ps1` (add `-Live -Vision` for PlayCUA + SSIM + OmniRoute vision on a desktop with WorldBox + bridge).
 - **ADR-0007 (conditional patch dispatch):** Landed scaffold — `PhasePatchGate.ShouldApplyHarmonyPatch` wired from `Core.Patch()`; `docs/adr/ADR-0007-conditional-patch-dispatch.md` remains **Proposed** until acceptance smoke. E2E: `ConditionalPatchDispatchInvariantsTests`.
 - **Live verify:** `docs/live-verification.md` — programmatic (`dotnet test`, journey mock, optional SSIM ≥ 0.95) vs agentic (`wsm3d-playcua` sample scenarios, OmniRoute combo, bridge save/load checklist).
 
@@ -256,13 +256,13 @@ When you need a release or handoff bundle, use the canonical checklist in [`docs
 ## Recent commits (7 most recent)
 
 ```
-b37a14c chore: stop tracking generated docs/dashboard.md
-f259afa test(cli): E2E invariants for wsm3d validate and restore setup tests
-7e4958b feat(tools): add Compound-Spheres-3D Phase 5 setup script
-d595224 fix(test): scope install doctor e2e to install.ps1 invariant only
-0e900ce test(cli): E2E invariants for wsm3d validate command
-2ce50c6 docs: add smoke-test index to VitePress nav and HANDOFF
-3d54afe docs: add smoke-test index to VitePress nav and HANDOFF
+3bf2ad9 docs: add canonical live proof bundle checklist
+f5a93ae docs: update offline gate count to 421 tests
+a9ac962 docs: align HANDOFF and MERGE_CHECKLIST with v2.0.0-beta.5
+e3da16d docs: sync smoke-test index with journey manifests
+17cf3be chore(release): bump to v2.0.0-beta.5
+dac077c chore(tools): improve live-verify discoverability
+e84a1ba test(e2e): bridge save-load flush invariants
 ```
 
 ## Important caveats / non-obvious gotchas
