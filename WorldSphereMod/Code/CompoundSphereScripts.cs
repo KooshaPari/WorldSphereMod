@@ -1,7 +1,9 @@
 ﻿using CompoundSpheres;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 using WorldSphereMod.NewCamera;
+using Debug = UnityEngine.Debug;
 using static UnityEngine.UI.CanvasScaler;
 using static WorldSphereMod.Constants;
 namespace WorldSphereMod
@@ -70,6 +72,7 @@ namespace WorldSphereMod
         }
         public static void CylindricalInitiation(SphereManager Manager)
         {
+            var sw = Stopwatch.StartNew();
             GameObject Cylinder = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             Cylinder.transform.SetPositionAndRotation(new Vector3(0, 0, (Manager.Cols / 2)+ZDisplacement), Quaternion.Euler(-90, 0, 0));
             Cylinder.transform.localScale = new Vector3(Manager.Diameter, Manager.Cols / 2, Manager.Diameter);
@@ -77,15 +80,18 @@ namespace WorldSphereMod
             Object.Destroy(Cylinder.GetComponent<MeshRenderer>());
             Cylinder.AddComponent<MeshCollider>();
             Cylinder.transform.parent = Manager.transform;
+            Debug.Log($"[WSM3D][PERF] CompoundSphereScripts.CylindricalInitiation={sw.Elapsed.TotalMilliseconds:F3}ms");
         }
         public static void FlatInitiation(SphereManager Manager)
         {
+            var sw = Stopwatch.StartNew();
             GameObject Quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
             Quad.transform.SetPositionAndRotation(new Vector3((Manager.Rows / 2) - 0.5f, 0, (Manager.Cols / 2) - 0.5f+ZDisplacement), Quaternion.Euler(90, 0, 0));
             Quad.transform.localScale = new Vector3(Manager.Rows, Manager.Cols, 1);
             Object.Destroy(Quad.GetComponent<MeshRenderer>());
             Quad.GetComponent<MeshCollider>().convex = true; //why the fuck?
             Quad.transform.parent = Manager.transform;
+            Debug.Log($"[WSM3D][PERF] CompoundSphereScripts.FlatInitiation={sw.Elapsed.TotalMilliseconds:F3}ms");
         }
         public static DisplayMode getdisplaymode(SphereManager _)
         {

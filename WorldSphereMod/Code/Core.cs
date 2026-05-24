@@ -12,6 +12,8 @@ using WorldSphereMod.NewCamera;
 using UnityEngine.Tilemaps;
 using WorldSphereMod.General;
 using System.Reflection;
+using System.Diagnostics;
+using Debug = UnityEngine.Debug;
 using WorldSphereMod.Effects;
 using System;
 using WorldSphereMod.TileMapToSphere;
@@ -420,6 +422,8 @@ namespace WorldSphereMod
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] ProceduralSky.EnsureCreated failed: " + ex.Message); }
             try { Do3DStuff(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] Do3DStuff failed: " + ex.Message); }
+            try { Sphere.LogDiagnostics("[WSM3D] Become3D"); }
+            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] Sphere diagnostics failed: " + ex.Message); }
         }
         static void Do3DStuff()
         {
@@ -508,10 +512,15 @@ namespace WorldSphereMod
             };
             public static void Begin()
             {
+                var sw = Stopwatch.StartNew();
                 CurrentShape = Shapes[savedSettings.CurrentShape];
                 HeightMult = savedSettings.TileHeight;
                 PerlinNoise = Core.savedSettings.PerlinNoise;
+                Debug.Log($"[WSM3D][PERF] Sphere.Begin.ShapeAndFlags={sw.Elapsed.TotalMilliseconds:F3}ms");
+                sw.Restart();
                 CreateSettings();
+                Debug.Log($"[WSM3D][PERF] Sphere.Begin.CreateSettings={sw.Elapsed.TotalMilliseconds:F3}ms");
+                sw.Restart();
                 int width = MapBox.width;
                 int height = MapBox.height;
                 // Guard: SphereManager.Init line 107 dereferences SphereTileMaterial
@@ -523,7 +532,11 @@ namespace WorldSphereMod
                     UnityEngine.Debug.LogError("[WSM3D] Sphere.Begin: CompoundSphereMaterial or CompoundSphereMesh missing — skipping CreateSphereManager. Bundle load likely failed.");
                     return;
                 }
+                Debug.Log($"[WSM3D][PERF] Sphere.Begin.PreCreateManager={sw.Elapsed.TotalMilliseconds:F3}ms");
+                sw.Restart();
                 Manager = SphereManager.Creator.CreateSphereManager(width, height, SphereManagerConfig);
+                Debug.Log($"[WSM3D][PERF] Sphere.Begin.CreateSphereManager={sw.Elapsed.TotalMilliseconds:F3}ms");
+                LogDiagnostics("[WSM3D] Sphere.Begin");
             }
             static Color32 GetBaseColor(int index)
             {
@@ -654,6 +667,7 @@ namespace WorldSphereMod
                 Manager.RefreshTextures();
                 Manager.RefreshCustom("AddedColors");
                 RefreshColors();
+                LogDiagnostics("[WSM3D] RefreshSphere");
             }
             public static void RefreshColors()
             {
@@ -678,6 +692,43 @@ namespace WorldSphereMod
                     return;
                 }
                 Manager.Destroy();
+            }
+            public static void LogDiagnostics(string prefix)
+            {
+                string cameraName = CameraManager.MainCamera != null ? CameraManager.MainCamera.name : "<null>";
+                Vector3 cameraPos = CameraManager.MainCamera != null ? CameraManager.MainCamera.transform.position : default;
+                Vector3 centerPos = Manager != null ? Manager.transform.position : default;
+                float radius = Manager != null ? Manager.Radius : 0f;
+                float cameraDistance = Manager != null && CameraManager.MainCamera != null
+                    ? Vector3.Distance(cameraPos, centerPos)
+                    : 0f;
+                bool cameraInside = Manager != null && CameraManager.MainCamera != null && cameraDistance < radius;
+                int texturedTiles = 0;
+                int totalTiles = 0;
+                if (Manager != null)
+                {
+                    System.Reflection.FieldInfo tilesField = typeof(SphereManager).GetField("SphereTiles", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                    if (tilesField != null && tilesField.GetValue(Manager) is SphereTile[] tiles)
+                    {
+                        totalTiles = tiles.Length;
+                        for (int i = 0; i < tiles.Length; i++)
+                        {
+                            if (tiles[i].TextureIndex != 0)
+                            {
+                                texturedTiles++;
+                            }
+                        }
+                    }
+                }
+                string meshBounds = CompoundSphereMesh != null ? CompoundSphereMesh.bounds.ToString() : "<null>";
+                int passCount = CompoundSphereMaterial != null ? CompoundSphereMaterial.passCount : -1;
+                int renderQueue = CompoundSphereMaterial != null ? CompoundSphereMaterial.renderQueue : -1;
+                int managerLayer = Manager != null ? Manager.gameObject.layer : -1;
+                int cameraMask = CameraManager.MainCamera != null ? CameraManager.MainCamera.cullingMask : -1;
+                Debug.Log(
+                    $"{prefix} camera={cameraName} cameraPos={cameraPos} sphereCenter={centerPos} radius={radius:F3} " +
+                    $"cameraDistance={cameraDistance:F3} cameraInsideSphere={cameraInside} cameraLayerMask=0x{cameraMask:X8} managerLayer={managerLayer} " +
+                    $"meshBounds={meshBounds} materialRenderQueue={renderQueue} materialPassCount={passCount} texturedTiles={texturedTiles}/{totalTiles}");
             }
             public static Vector3 TilePosWithHeight(float X, float Y, float Z)
             {
@@ -705,11 +756,19 @@ namespace WorldSphereMod
             }
             public static void Prepare()
             {
+                var sw = Stopwatch.StartNew();
                 LoadAssets();
+                Debug.Log($"[WSM3D][PERF] Sphere.Prepare.LoadAssets={sw.Elapsed.TotalMilliseconds:F3}ms");
+                sw.Restart();
                 CreateTextures();
+                Debug.Log($"[WSM3D][PERF] Sphere.Prepare.CreateTextures={sw.Elapsed.TotalMilliseconds:F3}ms");
+                sw.Restart();
                 BaseLayers = new List<MapLayer>(World.world._map_layers);
                 BaseLayers.Remove(FlashLayer);
+                Debug.Log($"[WSM3D][PERF] Sphere.Prepare.BaseLayersCopy={sw.Elapsed.TotalMilliseconds:F3}ms");
+                sw.Restart();
                 CreateCachedColors();
+                Debug.Log($"[WSM3D][PERF] Sphere.Prepare.CreateCachedColors={sw.Elapsed.TotalMilliseconds:F3}ms");
             }
             public static int WorldTileTexture(WorldTile Tile)
             {
@@ -796,7 +855,7 @@ namespace WorldSphereMod
                 if (CompoundSphereMaterial != null)
                 {
                     string shName = CompoundSphereMaterial.shader != null ? CompoundSphereMaterial.shader.name : "<null>";
-                    Debug.Log($"[WSM3D] CompoundSphereMaterial.shader = '{shName}'");
+                    UnityEngine.Debug.Log($"[WSM3D] CompoundSphereMaterial.shader = '{shName}'");
                     // Unity substitutes 'Hidden/InternalErrorShader' when a
                     // shader reference fails to resolve at runtime — that's
                     // what produces the black terrain void users see when
@@ -849,7 +908,7 @@ namespace WorldSphereMod
                                 CompoundSphereMaterial.EnableKeyword("_EMISSION");
                                 CompoundSphereMaterial.SetColor("_EmissionColor", new Color(0.55f, 0.50f, 0.40f, 1f));
                             } catch { }
-                            Debug.LogWarning($"[WSM3D] CompoundSphereMaterial had broken shader; reassigned to '{chosen}' (resolved name='{fallback.name}') with tan color + emission.");
+                            UnityEngine.Debug.LogWarning($"[WSM3D] CompoundSphereMaterial had broken shader; reassigned to '{chosen}' (resolved name='{fallback.name}') with tan color + emission.");
                         }
                     }
                 }
@@ -861,7 +920,7 @@ namespace WorldSphereMod
                 }
                 else
                 {
-                    Debug.LogError("[WSM3D] SkyBox.mat missing from bundle — CameraManager.Begin skipped; sky will fall back to default.");
+                    UnityEngine.Debug.LogError("[WSM3D] SkyBox.mat missing from bundle — CameraManager.Begin skipped; sky will fall back to default.");
                 }
                 if (CompoundSphereMaterial != null && LibraryMaterials.instance != null)
                 {
