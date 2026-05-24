@@ -69,10 +69,10 @@ For phase toggles and vision assertions after the world is in 3D, use:
 
 - Phase 1 voxel actors: `Tools/wsm3d-playcua/sample-scenarios/phase-1-voxel-actors.yaml`
 - Phase 2 procedural buildings: `Tools/wsm3d-playcua/sample-scenarios/phase-2-procedural-buildings.yaml` — in-game checklist: [`docs/smoke-test-phase2.md`](smoke-test-phase2.md)
-- Phase 3 crossed-quad foliage: `Tools/wsm3d-playcua/sample-scenarios/phase-3-crossed-quad-foliage.yaml`
+- Phase 3 crossed-quad foliage: `Tools/wsm3d-playcua/sample-scenarios/phase-3-crossed-quad-foliage.yaml` — in-game checklist: [`docs/smoke-test-phase3.md`](smoke-test-phase3.md)
 - Phase 3b cloud crossed-quad (`CrossedQuadFoliage` + `fx_cloud`): `Tools/wsm3d-playcua/sample-scenarios/phase-3b-cloud-crossed-quad.yaml`
-- Phase 4 mesh water: `Tools/wsm3d-playcua/sample-scenarios/phase-4-mesh-water.yaml`
-- Phase 5 high shadows + HDR skybox: `Tools/wsm3d-playcua/sample-scenarios/phase-5-high-shadows.yaml`
+- Phase 4 mesh water: `Tools/wsm3d-playcua/sample-scenarios/phase-4-mesh-water.yaml` — in-game checklist: [`docs/smoke-test-phase4.md`](smoke-test-phase4.md)
+- Phase 5 high shadows + HDR skybox: `Tools/wsm3d-playcua/sample-scenarios/phase-5-high-shadows.yaml` — in-game checklist: [`docs/smoke-test-phase5.md`](smoke-test-phase5.md)
 
 Bridge save/load smoke (pre/post `health` + telemetry; optional `load_save`; manual UI save/load notes):
 

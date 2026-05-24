@@ -46,8 +46,8 @@ Register-ArgumentCompleter -Native -CommandName "wsm3d.ps1", "wsm3d" -ScriptBloc
     # Main subcommands
     $mainCommands = @(
         "build", "install", "launch", "kill", "relaunch", "log",
-        "screenshot", "settings", "toggle", "phases", "status",
-        "journey", "playcua", "watch", "help"
+        "screenshot", "settings", "toggle", "phases", "status", "doctor",
+        "journey", "playcua", "watch", "hooks", "help"
     )
 
     # If we're at the first argument position (completing subcommand)
@@ -200,6 +200,16 @@ Register-ArgumentCompleter -Native -CommandName "wsm3d.ps1", "wsm3d" -ScriptBloc
             }
         }
 
+        "doctor" {
+            if ($elements.Count -le 3) {
+                @("-Json") |
+                    Where-Object { $_ -like "$wordToComplete*" } |
+                    ForEach-Object {
+                        [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+                    }
+            }
+        }
+
         "screenshot" {
             # screenshot <phase> | -Path ...
             if ($elements.Count -le 3) {
@@ -219,12 +229,19 @@ Register-ArgumentCompleter -Native -CommandName "wsm3d.ps1", "wsm3d" -ScriptBloc
                 }
                 elseif ($arg3 -match '^\d+$') {
                     $phaseNum = [int]$arg3
+                    $phaseCloseup = switch ($phaseNum) {
+                        1 { "buildings" }
+                        2 { "buildings" }
+                        3 { "foliage" }
+                        4 { "water" }
+                        5 { "shadows-sky" }
+                        default { $null }
+                    }
                     if ($arg4 -eq "-Name") {
-                        $names = @("before", "after", "buildings")
-                        if ($phaseNum -in 1, 2) {
-                            $names = @("before", "after", "buildings")
+                        $names = if ($phaseCloseup) {
+                            @("before", "after", $phaseCloseup)
                         } else {
-                            $names = @("before", "after")
+                            @("before", "after")
                         }
                         return $names |
                             Where-Object { $_ -like "$wordToComplete*" } |
@@ -233,8 +250,8 @@ Register-ArgumentCompleter -Native -CommandName "wsm3d.ps1", "wsm3d" -ScriptBloc
                             }
                     }
                     elseif ($elements.Count -le 5 -and $arg4 -notlike "-*") {
-                        $names = if ($phaseNum -in 1, 2) {
-                            @("before", "after", "buildings")
+                        $names = if ($phaseCloseup) {
+                            @("before", "after", $phaseCloseup)
                         } else {
                             @("before", "after")
                         }

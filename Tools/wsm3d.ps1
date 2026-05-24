@@ -437,6 +437,9 @@ function Parse-CaptureRegion {
 $script:PhaseScreenshotSuggestedNames = @{
     1 = @("before", "after", "buildings")
     2 = @("before", "after", "buildings")
+    3 = @("before", "after", "foliage")
+    4 = @("before", "after", "water")
+    5 = @("before", "after", "shadows-sky")
 }
 
 function Get-PhaseScreenshotSuggestedNames {
@@ -1406,7 +1409,7 @@ Commands:
 
   screenshot phase <n> -Name <slug> [-WindowOnly]
       Capture a smoke-test comparison frame to docs/screenshots/phase-N-<slug>.png.
-      Phases 1-2 document before, after, buildings in docs/smoke-test-phase*.md.
+      Phases 1-5 document before/after/closeup slugs in docs/smoke-test-phase*.md.
       Other phases accept any simple slug (e.g. before, after) matching phase-N-*.png.
 
   settings get [-Key <field>]
