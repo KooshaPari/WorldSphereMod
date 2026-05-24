@@ -110,11 +110,19 @@ async def list_playcua_scenarios() -> dict:
 
 async def describe_live_verification() -> dict:
     """Structured summary of the live verification gates and harness stages."""
+    scenario_list = await list_playcua_scenarios()
+    dotnet_test_projects = [
+        "WorldSphereMod.Tests.Unit",
+        "WorldSphereMod.Tests.Integration",
+        "WorldSphereMod.Tests.E2E",
+    ]
+
     stages = [
         {
             "id": "dotnet-tests",
             "gate": "programmatic",
             "summary": "dotnet test WorldSphereMod.Tests.{Unit,Integration,E2E} (Release)",
+            "project_count": len(dotnet_test_projects),
         },
         {
             "id": "journey-mock-verify",
@@ -125,6 +133,7 @@ async def describe_live_verification() -> dict:
             "id": "live-playcua-ssim",
             "gate": "agentic",
             "summary": "Bridge :8766, all sample-scenarios/*.yaml, SSIM vs docs/journeys/phase-previews (requires -Live)",
+            "scenario_count": scenario_list.get("count", 0),
             "skipped_offline_reason": "Pass -Live to require bridge, run playcua, and SSIM-compare phase previews.",
         },
     ]
@@ -137,10 +146,14 @@ async def describe_live_verification() -> dict:
         "report_path": str(LIVE_VERIFY_REPORT),
         "ssim_threshold": 0.95,
         "bridge_url": "http://127.0.0.1:8766/health",
+        "dotnet_test_projects": dotnet_test_projects,
+        "dotnet_test_project_count": len(dotnet_test_projects),
+        "playcua_scenario_count": scenario_list.get("count", 0),
         "commands": {
             "offline": "pwsh Tools/wsm-live-verify.ps1",
             "live": "pwsh Tools/wsm-live-verify.ps1 -Live",
             "live_with_vision": "pwsh Tools/wsm-live-verify.ps1 -Live -Vision",
+            "list_scenarios": "pwsh Tools/wsm-live-verify.ps1 -ListScenarios",
             "playcua_scenario": "python Tools/wsm3d-playcua/main.py <scenario.yaml>",
             "playcua_smoke": "python Tools/wsm3d-playcua/smoke.py",
         },

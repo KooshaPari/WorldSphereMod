@@ -18,11 +18,15 @@
 
 .PARAMETER Phase
   Restrict phase-previews SSIM to a single phase number (1-10). PlayCUA always runs every sample-scenarios/*.yaml.
+
+.PARAMETER ListScenarios
+  Print PlayCUA sample scenarios (file + name) and exit without running the pipeline.
 #>
 [CmdletBinding()]
 param(
     [switch]$Live,
     [switch]$Vision,
+    [switch]$ListScenarios,
     [int]$Phase = 0
 )
 
@@ -221,6 +225,16 @@ function Get-PlaycuaScenarios {
     return Get-ChildItem -Path $scenarioRoot -Filter "*.yaml" -File | Sort-Object Name
 }
 
+function Get-PlaycuaScenarioName {
+    param([System.IO.FileInfo]$ScenarioFile)
+
+    $head = (Get-Content -LiteralPath $ScenarioFile.FullName -TotalCount 32 -ErrorAction Stop) -join "`n"
+    if ($head -match '(?m)^name:\s*(.+?)\s*$') {
+        return $Matches[1].Trim()
+    }
+    return $ScenarioFile.BaseName
+}
+
 function Get-PhasePreviewDirectories {
     $previewRoot = Join-Path $repoRoot "docs/journeys/phase-previews"
     if (-not (Test-Path -LiteralPath $previewRoot)) {
@@ -273,6 +287,20 @@ function Write-ReportAndExit {
     Set-Content -LiteralPath $reportPath -Value $json -Encoding utf8
     Write-Host "Report: $reportPath"
     exit $ExitCode
+}
+
+if ($ListScenarios) {
+    $scenarios = Get-PlaycuaScenarios
+    if (-not $scenarios -or $scenarios.Count -eq 0) {
+        Write-Error "No playcua YAML scenarios found under Tools/wsm3d-playcua/sample-scenarios."
+    }
+
+    Write-Host ("PlayCUA sample scenarios ({0}):" -f $scenarios.Count)
+    foreach ($scenario in $scenarios) {
+        $name = Get-PlaycuaScenarioName -ScenarioFile $scenario
+        Write-Host ("  {0}  ({1})" -f $scenario.Name, $name)
+    }
+    exit 0
 }
 
 # Stage 1: dotnet test (unit, integration, e2e) — fail fast
