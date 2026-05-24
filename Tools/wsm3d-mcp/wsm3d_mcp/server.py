@@ -29,7 +29,7 @@ from starlette.responses import JSONResponse
 from starlette.requests import Request
 
 from wsm3d_mcp.paths import validate_paths
-from wsm3d_mcp.tools import build, codex, game, journey, log, settings
+from wsm3d_mcp.tools import build, codex, game, journey, live_verify, log, settings
 
 load_dotenv()
 logging.basicConfig(
@@ -51,6 +51,7 @@ mcp = FastMCP(
         "settings_* tools: SavedSettings.json I/O. "
         "build_*: mod compilation and deployment (wraps wsm3d.ps1). "
         "journey_*: phenotype-journey integration. "
+        "live_verify_*: offline harness, PlayCUA scenarios, pipeline docs. "
         "codex_*: codex CLI helpers."
     ),
 )
@@ -229,6 +230,39 @@ async def journey_verify(ctx: Context, journey_ref: str, live: bool = False) -> 
     Returns {ok: bool, mode: str, score: float, violations: list[str]}.
     """
     return await journey.journey_verify(journey_ref, live)
+
+
+# ============================================================================
+# LIVE VERIFICATION TOOLS
+# ============================================================================
+
+
+@mcp.tool()
+async def run_live_verify_offline(ctx: Context, timeout_s: int = 3600) -> dict:
+    """
+    Run Tools/wsm-live-verify.ps1 without -Live (dotnet tests + journey mock).
+    Stage 3 (playcua/SSIM) is skipped. Writes Tools/.reports/live-verify-latest.json.
+    Returns {ok, exit_code, live, report_path, report, log_tail}.
+    """
+    return await live_verify.run_live_verify_offline(timeout_s)
+
+
+@mcp.tool()
+async def list_playcua_scenarios(ctx: Context) -> dict:
+    """
+    List PlayCUA sample YAML scenarios under Tools/wsm3d-playcua/sample-scenarios.
+    Returns {ok, count, scenario_dir, scenarios: list[{file, name, path}]}.
+    """
+    return await live_verify.list_playcua_scenarios()
+
+
+@mcp.tool()
+async def describe_live_verification(ctx: Context) -> dict:
+    """
+    Describe programmatic vs agentic live verification gates and harness stages.
+    Returns {ok, doc_path, stages, gates, commands, ssim_threshold, bridge_url}.
+    """
+    return await live_verify.describe_live_verification()
 
 
 # ============================================================================

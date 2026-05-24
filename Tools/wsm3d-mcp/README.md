@@ -102,6 +102,27 @@ wsm3d journey verify -Id smoke-test-phase1
 wsm3d journey verify .\docs\journeys\manifests\us-wsm-phase-1-voxel-actors\manifest.json -Live
 ```
 
+### Live verification
+
+- `run_live_verify_offline(timeout_s=3600)` → {ok, exit_code, live, report_path, report, log_tail} — runs `Tools/wsm-live-verify.ps1` (dotnet tests + journey mock; playcua/SSIM skipped)
+- `list_playcua_scenarios()` → {ok, count, scenario_dir, scenarios: [{file, name, path}]}
+- `describe_live_verification()` → {ok, doc_path, stages, gates, commands, ssim_threshold, bridge_url}
+
+Offline harness (same as MCP tool):
+
+```powershell
+pwsh Tools/wsm-live-verify.ps1
+# Report: Tools/.reports/live-verify-latest.json
+```
+
+Full agentic gate (desktop + WorldBox + bridge on `127.0.0.1:8766`):
+
+```powershell
+pwsh Tools/wsm-live-verify.ps1 -Live
+```
+
+See `docs/live-verification.md` for programmatic vs agentic tiers, OmniRoute env, and PlayCUA sample scenarios.
+
 ### Codex integration
 
 - `codex_exec(prompt, model='gpt-5.3-codex-spark', reasoning='medium', workdir=None, extra_dirs=[], timeout_s=300)` → {ok, stdout, stderr, exit_code, tokens_used}
@@ -136,6 +157,7 @@ WSM3D_MCP_DEBUG=1 python -m wsm3d_mcp.server --http
 - `tools/settings.py` — SavedSettings.json I/O
 - `tools/build.py` — Build/install (wraps wsm3d.ps1)
 - `tools/journey.py` — phenotype-journey wrapper
+- `tools/live_verify.py` — live-verify harness, PlayCUA scenario listing, pipeline docs
 - `tools/codex.py` — Codex CLI bridge tools
 - `server.py` — FastMCP server entrypoint
 
