@@ -257,12 +257,13 @@ When you need a release or handoff bundle, use the canonical checklist in [`docs
 
 ```
 3bf2ad9 docs: add canonical live proof bundle checklist
-f5a93ae docs: update offline gate count to 421 tests
-a9ac962 docs: align HANDOFF and MERGE_CHECKLIST with v2.0.0-beta.5
-e3da16d docs: sync smoke-test index with journey manifests
-17cf3be chore(release): bump to v2.0.0-beta.5
-dac077c chore(tools): improve live-verify discoverability
-e84a1ba test(e2e): bridge save-load flush invariants
+1bf9540 docs: HANDOFF release tag v2.0.0-beta.6
+9aaa2dd docs: point handoff docs at v2.0.0-beta.6 release
+c73f85b chore(release): bump to v2.0.0-beta.6
+05961b6 test(e2e): building style procgen opt-in invariants
+32bd8bd test(e2e): terrain biome blending invariants
+4ddddec test(e2e): voxel frame driver postfx reconciler invariants
+57ab9a7 test(e2e): phase 3b tile overlay and wall patch invariants
 ```
 
 ## Important caveats / non-obvious gotchas
