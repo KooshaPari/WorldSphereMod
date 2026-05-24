@@ -23,7 +23,7 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 |---|---|
 | Active branch | `claude/research-ultraplan-fork-DdgI5` |
 | Open PR (#1) | https://github.com/KooshaPari/WorldSphereMod/pull/1 — **OPEN**, **MERGEABLE**; blocking CI green except Vercel rate limit |
-| Release tag (remote) | **`v2.0.0-beta.5`** — [release](https://github.com/KooshaPari/WorldSphereMod/releases/tag/v2.0.0-beta.5) |
+| Release tag (remote) | **`v2.0.0-beta.6`** — [release](https://github.com/KooshaPari/WorldSphereMod/releases/tag/v2.0.0-beta.6) |
 | Offline test matrix | **473 pass / 3 skip** (476 total) — Unit 151 (+ 3 skip), Integration 67, E2E 255 |
 | Cold-start orientation | `CLAUDE.md` |
 | Full 10-phase plan | `docs/PLAN.md` |
