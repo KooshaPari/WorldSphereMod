@@ -1,4 +1,6 @@
 using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
 using FluentAssertions;
 using Xunit;
 
@@ -96,5 +98,38 @@ public class LiveVerificationHarnessInvariantsTests
         script.Should().Contain("wsm3d-playcua");
         script.Should().Contain("--vision-backend");
         script.Should().Contain("omniroute");
+    }
+
+    [Fact]
+    public void Wsm_live_verify_live_stage_runs_every_sample_scenario_yaml_on_disk()
+    {
+        var root = FindRepoRoot();
+        var scenarioDir = Path.Combine(root, "Tools", "wsm3d-playcua", "sample-scenarios");
+        Directory.Exists(scenarioDir).Should().BeTrue("sample-scenarios directory must exist");
+
+        var yamlOnDisk = Directory
+            .GetFiles(scenarioDir, "*.yaml")
+            .Select(Path.GetFileName)
+            .OrderBy(n => n)
+            .ToList();
+        yamlOnDisk.Should().NotBeEmpty("at least one PlayCUA sample scenario must ship");
+
+        var script = ReadRepoFile(LiveVerifyScriptRelative);
+        script.Should().Contain("Get-PlaycuaScenarios");
+        script.Should().Contain("sample-scenarios");
+
+        var fn = Regex.Match(script, @"function Get-PlaycuaScenarios\s*\{([\s\S]*?)\r?\n\}");
+        fn.Success.Should().BeTrue();
+        fn.Groups[1].Value.Should().NotContain("$Phase");
+        fn.Groups[1].Value.Should().Contain("Get-ChildItem");
+
+        script.Should().Contain("foreach ($scenario in $scenarios)");
+        script.Should().MatchRegex(
+            @"if\s*\(\s*\$Vision\s*\)[\s\S]*--vision-backend[\s\S]*omniroute");
+
+        yamlOnDisk.Should().Contain("bridge-health-vision.yaml");
+        yamlOnDisk.Should().Contain("bridge-save-load-smoke.yaml");
+        yamlOnDisk.Should().Contain("phase-1-voxel-actors.yaml");
+        yamlOnDisk.Should().Contain("phase-2-procedural-buildings.yaml");
     }
 }

@@ -65,4 +65,32 @@ public class LiveVerifyHarnessStructureTests
         script.Should().Contain("Tools/verify-journeys.ps1");
         script.Should().MatchRegex(@"journey-mock-verify|verify-journeys");
     }
+
+    [Fact]
+    public void Live_verify_harness_live_stage_discovers_all_sample_scenario_yaml_without_phase_filter()
+    {
+        var script = HarnessScript;
+
+        script.Should().Contain("Get-PlaycuaScenarios");
+        script.Should().Contain("sample-scenarios");
+        script.Should().Contain("*.yaml");
+
+        var fn = System.Text.RegularExpressions.Regex.Match(
+            script,
+            @"function Get-PlaycuaScenarios\s*\{([\s\S]*?)\r?\n\}");
+        fn.Success.Should().BeTrue("Get-PlaycuaScenarios must exist");
+        fn.Groups[1].Value.Should().NotContain(
+            "$Phase",
+            "PlayCUA discovery must run every sample-scenarios/*.yaml; -Phase only narrows SSIM previews");
+    }
+
+    [Fact]
+    public void Live_verify_harness_passes_vision_backend_when_Vision_switch_set()
+    {
+        var script = HarnessScript;
+
+        script.Should().MatchRegex(
+            @"if\s*\(\s*\$Vision\s*\)[\s\S]*--vision-backend[\s\S]*omniroute",
+            "-Vision must forward --vision-backend omniroute to wsm3d-playcua");
+    }
 }

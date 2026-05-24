@@ -7,7 +7,7 @@
   Pipeline stages:
     Stage 1: dotnet test (unit, integration, e2e) — fail fast
     Stage 2: phenotype-journey verify --mock (Tools/verify-journeys.ps1)
-    Stage 3: [-Live] require bridge on :8766, wsm3d-playcua scenario(s), SSIM vs docs/journeys/phase-previews
+    Stage 3: [-Live] require bridge on :8766, all wsm3d-playcua/sample-scenarios/*.yaml, SSIM vs docs/journeys/phase-previews
     Stage 4: write Tools/.reports/live-verify-latest.json
 
 .PARAMETER Live
@@ -17,7 +17,7 @@
   Pass --vision-backend omniroute to wsm3d-playcua screenshot checks.
 
 .PARAMETER Phase
-  Restrict playcua scenarios and phase-previews SSIM to a single phase number (1-10).
+  Restrict phase-previews SSIM to a single phase number (1-10). PlayCUA always runs every sample-scenarios/*.yaml.
 #>
 [CmdletBinding()]
 param(
@@ -195,12 +195,7 @@ function Get-PlaycuaScenarios {
         return @()
     }
 
-    $files = Get-ChildItem -Path $scenarioRoot -Filter "*.yaml" -File | Sort-Object Name
-    if ($Phase -le 0) {
-        return $files
-    }
-
-    return $files | Where-Object { $_.BaseName -match "^phase-$Phase-" }
+    return Get-ChildItem -Path $scenarioRoot -Filter "*.yaml" -File | Sort-Object Name
 }
 
 function Get-PhasePreviewDirectories {
@@ -332,7 +327,7 @@ if (-not $Live) {
 
         $scenarios = Get-PlaycuaScenarios
         if (-not $scenarios -or $scenarios.Count -eq 0) {
-            throw "No playcua YAML scenarios found for the requested phase filter."
+            throw "No playcua YAML scenarios found under Tools/wsm3d-playcua/sample-scenarios."
         }
 
         $artifactRoot = Join-Path $repoRoot "Tools/wsm3d-playcua/.reports/live-verify-artifacts"

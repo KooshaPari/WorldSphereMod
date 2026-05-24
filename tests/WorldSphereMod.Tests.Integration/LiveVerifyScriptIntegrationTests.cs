@@ -64,6 +64,23 @@ public class LiveVerifyScriptIntegrationTests
     }
 
     [Fact]
+    public void Wsm_live_verify_live_stage_discovers_all_sample_scenarios_yaml()
+    {
+        var root = TestRepo.FindRoot();
+        var scenarioDir = Path.Combine(root, "Tools", "wsm3d-playcua", "sample-scenarios");
+        Directory.Exists(scenarioDir).Should().BeTrue();
+
+        var yamlCount = Directory.GetFiles(scenarioDir, "*.yaml").Length;
+        yamlCount.Should().BeGreaterThan(0);
+
+        var script = TestRepo.ReadRelative(LiveVerifyScriptRelative);
+        script.Should().Contain("Get-PlaycuaScenarios");
+        script.Should().Contain("foreach ($scenario in $scenarios)");
+        script.Should().MatchRegex(
+            @"function Get-PlaycuaScenarios\s*\{[\s\S]*Get-ChildItem[\s\S]*\.yaml");
+    }
+
+    [Fact]
     public void Wsm_live_verify_live_stage_ssim_loops_all_phase_previews_with_after_png_when_capture_succeeds()
     {
         var script = TestRepo.ReadRelative(LiveVerifyScriptRelative);
