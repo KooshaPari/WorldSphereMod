@@ -67,6 +67,10 @@ public sealed class ForwardPlusRendererSpecInvariantsTests
             "spec must record shipped vs target so Tier-5 work is traceable");
         spec.Should().Contain("AllocateTargets",
             "status table must name RT allocation stub");
+        spec.Should().Contain("Depth prepass",
+            "status table must name depth prepass stub");
+        spec.Should().Contain("**Stub**",
+            "status table must distinguish shipped vs stub targets");
         spec.Should().Contain("16×16",
             "spec must document tile size for light culling");
         spec.Should().Contain("8160 tiles",
@@ -104,5 +108,11 @@ public sealed class ForwardPlusRendererSpecInvariantsTests
         var executeBody = ExtractMethodBody(renderer, "public void Execute()");
         executeBody.Should().Contain("AllocateTargets()",
             "Execute must invoke AllocateTargets after Clear each frame");
+        executeBody.Should().Contain("DepthPrepass()",
+            "Execute must invoke DepthPrepass after AllocateTargets each frame");
+
+        var depthPrepassBody = ExtractMethodBody(renderer, "void DepthPrepass()");
+        depthPrepassBody.Should().Contain("DepthRtId",
+            "DepthPrepass stub must reference depth RT id for future mesh submit");
     }
 }

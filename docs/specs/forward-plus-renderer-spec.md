@@ -7,7 +7,7 @@
 | `WSM3DRenderer` CommandBuffer shell | **Shipped** | `EnsureCreated`, `BeforeImageEffects`, settings gate. |
 | `AllocateTargets` full-screen RTs | **Stub** | `GetTemporaryRT` for depth/color/AO; no `ReleaseTemporaryRT` / pass wiring yet. |
 | Tile-grid dimension constants | **Shipped** | `TileSizePx`, reference 1920×1080 tile counts, `MaxLightsPerTile`, `MaxDynamicLights`. |
-| Depth prepass | **Not shipped** | |
+| Depth prepass | **Stub** | `DepthPrepass()` invoked from `Execute` after `AllocateTargets`; no mesh draw yet. |
 | Tile light cull (compute / CPU) | **Not shipped** | |
 | Color pass + Forward+ shader | **Not shipped** | |
 | Post-FX chain + composite | **Not shipped** | |

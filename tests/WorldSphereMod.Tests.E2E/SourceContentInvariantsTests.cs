@@ -434,6 +434,8 @@ public class SourceContentInvariantsTests
             "Execute scaffold must clear the command buffer each frame");
         executeBody.Should().Contain("AllocateTargets()",
             "Execute must reserve RTs via AllocateTargets stub");
+        executeBody.Should().Contain("DepthPrepass()",
+            "Execute must invoke DepthPrepass after AllocateTargets");
         executeBody.Should().Contain("_executeStubLogged",
             "Execute must log scaffold activation once via a guard flag");
 

@@ -139,7 +139,8 @@ namespace WorldSphereMod.Renderer
 
             _commandBuffer.Clear();
             AllocateTargets();
-            // DepthPrepass / TileLightCull / ColorPass / PostFXChain / Composite — deferred.
+            DepthPrepass();
+            // TileLightCull / ColorPass / PostFXChain / Composite — deferred.
         }
 
         void AllocateTargets()
@@ -156,6 +157,16 @@ namespace WorldSphereMod.Renderer
             _commandBuffer.GetTemporaryRT(DepthRtId, w, h, 0, FilterMode.Point, RenderTextureFormat.RFloat);
             _commandBuffer.GetTemporaryRT(ColorRtId, w, h, 0, FilterMode.Bilinear, RenderTextureFormat.ARGBHalf);
             _commandBuffer.GetTemporaryRT(AoRtId, w, h, 0, FilterMode.Bilinear, RenderTextureFormat.R8);
+        }
+
+        void DepthPrepass()
+        {
+            if (_commandBuffer == null || _camera == null)
+            {
+                return;
+            }
+
+            // Stub: depth-only pass into DepthRtId (spec §3). Mesh submit + early-Z wiring deferred.
         }
     }
 }
