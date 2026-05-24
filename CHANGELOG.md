@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.5] - 2026-05-23
+
+Syncs repo version metadata with tags `v2.0.0-beta.0`–`beta.4` already on remote; this release captures stabilization work since `v2.0.0-beta.4`.
+
+### Tooling & CI
+
+- **Generated dashboard untracked** — stop tracking `docs/dashboard.md`; ignore generated stats dashboard and audit report artifacts (`wsm3d-stats`, nightly upload).
+- **Live-verify offline gate** — `Tools/wsm-live-verify.ps1` passes **418 tests** (421 total, 3 skipped: Unit + Integration + E2E + journey mock); `wsm3d status` surfaces live-verify counts.
+- **MERGE_CHECKLIST** — [`docs/MERGE_CHECKLIST.md`](docs/MERGE_CHECKLIST.md) for PR #1 → `main` with blocking CI gate status and offline live-verify command block.
+- **CI fixes** — `live-verify-gate` reused from `test-gate`; `verify-journeys` works on Linux without local Dino path; docs npm audit allowlist for transitive VitePress advisories.
+
+### CLI & verification (since beta.4)
+
+- **`wsm3d doctor`** — environment diagnostics; install.ps1 failures suggest `wsm3d doctor`.
+- **`wsm3d validate`** — E2E invariants for validate command and setup tests.
+- **`wsm3d submodule init`** — Compound-Spheres submodule bootstrap; Phase 5 setup script for Compound-Spheres-3D fork.
+- **Smoke-test docs** — phase 1–10 checklists, journey manifests, VitePress smoke-test index; contributor verification flow in CONTRIBUTING.
+
+### Renderer & voxel scaffolds (since beta.4)
+
+- **Forward+ stubs** — `AllocateTargets` with dimension constants; `DepthPrepass` after allocate in Execute.
+- **VoxelLuminanceDepth** — guarded stub in `SpriteVoxelizer`; Phase 10 proxy mesh stubs with guarded emit routing.
+- **Texture pack** — block PNG enumeration and McPackLoader manifest stub; cloud fx compile restored (phase 0 step 9).
+
+[2.0.0-beta.5]: https://github.com/kooshapari/WorldSphereMod/compare/v2.0.0-beta.4...v2.0.0-beta.5
+
 ## [2.0.0-beta.0] - 2026-05-23
 
 First beta release of **WorldSphereMod3D** — a hard fork that completes the 3D conversion of WorldBox on top of upstream WorldSphereMod terrain. All ten rendering phases are code-complete with default-on settings; visible 3D rendering is fully in place.
