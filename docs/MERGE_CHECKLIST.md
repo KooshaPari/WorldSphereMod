@@ -28,7 +28,7 @@ Use this before merging [PR #1](https://github.com/KooshaPari/WorldSphereMod/pul
 |---|---|---|---|
 | `dotnet-build` | Yes | pass | [`build.yml`](../.github/workflows/build.yml) |
 | `dotnet format` | Yes | pass | [`lint-gate.yml`](../.github/workflows/lint-gate.yml) |
-| `dotnet-test / live verify (offline)` | Yes | pass | [`test-gate.yml`](../.github/workflows/test-gate.yml), [`live-verify-gate.yml`](../.github/workflows/live-verify-gate.yml) — **417 passed / 0 failed** (Unit 151 + 3 skip, Integration 67, E2E 199) |
+| `dotnet-test / live verify (offline)` | Yes | pass | [`test-gate.yml`](../.github/workflows/test-gate.yml), [`live-verify-gate.yml`](../.github/workflows/live-verify-gate.yml) — **421 total / 418 passed / 0 failed** (Unit 151 + 3 skip, Integration 67, E2E 200) |
 | `journeys verify` | Yes | pass | [`journeys-gate.yml`](../.github/workflows/journeys-gate.yml) |
 | `VitePress build` | Yes | pass | [`docs-build-gate.yml`](../.github/workflows/docs-build-gate.yml) |
 | `docs npm audit` | Yes | pass | [`dependency-security-audit.yml`](../.github/workflows/dependency-security-audit.yml) |
@@ -73,8 +73,7 @@ Without `-Live`, stages 1–2 only (CI-equivalent offline). Without `-Vision`, P
 
 ## Release tag
 
-- Remote latest: **`v2.0.0-beta.4`** (as of 2026-05-23)
-- If a sibling agent tags **`v2.0.0-beta.5`** on this branch, update this doc and [`HANDOFF.md`](HANDOFF.md) to match; otherwise treat beta.4 as latest on remote
+- Remote latest: **`v2.0.0-beta.5`** — [GitHub Release](https://github.com/KooshaPari/WorldSphereMod/releases/tag/v2.0.0-beta.5) (2026-05-24)
 
 ## Submodule pin (do not bump casually)
 
