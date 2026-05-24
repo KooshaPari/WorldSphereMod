@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text.RegularExpressions;
 using FluentAssertions;
@@ -26,6 +27,39 @@ public sealed class LuminanceDepthInvariantsTests
         var path = Path.Combine(FindRepoRoot(), relativePath);
         File.Exists(path).Should().BeTrue($"source file must exist at {path}");
         return File.ReadAllText(path);
+    }
+
+    static string ExtractMethodBody(string source, string signature)
+    {
+        int headerIndex = source.IndexOf(signature, StringComparison.Ordinal);
+        headerIndex.Should().BeGreaterThanOrEqualTo(0, $"method signature should exist: {signature}");
+
+        int openBrace = source.IndexOf('{', headerIndex);
+        openBrace.Should().BeGreaterThanOrEqualTo(0, "method must open with a '{'");
+
+        int depth = 0;
+        for (int i = openBrace; i < source.Length; i++)
+        {
+            char c = source[i];
+            if (c == '{')
+            {
+                depth++;
+                continue;
+            }
+
+            if (c != '}')
+            {
+                continue;
+            }
+
+            depth--;
+            if (depth == 0)
+            {
+                return source.Substring(openBrace + 1, i - openBrace - 1);
+            }
+        }
+
+        throw new InvalidOperationException("Unbalanced braces while extracting method body");
     }
 
     [Fact]
@@ -61,5 +95,39 @@ public sealed class LuminanceDepthInvariantsTests
         source.Should().Contain("\"VoxelNeutralLuminance\"");
         source.Should().Contain("\"VoxelShadowRecession\"");
         source.Should().Contain("invalidateVoxel");
+    }
+
+    [Fact]
+    public void SpriteVoxelizer_luminance_depth_stub_logs_once_and_falls_through_to_existing_paths()
+    {
+        var voxelizer = ReadSource(@"WorldSphereMod/Code/Voxel/SpriteVoxelizer.cs");
+
+        voxelizer.Should().Contain("_luminanceDepthStubLogged",
+            "luminance stub must use a once-only guard flag");
+        voxelizer.Should().Contain("LogLuminanceDepthStubOnceIfEnabled()",
+            "DT-based build paths must share a single luminance stub entry point");
+        voxelizer.Should().Contain("VoxelLuminanceDepth",
+            "stub must gate on SavedSettings.VoxelLuminanceDepth");
+        voxelizer.Should().Contain("luminance-depth-spec.md",
+            "stub must reference the luminance depth spec");
+
+        var balloonBody = ExtractMethodBody(voxelizer, "public static Mesh BuildBalloon(Sprite sprite, int depth, out int[] vertexToTexel)");
+        var organicBody = ExtractMethodBody(voxelizer, "public static Mesh BuildOrganicBlob(Sprite sprite, int depth, out int[] vertexToTexel)");
+        var perTexelBody = ExtractMethodBody(voxelizer, "public static Mesh BuildPerTexel(Sprite sprite, int depth, out int[] vertexToTexel)");
+
+        foreach (var body in new[] { balloonBody, organicBody, perTexelBody })
+        {
+            body.Should().Contain("LogLuminanceDepthStubOnceIfEnabled()",
+                "each DT-based inflation path must hit the guarded stub before existing logic");
+            body.Should().Contain("ResolveDepth(depth)",
+                "stub must fall through to the existing depth resolution path");
+        }
+
+        balloonBody.Should().Contain("ComputeManhattanDistanceToAir",
+            "BuildBalloon must still run the existing DT path after the stub");
+        organicBody.Should().Contain("Mathf.PerlinNoise",
+            "BuildOrganicBlob must still run the existing noise depth path after the stub");
+        perTexelBody.Should().Contain("TryEmitTexelFace",
+            "BuildPerTexel must still emit per-texel faces after the stub");
     }
 }

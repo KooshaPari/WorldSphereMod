@@ -36,6 +36,7 @@ namespace WorldSphereMod.Voxel
         static readonly object _buildPerTexelNoiseDiagLock = new object();
         static int _buildGreedyDiagCount;
         static readonly object _buildGreedyDiagLock = new object();
+        static bool _luminanceDepthStubLogged;
 
         // Per-texture pixel cache. Sprite atlases share one underlying Texture2D across many
         // sprites; without this, each sprite voxelization re-paid the cost of decoding the
@@ -267,6 +268,27 @@ namespace WorldSphereMod.Voxel
         }
 
         /// <summary>
+        /// When <see cref="WorldSphereMod.SavedSettings.VoxelLuminanceDepth"/> is on, log once that
+        /// hybrid DT+luminance depth is not wired yet, then callers fall through to the existing path.
+        /// See <c>docs/journeys/scratch/luminance-depth-spec.md</c>.
+        /// </summary>
+        static void LogLuminanceDepthStubOnceIfEnabled()
+        {
+            if (Core.savedSettings == null || !Core.savedSettings.VoxelLuminanceDepth)
+            {
+                return;
+            }
+
+            if (_luminanceDepthStubLogged)
+            {
+                return;
+            }
+
+            _luminanceDepthStubLogged = true;
+            Debug.Log("[WSM3D][Voxel] VoxelLuminanceDepth enabled; hybrid DT+luminance depth not wired yet — using existing depth.");
+        }
+
+        /// <summary>
         /// Phase 1: balloon inflation builds a silhouette-expanded solid from a 2D
         /// distance transform. Solid pixels near the edge stay thin in depth, while
         /// interior pixels become thicker, creating a rounded inflated volume instead
@@ -274,6 +296,7 @@ namespace WorldSphereMod.Voxel
         /// </summary>
         public static Mesh BuildBalloon(Sprite sprite, int depth, out int[] vertexToTexel)
         {
+            LogLuminanceDepthStubOnceIfEnabled();
             depth = ResolveDepth(depth);
             if (sprite == null || sprite.texture == null || !sprite.texture.isReadable)
             {
@@ -370,6 +393,7 @@ namespace WorldSphereMod.Voxel
         /// </summary>
         public static Mesh BuildOrganicBlob(Sprite sprite, int depth, out int[] vertexToTexel)
         {
+            LogLuminanceDepthStubOnceIfEnabled();
             depth = ResolveDepth(depth);
             if (sprite == null || sprite.texture == null || !sprite.texture.isReadable)
             {
@@ -682,6 +706,7 @@ namespace WorldSphereMod.Voxel
         /// </summary>
         public static Mesh BuildPerTexel(Sprite sprite, int depth, out int[] vertexToTexel)
         {
+            LogLuminanceDepthStubOnceIfEnabled();
             depth = ResolveDepth(depth);
             if (sprite == null || sprite.texture == null || !sprite.texture.isReadable)
             {
