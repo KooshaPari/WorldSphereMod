@@ -100,6 +100,9 @@ public class SavedSettings
         // humanoid silhouettes). HumanoidRig + SegmentVoxels path gives real
         // body shape with head/torso/arms/legs bones.
         public bool SkeletalAnimation = true;
+        // ADR-0006: DrawProceduralIndirect GPU skinning (opt-in; scaffold only until
+        // VoxelSkinned.shader + per-rig StructuredBuffer path ships). Requires SkeletalAnimation.
+        public bool GpuProceduralSkinning = false;
         // Phase 7: Worldspace UI (nameplates, health bars, selection rings).
         public bool WorldspaceUI = true;
         // Phase 7: optional worldspace 3D text labels instead of upstream NameplateText.

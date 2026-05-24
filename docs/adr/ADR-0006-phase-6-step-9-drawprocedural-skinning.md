@@ -114,7 +114,24 @@ Per-(sprite, rig) StructuredBuffer lifetime follows `RigCache.Evict` semantics: 
 
 ### Settings / feature flags
 
-No new `SavedSettings` flags. This is an implementation detail of Phase 6 Step 6 (the GPU path). The feature ships gated by the existing Phase 6 flag.
+- **`SavedSettings.SkeletalAnimation`** — master Phase 6 gate (default ON).
+- **`SavedSettings.GpuProceduralSkinning`** — opt-in future flag for this ADR (default OFF). When both are true, `RigDriver.Update` calls `RigGpuSkinning.TickFrame()`; the scaffold does not replace the live `SkinnedMeshRenderer` path until the full GPU implementation lands.
+
+## Implementation status
+
+| Item | Status |
+|------|--------|
+| `RigGpuSkinning.cs` scaffold (`CanDispatchGPU`, `TickFrame`, `Clear`, `DispatchSkin`/`FlushDraws` stubs) | **Done** (2026-05-23) |
+| `SavedSettings.GpuProceduralSkinning` future flag (default `false`) | **Done** |
+| `RigDriver` wires scaffold when `SkeletalAnimation` + `GpuProceduralSkinning` | **Done** |
+| E2E `GpuProceduralSkinningScaffoldInvariantsTests` | **Done** |
+| Per-rig `ComputeBuffer` + `DrawProceduralIndirect` | **Not started** |
+| `VoxelSkin.compute` instance-slice kernel rewrite | **Not started** |
+| `VoxelSkinned.shader` (Phase 5b) | **Not started** |
+| `FrustumCuller` integration on GPU draw | **Not started** |
+| Per-rig buffer LRU eviction | **Not started** |
+
+Live rendering remains **`SkinnedMeshRenderer`** + `HumanoidRig.FillLocalRotations` in `RigDriver`. Enabling `GpuProceduralSkinning` only exercises the no-op scaffold until the rows above ship.
 
 ### Roll-out
 

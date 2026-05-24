@@ -131,6 +131,11 @@ namespace WorldSphereMod.Rig
                 RemoveRig(_scratchRemove[i]);
             }
 
+            if (RigGpuSkinning.IsEnabled(Core.savedSettings))
+            {
+                RigGpuSkinning.TickFrame();
+            }
+
             frameElapsedMs = (Stopwatch.GetTimestamp() - startTimestamp) * 1000.0 / Stopwatch.Frequency;
             MaybeLogPerfStats(_actorRigs.Count, frameElapsedMs);
         }
@@ -162,6 +167,8 @@ namespace WorldSphereMod.Rig
                 Object.Destroy(_root.gameObject);
                 _root = null;
             }
+
+            RigGpuSkinning.Clear();
 
             _actorRigs.Clear();
             _scratchRemove.Clear();
