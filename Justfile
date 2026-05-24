@@ -176,9 +176,9 @@ screenshot:
 watch:
     pwsh Tools/wsm3d.ps1 watch
 
-# Print machine-readable diagnostic status (JSON).
+# Environment diagnostics (human summary + JSON with -Json).
 doctor:
-    pwsh Tools/wsm3d.ps1 status -Json
+    pwsh Tools/wsm3d.ps1 doctor -Json
 
 # ── Git Hooks ─────────────────────────────────────────────────────────────
 

@@ -5,7 +5,7 @@
 
 .DESCRIPTION
   One-file command dispatcher for WSM3D development. Routes to subcommands:
-    build, install, launch, kill, relaunch, log, profile, render-budget, screenshot, settings, toggle, status, journey, watch, help.
+    build, install, launch, kill, relaunch, log, profile, render-budget, screenshot, settings, toggle, status, doctor, journey, watch, help.
 
 .EXAMPLE
   ./wsm3d.ps1 build
@@ -37,6 +37,10 @@ $script:ModSettingsFile = Join-Path $ModSettingsDir "WorldSphereMod.json"
 $script:BuiltDll = Join-Path $RepoRoot "bin/Release/net48/WorldSphereMod3D.dll"
 $script:PhenotypeJourneyRepo = "C:/Users/koosh/Dino/tools/phenotype-journeys"
 $script:PhenotypeJourneyCache = Join-Path $RepoRoot "tools/.cache/phenotype-journeys"
+$script:BridgePort = 8766
+$script:BridgeHealthUrl = "http://127.0.0.1:8766/health"
+$script:OmniRouteBaseUrl = if ($env:OMNROUTE_BASE_URL) { $env:OMNROUTE_BASE_URL.TrimEnd('/') } else { "http://127.0.0.1:20128/v1" }
+$script:GitSubmodulePaths = @("External/Compound-Spheres")
 
 # Phase defaults from SavedSettings.cs (also used by safe-min preset)
 $script:PhaseDefaults = @{
@@ -136,23 +140,34 @@ function Get-LatestPlayerLog {
     return $latestLog
 }
 
-function Get-PhenotypeJourneyBinary {
-    $journeyCmd = Get-Command phenotype-journey -ErrorAction SilentlyContinue
-    if ($journeyCmd) {
-        return $journeyCmd.Source
-    }
-
-    $candidatePaths = @(
+function Get-PhenotypeJourneyCandidatePaths {
+    return @(
         (Join-Path $script:PhenotypeJourneyRepo "target/release/phenotype-journey.exe"),
         (Join-Path $script:PhenotypeJourneyRepo "target/release/phenotype-journey"),
         (Join-Path $script:PhenotypeJourneyCache "target/release/phenotype-journey.exe"),
         (Join-Path $script:PhenotypeJourneyCache "target/release/phenotype-journey")
     )
+}
 
-    foreach ($candidate in $candidatePaths) {
+function Find-PhenotypeJourneyBinary {
+    $journeyCmd = Get-Command phenotype-journey -ErrorAction SilentlyContinue
+    if ($journeyCmd) {
+        return $journeyCmd.Source
+    }
+
+    foreach ($candidate in (Get-PhenotypeJourneyCandidatePaths)) {
         if (Test-Path $candidate) {
             return $candidate
         }
+    }
+
+    return $null
+}
+
+function Get-PhenotypeJourneyBinary {
+    $found = Find-PhenotypeJourneyBinary
+    if ($found) {
+        return $found
     }
 
     $buildRoots = @()
@@ -175,14 +190,158 @@ function Get-PhenotypeJourneyBinary {
             Pop-Location
         }
 
-        foreach ($candidate in $candidatePaths) {
-            if (Test-Path $candidate) {
-                return $candidate
-            }
+        $found = Find-PhenotypeJourneyBinary
+        if ($found) {
+            return $found
         }
     }
 
     throw "phenotype-journey not found on PATH and no local source or cache build could produce a binary. See docs/journeys/README.md."
+}
+
+function Test-BridgeHealthy {
+    param([string]$Url = $script:BridgeHealthUrl)
+
+    try {
+        $response = Invoke-RestMethod -Uri $Url -Method Get -TimeoutSec 8
+        return [bool]($response -and $response.ok -ne $false)
+    } catch {
+        return $false
+    }
+}
+
+function Test-OmniRouteReachable {
+    param([string]$BaseUrl = $script:OmniRouteBaseUrl)
+
+    $modelsUrl = if ($BaseUrl -match "/v1/?$") {
+        ($BaseUrl.TrimEnd("/")) + "/models"
+    } else {
+        $BaseUrl.TrimEnd("/") + "/v1/models"
+    }
+
+    try {
+        $headers = @{}
+        if ($env:OMNROUTE_API_KEY) {
+            $headers["Authorization"] = "Bearer $($env:OMNROUTE_API_KEY)"
+        }
+        $null = Invoke-RestMethod -Uri $modelsUrl -Method Get -Headers $headers -TimeoutSec 8
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+function Get-GitSubmoduleDoctorRows {
+    $rows = @()
+
+    Push-Location $RepoRoot
+    try {
+        $gitCmd = Get-Command git -ErrorAction SilentlyContinue
+        if (-not $gitCmd) {
+            return @([PSCustomObject]@{
+                path = "(git)"
+                status = "fail"
+                detail = "git not found on PATH"
+            })
+        }
+
+        $statusLines = @(& git submodule status --recursive 2>&1)
+        if ($LASTEXITCODE -ne 0) {
+            return @([PSCustomObject]@{
+                path = "(submodules)"
+                status = "fail"
+                detail = ($statusLines -join "; ")
+            })
+        }
+
+        if (-not $statusLines -or $statusLines.Count -eq 0) {
+            foreach ($path in $script:GitSubmodulePaths) {
+                $fullPath = Join-Path $RepoRoot $path
+                if (-not (Test-Path -LiteralPath $fullPath)) {
+                    $rows += [PSCustomObject]@{
+                        path = $path
+                        status = "fail"
+                        detail = "expected submodule path missing"
+                    }
+                }
+            }
+            if ($rows.Count -eq 0) {
+                $rows += [PSCustomObject]@{
+                    path = "(none)"
+                    status = "ok"
+                    detail = "no submodules configured"
+                }
+            }
+            return $rows
+        }
+
+        foreach ($line in $statusLines) {
+            $text = [string]$line
+            if ([string]::IsNullOrWhiteSpace($text)) { continue }
+
+            $parsed = [regex]::Match($text, '^(?<flag>[ \-+U])(?<sha>[0-9a-f]+)\s+(?<path>\S+)')
+            if (-not $parsed.Success) {
+                $rows += [PSCustomObject]@{
+                    path = $text.Trim()
+                    status = "warn"
+                    detail = "unparsed submodule status line"
+                }
+                continue
+            }
+
+            $path = $parsed.Groups["path"].Value
+            $flag = $parsed.Groups["flag"].Value
+            $state = switch ($flag) {
+                " " { "ok" }
+                "-" { "fail" }
+                "+" { "warn" }
+                "U" { "fail" }
+                default { "warn" }
+            }
+            $detail = switch ($flag) {
+                " " { "initialized at pinned commit" }
+                "-" { "not initialized — run: git submodule update --init --recursive" }
+                "+" { "checkout differs from index — run: git submodule update" }
+                "U" { "merge conflict in submodule" }
+                default { $text }
+            }
+
+            $rows += [PSCustomObject]@{
+                path = $path
+                status = $state
+                detail = $detail
+            }
+        }
+    } finally {
+        Pop-Location
+    }
+
+    return $rows
+}
+
+function New-DoctorCheck {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Id,
+
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("ok", "warn", "fail", "skip")]
+        [string]$Status,
+
+        [bool]$Required = $true,
+        [bool]$Optional = $false,
+        [string]$Message = "",
+        [hashtable]$Details = @{}
+    )
+
+    return [ordered]@{
+        id = $Id
+        status = $Status
+        required = $Required
+        optional = $Optional
+        message = $Message
+        details = $Details
+    }
 }
 
 function Get-PhenotypeJourneyManifestPath {
@@ -1078,6 +1237,200 @@ function Invoke-Status {
     }
 }
 
+function Invoke-Doctor {
+    param([switch]$Json)
+
+    $checks = @()
+
+    $worldboxFromEnv = [bool]$env:WORLDBOX_PATH
+    $worldboxData = Join-Path $WorldBoxPath "worldbox_Data"
+    if (Test-Path -LiteralPath $worldboxData) {
+        $checks += New-DoctorCheck -Id "worldbox_path" -Status "ok" -Required $true `
+            -Message "WorldBox install found" `
+            -Details @{
+                path = $WorldBoxPath
+                from_env = $worldboxFromEnv
+                worldbox_data = $worldboxData
+            }
+    } else {
+        $checks += New-DoctorCheck -Id "worldbox_path" -Status "fail" -Required $true `
+            -Message "WorldBox not found (missing worldbox_Data)" `
+            -Details @{
+                path = $WorldBoxPath
+                from_env = $worldboxFromEnv
+                remediation = "Set WORLDBOX_PATH to your Steam WorldBox folder or install the game."
+            }
+    }
+
+    $dotnetCmd = Get-Command dotnet -ErrorAction SilentlyContinue
+    if (-not $dotnetCmd) {
+        $checks += New-DoctorCheck -Id "dotnet_sdk" -Status "fail" -Required $true `
+            -Message "dotnet CLI not on PATH" `
+            -Details @{ remediation = "Install .NET SDK 8+ and ensure dotnet is on PATH." }
+    } else {
+        $sdkVersion = $null
+        $sdkError = $null
+        try {
+            $sdkVersion = (& dotnet --version 2>&1 | Select-Object -First 1)
+            if ($LASTEXITCODE -ne 0) { throw "dotnet --version exit $LASTEXITCODE" }
+        } catch {
+            $sdkError = $_.Exception.Message
+        }
+
+        if ($sdkVersion -and $sdkVersion -match '^\d+\.\d+') {
+            $checks += New-DoctorCheck -Id "dotnet_sdk" -Status "ok" -Required $true `
+                -Message "dotnet SDK $sdkVersion" `
+                -Details @{ version = $sdkVersion; path = $dotnetCmd.Source }
+        } else {
+            $checks += New-DoctorCheck -Id "dotnet_sdk" -Status "fail" -Required $true `
+                -Message "dotnet --version failed" `
+                -Details @{ error = $sdkError; path = $dotnetCmd.Source }
+        }
+    }
+
+    try {
+        $pythonPath = Resolve-PythonCommand
+        $pythonVersion = try { (& $pythonPath --version 2>&1 | Select-Object -First 1) } catch { "(version unknown)" }
+        $checks += New-DoctorCheck -Id "python" -Status "ok" -Required $true `
+            -Message "Python available" `
+            -Details @{ path = $pythonPath; version = [string]$pythonVersion }
+    } catch {
+        $checks += New-DoctorCheck -Id "python" -Status "fail" -Required $true `
+            -Message $_.Exception.Message `
+            -Details @{ remediation = "Install Python 3 and ensure python, python3, or py is on PATH." }
+    }
+
+    $submoduleRows = @(Get-GitSubmoduleDoctorRows)
+    $subFail = @($submoduleRows | Where-Object { $_.status -eq "fail" })
+    $subWarn = @($submoduleRows | Where-Object { $_.status -eq "warn" })
+    if ($subFail.Count -gt 0) {
+        $checks += New-DoctorCheck -Id "git_submodules" -Status "fail" -Required $true `
+            -Message "$($subFail.Count) submodule(s) need attention" `
+            -Details @{ submodules = @($submoduleRows | ForEach-Object {
+                [ordered]@{ path = $_.path; status = $_.status; detail = $_.detail }
+            }) }
+    } elseif ($subWarn.Count -gt 0) {
+        $checks += New-DoctorCheck -Id "git_submodules" -Status "warn" -Required $true `
+            -Message "$($subWarn.Count) submodule(s) out of sync with index" `
+            -Details @{ submodules = @($submoduleRows | ForEach-Object {
+                [ordered]@{ path = $_.path; status = $_.status; detail = $_.detail }
+            }) }
+    } else {
+        $checks += New-DoctorCheck -Id "git_submodules" -Status "ok" -Required $true `
+            -Message "git submodules initialized" `
+            -Details @{ submodules = @($submoduleRows | ForEach-Object {
+                [ordered]@{ path = $_.path; status = $_.status; detail = $_.detail }
+            }) }
+    }
+
+    $journeyBinary = Find-PhenotypeJourneyBinary
+    if ($journeyBinary) {
+        $checks += New-DoctorCheck -Id "phenotype_journey" -Status "ok" -Required $false `
+            -Message "phenotype-journey found" `
+            -Details @{ path = $journeyBinary }
+    } else {
+        $checks += New-DoctorCheck -Id "phenotype_journey" -Status "warn" -Required $false `
+            -Message "phenotype-journey not found (journey verify will build or fail)" `
+            -Details @{
+                remediation = "Add phenotype-journey to PATH or build from docs/journeys/README.md."
+                search_roots = @($script:PhenotypeJourneyRepo, $script:PhenotypeJourneyCache)
+            }
+    }
+
+    if (Test-BridgeHealthy) {
+        $checks += New-DoctorCheck -Id "bridge_rpc" -Status "ok" -Required $false `
+            -Message "BridgeRPC healthy on port $($script:BridgePort)" `
+            -Details @{ url = $script:BridgeHealthUrl }
+    } else {
+        $checks += New-DoctorCheck -Id "bridge_rpc" -Status "warn" -Required $false `
+            -Message "BridgeRPC not reachable on port $($script:BridgePort)" `
+            -Details @{
+                url = $script:BridgeHealthUrl
+                remediation = "Launch WorldBox with the mod installed, or start wsm3d-mcp HTTP on :8766."
+            }
+    }
+
+    if (Test-OmniRouteReachable) {
+        $checks += New-DoctorCheck -Id "omniroute" -Status "ok" -Required $false -Optional $true `
+            -Message "OmniRoute reachable" `
+            -Details @{ base_url = $script:OmniRouteBaseUrl }
+    } else {
+        $checks += New-DoctorCheck -Id "omniroute" -Status "skip" -Required $false -Optional $true `
+            -Message "OmniRoute not reachable (optional for vision)" `
+            -Details @{
+                base_url = $script:OmniRouteBaseUrl
+                remediation = "Start OmniRoute locally or set OMNROUTE_BASE_URL; required only for -VisionBackend omniroute."
+            }
+    }
+
+    $requiredFailed = @($checks | Where-Object { $_.required -and $_.status -eq "fail" })
+    $requiredWarn = @($checks | Where-Object { $_.required -and $_.status -eq "warn" })
+    $optionalWarn = @($checks | Where-Object { -not $_.required -and $_.status -in @("warn", "fail") })
+    $overallOk = ($requiredFailed.Count -eq 0 -and $requiredWarn.Count -eq 0)
+
+    $report = [ordered]@{
+        ok = $overallOk
+        generated_at = (Get-Date).ToUniversalTime().ToString("o")
+        repo_root = $RepoRoot
+        worldbox_path = $WorldBoxPath
+        checks = $checks
+        summary = [ordered]@{
+            required_failed = $requiredFailed.Count
+            required_warn = $requiredWarn.Count
+            optional_warn = $optionalWarn.Count
+        }
+    }
+
+    Write-Host ""
+    Write-Host "WSM3D Doctor" -ForegroundColor Cyan
+    Write-Host "============" -ForegroundColor Cyan
+
+    foreach ($check in $checks) {
+        $icon = switch ($check.status) {
+            "ok" { "[OK]" }
+            "warn" { "[WARN]" }
+            "fail" { "[FAIL]" }
+            "skip" { "[SKIP]" }
+            default { "[?]" }
+        }
+        $color = switch ($check.status) {
+            "ok" { "Green" }
+            "warn" { "Yellow" }
+            "fail" { "Red" }
+            "skip" { "DarkGray" }
+            default { "White" }
+        }
+        $suffix = if ($check.optional) { " (optional)" } elseif (-not $check.required) { " (recommended)" } else { "" }
+        Write-Host ("  {0} {1}{2} — {3}" -f $icon, $check.id, $suffix, $check.message) -ForegroundColor $color
+    }
+
+    Write-Host ""
+    if ($overallOk) {
+        if ($optionalWarn.Count -gt 0) {
+            Write-Warn "Required checks passed with $($optionalWarn.Count) optional warning(s)."
+        } else {
+            Write-Success "All required checks passed."
+        }
+    } else {
+        Write-Error-Custom "Doctor failed: $($requiredFailed.Count) required check(s) failed, $($requiredWarn.Count) required warning(s)."
+        foreach ($failed in $requiredFailed) {
+            $remediation = $failed.details.remediation
+            if ($remediation) {
+                Write-Host "  → $($failed.id): $remediation" -ForegroundColor Yellow
+            }
+        }
+    }
+
+    if ($Json) {
+        Write-Host ""
+        Write-Host ($report | ConvertTo-Json -Depth 10)
+    }
+
+    if (-not $overallOk) {
+        exit 1
+    }
+}
+
 function Invoke-JourneyVerify {
     param(
         [Parameter(Mandatory=$true)]
@@ -1425,6 +1778,11 @@ Commands:
   status [-Json]
       Print build state, game running, log mtime. Use -Json for machine-readable output.
 
+  doctor [-Json]
+      Environment diagnostics: WORLDBOX_PATH, dotnet SDK, python, git submodules,
+      phenotype-journey binary, BridgeRPC :8766, optional OmniRoute :20128.
+      Prints a human summary; add -Json for a machine-readable report.
+
   phases list [-Json]
       List all 10 phase flags with current and default values. Use -Json for machine-readable output.
 
@@ -1482,6 +1840,8 @@ Examples:
   wsm3d phases enable-all
   wsm3d phases preset safe-min
   wsm3d status -Json
+  wsm3d doctor
+  wsm3d doctor -Json
   wsm3d   journey verify -Id sample-journey
   wsm3d journey verify docs/journeys/manifests/sample-journey/manifest.json -Live
   wsm3d playcua run-all -VisionBackend omniroute
@@ -1662,6 +2022,13 @@ try {
                 Json = $commandArgs -contains "-Json"
             }
             Invoke-Status @params
+        }
+
+        "doctor" {
+            $params = @{
+                Json = $commandArgs -contains "-Json"
+            }
+            Invoke-Doctor @params
         }
 
         "phases" {

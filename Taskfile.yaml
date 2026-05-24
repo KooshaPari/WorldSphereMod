@@ -237,9 +237,9 @@ tasks:
       - pwsh Tools/wsm3d.ps1 watch
 
   doctor:
-    desc: "Print machine-readable diagnostic status (JSON)."
+    desc: "Environment diagnostics (WORLDBOX_PATH, dotnet, bridge, submodules, …)."
     cmds:
-      - pwsh Tools/wsm3d.ps1 status -Json
+      - pwsh Tools/wsm3d.ps1 doctor -Json
 
   # ── Git Hooks ─────────────────────────────────────────────────────────────
 
