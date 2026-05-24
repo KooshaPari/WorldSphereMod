@@ -187,10 +187,12 @@ Short form:
 
 ## What's blocked
 
-- **Phase 2 procedural buildings smoke test** — use the same toggle + screenshot + diff-vs-canonical flow that proved Phase 1 visibility.
+- **Phase 2 procedural buildings in-game smoke** — `ProceduralBuildings` path and PlayCUA scenario `Tools/wsm3d-playcua/sample-scenarios/phase-2-procedural-buildings.yaml` are in tree; still needs live toggle + screenshot + diff-vs-canonical previews (same discipline as Phase 1).
+- **Cloud crossed-quad in-game smoke** — `CloudCrossedQuadRender` is wired through `Effects.cs` and `WorldUnloadPatch`; E2E invariants cover submit/clear paths. No PlayCUA scenario yet — verify cloud/foliage effect sprites visually with `CrossedQuadFoliage` on.
 - **Unity 2022.3 install** — required to bake `VoxelLit.shader`, `WaterGerstner.shader`, `ProceduralSky.shader` into AssetBundles for Phases 4, 5, 8.
-- **Live verification** — programmatic gate (`dotnet test` + journey mock) runs in CI; agentic gate (`wsm3d-playcua` + OmniRoute vision combo, optional SSIM) is local-only. See `docs/live-verification.md`.
-- **OmniRoute API key** (optional) — for PlayCUA screenshot vision via `OMNROUTE_API_KEY` + `OMNROUTE_VISION_COMBO` (or `ANTHROPIC_API_KEY` fallback). Journey mock mode works without either.
+- **Live verification (agentic tier)** — `.github/workflows/live-verify-gate.yml` runs offline programmatic stages (`dotnet test` + journey mock via `Tools/wsm-live-verify.ps1`, report `Tools/.reports/live-verify-latest.json`). Bridge + `wsm3d-playcua` + optional SSIM require `-Live` on a Windows desktop. See `docs/live-verification.md`.
+- **PlayCUA sample scenarios (live runs)** — YAML in `Tools/wsm3d-playcua/sample-scenarios/`: `bridge-health-vision.yaml`, `phase-1-voxel-actors.yaml`, `phase-2-procedural-buildings.yaml`. E2E guards in `PlaycuaSampleScenarioInvariantsTests.cs`; OmniRoute vision steps need a running game + bridge (`127.0.0.1:8766`).
+- **OmniRoute API key** (optional) — for PlayCUA screenshot vision via `OMNROUTE_API_KEY` + `OMNROUTE_VISION_COMBO` (or `ANTHROPIC_API_KEY` fallback). Journey mock and offline live-verify gate work without either.
 
 ## Recommended next steps
 
@@ -205,18 +207,19 @@ Short form:
 - **Slash commands:** `/wsm-status`, `/wsm-validate-all`, `/wsm-build`, `/wsm-install`, `/wsm-relaunch`, `/wsm-log`, `/wsm-toggle`, `/wsm-screenshot`, `/wsm-journey-run`, `/wsm-doctor`.
 - **MCP:** `Tools/wsm3d-mcp/` — Python FastMCP with 18 tools, auto-registered via `.claude/mcp-servers.json`.
 - **Journey gate:** `.github/workflows/journeys-gate.yml` — OCR-assertion DSL; verify with `phenotype-journey verify <manifest> --mock`. Live capture remains the final proof step; entry point: `docs/live-verification.md`.
-- **Live verify:** `docs/live-verification.md` — programmatic (`dotnet test`, journey mock, optional SSIM ≥ 0.95) vs agentic (`wsm3d-playcua`, OmniRoute combo, bridge save/load checklist).
+- **Live-verify gate (CI):** `.github/workflows/live-verify-gate.yml` — offline `dotnet test` + journey mock (stages 1–2 of `Tools/wsm-live-verify.ps1`). Full harness: `pwsh Tools/wsm-live-verify.ps1` (add `-Live` for PlayCUA scenarios + SSIM).
+- **Live verify:** `docs/live-verification.md` — programmatic (`dotnet test`, journey mock, optional SSIM ≥ 0.95) vs agentic (`wsm3d-playcua` sample scenarios, OmniRoute combo, bridge save/load checklist).
 
 ## Recent commits (7 most recent)
 
 ```
-e1fdc45 docs(tooling): CLAUDE.md ref + CONTRIBUTING + journey-authoring + PS completions
-1402802 Fix release workflow: GitHub Actions heredoc delimiter
-d6f520f Fix release workflow: broken pipe in CHANGELOG extraction
-924fc3d feat(tooling,build): net48 retarget + watch + journey capture + tooling docs page + nightly/release CI
-8d42378 chore(deps,tooling): bump pkgs to latest CVE-free + Just/Task parity + ADR-0006 + watch + journeys CI
-0e4008c feat(tooling): full Phenotype-org dev stack — slash + skill + CLI + MCP + journeys + tests
-0e3e424 fix(phase-1): pick instancing-capable shader; guard DrawMeshInstanced
+9e5ca57 fix(ci): normalize live-verify stage details when dotnet emits pipeline output
+af87b4a feat(foliage): wire CloudCrossedQuadRender into effects and world unload
+f157584 ci: add live-verify-gate for offline dotnet test and journey mock
+55c5627 feat(wsm3d-playcua): add Phase 2 procedural buildings sample scenario
+600e227 fix(import): add ZIP compression refs and settable texture-pack DTOs
+c5a1582 feat(wsm3d-playcua): add OmniRoute vision backend and stabilize Compound-Spheres
+26b56a9 feat(tooling): add live verification harness with SSIM gate and tests
 ```
 
 ## Important caveats / non-obvious gotchas
