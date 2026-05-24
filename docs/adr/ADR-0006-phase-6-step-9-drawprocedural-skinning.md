@@ -122,6 +122,7 @@ Per-(sprite, rig) StructuredBuffer lifetime follows `RigCache.Evict` semantics: 
 | Item | Status |
 |------|--------|
 | `RigGpuSkinning.cs` scaffold (`CanDispatchGPU`, `TickFrame`, `Clear`, `DispatchSkin`/`FlushDraws` stubs) | **Done** (2026-05-23) |
+| `RigGpuSkinning` per-rig `ComputeBuffer` field stubs + `kMaxInstancesPerRig` sizing docs | **Done** (2026-05-23) |
 | `SavedSettings.GpuProceduralSkinning` future flag (default `false`) | **Done** |
 | `RigDriver` wires scaffold when `SkeletalAnimation` + `GpuProceduralSkinning` | **Done** |
 | E2E `GpuProceduralSkinningScaffoldInvariantsTests` | **Done** |

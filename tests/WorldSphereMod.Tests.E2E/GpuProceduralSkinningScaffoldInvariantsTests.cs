@@ -98,6 +98,12 @@ public sealed class GpuProceduralSkinningScaffoldInvariantsTests
         scaffold.Should().Contain("public static void DispatchSkin(");
         scaffold.Should().Contain("public static void FlushDraws()");
         scaffold.Should().Contain("DrawProceduralIndirect");
+        scaffold.Should().Contain("ComputeBuffer");
+        scaffold.Should().Contain("PositionBuffer");
+        scaffold.Should().Contain("IndirectArgsBuffer");
+        scaffold.Should().Contain("PositionBufferElementCount");
+        scaffold.Should().Contain("vertexCount * kMaxInstancesPerRig");
+        scaffold.Should().Contain("1000 actors");
     }
 
     [Fact]

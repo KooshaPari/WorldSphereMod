@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace WorldSphereMod.Rig
@@ -13,11 +14,55 @@ namespace WorldSphereMod.Rig
     {
         /// <summary>
         /// Per-(sprite, rig) instance cap for position-buffer slicing (ADR-0006 § Open Questions).
+        /// Sized for Phase 10: 1000 actors ÷ ~50 unique rigs ≈ 20 actors/rig on average;
+        /// cap at 8 to leave headroom for popular rigs (e.g. humanoids). Each position buffer
+        /// holds <c>vertexCount * kMaxInstancesPerRig</c> float3 elements (see
+        /// <see cref="PositionBufferElementCount"/>).
         /// </summary>
         public const int kMaxInstancesPerRig = 8;
 
+        /// <summary>Stride for per-vertex float3 positions in the per-rig StructuredBuffer.</summary>
+        public const int PositionBufferStrideBytes = sizeof(float) * 3;
+
+        /// <summary>
+        /// <see cref="Graphics.DrawProceduralIndirect"/> args buffer length (indexCount,
+        /// instanceCount, startIndex, baseVertex, startInstance).
+        /// </summary>
+        public const int IndirectArgsCount = 5;
+
+        /// <summary>
+        /// Per-(sprite, rig) GPU buffer handles. Key matches <see cref="RigCache"/>:
+        /// <c>((long)(uint)sprite.GetInstanceID() &lt;&lt; 8) | (byte)rigType</c>.
+        /// </summary>
+        static readonly Dictionary<long, RigGpuBufferSet> _perRigBuffers =
+            new Dictionary<long, RigGpuBufferSet>(64);
+
         static bool _gpuCapabilityProbed;
         static bool _gpuOK;
+
+        /// <summary>
+        /// ComputeBuffer field stubs for one (sprite, rig) batch (ADR-0006 steps 1–2).
+        /// Not allocated until the full GPU path replaces the scaffold.
+        /// </summary>
+        sealed class RigGpuBufferSet
+        {
+            /// <summary>
+            /// Skinned float3 positions: count <c>vertexCount * kMaxInstancesPerRig</c>,
+            /// stride <see cref="PositionBufferStrideBytes"/>.
+            /// </summary>
+            public ComputeBuffer? PositionBuffer;
+
+            /// <summary>
+            /// Indirect draw args ({indexCount, instanceCount, 0, 0, 0}); length
+            /// <see cref="IndirectArgsCount"/>.
+            /// </summary>
+            public ComputeBuffer? IndirectArgsBuffer;
+
+            /// <summary>
+            /// Optional per-actor RGBA tints (ADR-0006 § Neutral); deferred to Phase 6 Step 10.
+            /// </summary>
+            public ComputeBuffer? InstanceTintBuffer;
+        }
 
         /// <summary>
         /// True when both <see cref="SavedSettings.SkeletalAnimation"/> and
@@ -60,13 +105,37 @@ namespace WorldSphereMod.Rig
         }
 
         /// <summary>
+        /// Element count for a per-rig position StructuredBuffer
+        /// (<c>vertexCount * kMaxInstancesPerRig</c>, ADR-0006 implementation step 1).
+        /// </summary>
+        public static int PositionBufferElementCount(int vertexCount)
+        {
+            return vertexCount * kMaxInstancesPerRig;
+        }
+
+        /// <summary>
         /// Release GPU buffers when skeletal rigs are cleared or the feature is toggled off.
         /// </summary>
         public static void Clear()
         {
-            // Stub: no ComputeBuffer allocations yet.
+            foreach (var set in _perRigBuffers.Values)
+            {
+                ReleaseBufferSet(set);
+            }
+
+            _perRigBuffers.Clear();
             _gpuCapabilityProbed = false;
             _gpuOK = false;
+        }
+
+        static void ReleaseBufferSet(RigGpuBufferSet set)
+        {
+            set.PositionBuffer?.Release();
+            set.PositionBuffer = null;
+            set.IndirectArgsBuffer?.Release();
+            set.IndirectArgsBuffer = null;
+            set.InstanceTintBuffer?.Release();
+            set.InstanceTintBuffer = null;
         }
 
         /// <summary>
