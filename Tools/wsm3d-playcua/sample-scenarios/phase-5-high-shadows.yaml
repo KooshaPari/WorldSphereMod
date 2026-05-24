@@ -1,0 +1,62 @@
+name: phase-5-high-shadows
+output_dir: artifacts
+default_wait_seconds: 1
+steps:
+  - action: load_save
+    slot: 2
+    note: Load baseline save with terrain and actors for shadow verification.
+  - action: wait_n_frames
+    frames: 12
+    fps: 30
+  - action: health
+    required: true
+    expect_is_world_3d: true
+    note: Bridge health before phase toggles.
+  - action: assert_telemetry
+    required: true
+    note: Game must be rendering before phase toggles.
+    checks:
+      - field: drawCalls
+        op: ">"
+        value: 0
+      - field: frameMs
+        op: "<"
+        value: 200
+  - action: toggle_flag
+    key: HighShadows
+    value: true
+    note: Enable Phase 5 cascaded directional shadows in SavedSettings.
+  - action: toggle_flag
+    key: HdrSkybox
+    value: true
+    note: Enable Phase 5b HDR procedural skybox in SavedSettings.
+  - action: wait_n_frames
+    frames: 24
+    fps: 30
+    note: Allow shadow cascade config and skybox lighting to settle after toggles.
+  - action: screenshot
+    path: phase-5-high-shadows/shadows-sky.png
+    vision:
+      required: true
+      prompt: >
+        Validate that the scene shows directional sun shadows with visible cascade
+        contact on terrain and actors, plus an HDR procedural sky (not a flat color
+        wash), with no obvious UI crash indicators or shader compile error banners.
+        Return strict JSON with keys passes, reason, and confidence.
+      criteria:
+        must_show_high_shadows: true
+        must_show_hdr_skybox: true
+        no_error_dialog: true
+        no_shader_compile_banner: true
+  - action: assert_telemetry
+    required: true
+    checks:
+      - field: drawCalls
+        op: ">"
+        value: 0
+      - field: frameMs
+        op: "<"
+        value: 50
+      - field: instances
+        op: ">"
+        value: 10

@@ -69,6 +69,10 @@ For phase toggles and vision assertions after the world is in 3D, use:
 
 - Phase 1 voxel actors: `Tools/wsm3d-playcua/sample-scenarios/phase-1-voxel-actors.yaml`
 - Phase 2 procedural buildings: `Tools/wsm3d-playcua/sample-scenarios/phase-2-procedural-buildings.yaml`
+- Phase 3 crossed-quad foliage: `Tools/wsm3d-playcua/sample-scenarios/phase-3-crossed-quad-foliage.yaml`
+- Phase 3b cloud crossed-quad (`CrossedQuadFoliage` + `fx_cloud`): `Tools/wsm3d-playcua/sample-scenarios/phase-3b-cloud-crossed-quad.yaml`
+- Phase 4 mesh water: `Tools/wsm3d-playcua/sample-scenarios/phase-4-mesh-water.yaml`
+- Phase 5 high shadows + HDR skybox: `Tools/wsm3d-playcua/sample-scenarios/phase-5-high-shadows.yaml`
 
 Bridge save/load smoke (pre/post `health` + telemetry; optional `load_save`; manual UI save/load notes):
 
@@ -107,6 +111,10 @@ $env:OMNROUTE_BASE_URL = "http://127.0.0.1:20128/v1"
 $env:OMNROUTE_VISION_COMBO = "wsm3d-vision-frontier"
 python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/phase-1-voxel-actors.yaml
 python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/phase-2-procedural-buildings.yaml
+python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/phase-3-crossed-quad-foliage.yaml
+python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/phase-3b-cloud-crossed-quad.yaml
+python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/phase-4-mesh-water.yaml
+python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/phase-5-high-shadows.yaml
 ```
 
 ---
