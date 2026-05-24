@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using WorldSphereMod.Foliage;
+using WorldSphereMod.Effects;
 using WorldSphereMod.ProcGen;
 using WorldSphereMod.Voxel;
 
