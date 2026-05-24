@@ -600,6 +600,11 @@ $script:PhaseScreenshotSuggestedNames = @{
     3 = @("before", "after", "foliage")
     4 = @("before", "after", "water")
     5 = @("before", "after", "shadows-sky")
+    6 = @("before", "after", "actors-rig")
+    7 = @("before", "after", "nameplates")
+    8 = @("before", "after", "sky-cycle")
+    9 = @("before", "after", "effects")
+    10 = @("before", "after", "lod-ladder")
 }
 
 function Get-PhaseScreenshotSuggestedNames {
@@ -1829,7 +1834,7 @@ Commands:
 
   screenshot phase <n> -Name <slug> [-WindowOnly]
       Capture a smoke-test comparison frame to docs/screenshots/phase-N-<slug>.png.
-      Phases 1-5 document before/after/closeup slugs in docs/smoke-test-phase*.md.
+      Phases 1-10 document before/after/closeup slugs in docs/smoke-test-phase*.md.
       Other phases accept any simple slug (e.g. before, after) matching phase-N-*.png.
 
   settings get [-Key <field>]

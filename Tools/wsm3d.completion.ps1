@@ -245,6 +245,11 @@ Register-ArgumentCompleter -Native -CommandName "wsm3d.ps1", "wsm3d" -ScriptBloc
                         3 { "foliage" }
                         4 { "water" }
                         5 { "shadows-sky" }
+                        6 { "actors-rig" }
+                        7 { "nameplates" }
+                        8 { "sky-cycle" }
+                        9 { "effects" }
+                        10 { "lod-ladder" }
                         default { $null }
                     }
                     if ($arg4 -eq "-Name") {

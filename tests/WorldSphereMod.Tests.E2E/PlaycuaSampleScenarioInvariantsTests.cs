@@ -17,6 +17,16 @@ public sealed class PlaycuaSampleScenarioInvariantsTests
         "Tools/wsm3d-playcua/sample-scenarios/phase-4-mesh-water.yaml";
     private const string Phase5ScenarioRelative =
         "Tools/wsm3d-playcua/sample-scenarios/phase-5-high-shadows.yaml";
+    private const string Phase6ScenarioRelative =
+        "Tools/wsm3d-playcua/sample-scenarios/phase-6-skeletal-animation.yaml";
+    private const string Phase7ScenarioRelative =
+        "Tools/wsm3d-playcua/sample-scenarios/phase-7-worldspace-ui.yaml";
+    private const string Phase8ScenarioRelative =
+        "Tools/wsm3d-playcua/sample-scenarios/phase-8-day-night.yaml";
+    private const string Phase9ScenarioRelative =
+        "Tools/wsm3d-playcua/sample-scenarios/phase-9-postfx-particles.yaml";
+    private const string Phase10ScenarioRelative =
+        "Tools/wsm3d-playcua/sample-scenarios/phase-10-lod.yaml";
     private const string BridgeSaveLoadSmokeScenarioRelative =
         "Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml";
     private const string LiveVerificationDocRelative = "docs/live-verification.md";
@@ -24,6 +34,11 @@ public sealed class PlaycuaSampleScenarioInvariantsTests
     private const string SmokeTestPhase3Relative = "docs/smoke-test-phase3.md";
     private const string SmokeTestPhase4Relative = "docs/smoke-test-phase4.md";
     private const string SmokeTestPhase5Relative = "docs/smoke-test-phase5.md";
+    private const string SmokeTestPhase6Relative = "docs/smoke-test-phase6.md";
+    private const string SmokeTestPhase7Relative = "docs/smoke-test-phase7.md";
+    private const string SmokeTestPhase8Relative = "docs/smoke-test-phase8.md";
+    private const string SmokeTestPhase9Relative = "docs/smoke-test-phase9.md";
+    private const string SmokeTestPhase10Relative = "docs/smoke-test-phase10.md";
 
     private static string FindRepoRoot()
     {
@@ -58,6 +73,11 @@ public sealed class PlaycuaSampleScenarioInvariantsTests
     [InlineData(SmokeTestPhase3Relative, Phase3ScenarioRelative, "CrossedQuadFoliage", "phase-3-before.png", "phase-3-after.png", "phase-3-foliage.png")]
     [InlineData(SmokeTestPhase4Relative, Phase4ScenarioRelative, "MeshWater", "phase-4-before.png", "phase-4-after.png", "phase-4-water.png")]
     [InlineData(SmokeTestPhase5Relative, Phase5ScenarioRelative, "HighShadows", "phase-5-before.png", "phase-5-after.png", "phase-5-shadows-sky.png")]
+    [InlineData(SmokeTestPhase6Relative, Phase6ScenarioRelative, "SkeletalAnimation", "phase-6-before.png", "phase-6-after.png", "phase-6-actors-rig.png")]
+    [InlineData(SmokeTestPhase7Relative, Phase7ScenarioRelative, "WorldspaceUI", "phase-7-before.png", "phase-7-after.png", "phase-7-nameplates.png")]
+    [InlineData(SmokeTestPhase8Relative, Phase8ScenarioRelative, "DayNightCycle", "phase-8-before.png", "phase-8-after.png", "phase-8-sky-cycle.png")]
+    [InlineData(SmokeTestPhase9Relative, Phase9ScenarioRelative, "PostFX", "phase-9-before.png", "phase-9-after.png", "phase-9-effects.png")]
+    [InlineData(SmokeTestPhase10Relative, Phase10ScenarioRelative, "LODScale", "phase-10-before.png", "phase-10-after.png", "phase-10-lod-ladder.png")]
     public void Smoke_test_phase_docs_exist_and_link_playcua_screenshots_and_flags(
         string smokeDocRelative,
         string scenarioRelative,
@@ -85,6 +105,22 @@ public sealed class PlaycuaSampleScenarioInvariantsTests
     }
 
     [Fact]
+    public void Smoke_test_phase7_doc_documents_worldspace_label3d_toggle()
+    {
+        var doc = ReadRepoFile(SmokeTestPhase7Relative);
+
+        doc.Should().Contain("WorldspaceLabel3D");
+    }
+
+    [Fact]
+    public void Smoke_test_phase9_doc_documents_particle_effects_toggle()
+    {
+        var doc = ReadRepoFile(SmokeTestPhase9Relative);
+
+        doc.Should().Contain("ParticleEffects");
+    }
+
+    [Fact]
     public void Phase_2_procedural_buildings_scenario_exists_and_toggles_saved_setting()
     {
         var yaml = ReadRepoFile(Phase2ScenarioRelative);
@@ -98,7 +134,7 @@ public sealed class PlaycuaSampleScenarioInvariantsTests
     }
 
     [Fact]
-    public void Phase_1_through_5_playcua_scenarios_are_documented_for_agentic_gate()
+    public void Phase_1_through_10_playcua_scenarios_are_documented_for_agentic_gate()
     {
         var doc = ReadRepoFile(LiveVerificationDocRelative);
 
@@ -108,9 +144,19 @@ public sealed class PlaycuaSampleScenarioInvariantsTests
         doc.Should().Contain(Phase3bCloudScenarioRelative);
         doc.Should().Contain(Phase4ScenarioRelative);
         doc.Should().Contain(Phase5ScenarioRelative);
+        doc.Should().Contain(Phase6ScenarioRelative);
+        doc.Should().Contain(Phase7ScenarioRelative);
+        doc.Should().Contain(Phase8ScenarioRelative);
+        doc.Should().Contain(Phase9ScenarioRelative);
+        doc.Should().Contain(Phase10ScenarioRelative);
         doc.Should().Contain(SmokeTestPhase3Relative);
         doc.Should().Contain(SmokeTestPhase4Relative);
         doc.Should().Contain(SmokeTestPhase5Relative);
+        doc.Should().Contain(SmokeTestPhase6Relative);
+        doc.Should().Contain(SmokeTestPhase7Relative);
+        doc.Should().Contain(SmokeTestPhase8Relative);
+        doc.Should().Contain(SmokeTestPhase9Relative);
+        doc.Should().Contain(SmokeTestPhase10Relative);
         doc.Should().Contain("PlaycuaSampleScenarioInvariantsTests",
             "live verification doc must point maintainers at scenario guardrails");
     }
@@ -163,6 +209,69 @@ public sealed class PlaycuaSampleScenarioInvariantsTests
         yaml.Should().Contain("key: HdrSkybox");
         yaml.Should().Contain("must_show_high_shadows: true");
         yaml.Should().Contain("must_show_hdr_skybox: true");
+        yaml.Should().Contain("action: assert_telemetry");
+    }
+
+    [Fact]
+    public void Phase_6_skeletal_animation_scenario_exists_and_toggles_saved_setting()
+    {
+        var yaml = ReadRepoFile(Phase6ScenarioRelative);
+
+        yaml.Should().Contain("name: phase-6-skeletal-animation");
+        yaml.Should().Contain("action: toggle_flag");
+        yaml.Should().Contain("key: SkeletalAnimation");
+        yaml.Should().Contain("must_show_skeletal_animation: true");
+        yaml.Should().Contain("action: assert_telemetry");
+    }
+
+    [Fact]
+    public void Phase_7_worldspace_ui_scenario_exists_and_toggles_saved_settings()
+    {
+        var yaml = ReadRepoFile(Phase7ScenarioRelative);
+
+        yaml.Should().Contain("name: phase-7-worldspace-ui");
+        yaml.Should().Contain("action: toggle_flag");
+        yaml.Should().Contain("key: WorldspaceUI");
+        yaml.Should().Contain("key: WorldspaceLabel3D");
+        yaml.Should().Contain("must_show_worldspace_ui: true");
+        yaml.Should().Contain("action: assert_telemetry");
+    }
+
+    [Fact]
+    public void Phase_8_day_night_scenario_exists_and_toggles_saved_setting()
+    {
+        var yaml = ReadRepoFile(Phase8ScenarioRelative);
+
+        yaml.Should().Contain("name: phase-8-day-night");
+        yaml.Should().Contain("action: toggle_flag");
+        yaml.Should().Contain("key: DayNightCycle");
+        yaml.Should().Contain("must_show_day_night_cycle: true");
+        yaml.Should().Contain("action: assert_telemetry");
+    }
+
+    [Fact]
+    public void Phase_9_postfx_particles_scenario_exists_and_toggles_saved_settings()
+    {
+        var yaml = ReadRepoFile(Phase9ScenarioRelative);
+
+        yaml.Should().Contain("name: phase-9-postfx-particles");
+        yaml.Should().Contain("action: toggle_flag");
+        yaml.Should().Contain("key: PostFX");
+        yaml.Should().Contain("key: ParticleEffects");
+        yaml.Should().Contain("must_show_postfx: true");
+        yaml.Should().Contain("must_show_particle_effects: true");
+        yaml.Should().Contain("action: assert_telemetry");
+    }
+
+    [Fact]
+    public void Phase_10_lod_scenario_exists_and_sets_lod_scale()
+    {
+        var yaml = ReadRepoFile(Phase10ScenarioRelative);
+
+        yaml.Should().Contain("name: phase-10-lod");
+        yaml.Should().Contain("action: set_setting");
+        yaml.Should().Contain("key: LODScale");
+        yaml.Should().Contain("must_show_lod_ladder: true");
         yaml.Should().Contain("action: assert_telemetry");
     }
 

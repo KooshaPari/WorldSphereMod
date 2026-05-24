@@ -74,6 +74,11 @@ For phase toggles and vision assertions after the world is in 3D, use:
 - Phase 3b cloud crossed-quad (`CrossedQuadFoliage` + `fx_cloud`): `Tools/wsm3d-playcua/sample-scenarios/phase-3b-cloud-crossed-quad.yaml`
 - Phase 4 mesh water: `Tools/wsm3d-playcua/sample-scenarios/phase-4-mesh-water.yaml` — in-game checklist: [`docs/smoke-test-phase4.md`](smoke-test-phase4.md)
 - Phase 5 high shadows + HDR skybox: `Tools/wsm3d-playcua/sample-scenarios/phase-5-high-shadows.yaml` — in-game checklist: [`docs/smoke-test-phase5.md`](smoke-test-phase5.md)
+- Phase 6 skeletal animation: `Tools/wsm3d-playcua/sample-scenarios/phase-6-skeletal-animation.yaml` — in-game checklist: [`docs/smoke-test-phase6.md`](smoke-test-phase6.md)
+- Phase 7 worldspace UI + 3D labels: `Tools/wsm3d-playcua/sample-scenarios/phase-7-worldspace-ui.yaml` — in-game checklist: [`docs/smoke-test-phase7.md`](smoke-test-phase7.md)
+- Phase 8 day/night cycle: `Tools/wsm3d-playcua/sample-scenarios/phase-8-day-night.yaml` — in-game checklist: [`docs/smoke-test-phase8.md`](smoke-test-phase8.md)
+- Phase 9 PostFX + particles: `Tools/wsm3d-playcua/sample-scenarios/phase-9-postfx-particles.yaml` — in-game checklist: [`docs/smoke-test-phase9.md`](smoke-test-phase9.md)
+- Phase 10 LOD scale: `Tools/wsm3d-playcua/sample-scenarios/phase-10-lod.yaml` — in-game checklist: [`docs/smoke-test-phase10.md`](smoke-test-phase10.md)
 
 Bridge save/load smoke (pre/post `health` + telemetry; optional `load_save`; manual UI save/load notes):
 
@@ -116,6 +121,11 @@ python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/phase-3-
 python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/phase-3b-cloud-crossed-quad.yaml
 python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/phase-4-mesh-water.yaml
 python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/phase-5-high-shadows.yaml
+python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/phase-6-skeletal-animation.yaml
+python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/phase-7-worldspace-ui.yaml
+python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/phase-8-day-night.yaml
+python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/phase-9-postfx-particles.yaml
+python Tools/wsm3d-playcua/main.py Tools/wsm3d-playcua/sample-scenarios/phase-10-lod.yaml
 ```
 
 ---

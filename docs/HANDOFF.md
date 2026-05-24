@@ -32,6 +32,11 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 | Phase 3 smoke-test checklist | `docs/smoke-test-phase3.md` |
 | Phase 4 smoke-test checklist | `docs/smoke-test-phase4.md` |
 | Phase 5 smoke-test checklist | `docs/smoke-test-phase5.md` |
+| Phase 6 smoke-test checklist | `docs/smoke-test-phase6.md` |
+| Phase 7 smoke-test checklist | `docs/smoke-test-phase7.md` |
+| Phase 8 smoke-test checklist | `docs/smoke-test-phase8.md` |
+| Phase 9 smoke-test checklist | `docs/smoke-test-phase9.md` |
+| Phase 10 smoke-test checklist | `docs/smoke-test-phase10.md` |
 | `render_data` field map | `docs/render-data-fields.md` |
 | Phase 5 prep (Unity 2022.3 + Compound-Spheres-3D submodule) | `docs/phase5-prep.md` |
 | Settings | `WorldSphereMod/Code/SavedSettings.cs` |

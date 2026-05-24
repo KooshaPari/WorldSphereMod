@@ -176,6 +176,11 @@ public class Wsm3dCliInvariantsTests
     [InlineData(3, "docs/smoke-test-phase3.md", "phase-3-before.png", "phase-3-after.png", "phase-3-foliage.png", "foliage")]
     [InlineData(4, "docs/smoke-test-phase4.md", "phase-4-before.png", "phase-4-after.png", "phase-4-water.png", "water")]
     [InlineData(5, "docs/smoke-test-phase5.md", "phase-5-before.png", "phase-5-after.png", "phase-5-shadows-sky.png", "shadows-sky")]
+    [InlineData(6, "docs/smoke-test-phase6.md", "phase-6-before.png", "phase-6-after.png", "phase-6-actors-rig.png", "actors-rig")]
+    [InlineData(7, "docs/smoke-test-phase7.md", "phase-7-before.png", "phase-7-after.png", "phase-7-nameplates.png", "nameplates")]
+    [InlineData(8, "docs/smoke-test-phase8.md", "phase-8-before.png", "phase-8-after.png", "phase-8-sky-cycle.png", "sky-cycle")]
+    [InlineData(9, "docs/smoke-test-phase9.md", "phase-9-before.png", "phase-9-after.png", "phase-9-effects.png", "effects")]
+    [InlineData(10, "docs/smoke-test-phase10.md", "phase-10-before.png", "phase-10-after.png", "phase-10-lod-ladder.png", "lod-ladder")]
     public void Wsm3d_phase_screenshot_names_match_smoke_test_docs(
         int phase,
         string smokeDocRelative,
@@ -209,6 +214,11 @@ public class Wsm3dCliInvariantsTests
         completion.Should().Contain("foliage");
         completion.Should().Contain("water");
         completion.Should().Contain("shadows-sky");
+        completion.Should().Contain("actors-rig");
+        completion.Should().Contain("nameplates");
+        completion.Should().Contain("sky-cycle");
+        completion.Should().Contain("effects");
+        completion.Should().Contain("lod-ladder");
     }
 
     [Fact]
