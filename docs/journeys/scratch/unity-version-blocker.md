@@ -23,23 +23,26 @@ Use this order; each step is verifiable before moving on.
 
 - [ ] **Install Unity 2022.3 LTS** via Unity Hub (match game: `2022.3.54f1` or any `2022.3.x` patch).
 - [ ] **Point the bake project at 2022.3** — edit `Tools/Unity-Bake-Project/ProjectSettings/ProjectVersion.txt` so `m_EditorVersion` is `2022.3.<patch>f1` (open once in Hub if Unity rewrites settings).
-- [ ] **Pass the correct editor to the bake script** (auto-detect still prefers 2021/6000 today):
+- [ ] **Run the bake script** — auto-detect scans Unity Hub for `2022.3.*` editors; if none are installed, the script exits with next steps and requires `-UnityExe`:
   ```powershell
+  pwsh Tools/bake-shaders.ps1
+  # or, when Hub has no 2022.3 on PATH:
   pwsh Tools/bake-shaders.ps1 -UnityExe "$env:ProgramFiles\Unity\Hub\Editor\2022.3.54f1\Editor\Unity.exe"
   ```
+- [ ] **Heed ProjectVersion warnings** — if `Tools/Unity-Bake-Project/ProjectSettings/ProjectVersion.txt` is not `2022.3.*`, open the bake project once in Hub 2022.3 before shipping bundles.
 - [ ] **Confirm bake log** — tail `Tools/bake-shaders.log`; exit code 0 and `[WSM3D-Bake]` success lines.
 - [ ] **Confirm bundle output** — `WorldSphereMod/AssetBundles/**/worldsphere` updated (script prints paths + byte sizes).
 - [ ] **Install mod + launch WorldBox** — no NML "Failed to load asset bundle" on startup.
 - [ ] **Confirm shader load in game log** — see success criteria below.
 
-Integration tests assert the bake **infrastructure** is present (`Tools/bake-shaders.ps1`, `Tools/Unity-Bake-Project/`); they do not run Unity headless (CI has no editor).
+Integration tests assert the bake **infrastructure** is present (`Tools/bake-shaders.ps1`, `Tools/Unity-Bake-Project/`) and that the script auto-detects `2022.3.*`, validates `ProjectVersion.txt`, and prints next steps when Unity is missing; they do not run Unity headless (CI has no editor).
 
 ## Bake script reference
 
 | Item | Path |
 |------|------|
-| Headless bake entrypoint | [`Tools/bake-shaders.ps1`](../../../Tools/bake-shaders.ps1) |
-| Unity project (batchmode target) | `Tools/Unity-Bake-Project/` |
+| Headless bake entrypoint | [`Tools/bake-shaders.ps1`](../../../Tools/bake-shaders.ps1) (auto-detect `2022.3.*`; `-UnityExe` when missing) |
+| Unity project (batchmode target) | `Tools/Unity-Bake-Project/` (`ProjectVersion.txt` should be `2022.3.*`) |
 | Editor bake method | `BakeShaders.BakeAll` in `Tools/Unity-Bake-Project/Assets/Editor/BakeShaders.cs` |
 | Shader sources copied at bake | `WorldSphereMod/AssetBundles/Shaders/*.shader` |
 | Bake log | `Tools/bake-shaders.log` |
