@@ -236,6 +236,20 @@ public class SourceContentInvariantsTests
             "OnDestroy must not stop HTTP listener when a newer BridgeServer instance exists");
         bridgeServer.Should().Contain("if (_mainThreadId != 0 && Thread.CurrentThread.ManagedThreadId == _mainThreadId)",
             "InvokeOnMainThread must use the captured static main thread id");
+        bridgeServer.Should().Contain("WriteJson(context.Response, BuildHealthPayload());",
+            "/health must bypass InvokeOnMainThread so it can answer while Unity main-thread work is stalled");
+        bridgeServer.Should().Contain("bridgeAlive = true",
+            "health payload must always expose a bridge-alive marker");
+        bridgeServer.Should().Contain("listenerThreadAlive = _listenerThread != null && _listenerThread.IsAlive",
+            "health payload must stay on bridge-owned thread-safe state");
+        bridgeServer.Should().Contain("RefreshHealthCache()",
+            "health version/world flags must be cached on the main thread, not read from the listener thread");
+        bridgeServer.Should().Contain("version = _cachedHealthVersion",
+            "health must expose cached version for PlayCUA without blocking on Unity");
+        bridgeServer.Should().Contain("isWorld3D = _cachedIsWorld3D",
+            "health must expose cached isWorld3D for PlayCUA without blocking on Unity");
+        bridgeServer.Should().NotContain("WriteJson(context.Response, InvokeOnMainThread(BuildHealthPayload));",
+            "/health must not be serialized through the timeout-prone main-thread dispatcher");
     }
 
     [Fact]

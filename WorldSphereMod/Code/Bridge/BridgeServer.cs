@@ -33,6 +33,10 @@ namespace WorldSphereMod.Bridge
         static int _instanceGeneration;
         int _myGeneration;
 
+        /// <summary>Last-known values sampled on the Unity main thread for lock-free /health.</summary>
+        static string _cachedHealthVersion = "unknown";
+        static bool _cachedIsWorld3D;
+
         public static void EnsureCreated()
         {
             try
@@ -80,10 +84,24 @@ namespace WorldSphereMod.Bridge
         {
             // Authoritative refresh: only called from Unity main-thread Harmony hooks.
             _mainThreadId = Thread.CurrentThread.ManagedThreadId;
+            RefreshHealthCache();
             while (_mainThreadQueue.TryDequeue(out Action? work))
             {
                 try { work?.Invoke(); }
                 catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] main-thread work failed: " + ex.Message); }
+            }
+        }
+
+        static void RefreshHealthCache()
+        {
+            try
+            {
+                _cachedHealthVersion = Core.savedSettings != null ? Core.savedSettings.Version : "unknown";
+                _cachedIsWorld3D = Core.IsWorld3D;
+            }
+            catch
+            {
+                // Unity objects may be mid-teardown during scene transitions.
             }
         }
 
@@ -193,7 +211,11 @@ namespace WorldSphereMod.Bridge
 
                 if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase)) { WriteJson(context.Response, InvokeOnMainThread(BuildHealthPayload)); return; }
+                    if (string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase))
+                    {
+                        WriteJson(context.Response, BuildHealthPayload());
+                        return;
+                    }
                     if (string.Equals(path, "/telemetry", StringComparison.OrdinalIgnoreCase)) { WriteJson(context.Response, InvokeOnMainThread(BuildTelemetryPayload)); return; }
                     if (string.Equals(path, "/settings", StringComparison.OrdinalIgnoreCase)) { WriteRawJson(context.Response, InvokeOnMainThread(BuildSettingsJson)); return; }
                     if (string.Equals(path, "/voxel/sprite", StringComparison.OrdinalIgnoreCase))
@@ -291,8 +313,11 @@ namespace WorldSphereMod.Bridge
         object BuildHealthPayload() => new
         {
             ok = true,
-            version = Core.savedSettings != null ? Core.savedSettings.Version : "unknown",
-            isWorld3D = Core.IsWorld3D
+            bridgeAlive = true,
+            listenerPort = _boundPort,
+            listenerThreadAlive = _listenerThread != null && _listenerThread.IsAlive,
+            version = _cachedHealthVersion,
+            isWorld3D = _cachedIsWorld3D,
         };
 
         object BuildVoxelSpritePayload(string spriteName, out HttpStatusCode statusCode)

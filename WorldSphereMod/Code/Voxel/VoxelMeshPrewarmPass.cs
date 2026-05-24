@@ -224,15 +224,21 @@ namespace WorldSphereMod.Voxel
                         continue;
                     }
 
-                    int inner = 0;
+                    // Snapshot before yielding — building managers may mutate collections mid-enumeration.
+                    var elements = new System.Collections.Generic.List<object>();
                     foreach (object element in enumerable)
                     {
-                        if (element is Building building)
+                        elements.Add(element);
+                    }
+
+                    for (int inner = 0; inner < elements.Count; inner++)
+                    {
+                        if (elements[inner] is Building building)
                         {
                             count += TryEnqueueBuildingSprite(building);
                         }
 
-                        if ((inner++ & 31) == 31)
+                        if ((inner & 31) == 31)
                         {
                             yield return null;
                         }
