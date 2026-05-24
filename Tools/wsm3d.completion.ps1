@@ -199,6 +199,61 @@ Register-ArgumentCompleter -Native -CommandName "wsm3d.ps1", "wsm3d" -ScriptBloc
                 }
             }
         }
+
+        "screenshot" {
+            # screenshot <phase> | -Path ...
+            if ($elements.Count -le 3) {
+                @("phase") |
+                    Where-Object { $_ -like "$wordToComplete*" } |
+                    ForEach-Object {
+                        [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+                    }
+            }
+            elseif ($arg2 -eq "phase") {
+                if ($elements.Count -le 4) {
+                    1..10 | ForEach-Object { "$_" } |
+                        Where-Object { $_ -like "$wordToComplete*" } |
+                        ForEach-Object {
+                            [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+                        }
+                }
+                elseif ($arg3 -match '^\d+$') {
+                    $phaseNum = [int]$arg3
+                    if ($arg4 -eq "-Name") {
+                        $names = @("before", "after", "buildings")
+                        if ($phaseNum -in 1, 2) {
+                            $names = @("before", "after", "buildings")
+                        } else {
+                            $names = @("before", "after")
+                        }
+                        return $names |
+                            Where-Object { $_ -like "$wordToComplete*" } |
+                            ForEach-Object {
+                                [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+                            }
+                    }
+                    elseif ($elements.Count -le 5 -and $arg4 -notlike "-*") {
+                        $names = if ($phaseNum -in 1, 2) {
+                            @("before", "after", "buildings")
+                        } else {
+                            @("before", "after")
+                        }
+                        return $names |
+                            Where-Object { $_ -like "$wordToComplete*" } |
+                            ForEach-Object {
+                                [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+                            }
+                    }
+                    else {
+                        @("-Name", "-WindowOnly") |
+                            Where-Object { $_ -like "$wordToComplete*" } |
+                            ForEach-Object {
+                                [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+                            }
+                    }
+                }
+            }
+        }
     }
 
     return @()

@@ -433,6 +433,63 @@ function Parse-CaptureRegion {
     }
 }
 
+# Slugs documented in docs/smoke-test-phase*.md (before/after/buildings).
+$script:PhaseScreenshotSuggestedNames = @{
+    1 = @("before", "after", "buildings")
+    2 = @("before", "after", "buildings")
+}
+
+function Get-PhaseScreenshotSuggestedNames {
+    param([int]$Phase)
+
+    if ($script:PhaseScreenshotSuggestedNames.ContainsKey($Phase)) {
+        return @($script:PhaseScreenshotSuggestedNames[$Phase])
+    }
+
+    return @("before", "after")
+}
+
+function Get-PhaseScreenshotPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$Phase,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    if ($Phase -lt 1 -or $Phase -gt 10) {
+        throw "Phase must be between 1 and 10."
+    }
+
+    if ($Name -notmatch '^[a-z0-9][a-z0-9._-]*$') {
+        throw "Screenshot name must be a simple slug (e.g. before, after, buildings)."
+    }
+
+    $screenshotDir = Join-Path $RepoRoot "docs/screenshots"
+    if (-not (Test-Path $screenshotDir)) {
+        New-Item -ItemType Directory -Force -Path $screenshotDir | Out-Null
+    }
+
+    return Join-Path $screenshotDir "phase-$Phase-$Name.png"
+}
+
+function Invoke-ScreenshotPhase {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$Phase,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+
+        [switch]$WindowOnly
+    )
+
+    $path = Get-PhaseScreenshotPath -Phase $Phase -Name $Name
+    Write-Info "Capturing phase $Phase smoke-test frame '$Name' -> $path"
+    Invoke-Screenshot -Path $path -WindowOnly:$WindowOnly
+}
+
 # === Commands ===
 
 function Invoke-Build {
@@ -1347,6 +1404,11 @@ Commands:
       -WindowOnly captures the WorldBox window bounds.
       -Region accepts x,y,width,height and crops the capture to that rectangle.
 
+  screenshot phase <n> -Name <slug> [-WindowOnly]
+      Capture a smoke-test comparison frame to docs/screenshots/phase-N-<slug>.png.
+      Phases 1-2 document before, after, buildings in docs/smoke-test-phase*.md.
+      Other phases accept any simple slug (e.g. before, after) matching phase-N-*.png.
+
   settings get [-Key <field>]
       Print all settings or one field as JSON. Field names are camelCase (e.g., VoxelEntities).
 
@@ -1410,6 +1472,8 @@ Examples:
   wsm3d settings set -Key VoxelEntities -Value true -Force
   wsm3d screenshot -Path .\smoke.png -WindowOnly
   wsm3d screenshot -Path .\crop.png -Region 100,100,800,600
+  wsm3d screenshot phase 1 -Name before -WindowOnly
+  wsm3d screenshot phase 2 -Name buildings -WindowOnly
   wsm3d journey capture -Id sample-journey -NonInteractive
   wsm3d toggle -Phase voxel_entities
   wsm3d phases enable-all
@@ -1490,17 +1554,56 @@ try {
         }
 
         "screenshot" {
-            $params = @{}
-            if ($commandArgs -contains "-Path") {
-                $params["Path"] = $commandArgs[$commandArgs.IndexOf("-Path") + 1]
+            if ($commandArgs.Count -gt 0 -and $commandArgs[0] -eq "phase") {
+                $subArgs = @(if ($commandArgs.Count -gt 1) { $commandArgs[1..($commandArgs.Count - 1)] })
+                if ($subArgs.Count -eq 0) {
+                    Write-Error-Custom "screenshot phase requires a phase number (1-10) and -Name <slug>"
+                    Show-Help
+                    exit 1
+                }
+
+                $phaseNum = 0
+                if (-not [int]::TryParse($subArgs[0], [ref]$phaseNum)) {
+                    throw "Invalid phase number '$($subArgs[0])'. Use 1-10."
+                }
+
+                $name = $null
+                if ($subArgs -contains "-Name") {
+                    $name = $subArgs[$subArgs.IndexOf("-Name") + 1]
+                } else {
+                    foreach ($arg in $subArgs[1..($subArgs.Count - 1)]) {
+                        if ($arg -notlike "-*") {
+                            $name = $arg
+                            break
+                        }
+                    }
+                }
+
+                if (-not $name) {
+                    Write-Error-Custom "screenshot phase requires -Name <slug> (e.g. before, after, buildings)"
+                    Show-Help
+                    exit 1
+                }
+
+                $params = @{
+                    Phase = $phaseNum
+                    Name = $name
+                    WindowOnly = $subArgs -contains "-WindowOnly"
+                }
+                Invoke-ScreenshotPhase @params
+            } else {
+                $params = @{}
+                if ($commandArgs -contains "-Path") {
+                    $params["Path"] = $commandArgs[$commandArgs.IndexOf("-Path") + 1]
+                }
+                if ($commandArgs -contains "-WindowOnly") {
+                    $params["WindowOnly"] = $true
+                }
+                if ($commandArgs -contains "-Region") {
+                    $params["Region"] = $commandArgs[$commandArgs.IndexOf("-Region") + 1]
+                }
+                Invoke-Screenshot @params
             }
-            if ($commandArgs -contains "-WindowOnly") {
-                $params["WindowOnly"] = $true
-            }
-            if ($commandArgs -contains "-Region") {
-                $params["Region"] = $commandArgs[$commandArgs.IndexOf("-Region") + 1]
-            }
-            Invoke-Screenshot @params
         }
 
         "settings" {

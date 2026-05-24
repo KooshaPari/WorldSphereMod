@@ -146,4 +146,52 @@ public class Wsm3dCliInvariantsTests
         completion.Should().Contain("-VisionBackend");
         completion.Should().Contain(@"""omniroute"", ""anthropic"", ""off""");
     }
+
+    [Fact]
+    public void Wsm3d_help_documents_screenshot_phase_smoke_test_paths()
+    {
+        var script = ReadWsm3dScript();
+
+        script.Should().Contain("screenshot phase");
+        script.Should().Contain("docs/screenshots/phase-N-");
+        script.Should().Contain("function Invoke-ScreenshotPhase");
+        script.Should().Contain("function Get-PhaseScreenshotPath");
+        script.Should().Contain("docs/smoke-test-phase");
+    }
+
+    [Fact]
+    public void Wsm3d_screenshot_dispatcher_wires_phase_subcommand()
+    {
+        var script = ReadWsm3dScript();
+
+        script.Should().Contain(@"""phase""");
+        script.Should().Contain("Invoke-ScreenshotPhase @params");
+        script.Should().Contain("screenshot phase requires -Name");
+        script.Should().Contain("phase-$Phase-$Name.png");
+    }
+
+    [Fact]
+    public void Wsm3d_phase_screenshot_names_match_smoke_test_phase1_docs()
+    {
+        var root = FindRepoRoot();
+        var smokeTest = File.ReadAllText(Path.Combine(root, "docs", "smoke-test-phase1.md"));
+
+        var script = ReadWsm3dScript();
+        script.Should().Contain(@"""before"", ""after"", ""buildings""");
+
+        smokeTest.Should().Contain("phase-1-before.png");
+        smokeTest.Should().Contain("phase-1-after.png");
+        smokeTest.Should().Contain("phase-1-buildings.png");
+    }
+
+    [Fact]
+    public void Wsm3d_completion_offers_screenshot_phase_and_smoke_test_slugs()
+    {
+        var path = Path.Combine(FindRepoRoot(), "Tools", "wsm3d.completion.ps1");
+        var completion = File.ReadAllText(path);
+
+        completion.Should().Contain(@"""phase""");
+        completion.Should().Contain("-Name");
+        completion.Should().Contain(@"""before"", ""after"", ""buildings""");
+    }
 }
