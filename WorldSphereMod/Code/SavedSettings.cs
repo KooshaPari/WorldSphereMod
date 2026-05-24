@@ -71,59 +71,52 @@ public class SavedSettings
         // re-enable when running phase-budget regression tests.
         public bool AutoTest = false;
         // Phase 2: Procedural building meshes (vs. billboarded building sprites).
-        // Default ON now that Phase 2 is code-complete (per README) — buildings
-        // render as proc-meshes instead of 2D sprites.
-        public bool ProceduralBuildings = true;
+        public bool ProceduralBuildings = false;
         // Optional Phase 2 style override: keep the old stylized procgen architecture
         // path instead of voxelizing building sprites directly.
         public bool BuildingStyleProcgen = false;
         // Phase 3: Crossed-quad foliage (vs. billboarded sprite top tiles).
-        public bool CrossedQuadFoliage = true;
+        public bool CrossedQuadFoliage = false;
         // Terrain polish: blend biome colors across tile boundaries.
-        public bool BiomeBlending = true;
+        public bool BiomeBlending = false;
         // Phase 4: Mesh water surface (vs. flat tile color).
-        // Default ON — Phase 4-lite ship gate (ADR-0005 / beta default-on).
-        public bool MeshWater = true;
+        public bool MeshWater = false;
         // Worldspace health bar style: true => 3D mesh bars, false => legacy billboard quads.
-        public bool WorldspaceHealth3D = true;
+        public bool WorldspaceHealth3D = false;
         // Mountain slope smoothing: smooth overlay mesh that blends the upstream
         // blocky terrain around cliff and ridge transitions.
-        public bool MountainSlopeSmoothing = true;
+        public bool MountainSlopeSmoothing = false;
         // Phase 5: Directional sun + cascaded shadow maps.
-        public bool HighShadows = true;
+        public bool HighShadows = false;
         // Phase 5b: optional HDR skybox reflections and 256x16 LUT color grading.
-        public bool HdrSkybox = true;
-        public bool ColorGradingLut = true;
+        public bool HdrSkybox = false;
+        public bool ColorGradingLut = false;
         // Phase 6: Skeletal animation driver for voxel actors.
-        // ON by default: without it the per-texel voxel path renders as a
-        // sparse tri-dot mesh (sub-pixel fragments instead of proper limbed
-        // humanoid silhouettes). HumanoidRig + SegmentVoxels path gives real
-        // body shape with head/torso/arms/legs bones.
-        public bool SkeletalAnimation = true;
+        public bool SkeletalAnimation = false;
         // ADR-0006: DrawProceduralIndirect GPU skinning (opt-in; scaffold only until
         // VoxelSkinned.shader + per-rig StructuredBuffer path ships). Requires SkeletalAnimation.
         public bool GpuProceduralSkinning = false;
         // Phase 7: Worldspace UI (nameplates, health bars, selection rings).
-        public bool WorldspaceUI = true;
+        public bool WorldspaceUI = false;
         // Phase 7: optional worldspace 3D text labels instead of upstream NameplateText.
-        public bool WorldspaceLabel3D = true;
+        public bool WorldspaceLabel3D = false;
         // Phase 8: Day/night cycle + procedural sky + fog.
-        public bool DayNightCycle = true;
+        public bool DayNightCycle = false;
         public float FogDensity = 0.05f;
         // Tier 5: Forward+ CommandBuffer renderer (docs/specs/forward-plus-renderer-spec.md).
         // Opt-in last-resort path; defaults OFF until depth/color passes ship.
         public bool ForwardPlusRenderer = false;
         // Phase 9: URP post-processing (bloom, color grading, vignette).
-        public bool PostFX = true;
+        public bool PostFX = false;
         // Phase 9: Built-in pipeline screen-space ambient occlusion (SSAO) pass.
-        public bool SSAOEnabled = true;
+        public bool SSAOEnabled = false;
         public SsaoQuality SSAOQuality = SsaoQuality.Medium;
         // Phase 9: Built-in pipeline screen-space global illumination (SSGI) pass.
         public bool SSGIEnabled = false;
         public bool BloomEnabled = false;
         public bool ACESTonemapping = true;
-        public bool ParticleEffects = true;
-        public bool WeatherRain = true;
+        public bool ParticleEffects = false;
+        public bool WeatherRain = false;
         public bool WeatherSnow = false;
         public bool WeatherLightning = false;
 
@@ -131,9 +124,62 @@ public class SavedSettings
         public float LODScale = 0.5f;
         public float WaterDetail = 1.0f;
         public float FoliageDensity = 1.0f;
-        // Runtime diagnostics overlay (FPS + draw calls + phase-level telemetry).
-        // Keep enabled by default for phase 7 runtime visibility in-game.
-        public bool ProfilerDump = true;
+        public bool ProfilerDump = false;
+
+        public static void ApplyLightweightPreset(SavedSettings s)
+        {
+            if (s == null) throw new ArgumentNullException(nameof(s));
+
+            s.VoxelEntities = true;
+            s.ProceduralBuildings = false;
+            s.CrossedQuadFoliage = false;
+            s.BiomeBlending = false;
+            s.MeshWater = false;
+            s.WorldspaceHealth3D = false;
+            s.MountainSlopeSmoothing = false;
+            s.HighShadows = false;
+            s.HdrSkybox = false;
+            s.ColorGradingLut = false;
+            s.SkeletalAnimation = false;
+            s.GpuProceduralSkinning = false;
+            s.WorldspaceUI = false;
+            s.WorldspaceLabel3D = false;
+            s.DayNightCycle = false;
+            s.PostFX = false;
+            s.SSAOEnabled = false;
+            s.SSGIEnabled = false;
+            s.ParticleEffects = false;
+            s.WeatherRain = false;
+            s.DebugSanityCube = false;
+            s.ProfilerDump = false;
+        }
+
+        public static void ApplyFullPreset(SavedSettings s)
+        {
+            if (s == null) throw new ArgumentNullException(nameof(s));
+
+            s.VoxelEntities = true;
+            s.ProceduralBuildings = true;
+            s.CrossedQuadFoliage = true;
+            s.BiomeBlending = true;
+            s.MeshWater = true;
+            s.WorldspaceHealth3D = true;
+            s.MountainSlopeSmoothing = true;
+            s.HighShadows = true;
+            s.HdrSkybox = true;
+            s.ColorGradingLut = true;
+            s.SkeletalAnimation = true;
+            s.GpuProceduralSkinning = true;
+            s.WorldspaceUI = true;
+            s.WorldspaceLabel3D = true;
+            s.DayNightCycle = true;
+            s.PostFX = true;
+            s.SSAOEnabled = true;
+            s.SSGIEnabled = true;
+            s.ParticleEffects = true;
+            s.WeatherRain = true;
+            s.DebugSanityCube = true;
+            s.ProfilerDump = true;
+        }
     }
 }
-
