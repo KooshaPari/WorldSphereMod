@@ -4,6 +4,10 @@ Single entry point for in-game smoke checklists, PlayCUA scenarios, journey mani
 
 **Cold start:** [Handoff](./HANDOFF) · **Gate order:** [Live verification](./live-verification) · **CLI reference:** [Tooling](./tooling)
 
+| Gate | Scope | Command |
+|------|-------|---------|
+| **Offline gate** | **417 tests** (Unit + Integration + E2E) + journey mock (20 manifests) | `pwsh Tools/wsm-live-verify.ps1` |
+
 ---
 
 ## Quick commands
@@ -42,18 +46,18 @@ pwsh Tools/wsm3d.ps1 screenshot phase <n> -Name <slug> -WindowOnly
 
 | Phase | Checklist | PlayCUA scenario | Smoke manifest | User-journey manifest | Screenshot slugs → `docs/screenshots/` |
 |------:|-----------|------------------|----------------|----------------------|----------------------------------------|
-| 1 | [smoke-test-phase1](./smoke-test-phase1) | [`phase-1-voxel-actors.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-1-voxel-actors.yaml) | `smoke-test-phase1` | `us-wsm-phase-1-voxel-actors` | `before`, `after`, `buildings` |
-| 2 | [smoke-test-phase2](./smoke-test-phase2) | [`phase-2-procedural-buildings.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-2-procedural-buildings.yaml) | `smoke-test-phase2` | `us-wsm-phase-2-mesh-buildings` | `before`, `after`, `buildings` |
-| 3 | [smoke-test-phase3](./smoke-test-phase3) | [`phase-3-crossed-quad-foliage.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-3-crossed-quad-foliage.yaml) · [3b cloud](../Tools/wsm3d-playcua/sample-scenarios/phase-3b-cloud-crossed-quad.yaml) | `smoke-test-phase3` | `us-wsm-phase-3-crossed-foliage` | `before`, `after`, `foliage` |
-| 4 | [smoke-test-phase4](./smoke-test-phase4) | [`phase-4-mesh-water.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-4-mesh-water.yaml) | `smoke-test-phase4` | `us-wsm-phase-4-mesh-water` | `before`, `after`, `water` |
-| 5 | [smoke-test-phase5](./smoke-test-phase5) | [`phase-5-high-shadows.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-5-high-shadows.yaml) | `smoke-test-phase5` | `us-wsm-phase-5-shadows` | `before`, `after`, `shadows-sky` |
-| 6 | [smoke-test-phase6](./smoke-test-phase6) | [`phase-6-skeletal-animation.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-6-skeletal-animation.yaml) | `smoke-test-phase6` | `us-wsm-phase-6-skeletal` | `before`, `after`, `skeletal` |
-| 7 | [smoke-test-phase7](./smoke-test-phase7) | [`phase-7-worldspace-ui.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-7-worldspace-ui.yaml) | `smoke-test-phase7` | `us-wsm-phase-7-worldspace-ui` | `before`, `after`, `ui` |
-| 8 | [smoke-test-phase8](./smoke-test-phase8) | [`phase-8-day-night.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-8-day-night.yaml) | `smoke-test-phase8` | `us-wsm-phase-8-day-night` | `before`, `after`, `day-night` |
-| 9 | [smoke-test-phase9](./smoke-test-phase9) | [`phase-9-postfx-particles.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-9-postfx-particles.yaml) | `smoke-test-phase9` | `us-wsm-phase-9-postfx` | `before`, `after`, `postfx` |
-| 10 | [smoke-test-phase10](./smoke-test-phase10) | [`phase-10-lod.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-10-lod.yaml) | `smoke-test-phase10` | `us-wsm-phase-10-lod-impostor` | `before`, `after`, `lod` |
+| 1 | [smoke-test-phase1](./smoke-test-phase1) | [`phase-1-voxel-actors.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-1-voxel-actors.yaml) | [`smoke-test-phase1`](./journeys/manifests/smoke-test-phase1/manifest.json) | [`us-wsm-phase-1-voxel-actors`](./journeys/manifests/us-wsm-phase-1-voxel-actors/manifest.json) | `before`, `after`, `buildings` |
+| 2 | [smoke-test-phase2](./smoke-test-phase2) | [`phase-2-procedural-buildings.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-2-procedural-buildings.yaml) | [`smoke-test-phase2`](./journeys/manifests/smoke-test-phase2/manifest.json) | [`us-wsm-phase-2-mesh-buildings`](./journeys/manifests/us-wsm-phase-2-mesh-buildings/manifest.json) | `before`, `after`, `buildings` |
+| 3 | [smoke-test-phase3](./smoke-test-phase3) | [`phase-3-crossed-quad-foliage.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-3-crossed-quad-foliage.yaml) · [3b cloud](../Tools/wsm3d-playcua/sample-scenarios/phase-3b-cloud-crossed-quad.yaml) | [`smoke-test-phase3`](./journeys/manifests/smoke-test-phase3/manifest.json) | [`us-wsm-phase-3-crossed-foliage`](./journeys/manifests/us-wsm-phase-3-crossed-foliage/manifest.json) | `before`, `after`, `foliage` |
+| 4 | [smoke-test-phase4](./smoke-test-phase4) | [`phase-4-mesh-water.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-4-mesh-water.yaml) | [`smoke-test-phase4`](./journeys/manifests/smoke-test-phase4/manifest.json) | [`us-wsm-phase-4-mesh-water`](./journeys/manifests/us-wsm-phase-4-mesh-water/manifest.json) | `before`, `after`, `water` |
+| 5 | [smoke-test-phase5](./smoke-test-phase5) | [`phase-5-high-shadows.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-5-high-shadows.yaml) | [`smoke-test-phase5`](./journeys/manifests/smoke-test-phase5/manifest.json) | [`us-wsm-phase-5-shadows`](./journeys/manifests/us-wsm-phase-5-shadows/manifest.json) | `before`, `after`, `shadows-sky` |
+| 6 | [smoke-test-phase6](./smoke-test-phase6) | [`phase-6-skeletal-animation.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-6-skeletal-animation.yaml) | [`smoke-test-phase6`](./journeys/manifests/smoke-test-phase6/manifest.json) | [`us-wsm-phase-6-skeletal`](./journeys/manifests/us-wsm-phase-6-skeletal/manifest.json) | `before`, `after`, `actors-rig` (manifest slug `skeletal`) |
+| 7 | [smoke-test-phase7](./smoke-test-phase7) | [`phase-7-worldspace-ui.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-7-worldspace-ui.yaml) | [`smoke-test-phase7`](./journeys/manifests/smoke-test-phase7/manifest.json) | [`us-wsm-phase-7-worldspace-ui`](./journeys/manifests/us-wsm-phase-7-worldspace-ui/manifest.json) | `before`, `after`, `nameplates` (manifest slug `ui`) |
+| 8 | [smoke-test-phase8](./smoke-test-phase8) | [`phase-8-day-night.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-8-day-night.yaml) | [`smoke-test-phase8`](./journeys/manifests/smoke-test-phase8/manifest.json) | [`us-wsm-phase-8-day-night`](./journeys/manifests/us-wsm-phase-8-day-night/manifest.json) | `before`, `after`, `sky-cycle` (manifest slug `day-night`) |
+| 9 | [smoke-test-phase9](./smoke-test-phase9) | [`phase-9-postfx-particles.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-9-postfx-particles.yaml) | [`smoke-test-phase9`](./journeys/manifests/smoke-test-phase9/manifest.json) | [`us-wsm-phase-9-postfx`](./journeys/manifests/us-wsm-phase-9-postfx/manifest.json) | `before`, `after`, `effects` (manifest slug `postfx`) |
+| 10 | [smoke-test-phase10](./smoke-test-phase10) | [`phase-10-lod.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-10-lod.yaml) | [`smoke-test-phase10`](./journeys/manifests/smoke-test-phase10/manifest.json) | [`us-wsm-phase-10-lod-impostor`](./journeys/manifests/us-wsm-phase-10-lod-impostor/manifest.json) | `before`, `after`, `lod-ladder` (manifest slug `lod`) |
 
-Manifest JSON lives under [`docs/journeys/manifests/`](../docs/journeys/manifests/) (catalog: [`index.json`](../docs/journeys/manifests/index.json)).
+Manifest JSON lives under [`docs/journeys/manifests/`](./journeys/manifests/) (catalog: [`index.json`](./journeys/manifests/index.json)).
 
 ---
 
@@ -135,10 +139,10 @@ pwsh Tools/wsm3d.ps1 journey verify -Id smoke-test-phase6
 pwsh Tools/wsm3d.ps1 journey verify -Id us-wsm-phase-6-skeletal
 pwsh Tools/wsm3d.ps1 screenshot phase 6 -Name before -WindowOnly
 pwsh Tools/wsm3d.ps1 screenshot phase 6 -Name after -WindowOnly
-pwsh Tools/wsm3d.ps1 screenshot phase 6 -Name skeletal -WindowOnly
+pwsh Tools/wsm3d.ps1 screenshot phase 6 -Name actors-rig -WindowOnly
 ```
 
-Outputs: `phase-6-before.png`, `phase-6-after.png`, `phase-6-actors-rig.png` (checklist name; CLI slug `skeletal`)
+Outputs: `phase-6-before.png`, `phase-6-after.png`, `phase-6-actors-rig.png` (journey manifest slug `skeletal`)
 
 ### Phase 7 — WorldspaceUI
 
@@ -148,10 +152,10 @@ pwsh Tools/wsm3d.ps1 journey verify -Id smoke-test-phase7
 pwsh Tools/wsm3d.ps1 journey verify -Id us-wsm-phase-7-worldspace-ui
 pwsh Tools/wsm3d.ps1 screenshot phase 7 -Name before -WindowOnly
 pwsh Tools/wsm3d.ps1 screenshot phase 7 -Name after -WindowOnly
-pwsh Tools/wsm3d.ps1 screenshot phase 7 -Name ui -WindowOnly
+pwsh Tools/wsm3d.ps1 screenshot phase 7 -Name nameplates -WindowOnly
 ```
 
-Outputs: `phase-7-before.png`, `phase-7-after.png`, `phase-7-nameplates.png` (checklist name; CLI slug `ui`)
+Outputs: `phase-7-before.png`, `phase-7-after.png`, `phase-7-nameplates.png` (journey manifest slug `ui`)
 
 ### Phase 8 — DayNightCycle
 
@@ -161,10 +165,10 @@ pwsh Tools/wsm3d.ps1 journey verify -Id smoke-test-phase8
 pwsh Tools/wsm3d.ps1 journey verify -Id us-wsm-phase-8-day-night
 pwsh Tools/wsm3d.ps1 screenshot phase 8 -Name before -WindowOnly
 pwsh Tools/wsm3d.ps1 screenshot phase 8 -Name after -WindowOnly
-pwsh Tools/wsm3d.ps1 screenshot phase 8 -Name day-night -WindowOnly
+pwsh Tools/wsm3d.ps1 screenshot phase 8 -Name sky-cycle -WindowOnly
 ```
 
-Outputs: `phase-8-before.png`, `phase-8-after.png`, `phase-8-sky-cycle.png` (checklist name; CLI slug `day-night`)
+Outputs: `phase-8-before.png`, `phase-8-after.png`, `phase-8-sky-cycle.png` (journey manifest slug `day-night`)
 
 ### Phase 9 — PostFX + particles
 
@@ -174,10 +178,10 @@ pwsh Tools/wsm3d.ps1 journey verify -Id smoke-test-phase9
 pwsh Tools/wsm3d.ps1 journey verify -Id us-wsm-phase-9-postfx
 pwsh Tools/wsm3d.ps1 screenshot phase 9 -Name before -WindowOnly
 pwsh Tools/wsm3d.ps1 screenshot phase 9 -Name after -WindowOnly
-pwsh Tools/wsm3d.ps1 screenshot phase 9 -Name postfx -WindowOnly
+pwsh Tools/wsm3d.ps1 screenshot phase 9 -Name effects -WindowOnly
 ```
 
-Outputs: `phase-9-before.png`, `phase-9-after.png`, `phase-9-effects.png` (checklist name; CLI slug `postfx`)
+Outputs: `phase-9-before.png`, `phase-9-after.png`, `phase-9-effects.png` (journey manifest slug `postfx`)
 
 ### Phase 10 — LOD / impostor
 
@@ -187,10 +191,10 @@ pwsh Tools/wsm3d.ps1 journey verify -Id smoke-test-phase10
 pwsh Tools/wsm3d.ps1 journey verify -Id us-wsm-phase-10-lod-impostor
 pwsh Tools/wsm3d.ps1 screenshot phase 10 -Name before -WindowOnly
 pwsh Tools/wsm3d.ps1 screenshot phase 10 -Name after -WindowOnly
-pwsh Tools/wsm3d.ps1 screenshot phase 10 -Name lod -WindowOnly
+pwsh Tools/wsm3d.ps1 screenshot phase 10 -Name lod-ladder -WindowOnly
 ```
 
-Outputs: `phase-10-before.png`, `phase-10-after.png`, `phase-10-lod-ladder.png` (checklist name; CLI slug `lod`)
+Outputs: `phase-10-before.png`, `phase-10-after.png`, `phase-10-lod-ladder.png` (journey manifest slug `lod`)
 
 ---
 
