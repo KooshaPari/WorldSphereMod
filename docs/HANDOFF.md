@@ -27,6 +27,7 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 | Full 10-phase plan | `docs/PLAN.md` |
 | Per-phase architectures | `docs/phase{2..10}-architecture.md` |
 | Phase 1 review (fixes already applied) | `docs/phase1-review.md` |
+| Smoke test index (phases 1–10) | `docs/smoke-test-index.md` |
 | Phase 1 smoke-test checklist | `docs/smoke-test-phase1.md` |
 | Phase 2 smoke-test checklist | `docs/smoke-test-phase2.md` |
 | Phase 3 smoke-test checklist | `docs/smoke-test-phase3.md` |

@@ -45,6 +45,10 @@ export default defineConfig({
                     { text: "Contributing", link: "/CONTRIBUTING" },
                     { text: "PR Checklist", link: "/PR_CHECKLIST" },
                     { text: "Phase 1 review", link: "/phase1-review" },
+                    {
+                        text: "Smoke test index",
+                        link: "/smoke-test-index",
+                    },
                     { text: "Phase 1 smoke test", link: "/smoke-test-phase1" },
                     { text: "Phase 2 smoke test", link: "/smoke-test-phase2" },
                     { text: "Phase 3 smoke test", link: "/smoke-test-phase3" },
