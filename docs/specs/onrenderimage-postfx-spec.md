@@ -9,7 +9,7 @@
 
 | Spec target | Shipped | Notes |
 |---|---|---|
-| `WSM3DPostStack` unified ping-pong chain | **Shipped** | Single `OnRenderImage` callback with deterministic SSAO→SSGI→Bloom→ACES→LUT pass order. |
+| `WSM3DPostStack` unified post stack | **Shipped** | Single `OnRenderImage` callback with deterministic SSAO→SSGI→Bloom→ACES→LUT pass order. |
 | SSAO via `OnRenderImage` + `ScreenSpaceAO.shader` | **Shipped** | Kernel/params shared from `ScreenSpaceAO.Kernel` into unified stack. |
 | SSGI via `OnRenderImage` | **Shipped** | Kernel/params shared from `ScreenSpaceGI.Kernel` into unified stack. |
 | LUT grade via `OnRenderImage` | **Shipped** | LUT texture + shader resolved in stack init. |
@@ -19,7 +19,7 @@
 **Runtime wiring**
 
 - `Core.ApplyPhaseToggle` → `WSM3DPostStack.ApplySetting` (`PostFX`), `WSM3DPostStack.RefreshMaterials` (sub-pass toggles).
-- `VoxelRender.TickPerFrame` reconciles PostFX / SSAO / SSGI via WSM3DPostStack on change only.
+- `VoxelRender.TickPerFrame` reconciles PostFX / SSAO / SSGI via WSM3DPostStack on change only and no longer recreates legacy `ScreenSpaceAO` / `ScreenSpaceGI` components.
 - `Mod` world-init calls `WSM3DPostStack.EnsureCreated()` after scene transitions.
 - Legacy `ScreenSpaceAO`, `ScreenSpaceGI`, `ColorGradingLUT` MonoBehaviours auto-removed by `RemoveLegacyPasses()` on stack attach.
 - `PostFxController` (URP Volume path) remains for potential URP-capable builds but is no longer the primary runtime.
@@ -46,7 +46,8 @@ callbacks + the shipped shaders (`ScreenSpaceAO.shader`,
 
 `OnRenderImage` is the simplest BRP-compatible hook. Unity feeds the camera's
 output as the source texture; we apply zero+ passes by `Graphics.Blit` and
-write to the destination. Multi-pass chains require ping-pong RTs.
+write to the destination. This stack uses one reusable chain RT plus local
+temporary RTs for bloom.
 
 ## Architecture
 
@@ -57,7 +58,7 @@ Camera.OnRenderImage(src, dst)
 ┌────────────────────────────┐
 │ WSM3DPostStack             │
 │  - PreCheck flags          │
-│  - PingPong(src, dst)      │
+│  - Chain RT + local temps  │
 │                            │
 │  ┌───────────────────────┐ │
 │  │ SSAO pass             │ │ (if SSAOEnabled)

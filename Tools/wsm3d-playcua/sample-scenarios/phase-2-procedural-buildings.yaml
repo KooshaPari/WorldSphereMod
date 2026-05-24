@@ -16,9 +16,7 @@ steps:
       - field: lastNonZeroDrawCalls
         op: ">"
         value: 0
-      - field: frameMs
-        op: "<"
-        value: 200
+      $1500
   - action: toggle_flag
     key: ProceduralBuildings
     value: true

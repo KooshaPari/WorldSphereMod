@@ -68,12 +68,12 @@ public sealed class MeshWaterInvariantsTests
     }
 
     [Fact]
-    public void SavedSettings_MeshWater_defaults_true()
+    public void SavedSettings_MeshWater_defaults_false()
     {
         var settings = ReadSource(SavedSettingsRelative);
 
-        Regex.IsMatch(settings, @"public\s+bool\s+MeshWater\s*=\s*true")
-            .Should().BeTrue("Phase 4 mesh water must default ON for new installs");
+        Regex.IsMatch(settings, @"public\s+bool\s+MeshWater\s*=\s*false")
+            .Should().BeTrue("Phase 4 mesh water must default OFF for new installs");
         settings.Should().Contain("Phase 4: Mesh water surface",
             "MeshWater must remain documented as the Phase 4 water toggle");
     }

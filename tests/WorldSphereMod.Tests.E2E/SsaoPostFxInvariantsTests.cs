@@ -89,8 +89,8 @@ public class SsaoPostFxInvariantsTests
         var mod = ReadSourceFile("WorldSphereMod/Code/Mod.cs");
         var settings = ReadSourceFile("WorldSphereMod/Code/SavedSettings.cs");
 
-        settings.Should().Contain("public bool SSAOEnabled = true",
-            "SSAO should default ON for Phase 9");
+        settings.Should().Contain("public bool SSAOEnabled = false",
+            "SSAO should default OFF for Phase 9");
         settings.Should().Contain("public SsaoQuality SSAOQuality = SsaoQuality.Medium",
             "SSAO quality enum must live on SavedSettings");
         settings.Should().Contain("public bool BloomEnabled",

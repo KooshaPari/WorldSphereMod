@@ -137,6 +137,19 @@ def _run_wait_n_frames(frames: int, fps: float) -> None:
         time.sleep(frame_delay)
 
 
+def _wait_bridge_alive(client: "BridgeClient", timeout_s: float = 90.0) -> bool:
+    deadline = time.time() + max(timeout_s, 1.0)
+    while time.time() < deadline:
+        try:
+            health = client.health()
+            if health.get("ok") and health.get("bridgeAlive"):
+                return True
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError):
+            pass
+        time.sleep(2.0)
+    return False
+
+
 class Win32ScreenshotError(RuntimeError):
     pass
 
@@ -400,6 +413,8 @@ def _execute_scenario(
                 _run_wait_n_frames(settle_frames, settle_fps)
                 details["settle_frames"] = settle_frames
                 details["settle_fps"] = settle_fps
+                bridge_timeout = float(raw_step.get("bridge_wait_seconds", 90))
+                details["bridge_alive"] = _wait_bridge_alive(client, bridge_timeout)
         elif action == "wait_n_frames":
             frames = int(raw_step.get("frames", raw_step.get("count", 0)))
             fps = float(raw_step.get("fps", raw_step.get("frame_rate", 30)))

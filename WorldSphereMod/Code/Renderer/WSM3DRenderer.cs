@@ -79,14 +79,6 @@ namespace WorldSphereMod.Renderer
             DontDestroyOnLoad(gameObject);
         }
 
-        void OnDestroy()
-        {
-            if (_instance == this)
-            {
-                _instance = null;
-            }
-        }
-
         void OnEnable()
         {
             RebindCamera(CameraManager.MainCamera ?? Camera.main);
@@ -104,6 +96,8 @@ namespace WorldSphereMod.Renderer
         void OnDestroy()
         {
             DetachCommandBuffer();
+            _commandBuffer?.Release();
+            _commandBuffer = null;
 
             if (_instance == this)
             {

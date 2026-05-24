@@ -533,6 +533,21 @@ if (-not $Live) {
                 Write-Host ("PlayCUA: -Vision not set; running $($bridgeOnly.Count) bridge-* scenario(s) only.")
                 $scenarios = $bridgeOnly
             }
+        } elseif ($Vision) {
+            try {
+                $worldHealth = Invoke-RestMethod -Uri $bridgeUrl -Method Get -TimeoutSec 8
+                $liveDetails.isWorld3D = [bool]$worldHealth.isWorld3D
+                if (-not $liveDetails.isWorld3D) {
+                    $phaseCount = @($scenarios | Where-Object { $_.BaseName -like 'phase-*' }).Count
+                    if ($phaseCount -gt 0) {
+                        Write-Warning ("isWorld3D=false after settle; skipping $phaseCount phase scenario(s). Load save2 and enter 3D, then re-run -Live -Vision.")
+                        $scenarios = @($scenarios | Where-Object { $_.BaseName -like 'bridge-*' })
+                        $liveDetails.phaseScenariosSkipped = $phaseCount
+                    }
+                }
+            } catch {
+                Write-Warning ("Could not read /health before PlayCUA: {0}" -f $_.Exception.Message)
+            }
         }
 
         $artifactRoot = Join-Path $repoRoot "Tools/wsm3d-playcua/.reports/live-verify-artifacts"

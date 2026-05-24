@@ -95,6 +95,28 @@ public sealed class VoxelFrameDriverPostFxInvariantsTests
             "SSAO reconciler should route to WSM3DPostStack.RefreshMaterials");
         tickBody.Should().NotContain("ScreenSpaceGI.ApplySetting",
             "SSGI reconciler should route to WSM3DPostStack.RefreshMaterials");
+        tickBody.Should().NotContain("ScreenSpaceAO.EnsureCreated",
+            "legacy SSAO component must not be recreated once WSM3DPostStack owns the camera");
+        tickBody.Should().NotContain("ScreenSpaceGI.EnsureCreated",
+            "legacy SSGI component must not be recreated once WSM3DPostStack owns the camera");
+    }
+
+    [Fact]
+    public void WSM3DPostStack_OnDestroy_releases_materials_and_temps()
+    {
+        var stack = ReadSourceFile("WorldSphereMod/Code/PostFx/WSM3DPostStack.cs");
+        var destroyBody = ExtractMethodBody(stack, "void OnDestroy()");
+
+        destroyBody.Should().Contain("ReleaseMaterials()");
+        destroyBody.Should().Contain("ReleasePingPong()");
+        destroyBody.Should().Contain("_initialized = false");
+        destroyBody.Should().Contain("_instance == this");
+        stack.Should().Contain("void ReleaseMaterials()");
+        stack.Should().Contain("Destroy(_ssaoMat)");
+        stack.Should().Contain("Destroy(_ssgiMat)");
+        stack.Should().Contain("Destroy(_bloomMat)");
+        stack.Should().Contain("Destroy(_acesMat)");
+        stack.Should().Contain("Destroy(_lutMat)");
     }
 
     [Fact]

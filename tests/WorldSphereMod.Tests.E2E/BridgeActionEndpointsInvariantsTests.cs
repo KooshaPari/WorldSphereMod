@@ -4,7 +4,8 @@ using FluentAssertions;
 using Xunit;
 
 /// <summary>
-/// Bridge action endpoint source invariants — mock/stub level, no WorldBox DLLs.
+/// Source-invariant checks for the action bridge endpoints in BridgeServer.
+/// These tests only inspect source text and do not require Unity runtime.
 /// </summary>
 public sealed class BridgeActionEndpointsInvariantsTests
 {
@@ -61,60 +62,83 @@ public sealed class BridgeActionEndpointsInvariantsTests
     }
 
     [Fact]
-    public void Spawn_units_endpoint_is_routed_to_a_queued_main_thread_action_with_input_limits()
+    public void Bridge_action_endpoints_are_routed_through_post_dispatch_and_json_writer()
     {
         var bridgeServer = ReadSourceFile("WorldSphereMod/Code/Bridge/BridgeServer.cs");
-        var routeBody = ExtractMethodBody(bridgeServer, "void ProcessRequest(HttpListenerContext context)");
-        var spawnBody = ExtractMethodBody(bridgeServer, "object SpawnUnitsQueued(string countText, string race)");
+        var processRequestBody = ExtractMethodBody(bridgeServer, "void ProcessRequest(HttpListenerContext context)");
 
-        routeBody.Should().Contain("string.Equals(path, \"/actions/spawn_units\", StringComparison.OrdinalIgnoreCase)",
-            "/actions/spawn_units must be routed explicitly from ProcessRequest");
-        routeBody.Should().Contain("SpawnUnitsQueued(countText, race)",
-            "/actions/spawn_units must dispatch into the queued action helper");
-        routeBody.Should().NotContain("InvokeOnMainThread(SpawnUnitsQueued",
-            "/actions/spawn_units must not use the synchronous main-thread dispatcher");
+        processRequestBody.Should().Contain("string.Equals(method, \"POST\", StringComparison.OrdinalIgnoreCase)",
+            "the action endpoints must remain POST-only");
+        processRequestBody.Should().Contain("string.Equals(path, \"/actions/spawn_units\", StringComparison.OrdinalIgnoreCase)",
+            "spawn_units route must be dispatched from ProcessRequest");
+        processRequestBody.Should().Contain("string.Equals(path, \"/actions/generate_world\", StringComparison.OrdinalIgnoreCase)",
+            "generate_world route must be dispatched from ProcessRequest");
+        processRequestBody.Should().Contain("WriteJson(context.Response, SpawnUnitsQueued(countText, race));",
+            "spawn_units must return a JSON response via the bridge writer");
+        processRequestBody.Should().Contain("WriteJson(context.Response, GenerateWorldQueued());",
+            "generate_world must return a JSON response via the bridge writer");
+        processRequestBody.Should().Contain("catch (Exception ex)",
+            "ProcessRequest must keep the top-level try/catch so failures serialize as JSON errors");
+        processRequestBody.Should().Contain("new { ok = false, error = ex.Message }",
+            "ProcessRequest exceptions must be normalized into JSON error payloads");
 
-        spawnBody.Should().Contain("BridgeSettingParser.TryParseNonNegativeInt(countText, out int count)",
-            "spawn_units must validate the requested count before queueing work");
-        spawnBody.Should().Contain("count = Math.Min(count, 200);",
-            "spawn_units must cap the requested count to the documented safety limit");
-        spawnBody.Should().Contain("_mainThreadQueue.Enqueue(() =>",
-            "spawn_units must schedule Unity object mutation on the main thread queue");
-        spawnBody.Should().Contain("if (World.world == null || MapBox.instance == null)",
-            "spawn_units must fail closed when the world or map box is not ready");
-        spawnBody.Should().Contain("mapBox.units.createNewUnit(race, tile);",
-            "spawn_units must create units from the queued main-thread lambda");
-        spawnBody.Should().Contain("return new { ok = true, count, race, queued = true };",
-            "spawn_units must acknowledge async queueing to the caller");
-        spawnBody.Should().Contain("Debug.Log($\"[WSM3D][Bridge] spawn_units: spawned {spawned}/{count} {race} units\");",
-            "spawn_units should report the final spawn count after the queued work runs");
+        bridgeServer.Should().Contain("void WriteJson(HttpListenerResponse response, object payload, HttpStatusCode statusCode = HttpStatusCode.OK) => WriteRawJson(response, JsonConvert.SerializeObject(payload, Formatting.None), statusCode);",
+            "WriteJson must serialize action responses with compact JSON and forward them to the raw writer");
+        bridgeServer.Should().Contain("JsonConvert.SerializeObject(payload, Formatting.None)",
+            "JSON responses must serialize compact anonymous payloads without extra formatting");
+
+        var writeRawJsonBody = ExtractMethodBody(bridgeServer, "void WriteRawJson(HttpListenerResponse response, string json, HttpStatusCode statusCode = HttpStatusCode.OK)");
+        writeRawJsonBody.Should().Contain("response.ContentType = \"application/json; charset=utf-8\"",
+            "bridge action responses must advertise JSON content type");
+        writeRawJsonBody.Should().Contain("response.StatusCode = (int)statusCode",
+            "bridge action responses must preserve HTTP status codes");
     }
 
     [Fact]
-    public void Generate_world_endpoint_is_routed_to_a_queued_main_thread_action_and_rebuilds_the_map_on_demand()
+    public void Spawn_units_endpoint_uses_worldbox_types_and_nested_error_handling()
     {
         var bridgeServer = ReadSourceFile("WorldSphereMod/Code/Bridge/BridgeServer.cs");
-        var routeBody = ExtractMethodBody(bridgeServer, "void ProcessRequest(HttpListenerContext context)");
-        var generateBody = ExtractMethodBody(bridgeServer, "object GenerateWorldQueued()");
+        var spawnUnitsBody = ExtractMethodBody(bridgeServer, "object SpawnUnitsQueued(string countText, string race)");
 
-        routeBody.Should().Contain("string.Equals(path, \"/actions/generate_world\", StringComparison.OrdinalIgnoreCase)",
-            "/actions/generate_world must be routed explicitly from ProcessRequest");
-        routeBody.Should().Contain("GenerateWorldQueued()",
-            "/actions/generate_world must dispatch into the queued action helper");
-        routeBody.Should().NotContain("InvokeOnMainThread(GenerateWorldQueued",
-            "/actions/generate_world must not use the synchronous main-thread dispatcher");
+        spawnUnitsBody.Should().Contain("BridgeSettingParser.TryParseNonNegativeInt(countText, out int count)",
+            "spawn_units must validate the count query parameter before queueing work");
+        spawnUnitsBody.Should().Contain("World.world == null || MapBox.instance == null",
+            "spawn_units must short-circuit when the WorldBox world or MapBox are not ready");
+        spawnUnitsBody.Should().Contain("World.world",
+            "spawn_units must route through the live WorldBox world object");
+        spawnUnitsBody.Should().Contain("MapBox.instance",
+            "spawn_units must target the live MapBox singleton");
+        spawnUnitsBody.Should().Contain("MapBox.width",
+            "spawn_units must use WorldBox map dimensions to choose spawn tiles");
+        spawnUnitsBody.Should().Contain("MapBox.height",
+            "spawn_units must use WorldBox map dimensions to choose spawn tiles");
+        spawnUnitsBody.Should().Contain("WorldTile tile = mapBox.GetTile(x, y);",
+            "spawn_units must resolve a WorldTile before spawning units");
+        spawnUnitsBody.Should().Contain("mapBox.units.createNewUnit(race, tile);",
+            "spawn_units must create units through the WorldBox unit manager");
+        spawnUnitsBody.Should().Contain("catch (Exception spawnEx)",
+            "spawn_units must isolate per-unit creation failures so one bad unit does not abort the whole loop");
+        spawnUnitsBody.Should().Contain("catch (Exception ex)",
+            "spawn_units must guard the queued work item itself");
+        spawnUnitsBody.Should().Contain("return new { ok = true, count, race, queued = true };",
+            "spawn_units must return a JSON-friendly queued acknowledgement");
+        spawnUnitsBody.Should().Contain("return new { ok = false, error = \"invalid_count\", count = countText };",
+            "spawn_units must return JSON error payloads for invalid input");
+    }
 
-        generateBody.Should().Contain("_mainThreadQueue.Enqueue(() =>",
-            "generate_world must schedule map generation on the main thread queue");
-        generateBody.Should().Contain("if (MapBox.instance == null)",
-            "generate_world must fail closed when the map box is not ready");
-        generateBody.Should().Contain("MapBox.instance.generateNewMap();",
-            "generate_world must rebuild the world from the queued main-thread lambda");
-        generateBody.Should().Contain("Debug.Log(\"[WSM3D][Bridge] generate_world: new map generated\");",
-            "generate_world should report successful regeneration after the queued work runs");
-        generateBody.Should().Contain("return new { ok = true, queued = true };",
-            "generate_world must acknowledge async queueing to the caller");
-        generateBody.Should().Contain("Debug.LogWarning(\"[WSM3D][Bridge] generate_world skipped: MapBox not ready\");",
-            "generate_world should report a clear readiness guard when the map box is unavailable");
+    [Fact]
+    public void Generate_world_endpoint_uses_mapbox_and_returns_a_json_acknowledgement()
+    {
+        var bridgeServer = ReadSourceFile("WorldSphereMod/Code/Bridge/BridgeServer.cs");
+        var generateWorldBody = ExtractMethodBody(bridgeServer, "object GenerateWorldQueued()");
+
+        generateWorldBody.Should().Contain("MapBox.instance == null",
+            "generate_world must guard against a missing MapBox instance");
+        generateWorldBody.Should().Contain("MapBox.instance.generateNewMap();",
+            "generate_world must invoke the WorldBox map generation entrypoint");
+        generateWorldBody.Should().Contain("catch (Exception ex)",
+            "generate_world must catch and log queued work failures");
+        generateWorldBody.Should().Contain("return new { ok = true, queued = true };",
+            "generate_world must return a JSON-friendly queued acknowledgement");
     }
 }

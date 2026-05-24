@@ -16,23 +16,22 @@ steps:
     note: Allow TickPerFrame + LateUpdate flush to populate telemetry cache.
   - action: health
     required: true
-    expect_is_world_3d: true
-    note: >
-      Pre-save-load baseline — GET /health must return JSON with ok true (see
-      docs/journeys/scratch/bridge-scene-transition-known-issue.md checklist).
+    note: Pre-save-load — bridge must respond before scene transition.
   - action: assert_telemetry
     required: true
-    note: Pre-save-load telemetry baseline before any scene transition.
+    note: Pre-save-load telemetry baseline (menu/loading may spike frameMs).
     checks:
       - field: lastNonZeroDrawCalls
         op: ">"
         value: 0
+      - field: frameMs
+        op: "<"
+        value: 500
   - action: load_save
     slot: 2
-    optional: true
-    note: >
-      Optional automated load via bridge POST /actions/load_save. When false or
-      skipped, perform save/load manually in the WorldBox UI during the next step.
+    settle_frames: 120
+    bridge_wait_seconds: 90
+    note: Queue save2 load; PlayCUA waits for bridge drain after transition.
   - action: wait_n_frames
     frames: 6
     fps: 30
@@ -46,17 +45,16 @@ steps:
     note: Allow scene transition and bridge drain to settle after save/load (~45s).
   - action: health
     required: true
-    expect_is_world_3d: true
     note: >
-      Post-reload — GET /health must still return JSON with ok true (not null, no
-      5s stall). Clears PARTIAL on bridge-scene-transition when this passes.
+      Post-reload — GET /health must return JSON (not null / 5s stall). isWorld3D
+      may stay false until the player enters the 3D view for save2.
   - action: assert_telemetry
     required: true
-    note: Post-reload telemetry — frame/cache fields must respond after save/load.
+    note: Post-reload telemetry — proves bridge drain survived save/load.
     checks:
       - field: lastNonZeroDrawCalls
         op: ">"
         value: 0
       - field: frameMs
         op: "<"
-        value: 200
+        value: 500

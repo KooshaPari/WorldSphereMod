@@ -104,14 +104,14 @@ public sealed class TerrainSmoothingInvariantsTests
     }
 
     [Fact]
-    public void SavedSettings_terrain_polish_flags_default_true()
+    public void SavedSettings_terrain_polish_flags_default_false()
     {
         var settings = ReadSource(SavedSettingsRelative);
 
-        Regex.IsMatch(settings, @"public\s+bool\s+BiomeBlending\s*=\s*true")
-            .Should().BeTrue("biome color blending must default ON for new installs");
-        Regex.IsMatch(settings, @"public\s+bool\s+MountainSlopeSmoothing\s*=\s*true")
-            .Should().BeTrue("mountain slope smoothing must default ON for new installs");
+        Regex.IsMatch(settings, @"public\s+bool\s+BiomeBlending\s*=\s*false")
+            .Should().BeTrue("biome color blending must default OFF for new installs");
+        Regex.IsMatch(settings, @"public\s+bool\s+MountainSlopeSmoothing\s*=\s*false")
+            .Should().BeTrue("mountain slope smoothing must default OFF for new installs");
 
         settings.Should().Contain("Terrain polish: blend biome colors",
             "BiomeBlending must remain documented as terrain polish");

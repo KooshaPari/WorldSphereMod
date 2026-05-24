@@ -1014,6 +1014,10 @@ namespace WorldSphereMod.Bridge
                     SaveManager.setCurrentPathAndId(queuedPath, queuedSlot);
                     World.world.save_manager.prepareLoading();
                     World.world.save_manager.loadWorld(queuedPath);
+                    // loadWorld Postfix also runs survival; belt-and-suspenders if patch order differs.
+                    CaptureMainThread();
+                    EnsureCreated();
+                    DrainStaticQueue();
                 }
                 catch (Exception ex)
                 {

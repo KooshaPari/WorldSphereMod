@@ -12,7 +12,6 @@ using WorldSphereMod.NewCamera;
 using UnityEngine.Tilemaps;
 using WorldSphereMod.General;
 using System.Reflection;
-using System.Diagnostics;
 using Debug = UnityEngine.Debug;
 using WorldSphereMod.Effects;
 using System;
@@ -512,7 +511,7 @@ namespace WorldSphereMod
             };
             public static void Begin()
             {
-                var sw = Stopwatch.StartNew();
+                var sw = System.Diagnostics.Stopwatch.StartNew();
                 CurrentShape = Shapes[savedSettings.CurrentShape];
                 HeightMult = savedSettings.TileHeight;
                 PerlinNoise = Core.savedSettings.PerlinNoise;
@@ -756,7 +755,7 @@ namespace WorldSphereMod
             }
             public static void Prepare()
             {
-                var sw = Stopwatch.StartNew();
+                var sw = System.Diagnostics.Stopwatch.StartNew();
                 LoadAssets();
                 Debug.Log($"[WSM3D][PERF] Sphere.Prepare.LoadAssets={sw.Elapsed.TotalMilliseconds:F3}ms");
                 sw.Restart();

@@ -133,7 +133,9 @@ public class Wsm3dCliInvariantsTests
 
         script.Should().MatchRegex(@"""run-all""\s*\{");
         script.Should().Contain("Invoke-PlaycuaRunAll @params");
-        script.Should().Contain("playcua requires 'run-all' subcommand");
+        script.Should().Contain("playcua requires 'run-all' or 'run-bridge' subcommand");
+        script.Should().MatchRegex(@"""run-bridge""\s*\{");
+        script.Should().Contain("Invoke-PlaycuaRunBridge @params");
     }
 
     [Fact]

@@ -545,6 +545,8 @@ namespace WorldSphereMod.UI
             bool previousColorGradingLut = Core.savedSettings.ColorGradingLut;
             bool previousSSAOEnabled = Core.savedSettings.SSAOEnabled;
             bool previousSSGIEnabled = Core.savedSettings.SSGIEnabled;
+            bool previousBloomEnabled = Core.savedSettings.BloomEnabled;
+            bool previousACESTonemapping = Core.savedSettings.ACESTonemapping;
             bool previousSkeletalAnimation = Core.savedSettings.SkeletalAnimation;
             bool previousWorldspaceUI = Core.savedSettings.WorldspaceUI;
             bool previousWorldspaceHealth3D = Core.savedSettings.WorldspaceHealth3D;
@@ -569,6 +571,8 @@ namespace WorldSphereMod.UI
             if (previousColorGradingLut != Core.savedSettings.ColorGradingLut)         Core.ApplyPhaseToggle(nameof(SavedSettings.ColorGradingLut),      Core.savedSettings.ColorGradingLut);
             if (previousSSAOEnabled != Core.savedSettings.SSAOEnabled)                 Core.ApplyPhaseToggle(nameof(SavedSettings.SSAOEnabled),          Core.savedSettings.SSAOEnabled);
             if (previousSSGIEnabled != Core.savedSettings.SSGIEnabled)                 Core.ApplyPhaseToggle(nameof(SavedSettings.SSGIEnabled),          Core.savedSettings.SSGIEnabled);
+            if (previousBloomEnabled != Core.savedSettings.BloomEnabled)               Core.ApplyPhaseToggle(nameof(SavedSettings.BloomEnabled),        Core.savedSettings.BloomEnabled);
+            if (previousACESTonemapping != Core.savedSettings.ACESTonemapping)         Core.ApplyPhaseToggle(nameof(SavedSettings.ACESTonemapping),      Core.savedSettings.ACESTonemapping);
             if (previousSkeletalAnimation != Core.savedSettings.SkeletalAnimation)       Core.ApplyPhaseToggle(nameof(SavedSettings.SkeletalAnimation),   Core.savedSettings.SkeletalAnimation);
             if (previousWorldspaceUI != Core.savedSettings.WorldspaceUI)                 Core.ApplyPhaseToggle(nameof(SavedSettings.WorldspaceUI),        Core.savedSettings.WorldspaceUI);
             if (previousWorldspaceHealth3D != Core.savedSettings.WorldspaceHealth3D)     Core.ApplyPhaseToggle(nameof(SavedSettings.WorldspaceHealth3D), Core.savedSettings.WorldspaceHealth3D);
@@ -929,7 +933,6 @@ namespace WorldSphereMod.UI
         }
     }
 }
-
 
 
 

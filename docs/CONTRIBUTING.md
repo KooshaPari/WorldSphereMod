@@ -120,7 +120,7 @@ pwsh Tools/wsm-live-verify.ps1
 pwsh Tools/wsm-live-verify.ps1 -ListScenarios   # enumerate PlayCUA scenarios for -Live
 ```
 
-- Offline matrix: **482 pass / 3 skip** (485 total) — Unit 151 (+ 3 skip), Integration 69, E2E 262 via `dotnet test`
+- Offline matrix: **486 pass / 3 skip** (489 total) — Unit 151 (+ 3 skip), Integration 69, E2E 266 via `dotnet test`
 - Report: `Tools/.reports/live-verify-latest.json`
 - Deep dive: [`live-verification.md`](live-verification.md); live proof bundle: [`#canonical-live-proof-bundle`](live-verification.md#canonical-live-proof-bundle)
 

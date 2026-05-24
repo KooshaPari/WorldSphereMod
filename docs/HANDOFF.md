@@ -113,7 +113,7 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 | `LODScale` | `0.5f` | 10 | LOD tuning default |
 | `WaterDetail` | `1.0f` | 10 | LOD tuning default |
 | `FoliageDensity` | `1.0f` | 10 | LOD tuning default |
-| `ProfilerDump` | `false` | 0 | Diagnostic overlay default |
+| `ProfilerDump` | `false` | 0 | Diagnostic overlay default-off |
 
 ## Current defaults by category
 
@@ -141,7 +141,7 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 - `WorldspaceHealth3D` — worldspace HP bar style
 - `MountainSlopeSmoothing` — terrain polish
 - `WeatherRain` — weather
-- `ProfilerDump` — diagnostic overlay
+- `ProfilerDump` — diagnostic overlay (default-off)
 - `FogDensity` — `0.05f` in live settings
 - `SSGIEnabled` — Phase 9
 - `BloomEnabled` — Phase 9

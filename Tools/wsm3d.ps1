@@ -1735,10 +1735,24 @@ function Resolve-PythonCommand {
     throw "Python not found on PATH (required for playcua)."
 }
 
-function Invoke-PlaycuaRunAll {
+function Get-PlaycuaScenarioFiles {
+    param([string]$Filter = "*")
+
+    $scenarioRoot = Join-Path $RepoRoot "Tools/wsm3d-playcua/sample-scenarios"
+    if (-not (Test-Path -LiteralPath $scenarioRoot)) {
+        throw "PlayCUA sample-scenarios directory not found at $scenarioRoot"
+    }
+
+    return @(Get-ChildItem -Path $scenarioRoot -Filter $Filter -File | Sort-Object Name)
+}
+
+function Invoke-PlaycuaScenarios {
     param(
+        [Parameter(Mandatory = $true)]
+        [System.IO.FileInfo[]]$Scenarios,
         [ValidateSet("omniroute", "anthropic", "off")]
-        [string]$VisionBackend
+        [string]$VisionBackend,
+        [string]$ArtifactSubdir = "run-all-artifacts"
     )
 
     $python = Resolve-PythonCommand
@@ -1747,23 +1761,17 @@ function Invoke-PlaycuaRunAll {
         throw "Missing Tools/wsm3d-playcua/main.py"
     }
 
-    $scenarioRoot = Join-Path $RepoRoot "Tools/wsm3d-playcua/sample-scenarios"
-    if (-not (Test-Path -LiteralPath $scenarioRoot)) {
-        throw "PlayCUA sample-scenarios directory not found at $scenarioRoot"
+    if (-not $Scenarios -or $Scenarios.Count -eq 0) {
+        throw "No PlayCUA scenarios to run."
     }
 
-    $scenarios = @(Get-ChildItem -Path $scenarioRoot -Filter "*.yaml" -File | Sort-Object Name)
-    if ($scenarios.Count -eq 0) {
-        throw "No YAML scenarios found under $scenarioRoot"
-    }
-
-    $artifactRoot = Join-Path $RepoRoot "Tools/wsm3d-playcua/.reports/run-all-artifacts"
+    $artifactRoot = Join-Path $RepoRoot "Tools/wsm3d-playcua/.reports/$ArtifactSubdir"
     if (-not (Test-Path -LiteralPath $artifactRoot)) {
         New-Item -ItemType Directory -Force -Path $artifactRoot | Out-Null
     }
 
     $failed = @()
-    foreach ($scenario in $scenarios) {
+    foreach ($scenario in $Scenarios) {
         $scenarioReport = Join-Path $artifactRoot ("playcua-" + $scenario.BaseName + ".json")
         $pyArgs = @(
             $playcuaMain,
@@ -1774,7 +1782,7 @@ function Invoke-PlaycuaRunAll {
             $pyArgs += @("--vision-backend", $(if ($VisionBackend) { $VisionBackend } else { "off" }))
         }
 
-        Write-Info "playcua run-all: $($scenario.Name) ..."
+        Write-Info "playcua: $($scenario.Name) ..."
         & $python @pyArgs
         if ($LASTEXITCODE -ne 0) {
             $failed += $scenario.Name
@@ -1782,10 +1790,30 @@ function Invoke-PlaycuaRunAll {
     }
 
     if ($failed.Count -gt 0) {
-        throw "playcua run-all failed for: $($failed -join ', ')"
+        throw "playcua failed for: $($failed -join ', ')"
     }
 
-    Write-Success "playcua run-all passed $($scenarios.Count) scenario(s)."
+    Write-Success "playcua passed $($Scenarios.Count) scenario(s)."
+}
+
+function Invoke-PlaycuaRunBridge {
+    param(
+        [ValidateSet("omniroute", "anthropic", "off")]
+        [string]$VisionBackend
+    )
+
+    $scenarios = Get-PlaycuaScenarioFiles -Filter "bridge-*.yaml"
+    Invoke-PlaycuaScenarios -Scenarios $scenarios -VisionBackend $VisionBackend -ArtifactSubdir "run-bridge-artifacts"
+}
+
+function Invoke-PlaycuaRunAll {
+    param(
+        [ValidateSet("omniroute", "anthropic", "off")]
+        [string]$VisionBackend
+    )
+
+    $scenarios = Get-PlaycuaScenarioFiles -Filter "*.yaml"
+    Invoke-PlaycuaScenarios -Scenarios $scenarios -VisionBackend $VisionBackend -ArtifactSubdir "run-all-artifacts"
 }
 
 function Invoke-SetupPhase5 {
@@ -1964,6 +1992,9 @@ Commands:
       Requires bridge on 127.0.0.1:8766. Writes per-scenario JSON under
       Tools/wsm3d-playcua/.reports/run-all-artifacts/. Omit -VisionBackend to use
       main.py defaults (OMNROUTE_API_KEY / ANTHROPIC_API_KEY env).
+
+  playcua run-bridge [-VisionBackend omniroute|anthropic|off]
+      Run only bridge-*.yaml PlayCUA scenarios (smoke + vision gate without phase YAMLs).
 
   watch [-Launch] [-Filter <pattern>]
       Watch WorldSphereMod/Code/ for changes (default filter: *.cs). On file change
@@ -2319,7 +2350,7 @@ try {
 
         "playcua" {
             if ($commandArgs.Count -eq 0) {
-                Write-Error-Custom "playcua requires 'run-all' subcommand"
+                Write-Error-Custom "playcua requires 'run-all' or 'run-bridge' subcommand"
                 Show-Help
                 exit 1
             }
@@ -2333,6 +2364,14 @@ try {
                         $params["VisionBackend"] = $subArgs[$subArgs.IndexOf("-VisionBackend") + 1]
                     }
                     Invoke-PlaycuaRunAll @params
+                }
+
+                "run-bridge" {
+                    $params = @{}
+                    if ($subArgs -contains "-VisionBackend") {
+                        $params["VisionBackend"] = $subArgs[$subArgs.IndexOf("-VisionBackend") + 1]
+                    }
+                    Invoke-PlaycuaRunBridge @params
                 }
 
                 default {

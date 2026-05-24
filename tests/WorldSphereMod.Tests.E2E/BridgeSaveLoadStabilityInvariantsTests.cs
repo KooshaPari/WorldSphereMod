@@ -121,6 +121,12 @@ public sealed class BridgeSaveLoadStabilityInvariantsTests
         bridgeServer.Should().Contain("queued = true",
             "load_save HTTP response must acknowledge async queueing for PlayCUA");
 
+        var loadSaveHooks = ReadSourceFile("WorldSphereMod/Code/Bridge/BridgeLoadSaveHooks.cs");
+        loadSaveHooks.Should().Contain("SaveManager.loadWorld",
+            "Harmony postfix must re-bind bridge after save/load transitions");
+        loadSaveHooks.Should().Contain("BridgeServer.EnsureCreated()",
+            "loadWorld postfix must recreate DDOL bridge host when scene transition destroys it");
+
         bridgeServer.Should().Contain("static int _instanceGeneration",
             "listener generation must survive BridgeServer instance teardown across save/load");
         bridgeServer.Should().Contain("int _myGeneration",

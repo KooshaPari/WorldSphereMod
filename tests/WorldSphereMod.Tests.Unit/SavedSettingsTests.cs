@@ -64,16 +64,16 @@ public class SavedSettingsTests
         var phaseFields = new[]
         {
             ("VoxelEntities", true),
-            ("ProceduralBuildings", true),
-            ("CrossedQuadFoliage", true),
-            ("BiomeBlending", true),
-            ("MeshWater", true),
-            ("HighShadows", true),
-            ("SkeletalAnimation", true),
-            ("WorldspaceUI", true),
-            ("DayNightCycle", true),
-            ("PostFX", true),
-            ("ParticleEffects", true)
+            ("ProceduralBuildings", false),
+            ("CrossedQuadFoliage", false),
+            ("BiomeBlending", false),
+            ("MeshWater", false),
+            ("HighShadows", false),
+            ("SkeletalAnimation", false),
+            ("WorldspaceUI", false),
+            ("DayNightCycle", false),
+            ("PostFX", false),
+            ("ParticleEffects", false)
         };
 
         foreach (var (fieldName, expectedDefault) in phaseFields)
@@ -153,16 +153,16 @@ public class SavedSettingsTests
 
     [Theory]
     [InlineData("VoxelEntities", "true")]
-    [InlineData("ProceduralBuildings", "true")]
-    [InlineData("CrossedQuadFoliage", "true")]
-    [InlineData("BiomeBlending", "true")]
-    [InlineData("MeshWater", "true")]
-    [InlineData("HighShadows", "true")]
-    [InlineData("SkeletalAnimation", "true")]
-    [InlineData("WorldspaceUI", "true")]
-    [InlineData("DayNightCycle", "true")]
-    [InlineData("PostFX", "true")]
-    [InlineData("ParticleEffects", "true")]
+    [InlineData("ProceduralBuildings", "false")]
+    [InlineData("CrossedQuadFoliage", "false")]
+    [InlineData("BiomeBlending", "false")]
+    [InlineData("MeshWater", "false")]
+    [InlineData("HighShadows", "false")]
+    [InlineData("SkeletalAnimation", "false")]
+    [InlineData("WorldspaceUI", "false")]
+    [InlineData("DayNightCycle", "false")]
+    [InlineData("PostFX", "false")]
+    [InlineData("ParticleEffects", "false")]
     public void SavedSettings_field_default_value_matches_spec(string fieldName, string expectedDefault)
     {
         var source = ReadSavedSettingsSource();
@@ -178,8 +178,8 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+CrossedQuadFoliage\s*=\s*true")
-            .Success.Should().BeTrue("Phase 3 should default CrossedQuadFoliage to true");
+        Regex.Match(source, @"public\s+bool\s+CrossedQuadFoliage\s*=\s*false")
+            .Success.Should().BeTrue("Phase 3 should default CrossedQuadFoliage to false");
     }
 
     [Fact]
@@ -187,8 +187,8 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+MeshWater\s*=\s*true")
-            .Success.Should().BeTrue("Phase 4 should default MeshWater to true");
+        Regex.Match(source, @"public\s+bool\s+MeshWater\s*=\s*false")
+            .Success.Should().BeTrue("Phase 4 should default MeshWater to false");
     }
 
     [Fact]
@@ -196,8 +196,8 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+HighShadows\s*=\s*true")
-            .Success.Should().BeTrue("Phase 5 should default HighShadows to true");
+        Regex.Match(source, @"public\s+bool\s+HighShadows\s*=\s*false")
+            .Success.Should().BeTrue("Phase 5 should default HighShadows to false");
     }
 
     [Fact]
@@ -205,10 +205,10 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+HdrSkybox\s*=\s*true")
-            .Success.Should().BeTrue("Phase 5b should default HdrSkybox to true");
-        Regex.Match(source, @"public\s+bool\s+ColorGradingLut\s*=\s*true")
-            .Success.Should().BeTrue("Phase 5b should default ColorGradingLut to true");
+        Regex.Match(source, @"public\s+bool\s+HdrSkybox\s*=\s*false")
+            .Success.Should().BeTrue("Phase 5b should default HdrSkybox to false");
+        Regex.Match(source, @"public\s+bool\s+ColorGradingLut\s*=\s*false")
+            .Success.Should().BeTrue("Phase 5b should default ColorGradingLut to false");
     }
 
     [Fact]
@@ -216,8 +216,8 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+SkeletalAnimation\s*=\s*true")
-            .Success.Should().BeTrue("Phase 6 should default SkeletalAnimation to true");
+        Regex.Match(source, @"public\s+bool\s+SkeletalAnimation\s*=\s*false")
+            .Success.Should().BeTrue("Phase 6 should default SkeletalAnimation to false");
     }
 
     [Fact]
@@ -225,8 +225,8 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+DayNightCycle\s*=\s*true")
-            .Success.Should().BeTrue("Phase 8 should default DayNightCycle to true");
+        Regex.Match(source, @"public\s+bool\s+DayNightCycle\s*=\s*false")
+            .Success.Should().BeTrue("Phase 8 should default DayNightCycle to false");
         Regex.Match(source, @"public\s+float\s+FogDensity\s*=\s*0\.05f")
             .Success.Should().BeTrue("Phase 8 should default FogDensity to 0.05f");
     }
@@ -236,10 +236,10 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+PostFX\s*=\s*true")
-            .Success.Should().BeTrue("Phase 9 should default PostFX to true");
-        Regex.Match(source, @"public\s+bool\s+SSAOEnabled\s*=\s*true")
-            .Success.Should().BeTrue("Phase 9 should default SSAOEnabled to true");
+        Regex.Match(source, @"public\s+bool\s+PostFX\s*=\s*false")
+            .Success.Should().BeTrue("Phase 9 should default PostFX to false");
+        Regex.Match(source, @"public\s+bool\s+SSAOEnabled\s*=\s*false")
+            .Success.Should().BeTrue("Phase 9 should default SSAOEnabled to false");
         Regex.Match(source, @"public\s+bool\s+SSGIEnabled\s*=\s*false")
             .Success.Should().BeTrue("Phase 9 should default SSGIEnabled to false");
     }
