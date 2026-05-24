@@ -73,4 +73,5 @@ Link them in PR #1's body when marking the PR ready for review.
 - Check the WorldBox console (default toggle: backtick) for `[WorldSphereMod3D]` errors.
 - Check `<WorldBox>/output_log.txt` or NeoModLoader's compile-error log.
 - Toggle `VoxelEntities` OFF in settings — that immediately reverts to vanilla sprite rendering, no restart needed.
+- Re-run the PlayCUA scenario or `pwsh Tools/wsm3d.ps1 journey verify -Id smoke-test-phase1` (mock) for manifest drift.
 - Open an issue on the PR with the console excerpt + which check from this list failed.
