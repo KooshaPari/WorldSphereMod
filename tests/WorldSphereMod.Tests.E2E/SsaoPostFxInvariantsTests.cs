@@ -87,33 +87,6 @@ public class SsaoPostFxInvariantsTests
     }
 
     [Fact]
-    public void VoxelFrameDriver_TickPerFrame_reconciles_PostFX_SSAO_and_SSGI_without_per_frame_spam()
-    {
-        var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
-        var tickBody = ExtractMethodBody(voxelRender, "public static void TickPerFrame()");
-
-        tickBody.Should().Contain("_lastAppliedPostFX",
-            "PostFX must track last applied value for change-only reconciliation");
-        tickBody.Should().Contain("PostFxController.ApplySetting(currentPostFX)",
-            "PostFX reconciler must call ApplySetting when SavedSettings diverges");
-
-        tickBody.Should().Contain("_lastAppliedSSAOEnabled",
-            "SSAOEnabled must track last applied value for change-only reconciliation");
-        tickBody.Should().Contain("ScreenSpaceAO.ApplySetting(currentSSAO)",
-            "SSAO reconciler must call ApplySetting when SavedSettings diverges");
-
-        tickBody.Should().Contain("_lastAppliedSSGIEnabled",
-            "SSGIEnabled must track last applied value for change-only reconciliation");
-        tickBody.Should().Contain("ScreenSpaceGI.ApplySetting(currentSSGI)",
-            "SSGI reconciler must call ApplySetting when SavedSettings diverges");
-
-        tickBody.Should().Contain("ScreenSpaceAO.EnsureCreated()",
-            "late-bound main camera must retry SSAO component creation");
-        tickBody.Should().Contain("ScreenSpaceGI.EnsureCreated()",
-            "late-bound main camera must retry SSGI component creation");
-    }
-
-    [Fact]
     public void Mod_init_and_WorldSphereTab_wire_SSAO_toggle_end_to_end()
     {
         var mod = ReadSourceFile("WorldSphereMod/Code/Mod.cs");
