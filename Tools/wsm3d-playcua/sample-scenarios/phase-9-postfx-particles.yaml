@@ -1,0 +1,62 @@
+name: phase-9-postfx-particles
+output_dir: artifacts
+default_wait_seconds: 1
+steps:
+  - action: load_save
+    slot: 2
+    note: Load baseline save with combat or effects for PostFX and particle verification.
+  - action: wait_n_frames
+    frames: 12
+    fps: 30
+  - action: health
+    required: true
+    expect_is_world_3d: true
+    note: Bridge health before phase toggles.
+  - action: assert_telemetry
+    required: true
+    note: Game must be rendering before phase toggles.
+    checks:
+      - field: drawCalls
+        op: ">"
+        value: 0
+      - field: frameMs
+        op: "<"
+        value: 200
+  - action: toggle_flag
+    key: PostFX
+    value: true
+    note: Enable Phase 9 bloom, color grading, and SSAO stack in SavedSettings.
+  - action: toggle_flag
+    key: ParticleEffects
+    value: true
+    note: Enable Phase 9 particle bursts and decals in SavedSettings.
+  - action: wait_n_frames
+    frames: 24
+    fps: 30
+    note: Allow post-processing passes and particle emitters to settle after toggles.
+  - action: screenshot
+    path: phase-9-postfx-particles/effects.png
+    vision:
+      required: true
+      prompt: >
+        Validate that the scene shows post-processing polish (bloom on bright areas,
+        color grading or vignette) and/or visible particle bursts, with no obvious UI
+        crash indicators or shader compile error banners. Return strict JSON with
+        keys passes, reason, and confidence.
+      criteria:
+        must_show_postfx: true
+        must_show_particle_effects: true
+        no_error_dialog: true
+        no_shader_compile_banner: true
+  - action: assert_telemetry
+    required: true
+    checks:
+      - field: drawCalls
+        op: ">"
+        value: 0
+      - field: frameMs
+        op: "<"
+        value: 50
+      - field: instances
+        op: ">"
+        value: 10

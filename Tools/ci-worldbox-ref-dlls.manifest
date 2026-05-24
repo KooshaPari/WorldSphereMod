@@ -1,0 +1,31 @@
+# Canonical list of WorldBox reference DLL paths (relative to the WorldBox install root).
+# Used by Tools/ci-stub-worldbox-refs.sh and CiWorkflowInvariantsTests.
+# Keep in sync with HintPath entries in WorldSphereMod.csproj (WorldBoxManaged / WorldBoxNML / WorldBoxPath).
+worldbox_Data/Managed/Assembly-CSharp-firstpass.dll
+worldbox_Data/Managed/Newtonsoft.Json.dll
+worldbox_Data/Managed/SleekRender.dll
+worldbox_Data/Managed/UnityEngine.CoreModule.dll
+worldbox_Data/Managed/UnityEngine.InputLegacyModule.dll
+worldbox_Data/Managed/UnityEngine.ParticleSystemModule.dll
+worldbox_Data/Managed/UnityEngine.PhysicsModule.dll
+worldbox_Data/Managed/UnityEngine.TextRenderingModule.dll
+worldbox_Data/Managed/UnityEngine.TilemapModule.dll
+worldbox_Data/Managed/UnityEngine.UI.dll
+worldbox_Data/Managed/UnityEngine.UIModule.dll
+worldbox_Data/StreamingAssets/mods/NeoModLoader.dll
+worldbox_Data/StreamingAssets/mods/NML/Assembly-CSharp-Publicized.dll
+worldbox_Data/StreamingAssets/mods/NML/Assemblies/0Harmony.dll
+worldbox_Data/StreamingAssets/mods/NML/Assemblies/Facepunch.Steamworks.Posix.dll
+worldbox_Data/StreamingAssets/mods/NML/Assemblies/Facepunch.Steamworks.Win64.dll
+worldbox_Data/StreamingAssets/mods/NML/Assemblies/Gameloop.Vdf.dll
+worldbox_Data/StreamingAssets/mods/NML/Assemblies/Microsoft.CodeAnalysis.dll
+worldbox_Data/StreamingAssets/mods/NML/Assemblies/Microsoft.CodeAnalysis.CSharp.dll
+worldbox_Data/StreamingAssets/mods/NML/Assemblies/Mono.Cecil.dll
+worldbox_Data/StreamingAssets/mods/NML/Assemblies/Mono.Cecil.Pdb.dll
+worldbox_Data/StreamingAssets/mods/NML/Assemblies/MonoMod.RuntimeDetour.dll
+worldbox_Data/StreamingAssets/mods/NML/Assemblies/MonoMod.Utils.dll
+worldbox_Data/StreamingAssets/mods/NML/Assemblies/System.Collections.Immutable.dll
+worldbox_Data/StreamingAssets/mods/NML/Assemblies/System.Reflection.Metadata.dll
+worldbox_Data/StreamingAssets/mods/NML/Assemblies/System.Runtime.CompilerServices.Unsafe.dll
+worldbox_Data/StreamingAssets/mods/NML/Assemblies/System.Text.Encoding.CodePages.dll
+worldbox_Data/StreamingAssets/mods/NML/Assemblies/YamlDotNet.dll

@@ -1,0 +1,214 @@
+name: dependency-security-audit
+
+# Bounded dependency/security audit gate.
+#
+# - docs/: reports known moderate npm advisories and stays temporarily
+#   non-blocking while the current Vite/VitePress chain has no available fix.
+# - Tools/journey-records/: runs a Rust dependency audit with cargo-audit.
+# - NuGet: blocks on any vulnerable packages found by `dotnet list package`.
+#
+# The jobs are path-aware so the workflow only runs when the relevant surfaces
+# change. Docs advisories are allowlisted explicitly; all other jobs remain
+# blocking when they find issues.
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/dependency-security-audit.yml"
+      - "docs/**"
+      - "docs/package.json"
+      - "docs/package-lock.json"
+      - "Tools/journey-records/**"
+      - "**/*.csproj"
+      - "**/packages.lock.json"
+      - "**/Directory.Packages.props"
+  push:
+    branches: [main, "claude/**"]
+    paths:
+      - ".github/workflows/dependency-security-audit.yml"
+      - "docs/**"
+      - "docs/package.json"
+      - "docs/package-lock.json"
+      - "Tools/journey-records/**"
+      - "**/*.csproj"
+      - "**/packages.lock.json"
+      - "**/Directory.Packages.props"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docs-npm-audit:
+    name: docs npm audit
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install docs dependencies
+        working-directory: docs
+        run: npm ci
+
+      - name: Run npm audit with documented waiver
+        id: audit
+        working-directory: docs
+        shell: bash
+        run: |
+          set +e
+          npm audit --audit-level=moderate --json > audit-report.json
+          status=$?
+          set -e
+
+          node <<'NODE'
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('audit-report.json', 'utf8'));
+          const allowed = new Map([
+            ['esbuild', 'GHSA-67mh-4wv8-2f99'],
+            ['vite', 'GHSA-4w7w-66w2-5vf9'],
+            ['vitepress', 'GHSA-4w7w-66w2-5vf9']
+          ]);
+          const vulns = report.vulnerabilities || {};
+          const entries = Object.values(vulns);
+          const unexpected = [];
+
+          const advisoryIdFor = (vuln) => {
+            const advisory = Array.isArray(vuln.via)
+              ? vuln.via.find((item) => item && typeof item === 'object' && item.url)
+              : null;
+            if (!advisory || !advisory.url) return '';
+            try {
+              const slug = new URL(advisory.url).pathname.split('/').filter(Boolean).pop() || '';
+              return slug.startsWith('GHSA-') ? slug : `GHSA-${slug.replace(/^GHSA-/, '')}`;
+            } catch {
+              return '';
+            }
+          };
+
+          const isAllowedTransitive = (vuln) => {
+            const via = vuln.via || [];
+            if (!via.length || !via.every((item) => typeof item === 'string')) {
+              return false;
+            }
+            return via.every((dep) => allowed.has(dep));
+          };
+
+          for (const vuln of entries) {
+            if ((vuln.severity || '').toLowerCase() === 'high' || (vuln.severity || '').toLowerCase() === 'critical') {
+              unexpected.push(`${vuln.name}:${vuln.severity}`);
+              continue;
+            }
+
+            if (isAllowedTransitive(vuln)) {
+              continue;
+            }
+
+            const allow = allowed.get(vuln.name);
+            const advisoryId = advisoryIdFor(vuln);
+            if (!allow || advisoryId !== allow) {
+              unexpected.push(`${vuln.name}:${advisoryId || 'unknown'}`);
+            }
+          }
+
+          if (unexpected.length > 0) {
+            console.error(`Unexpected docs advisories: ${unexpected.join(', ')}`);
+            process.exit(1);
+          }
+
+          const moderate = report.metadata?.vulnerabilities?.moderate || 0;
+          console.log(`Allowed docs advisories detected: moderate=${moderate}`);
+          NODE
+
+          if [ "$status" -ne 0 ]; then
+            echo "::warning::npm audit returned a non-zero status, but the known moderate advisories are allowlisted until upstream fixes land."
+          fi
+
+      - name: Upload docs audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-npm-audit-report
+          path: docs/audit-report.json
+          if-no-files-found: ignore
+
+  rust-journey-records-audit:
+    name: journey-records cargo audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install cargo-audit
+        shell: bash
+        run: cargo install cargo-audit --locked
+
+      - name: Run cargo audit
+        working-directory: Tools/journey-records
+        run: cargo audit --deny warnings
+
+  nuget-vulnerability-audit:
+    name: NuGet vulnerability audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            5.0.x
+            8.0.x
+
+      - name: Discover project files
+        id: discover
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t projects < <(find . -name '*.csproj' -not -path './.git/*' | sort)
+          if [ "${#projects[@]}" -eq 0 ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No csproj files found — NuGet audit skipped."
+            exit 0
+          fi
+
+          printf '%s\n' "${projects[@]}" > "$RUNNER_TEMP/nuget-projects.txt"
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "count=${#projects[@]}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore projects
+        if: steps.discover.outputs.found == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r project; do
+            dotnet restore "$project"
+          done < "$RUNNER_TEMP/nuget-projects.txt"
+
+      - name: Audit projects for vulnerable packages
+        if: steps.discover.outputs.found == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          failures=0
+          while IFS= read -r project; do
+            echo "Auditing $project"
+            output=$(dotnet list "$project" package --vulnerable --include-transitive 2>&1) || true
+            printf '%s\n' "$output"
+            if printf '%s\n' "$output" | grep -qE 'has vulnerable package|Vulnerable'; then
+              failures=1
+            fi
+          done < "$RUNNER_TEMP/nuget-projects.txt"
+
+          if [ "$failures" -ne 0 ]; then
+            echo "::error::One or more NuGet projects reported vulnerable packages."
+            exit 1
+          fi

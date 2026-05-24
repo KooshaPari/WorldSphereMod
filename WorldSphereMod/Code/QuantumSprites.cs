@@ -370,10 +370,20 @@ namespace WorldSphereMod.QuantumSprites
         {
             CodeMatcher Matcher = new CodeMatcher(instructions, generator);
             Matcher.MatchForward(false, new CodeMatch(OpCodes.Callvirt, AccessTools.Method(typeof(Projectile), nameof(Projectile.getCurrentScale))));
+            if (Matcher.Pos < 0 || Matcher.IsInvalid)
+            {
+                global::UnityEngine.Debug.LogWarning("[WSM3D] QuantumSpritePatches.drawProjectiles transpiler: Projectile.getCurrentScale not found in vanilla IL — skipping");
+                return instructions;
+            }
             Matcher.RemoveInstruction();
             Matcher.RemoveInstruction();
             Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(Manager), nameof(Manager.SetProjectile))));
             Matcher.MatchForward(false, new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(Transform), "set_rotation")));
+            if (Matcher.Pos < 0 || Matcher.IsInvalid)
+            {
+                global::UnityEngine.Debug.LogWarning("[WSM3D] QuantumSpritePatches.drawProjectiles transpiler: Transform.set_rotation not found in vanilla IL — skipping second rewrite");
+                return Matcher.Instructions();
+            }
             Matcher.RemoveInstruction();
             Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(Tools), nameof(Tools.AddRotation))));
             return Matcher.Instructions();
@@ -385,9 +395,19 @@ namespace WorldSphereMod.QuantumSprites
         {
             CodeMatcher Matcher = new CodeMatcher(instructions, generator);
             Matcher.MatchForward(false, new CodeMatch(OpCodes.Callvirt, AccessTools.Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.setScale), new Type[] { typeof(float) })));
+            if (Matcher.Pos < 0 || Matcher.IsInvalid)
+            {
+                global::UnityEngine.Debug.LogWarning("[WSM3D] QuantumSpritePatches.effects transpiler: setScale not found — skipping");
+                return instructions;
+            }
             Matcher.RemoveInstruction();
             Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(Manager), nameof(Manager.SetScaleAndResetRot))));
             Matcher.MatchForward(false, new CodeMatch(OpCodes.Callvirt, AccessTools.Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.setSharedMat))));
+            if (Matcher.Pos < 0 || Matcher.IsInvalid)
+            {
+                global::UnityEngine.Debug.LogWarning("[WSM3D] QuantumSpritePatches.effects transpiler: setSharedMat not found — skipping second insert");
+                return Matcher.Instructions();
+            }
             Matcher.Insert(new CodeInstruction(OpCodes.Ldloc_S, (byte)4), new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(Component), "get_transform")), new CodeInstruction(OpCodes.Ldloc_3), new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Manager), nameof(Manager.RotateToCameraAtPos))));
 
             return Matcher.Instructions();
@@ -398,6 +418,11 @@ namespace WorldSphereMod.QuantumSprites
         {
             CodeMatcher Matcher = new CodeMatcher(instructions, generator);
             Matcher.MatchForward(false, new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.setPosOnly), new Type[] {typeof(Vector3).MakeByRefType()})));
+            if (Matcher.Pos < 0 || Matcher.IsInvalid)
+            {
+                global::UnityEngine.Debug.LogWarning("[WSM3D] QuantumSpritePatches.buildings transpiler: setPosOnly not found — skipping");
+                return instructions;
+            }
             Matcher.RemoveInstruction();
             Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(Manager), nameof(Manager.SetPos))));
             return Matcher.Instructions();
@@ -437,6 +462,15 @@ namespace WorldSphereMod.QuantumSprites
         {
             CodeMatcher Matcher = new CodeMatcher(instructions, generator);
             Matcher.MatchForward(false, new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.set), new Type[] { typeof(Vector3).MakeByRefType(), typeof(float) })));
+            // Pattern can fail to match after vanilla IL updates — guard before
+            // RemoveInstruction so we don't throw ArgumentOutOfRangeException
+            // (which Harmony wraps in IL Compile Error and aborts the whole
+            // Patcher.PatchAll, taking the entire WSM3D mod down with it).
+            if (Matcher.Pos < 0 || Matcher.IsInvalid)
+            {
+                global::UnityEngine.Debug.LogWarning("[WSM3D] MainQuantumSpritePatch transpiler: GroupSpriteObject.set pattern not found in vanilla IL — skipping transpile (sprite-render Manager.set rewire disabled)");
+                return instructions;
+            }
             Matcher.RemoveInstruction();
             Matcher.Insert(new CodeInstruction(OpCodes.Ldarg_0), new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(Manager), nameof(Manager.set))));
             return Matcher.Instructions();
@@ -470,23 +504,25 @@ namespace WorldSphereMod.QuantumSprites
                     Vector3 v = tActor.updatePos();
                     Vector3 tCurrentActorPos = Tools.To3DTileHeight(v, v.z + 0.1f);
                     Vector3 tActorRotation = tActor.Get3DRot();
-                    bool tHasRenderedItem = tActor.checkHasRenderedItem();
+                    // Transform updates must stay unconditional (shadow_position, cur_transform_position).
+                    // Only skip expensive sprite/item work when generic render is off.
                     bool tHasNormalRender = !tActor.asset.ignore_generic_render;
-                    Sprite tItemSpriteFinal;
-                    if (tHasRenderedItem)
+                    bool tHasRenderedItem = false;
+                    Sprite tItemSpriteFinal = null;
+                    if (tHasNormalRender)
                     {
-                        Sprite tItemSpriteMain = tActor.getRenderedItemSprite();
-                        IHandRenderer cachedHandRendererAsset = tActor.getCachedHandRendererAsset();
-                        int tColorAssetID = -900000;
-                        if (cachedHandRendererAsset.is_colored)
+                        tHasRenderedItem = tActor.checkHasRenderedItem();
+                        if (tHasRenderedItem)
                         {
-                            tColorAssetID = tActor.kingdom.kingdomColor.GetHashCode();
+                            Sprite tItemSpriteMain = tActor.getRenderedItemSprite();
+                            IHandRenderer cachedHandRendererAsset = tActor.getCachedHandRendererAsset();
+                            int tColorAssetID = -900000;
+                            if (cachedHandRendererAsset.is_colored)
+                            {
+                                tColorAssetID = tActor.kingdom.kingdomColor.GetHashCode();
+                            }
+                            tItemSpriteFinal = DynamicSprites.getCachedAtlasItemSprite(DynamicSprites.getItemSpriteID(tItemSpriteMain, tColorAssetID), tItemSpriteMain);
                         }
-                        tItemSpriteFinal = DynamicSprites.getCachedAtlasItemSprite(DynamicSprites.getItemSpriteID(tItemSpriteMain, tColorAssetID), tItemSpriteMain);
-                    }
-                    else
-                    {
-                        tItemSpriteFinal = null;
                     }
                     __instance.render_data.positions[tIndex] = tCurrentActorPos;
                     __instance.render_data.scales[tIndex] = tActorScale;
@@ -497,7 +533,9 @@ namespace WorldSphereMod.QuantumSprites
                     __instance.render_data.shadows[tIndex] = tActor.show_shadow;
                     __instance.render_data.has_item[tIndex] = tHasRenderedItem;
                     __instance.render_data.item_sprites[tIndex] = tItemSpriteFinal;
-                    AnimationFrameData tFrameData = tActor.getAnimationFrameData();
+                    bool tNeedFrameData = (tShouldRenderUnitShadows && tActor.show_shadow)
+                        || (tHasNormalRender && tHasRenderedItem);
+                    AnimationFrameData tFrameData = tNeedFrameData ? tActor.getAnimationFrameData() : null;
                     bool tHaveShadow = false;
                     if (tShouldRenderUnitShadows && tActor.show_shadow)
                     {

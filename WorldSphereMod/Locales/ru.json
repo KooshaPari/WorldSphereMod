@@ -31,5 +31,9 @@
     "perlin_noise": "Шум Перлина",
     "perlin_noise_description": "Будет ли высота мира зависеть от шума Перлина?",
     "upside_down_movement": "Перевернутое управление",
-    "upside_down_movement_description": "если камера перевернута, управление будет инвертировано"
+    "upside_down_movement_description": "если камера перевернута, управление будет инвертировано",
+    "biome_blending": "Biome Blending",
+    "biome_blending_description": "Smooth terrain vertex colors across biome edges so grass, sand, and water transition over a few tiles.",
+    "mountain_slope_smoothing": "Mountain Slope Smoothing",
+    "mountain_slope_smoothing_description": "Blend a smooth heightfield overlay over mountain and cliff tiles."
 }

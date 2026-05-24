@@ -1,0 +1,1204 @@
+- generic [ref=e2]:
+  - link "promotional banner" [ref=e3] [cursor=pointer]:
+    - /url: https://links.curseforge.com/subnautica_contest_top_banner
+    - img "promotional banner" [ref=e4]
+  - banner [ref=e5]:
+    - navigation [ref=e6]:
+      - link "Goto home page" [ref=e7] [cursor=pointer]:
+        - /url: /
+        - img
+      - list [ref=e9]:
+        - listitem [ref=e10]:
+          - link "Browse" [ref=e11] [cursor=pointer]:
+            - /url: https://www.curseforge.com/games
+            - text: Browse
+            - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - link "Browse all (122)":
+                    - /url: /games
+                    - text: Browse all (122)
+                    - img
+                - list:
+                  - listitem:
+                    - link "icon Minecraft":
+                      - /url: /minecraft
+                      - img "icon"
+                      - text: Minecraft
+                  - listitem:
+                    - link "icon The Sims 4":
+                      - /url: /sims4
+                      - img "icon"
+                      - text: The Sims 4
+                  - listitem:
+                    - link "icon World of Warcraft":
+                      - /url: /wow
+                      - img "icon"
+                      - text: World of Warcraft
+                  - listitem:
+                    - link "icon Minecraft Bedrock":
+                      - /url: /minecraft-bedrock
+                      - img "icon"
+                      - text: Minecraft Bedrock
+                  - listitem:
+                    - link "icon Ark Survival Ascended":
+                      - /url: /ark-survival-ascended
+                      - img "icon"
+                      - text: Ark Survival Ascended
+                  - listitem:
+                    - link "icon Hytale":
+                      - /url: /hytale
+                      - img "icon"
+                      - text: Hytale
+                  - listitem:
+                    - link "icon inZOI":
+                      - /url: /inzoi
+                      - img "icon"
+                      - text: inZOI
+                  - listitem:
+                    - link "icon StarCraft II":
+                      - /url: /sc2
+                      - img "icon"
+                      - text: StarCraft II
+                  - listitem:
+                    - link "icon Kerbal Space Program":
+                      - /url: /kerbal
+                      - img "icon"
+                      - text: Kerbal Space Program
+                  - listitem:
+                    - link "icon Stardew Valley":
+                      - /url: /stardewvalley
+                      - img "icon"
+                      - text: Stardew Valley
+                  - listitem:
+                    - link "icon American Truck Simulator":
+                      - /url: /american-truck-simulator
+                      - img "icon"
+                      - text: American Truck Simulator
+                  - listitem:
+                    - link "icon Hogwarts Legacy":
+                      - /url: /hogwarts-legacy
+                      - img "icon"
+                      - text: Hogwarts Legacy
+                  - listitem:
+                    - link "icon Terraria":
+                      - /url: /terraria
+                      - img "icon"
+                      - text: Terraria
+                  - listitem:
+                    - link "icon WildStar":
+                      - /url: /wildstar
+                      - img "icon"
+                      - text: WildStar
+                  - listitem:
+                    - link "icon World of Tanks":
+                      - /url: /worldoftanks
+                      - img "icon"
+                      - text: World of Tanks
+                  - listitem:
+                    - link "icon Palworld":
+                      - /url: /palworld
+                      - img "icon"
+                      - text: Palworld
+                  - listitem:
+                    - link "icon Runes of Magic":
+                      - /url: /rom
+                      - img "icon"
+                      - text: Runes of Magic
+                  - listitem:
+                    - link "icon Rift":
+                      - /url: /rift
+                      - img "icon"
+                      - text: Rift
+              - generic:
+                - generic: Subnautica 2 Mod Contest
+                - link "Subnautica 2 Mod Contest Promo":
+                  - /url: https://links.curseforge.com/subnautica_contest_nav_bar
+        - listitem [ref=e12]:
+          - link "Create" [ref=e13] [cursor=pointer]:
+            - /url: https://authors.curseforge.com/welcome
+            - text: Create
+            - img
+          - generic:
+            - generic:
+              - generic:
+                - generic: MOD AUTHORS
+                - list:
+                  - listitem:
+                    - link "Become an Author":
+                      - /url: https://authors.curseforge.com/welcome
+                  - listitem:
+                    - link "Start a Project":
+                      - /url: https://authors.curseforge.com/#/projects/create/choose-game
+                  - listitem:
+                    - link "Project Submission Guide":
+                      - /url: https://support.curseforge.com/en/support/solutions/articles/9000199552-project-submission-guide-and-tips
+              - generic:
+                - generic: MODDING TOOL DEVELOPERS
+                - list:
+                  - listitem:
+                    - link "Apply for an API Key":
+                      - /url: https://support.curseforge.com/en/support/solutions/articles/9000208346-about-the-curseforge-api-and-how-to-apply-for-a-key
+                  - listitem:
+                    - link "Documentation":
+                      - /url: https://docs.curseforge.com/rest-api/#getting-started
+                  - listitem:
+                    - link "Terms & Conditions":
+                      - /url: https://support.curseforge.com/en/support/solutions/articles/9000207405-curse-forge-3rd-party-api-terms-and-conditions
+              - generic:
+                - generic: SOCIAL
+                - list:
+                  - listitem:
+                    - link "Join Our Discord!":
+                      - /url: https://www.discord.com/invite/curseforge
+                  - listitem:
+                    - link "Authors Discord":
+                      - /url: https://discord.gg/S3EaZArYz2
+              - generic:
+                - generic: Subnautica 2 Mod Contest
+                - link "Subnautica 2 Mod Contest Promo":
+                  - /url: https://links.curseforge.com/subnautica_contest_nav_bar
+        - listitem [ref=e14]:
+          - link "Studios" [ref=e15] [cursor=pointer]:
+            - /url: https://studios.curseforge.com/
+            - text: Studios
+            - img
+          - generic:
+            - generic:
+              - generic:
+                - generic: GAME DEVELOPERS
+                - list:
+                  - listitem:
+                    - link "Unlock Modding for Your Game":
+                      - /url: https://studios.curseforge.com
+                  - listitem:
+                    - link "Documentation":
+                      - /url: https://docs.curseforge.com/
+              - generic:
+                - generic: Subnautica 2 Mod Contest
+                - link "Subnautica 2 Mod Contest Promo":
+                  - /url: https://links.curseforge.com/subnautica_contest_nav_bar
+        - listitem
+      - list [ref=e16]:
+        - listitem [ref=e17]:
+          - link [ref=e18] [cursor=pointer]:
+            - /url: /premium?source=7
+            - img
+        - listitem [ref=e19]:
+          - link [ref=e20] [cursor=pointer]:
+            - /url: /download/app
+            - img
+      - generic [ref=e24]: Fantasy fabricator
+      - button "More options" [ref=e26] [cursor=pointer]:
+        - img
+  - generic [ref=e27]:
+    - navigation "Game navigation" [ref=e28]:
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - link "Minecraft" [ref=e31] [cursor=pointer]:
+            - /url: /minecraft
+          - generic [ref=e32]:
+            - link "Discover" [ref=e33] [cursor=pointer]:
+              - /url: /minecraft
+            - link "Browse All" [ref=e34] [cursor=pointer]:
+              - /url: /minecraft/search?page=1&pageSize=20&sortBy=relevancy
+        - generic [ref=e38]:
+          - searchbox "Search for a project" [ref=e40]
+          - button "Search" [ref=e41] [cursor=pointer]:
+            - img
+    - main [ref=e45]:
+      - generic [ref=e48]:
+        - navigation "Breadcrumb" [ref=e49]:
+          - list [ref=e50]:
+            - listitem [ref=e51]:
+              - link "Minecraft" [ref=e52] [cursor=pointer]:
+                - /url: /minecraft
+            - listitem [ref=e53]:
+              - link "Mods" [ref=e54] [cursor=pointer]:
+                - /url: /minecraft/search?class=mc-mods&page=1&pageSize=20&sortBy=relevancy
+        - button "Back To Top":
+          - img
+        - generic [ref=e56]:
+          - link "Enlarge OptiFabric logo" [ref=e57] [cursor=pointer]:
+            - /url: "#project-logo"
+            - img "OptiFabric logo" [ref=e58]
+          - heading "OptiFabric" [level=1] [ref=e60]
+          - list [ref=e61]:
+            - listitem [ref=e62]:
+              - generic [ref=e63]: By
+              - link "Chocohead Chocohead" [ref=e65] [cursor=pointer]:
+                - /url: /members/chocohead
+                - img "Chocohead" [ref=e66]
+                - generic [ref=e67]: Chocohead
+            - listitem [ref=e68]
+            - listitem [ref=e69]:
+              - link "Mods" [ref=e70] [cursor=pointer]:
+                - /url: /minecraft/search?class=mc-mods&page=1&pageSize=20&sortBy=relevancy
+          - generic [ref=e71]: A mod that allows running optifine on fabric.
+        - complementary [ref=e72]:
+          - generic [ref=e73]:
+            - separator [ref=e74]
+            - generic [ref=e75]:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: OptiFabric
+              - generic [ref=e77]:
+                - button "Download" [ref=e80] [cursor=pointer]:
+                  - img
+                  - generic [ref=e81]: Download
+                - button "Add Project to Favorites":
+                  - text: Favorite
+                  - img
+                - link "Follow Project" [ref=e82] [cursor=pointer]:
+                  - /url: "#follow"
+                  - button "Follow Project" [ref=e83]:
+                    - text: Follow
+                    - img
+            - separator [ref=e85]
+            - generic [ref=e86]:
+              - heading "Details" [level=3] [ref=e87]
+              - generic [ref=e88]:
+                - term [ref=e89]: "Downloads:"
+                - definition [ref=e90]: 9,993,567
+                - term [ref=e91]: "Created:"
+                - definition [ref=e92]:
+                  - generic [ref=e94]: 7 years ago
+                - term [ref=e95]: "Updated:"
+                - definition [ref=e96]:
+                  - generic [ref=e97]: 2 years ago
+                - term [ref=e98]: "Project ID:"
+                - definition [ref=e99]:
+                  - generic [ref=e100]:
+                    - generic [ref=e101]: "322385"
+                    - button "Copy to clipboard" [ref=e103] [cursor=pointer]:
+                      - img
+                - term [ref=e104]: "License:"
+                - definition [ref=e105]:
+                  - link "Mozilla Public License 2.0" [ref=e106] [cursor=pointer]:
+                    - /url: "#license"
+            - separator [ref=e107]
+            - generic [ref=e108]:
+              - heading "Game Versions" [level=3] [ref=e109]
+              - list [ref=e110]:
+                - link "1.20.4" [ref=e111] [cursor=pointer]:
+                  - /url: /minecraft/mc-mods/optifabric/files/all?page=1&pageSize=20&version=1.20.4&showAlphaFiles=hide
+                - link "1.20.2" [ref=e112] [cursor=pointer]:
+                  - /url: /minecraft/mc-mods/optifabric/files/all?page=1&pageSize=20&version=1.20.2&showAlphaFiles=hide
+                - link "1.20.1" [ref=e113] [cursor=pointer]:
+                  - /url: /minecraft/mc-mods/optifabric/files/all?page=1&pageSize=20&version=1.20.1&showAlphaFiles=hide
+                - link "1.20" [ref=e114] [cursor=pointer]:
+                  - /url: /minecraft/mc-mods/optifabric/files/all?page=1&pageSize=20&version=1.20&showAlphaFiles=hide
+                - link "1.19.4" [ref=e115] [cursor=pointer]:
+                  - /url: /minecraft/mc-mods/optifabric/files/all?page=1&pageSize=20&version=1.19.4&showAlphaFiles=hide
+                - link "+ 21 Versions" [ref=e116] [cursor=pointer]:
+                  - /url: /minecraft/mc-mods/optifabric/files/all?page=1&pageSize=20&showAlphaFiles=hide
+            - separator [ref=e117]
+            - generic [ref=e118]:
+              - heading "Mod Loaders" [level=3] [ref=e119]:
+                - generic [ref=e120]: Mod Loaders
+              - list [ref=e121]:
+                - listitem [ref=e122]:
+                  - link "Fabric" [ref=e123] [cursor=pointer]:
+                    - /url: /minecraft/mc-mods/optifabric/files/all?page=1&pageSize=20&gameVersionTypeId=4&showAlphaFiles=hide
+            - separator [ref=e124]
+            - link "informative placeholder" [ref=e127] [cursor=pointer]:
+              - /url: https://links.curseforge.com/subnautica_contest_fallback_banner
+              - img "informative placeholder" [ref=e128]
+            - separator [ref=e129]
+            - generic [ref=e130]:
+              - heading "Categories" [level=3] [ref=e131]
+              - list [ref=e132]:
+                - listitem [ref=e133]:
+                  - link "API and Library" [ref=e134] [cursor=pointer]:
+                    - /url: /minecraft/search?class=mc-mods&page=1&pageSize=20&sortBy=relevancy&categories=library-api
+            - separator [ref=e135]
+            - generic [ref=e136]:
+              - heading "Links" [level=3] [ref=e137]
+              - generic [ref=e139]:
+                - img [ref=e140]
+                - link "Source" [ref=e144] [cursor=pointer]:
+                  - /url: https://github.com/Chocohead/OptiFabric
+                  - text: Source
+                  - img
+            - separator [ref=e145]
+            - generic [ref=e146]:
+              - heading "Main File" [level=3] [ref=e147]
+              - heading "1.19.2" [level=4] [ref=e148]
+              - link "OptiFabric-v1.13.16 R 1.19.2 Fabric Aug 31, 2022" [ref=e149] [cursor=pointer]:
+                - /url: /minecraft/mc-mods/optifabric/files/3961344
+                - generic "OptiFabric-v1.13.16" [ref=e150]
+                - list [ref=e151]:
+                  - listitem [ref=e152]:
+                    - generic [ref=e154]: R
+                  - listitem [ref=e155]: 1.19.2
+                  - listitem [ref=e156]: Fabric
+                  - listitem [ref=e157]:
+                    - time [ref=e158]: Aug 31, 2022
+            - separator [ref=e159]
+            - generic [ref=e160]:
+              - heading "Recent Files View all" [level=3] [ref=e161]:
+                - text: Recent Files
+                - link "View all" [ref=e162] [cursor=pointer]:
+                  - /url: /minecraft/mc-mods/optifabric/files/all?page=1&pageSize=20&showAlphaFiles=hide&sortBy=dateCreated&sortOrder=desc
+                  - text: View all
+                  - img
+              - generic [ref=e163]:
+                - heading "Minecraft 1.20" [level=4] [ref=e164]
+                - link "OptiFabric-v1.14.3 B 1.20.4 Fabric Jan 12, 2024" [ref=e165] [cursor=pointer]:
+                  - /url: /minecraft/mc-mods/optifabric/files/5025647
+                  - generic "OptiFabric-v1.14.3" [ref=e166]
+                  - list [ref=e167]:
+                    - listitem [ref=e168]:
+                      - generic [ref=e170]: B
+                    - listitem [ref=e171]: 1.20.4
+                    - listitem [ref=e172]: Fabric
+                    - listitem [ref=e173]:
+                      - time [ref=e174]: Jan 12, 2024
+                - link "OptiFabric-v1.13.25 B 1.20.1 Fabric Jul 13, 2023" [ref=e175] [cursor=pointer]:
+                  - /url: /minecraft/mc-mods/optifabric/files/4642832
+                  - generic "OptiFabric-v1.13.25" [ref=e176]
+                  - list [ref=e177]:
+                    - listitem [ref=e178]:
+                      - generic [ref=e180]: B
+                    - listitem [ref=e181]: 1.20.1
+                    - listitem [ref=e182]: Fabric
+                    - listitem [ref=e183]:
+                      - time [ref=e184]: Jul 13, 2023
+                - heading "Minecraft 1.19" [level=4] [ref=e185]
+                - link "OptiFabric-v1.14.3 B 1.20.4 Fabric Jan 12, 2024" [ref=e186] [cursor=pointer]:
+                  - /url: /minecraft/mc-mods/optifabric/files/5025647
+                  - generic "OptiFabric-v1.14.3" [ref=e187]
+                  - list [ref=e188]:
+                    - listitem [ref=e189]:
+                      - generic [ref=e191]: B
+                    - listitem [ref=e192]: 1.20.4
+                    - listitem [ref=e193]: Fabric
+                    - listitem [ref=e194]:
+                      - time [ref=e195]: Jan 12, 2024
+                - link "OptiFabric-v1.13.25 B 1.20.1 Fabric Jul 13, 2023" [ref=e196] [cursor=pointer]:
+                  - /url: /minecraft/mc-mods/optifabric/files/4642832
+                  - generic "OptiFabric-v1.13.25" [ref=e197]
+                  - list [ref=e198]:
+                    - listitem [ref=e199]:
+                      - generic [ref=e201]: B
+                    - listitem [ref=e202]: 1.20.1
+                    - listitem [ref=e203]: Fabric
+                    - listitem [ref=e204]:
+                      - time [ref=e205]: Jul 13, 2023
+                - link "OptiFabric-v1.13.24 B 1.19.4 Fabric Mar 25, 2023" [ref=e206] [cursor=pointer]:
+                  - /url: /minecraft/mc-mods/optifabric/files/4455920
+                  - generic "OptiFabric-v1.13.24" [ref=e207]
+                  - list [ref=e208]:
+                    - listitem [ref=e209]:
+                      - generic [ref=e211]: B
+                    - listitem [ref=e212]: 1.19.4
+                    - listitem [ref=e213]: Fabric
+                    - listitem [ref=e214]:
+                      - time [ref=e215]: Mar 25, 2023
+                - heading "Minecraft 1.18" [level=4] [ref=e216]
+                - link "OptiFabric-v1.13.16 R 1.19.2 Fabric Aug 31, 2022" [ref=e217] [cursor=pointer]:
+                  - /url: /minecraft/mc-mods/optifabric/files/3961344
+                  - generic "OptiFabric-v1.13.16" [ref=e218]
+                  - list [ref=e219]:
+                    - listitem [ref=e220]:
+                      - generic [ref=e222]: R
+                    - listitem [ref=e223]: 1.19.2
+                    - listitem [ref=e224]: Fabric
+                    - listitem [ref=e225]:
+                      - time [ref=e226]: Aug 31, 2022
+                - link "OptiFabric-v1.13.10 R 1.19.1 Fabric Aug 9, 2022" [ref=e227] [cursor=pointer]:
+                  - /url: /minecraft/mc-mods/optifabric/files/3927107
+                  - generic "OptiFabric-v1.13.10" [ref=e228]
+                  - list [ref=e229]:
+                    - listitem [ref=e230]:
+                      - generic [ref=e232]: R
+                    - listitem [ref=e233]: 1.19.1
+                    - listitem [ref=e234]: Fabric
+                    - listitem [ref=e235]:
+                      - time [ref=e236]: Aug 9, 2022
+                - link "OptiFabric-v1.13.8 R 1.19 Fabric Jul 17, 2022" [ref=e237] [cursor=pointer]:
+                  - /url: /minecraft/mc-mods/optifabric/files/3881543
+                  - generic "OptiFabric-v1.13.8" [ref=e238]
+                  - list [ref=e239]:
+                    - listitem [ref=e240]:
+                      - generic [ref=e242]: R
+                    - listitem [ref=e243]: "1.19"
+                    - listitem [ref=e244]: Fabric
+                    - listitem [ref=e245]:
+                      - time [ref=e246]: Jul 17, 2022
+            - separator [ref=e247]
+            - link "Report" [ref=e248] [cursor=pointer]:
+              - /url: "#report"
+              - button "Report" [ref=e249]:
+                - img
+                - text: Report
+        - text: Favorite Follow
+        - list [ref=e251]:
+          - listitem [ref=e252]:
+            - link "Description" [ref=e253] [cursor=pointer]:
+              - /url: /minecraft/mc-mods/optifabric
+          - listitem [ref=e254]:
+            - link "Files" [ref=e255] [cursor=pointer]:
+              - /url: /minecraft/mc-mods/optifabric/files?page=1&pageSize=20&showAlphaFiles=hide
+          - listitem [ref=e256]:
+            - link "Gallery" [ref=e257] [cursor=pointer]:
+              - /url: /minecraft/mc-mods/optifabric/gallery
+          - listitem [ref=e258]:
+            - link "Relations" [ref=e259] [cursor=pointer]:
+              - /url: /minecraft/mc-mods/optifabric/relations/dependencies
+          - listitem [ref=e260]:
+            - link "Issues" [ref=e261] [cursor=pointer]:
+              - /url: https://github.com/Chocohead/OptiFabric/issues
+              - text: Issues
+              - img
+        - generic [ref=e262]:
+          - generic [ref=e263]:
+            - generic [ref=e264]: Filter by
+            - generic [ref=e266]:
+              - generic [ref=e267]: All Game Versions
+              - generic [ref=e268]:
+                - textbox "All Game Versions" [ref=e269]
+                - img
+              - list [ref=e270]:
+                - list [ref=e271]:
+                  - listitem [ref=e272]: All Game Versions
+                  - listitem [ref=e273]: 1.20.4
+                  - listitem [ref=e274]: 1.20.2
+                  - listitem [ref=e275]: 1.20.1
+                  - listitem [ref=e276]: "1.20"
+                  - listitem [ref=e277]: 1.19.4
+                  - listitem [ref=e278]: 1.19.3
+                  - listitem [ref=e279]: 1.19.2
+                  - listitem [ref=e280]: 1.19.1
+                  - listitem [ref=e281]: "1.19"
+            - generic [ref=e284]:
+              - generic [ref=e285]: All Mod Loaders
+              - generic [ref=e286]:
+                - textbox "All Mod Loaders" [ref=e287]
+                - img
+              - list [ref=e288]:
+                - list [ref=e289]:
+                  - listitem [ref=e290]: All Mod Loaders
+                  - listitem [ref=e291]: Fabric
+            - generic [ref=e293]:
+              - text: Show alpha files
+              - img [ref=e297]
+            - generic [ref=e301] [cursor=pointer]: Clear all
+          - generic [ref=e302]:
+            - generic [ref=e303]:
+              - button "Previous Page":
+                - img
+              - list [ref=e304]:
+                - listitem [ref=e305]:
+                  - button "1" [ref=e306] [cursor=pointer]
+                - listitem [ref=e307]:
+                  - button "2" [ref=e308] [cursor=pointer]
+                - listitem [ref=e309]:
+                  - button "3" [ref=e310] [cursor=pointer]
+                - listitem [ref=e311]:
+                  - button "4" [ref=e312] [cursor=pointer]
+              - button "Next Page" [ref=e313] [cursor=pointer]:
+                - img
+            - generic [ref=e314]:
+              - generic [ref=e315]: Show per page
+              - generic [ref=e316]:
+                - generic [ref=e317]: "50"
+                - paragraph [ref=e318]:
+                  - generic: "20"
+                  - img
+                - list [ref=e319]:
+                  - list [ref=e320]:
+                    - listitem [ref=e321]: "10"
+                    - listitem [ref=e322]: "20"
+                    - listitem [ref=e323]: "50"
+          - generic [ref=e326]:
+            - generic [ref=e327]:
+              - generic "Type" [ref=e328]
+              - generic "Name" [ref=e329]
+              - generic "Uploaded" [ref=e330]
+              - generic "Size" [ref=e331]
+              - generic "Game Ver." [ref=e332]
+              - generic "Mod Loaders" [ref=e333]
+              - generic "Downloads" [ref=e334]
+            - generic [ref=e335] [cursor=pointer]:
+              - link "B OptiFabric-v1.14.3 Jan 12, 2024 598.4 KB 1.20.4 + 8 Fabric 1.2M" [ref=e336]:
+                - /url: /minecraft/mc-mods/optifabric/files/5025647
+                - generic [ref=e339]: B
+                - generic "OptiFabric-v1.14.3" [ref=e341]
+                - generic [ref=e344]: Jan 12, 2024
+                - generic [ref=e346]: 598.4 KB
+                - generic [ref=e348]:
+                  - generic [ref=e349]: 1.20.4
+                  - generic [ref=e350]: + 8
+                - generic [ref=e352]: Fabric
+                - generic [ref=e355]: 1.2M
+              - generic [ref=e356]:
+                - button "More Options" [ref=e357]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/5025647
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/5025647
+                      - img
+                      - text: Download file
+            - generic [ref=e358] [cursor=pointer]:
+              - link "B OptiFabric-v1.13.25 Jul 13, 2023 479.1 KB 1.20.1 + 6 Fabric 802.1K" [ref=e359]:
+                - /url: /minecraft/mc-mods/optifabric/files/4642832
+                - generic [ref=e362]: B
+                - generic "OptiFabric-v1.13.25" [ref=e364]
+                - generic [ref=e367]: Jul 13, 2023
+                - generic [ref=e369]: 479.1 KB
+                - generic [ref=e371]:
+                  - generic [ref=e372]: 1.20.1
+                  - generic [ref=e373]: + 6
+                - generic [ref=e375]: Fabric
+                - generic [ref=e378]: 802.1K
+              - generic [ref=e379]:
+                - button "More Options" [ref=e380]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/4642832
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/4642832
+                      - img
+                      - text: Download file
+            - generic [ref=e381] [cursor=pointer]:
+              - link "B OptiFabric-v1.13.24 Mar 25, 2023 468.8 KB 1.19.4 + 4 Fabric 329.8K" [ref=e382]:
+                - /url: /minecraft/mc-mods/optifabric/files/4455920
+                - generic [ref=e385]: B
+                - generic "OptiFabric-v1.13.24" [ref=e387]
+                - generic [ref=e390]: Mar 25, 2023
+                - generic [ref=e392]: 468.8 KB
+                - generic [ref=e394]:
+                  - generic [ref=e395]: 1.19.4
+                  - generic [ref=e396]: + 4
+                - generic [ref=e398]: Fabric
+                - generic [ref=e401]: 329.8K
+              - generic [ref=e402]:
+                - button "More Options" [ref=e403]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/4455920
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/4455920
+                      - img
+                      - text: Download file
+            - generic [ref=e404] [cursor=pointer]:
+              - link "R OptiFabric-v1.13.16 Aug 31, 2022 451.9 KB 1.19.2 + 14 Fabric 1.7M" [ref=e405]:
+                - /url: /minecraft/mc-mods/optifabric/files/3961344
+                - generic [ref=e408]: R
+                - generic "OptiFabric-v1.13.16" [ref=e410]
+                - generic [ref=e413]: Aug 31, 2022
+                - generic [ref=e415]: 451.9 KB
+                - generic [ref=e417]:
+                  - generic [ref=e418]: 1.19.2
+                  - generic [ref=e419]: + 14
+                - generic [ref=e421]: Fabric
+                - generic [ref=e424]: 1.7M
+              - generic [ref=e425]:
+                - button "More Options" [ref=e426]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/3961344
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/3961344
+                      - img
+                      - text: Download file
+            - generic [ref=e427] [cursor=pointer]:
+              - link "R OptiFabric-v1.13.15 Aug 31, 2022 451.9 KB 1.19.2 + 14 Fabric 50.9K" [ref=e428]:
+                - /url: /minecraft/mc-mods/optifabric/files/3961285
+                - generic [ref=e431]: R
+                - generic "OptiFabric-v1.13.15" [ref=e433]
+                - generic [ref=e436]: Aug 31, 2022
+                - generic [ref=e438]: 451.9 KB
+                - generic [ref=e440]:
+                  - generic [ref=e441]: 1.19.2
+                  - generic [ref=e442]: + 14
+                - generic [ref=e444]: Fabric
+                - generic [ref=e447]: 50.9K
+              - generic [ref=e448]:
+                - button "More Options" [ref=e449]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/3961285
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/3961285
+                      - img
+                      - text: Download file
+            - generic [ref=e450] [cursor=pointer]:
+              - link "R OptiFabric-v1.13.10 Aug 9, 2022 447.3 KB 1.19.1 + 13 Fabric 153.1K" [ref=e451]:
+                - /url: /minecraft/mc-mods/optifabric/files/3927107
+                - generic [ref=e454]: R
+                - generic "OptiFabric-v1.13.10" [ref=e456]
+                - generic [ref=e459]: Aug 9, 2022
+                - generic [ref=e461]: 447.3 KB
+                - generic [ref=e463]:
+                  - generic [ref=e464]: 1.19.1
+                  - generic [ref=e465]: + 13
+                - generic [ref=e467]: Fabric
+                - generic [ref=e470]: 153.1K
+              - generic [ref=e471]:
+                - button "More Options" [ref=e472]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/3927107
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/3927107
+                      - img
+                      - text: Download file
+            - generic [ref=e473] [cursor=pointer]:
+              - link "R OptiFabric-v1.13.8 Jul 17, 2022 444.1 KB 1.19 + 12 Fabric 221.1K" [ref=e474]:
+                - /url: /minecraft/mc-mods/optifabric/files/3881543
+                - generic [ref=e477]: R
+                - generic "OptiFabric-v1.13.8" [ref=e479]
+                - generic [ref=e482]: Jul 17, 2022
+                - generic [ref=e484]: 444.1 KB
+                - generic [ref=e486]:
+                  - generic [ref=e487]: "1.19"
+                  - generic [ref=e488]: + 12
+                - generic [ref=e490]: Fabric
+                - generic [ref=e493]: 221.1K
+              - generic [ref=e494]:
+                - button "More Options" [ref=e495]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/3881543
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/3881543
+                      - img
+                      - text: Download file
+            - generic [ref=e496] [cursor=pointer]:
+              - link "R OptiFabric-v1.13.5 Jul 6, 2022 428.4 KB 1.19 + 12 Fabric 142.3K" [ref=e497]:
+                - /url: /minecraft/mc-mods/optifabric/files/3862130
+                - generic [ref=e500]: R
+                - generic "OptiFabric-v1.13.5" [ref=e502]
+                - generic [ref=e505]: Jul 6, 2022
+                - generic [ref=e507]: 428.4 KB
+                - generic [ref=e509]:
+                  - generic [ref=e510]: "1.19"
+                  - generic [ref=e511]: + 12
+                - generic [ref=e513]: Fabric
+                - generic [ref=e516]: 142.3K
+              - generic [ref=e517]:
+                - button "More Options" [ref=e518]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/3862130
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/3862130
+                      - img
+                      - text: Download file
+            - generic [ref=e519] [cursor=pointer]:
+              - link "R OptiFabric-v1.13.4 Jul 3, 2022 423.9 KB 1.19 + 12 Fabric 54.5K" [ref=e520]:
+                - /url: /minecraft/mc-mods/optifabric/files/3857232
+                - generic [ref=e523]: R
+                - generic "OptiFabric-v1.13.4" [ref=e525]
+                - generic [ref=e528]: Jul 3, 2022
+                - generic [ref=e530]: 423.9 KB
+                - generic [ref=e532]:
+                  - generic [ref=e533]: "1.19"
+                  - generic [ref=e534]: + 12
+                - generic [ref=e536]: Fabric
+                - generic [ref=e539]: 54.5K
+              - generic [ref=e540]:
+                - button "More Options" [ref=e541]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/3857232
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/3857232
+                      - img
+                      - text: Download file
+            - generic [ref=e542] [cursor=pointer]:
+              - link "R OptiFabric-v1.13.0 Mar 27, 2022 412.6 KB 1.18.2 + 11 Fabric 546.8K" [ref=e543]:
+                - /url: /minecraft/mc-mods/optifabric/files/3717575
+                - generic [ref=e546]: R
+                - generic "OptiFabric-v1.13.0" [ref=e548]
+                - generic [ref=e551]: Mar 27, 2022
+                - generic [ref=e553]: 412.6 KB
+                - generic [ref=e555]:
+                  - generic [ref=e556]: 1.18.2
+                  - generic [ref=e557]: + 11
+                - generic [ref=e559]: Fabric
+                - generic [ref=e562]: 546.8K
+              - generic [ref=e563]:
+                - button "More Options" [ref=e564]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/3717575
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/3717575
+                      - img
+                      - text: Download file
+            - generic [ref=e565] [cursor=pointer]:
+              - link "R OptiFabric-v1.12.10 Dec 16, 2021 397.3 KB 1.18.1 + 10 Fabric 627.4K" [ref=e566]:
+                - /url: /minecraft/mc-mods/optifabric/files/3568115
+                - generic [ref=e569]: R
+                - generic "OptiFabric-v1.12.10" [ref=e571]
+                - generic [ref=e574]: Dec 16, 2021
+                - generic [ref=e576]: 397.3 KB
+                - generic [ref=e578]:
+                  - generic [ref=e579]: 1.18.1
+                  - generic [ref=e580]: + 10
+                - generic [ref=e582]: Fabric
+                - generic [ref=e585]: 627.4K
+              - generic [ref=e586]:
+                - button "More Options" [ref=e587]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/3568115
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/3568115
+                      - img
+                      - text: Download file
+            - generic [ref=e588] [cursor=pointer]:
+              - link "R OptiFabric-v1.12.9 Dec 14, 2021 397.3 KB 1.18.1 + 10 Fabric 49.8K" [ref=e589]:
+                - /url: /minecraft/mc-mods/optifabric/files/3565805
+                - generic [ref=e592]: R
+                - generic "OptiFabric-v1.12.9" [ref=e594]
+                - generic [ref=e597]: Dec 14, 2021
+                - generic [ref=e599]: 397.3 KB
+                - generic [ref=e601]:
+                  - generic [ref=e602]: 1.18.1
+                  - generic [ref=e603]: + 10
+                - generic [ref=e605]: Fabric
+                - generic [ref=e608]: 49.8K
+              - generic [ref=e609]:
+                - button "More Options" [ref=e610]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/3565805
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/3565805
+                      - img
+                      - text: Download file
+            - generic [ref=e611] [cursor=pointer]:
+              - link "R OptiFabric-v1.12.7 Dec 1, 2021 394.0 KB 1.18 + 9 Fabric 167.9K" [ref=e612]:
+                - /url: /minecraft/mc-mods/optifabric/files/3544490
+                - generic [ref=e615]: R
+                - generic "OptiFabric-v1.12.7" [ref=e617]
+                - generic [ref=e620]: Dec 1, 2021
+                - generic [ref=e622]: 394.0 KB
+                - generic [ref=e624]:
+                  - generic [ref=e625]: "1.18"
+                  - generic [ref=e626]: + 9
+                - generic [ref=e628]: Fabric
+                - generic [ref=e631]: 167.9K
+              - generic [ref=e632]:
+                - button "More Options" [ref=e633]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/3544490
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/3544490
+                      - img
+                      - text: Download file
+            - generic [ref=e634] [cursor=pointer]:
+              - link "R OptiFabric-v1.12.6 Nov 27, 2021 394.0 KB 1.17.1 + 8 Fabric 117.7K" [ref=e635]:
+                - /url: /minecraft/mc-mods/optifabric/files/3538275
+                - generic [ref=e638]: R
+                - generic "OptiFabric-v1.12.6" [ref=e640]
+                - generic [ref=e643]: Nov 27, 2021
+                - generic [ref=e645]: 394.0 KB
+                - generic [ref=e647]:
+                  - generic [ref=e648]: 1.17.1
+                  - generic [ref=e649]: + 8
+                - generic [ref=e651]: Fabric
+                - generic [ref=e654]: 117.7K
+              - generic [ref=e655]:
+                - button "More Options" [ref=e656]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/3538275
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/3538275
+                      - img
+                      - text: Download file
+            - generic [ref=e657] [cursor=pointer]:
+              - link "R OptiFabric-v1.12.5 Nov 25, 2021 389.2 KB 1.17.1 + 7 Fabric 14.5K" [ref=e658]:
+                - /url: /minecraft/mc-mods/optifabric/files/3536484
+                - generic [ref=e661]: R
+                - generic "OptiFabric-v1.12.5" [ref=e663]
+                - generic [ref=e666]: Nov 25, 2021
+                - generic [ref=e668]: 389.2 KB
+                - generic [ref=e670]:
+                  - generic [ref=e671]: 1.17.1
+                  - generic [ref=e672]: + 7
+                - generic [ref=e674]: Fabric
+                - generic [ref=e677]: 14.5K
+              - generic [ref=e678]:
+                - button "More Options" [ref=e679]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/3536484
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/3536484
+                      - img
+                      - text: Download file
+            - generic [ref=e680] [cursor=pointer]:
+              - link "R OptiFabric-v1.12.2 Nov 22, 2021 384.9 KB 1.17.1 + 7 Fabric 20.1K" [ref=e681]:
+                - /url: /minecraft/mc-mods/optifabric/files/3533581
+                - generic [ref=e684]: R
+                - generic "OptiFabric-v1.12.2" [ref=e686]
+                - generic [ref=e689]: Nov 22, 2021
+                - generic [ref=e691]: 384.9 KB
+                - generic [ref=e693]:
+                  - generic [ref=e694]: 1.17.1
+                  - generic [ref=e695]: + 7
+                - generic [ref=e697]: Fabric
+                - generic [ref=e700]: 20.1K
+              - generic [ref=e701]:
+                - button "More Options" [ref=e702]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/3533581
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/3533581
+                      - img
+                      - text: Download file
+            - generic [ref=e703] [cursor=pointer]:
+              - link "R OptiFabric-v1.12.0 Nov 22, 2021 384.8 KB 1.17.1 + 7 Fabric 5.7K" [ref=e704]:
+                - /url: /minecraft/mc-mods/optifabric/files/3533297
+                - generic [ref=e707]: R
+                - generic "OptiFabric-v1.12.0" [ref=e709]
+                - generic [ref=e712]: Nov 22, 2021
+                - generic [ref=e714]: 384.8 KB
+                - generic [ref=e716]:
+                  - generic [ref=e717]: 1.17.1
+                  - generic [ref=e718]: + 7
+                - generic [ref=e720]: Fabric
+                - generic [ref=e723]: 5.7K
+              - generic [ref=e724]:
+                - button "More Options" [ref=e725]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/3533297
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/3533297
+                      - img
+                      - text: Download file
+            - generic [ref=e726] [cursor=pointer]:
+              - link "R OptiFabric-v1.11.20 Aug 12, 2021 381.8 KB 1.17.1 + 7 Fabric 584.0K" [ref=e727]:
+                - /url: /minecraft/mc-mods/optifabric/files/3422922
+                - generic [ref=e730]: R
+                - generic "OptiFabric-v1.11.20" [ref=e732]
+                - generic [ref=e735]: Aug 12, 2021
+                - generic [ref=e737]: 381.8 KB
+                - generic [ref=e739]:
+                  - generic [ref=e740]: 1.17.1
+                  - generic [ref=e741]: + 7
+                - generic [ref=e743]: Fabric
+                - generic [ref=e746]: 584.0K
+              - generic [ref=e747]:
+                - button "More Options" [ref=e748]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/3422922
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/3422922
+                      - img
+                      - text: Download file
+            - generic [ref=e749] [cursor=pointer]:
+              - link "R OptiFabric-v1.11.18 Jul 13, 2021 381.8 KB 1.17.1 + 7 Fabric 260.7K" [ref=e750]:
+                - /url: /minecraft/mc-mods/optifabric/files/3386848
+                - generic [ref=e753]: R
+                - generic "OptiFabric-v1.11.18" [ref=e755]
+                - generic [ref=e758]: Jul 13, 2021
+                - generic [ref=e760]: 381.8 KB
+                - generic [ref=e762]:
+                  - generic [ref=e763]: 1.17.1
+                  - generic [ref=e764]: + 7
+                - generic [ref=e766]: Fabric
+                - generic [ref=e769]: 260.7K
+              - generic [ref=e770]:
+                - button "More Options" [ref=e771]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/3386848
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/3386848
+                      - img
+                      - text: Download file
+            - generic [ref=e772] [cursor=pointer]:
+              - link "R OptiFabric-v1.11.17 Jul 12, 2021 381.7 KB 1.17.1 + 7 Fabric 33.2K" [ref=e773]:
+                - /url: /minecraft/mc-mods/optifabric/files/3385505
+                - generic [ref=e776]: R
+                - generic "OptiFabric-v1.11.17" [ref=e778]
+                - generic [ref=e781]: Jul 12, 2021
+                - generic [ref=e783]: 381.7 KB
+                - generic [ref=e785]:
+                  - generic [ref=e786]: 1.17.1
+                  - generic [ref=e787]: + 7
+                - generic [ref=e789]: Fabric
+                - generic [ref=e792]: 33.2K
+              - generic [ref=e793]:
+                - button "More Options" [ref=e794]:
+                  - img
+                - list:
+                  - listitem:
+                    - link "Install with CurseForge app":
+                      - /url: /minecraft/mc-mods/optifabric/install/3385505
+                      - img
+                      - text: Install with CurseForge app
+                  - listitem:
+                    - link "Download file":
+                      - /url: /minecraft/mc-mods/optifabric/download/3385505
+                      - img
+                      - text: Download file
+          - generic [ref=e795]:
+            - button "Previous Page":
+              - img
+            - list [ref=e796]:
+              - listitem [ref=e797]:
+                - button "1" [ref=e798] [cursor=pointer]
+              - listitem [ref=e799]:
+                - button "2" [ref=e800] [cursor=pointer]
+              - listitem [ref=e801]:
+                - button "3" [ref=e802] [cursor=pointer]
+              - listitem [ref=e803]:
+                - button "4" [ref=e804] [cursor=pointer]
+            - button "Next Page" [ref=e805] [cursor=pointer]:
+              - img
+  - contentinfo [ref=e806]:
+    - generic [ref=e807]:
+      - link "Goto home page":
+        - /url: /
+        - img
+      - generic [ref=e808]:
+        - text: CurseForge - a world of endless gaming possibilities for modders and gamers alike.
+        - text: Download the best mods and addons!
+      - navigation [ref=e810]:
+        - list [ref=e811]:
+          - listitem [ref=e812]:
+            - generic [ref=e813]: Games
+            - list [ref=e814]:
+              - listitem [ref=e815]:
+                - link "All games" [ref=e816] [cursor=pointer]:
+                  - /url: /games
+              - listitem [ref=e817]:
+                - link "Minecraft" [ref=e818] [cursor=pointer]:
+                  - /url: /minecraft
+              - listitem [ref=e819]:
+                - link "World of Warcraft" [ref=e820] [cursor=pointer]:
+                  - /url: /wow
+              - listitem [ref=e821]:
+                - link "The Sims 4" [ref=e822] [cursor=pointer]:
+                  - /url: /sims4
+              - listitem [ref=e823]:
+                - link "Starcraft II" [ref=e824] [cursor=pointer]:
+                  - /url: /sc2
+              - listitem [ref=e825]:
+                - link "Kerbal Space Program" [ref=e826] [cursor=pointer]:
+                  - /url: /kerbal
+              - listitem [ref=e827]:
+                - link "Minecraft Dungeons" [ref=e828] [cursor=pointer]:
+                  - /url: /minecraft-dungeons
+              - listitem [ref=e829]:
+                - link "World of Tanks" [ref=e830] [cursor=pointer]:
+                  - /url: /worldoftanks
+          - listitem [ref=e831]:
+            - generic [ref=e832]: Create
+            - list [ref=e833]:
+              - listitem [ref=e834]:
+                - link "Start a project" [ref=e835] [cursor=pointer]:
+                  - /url: https://authors.curseforge.com/#/projects/create/choose-game
+              - listitem [ref=e836]:
+                - link "Project submission guide" [ref=e837] [cursor=pointer]:
+                  - /url: //support.curseforge.com/en/support/solutions/articles/9000199552-project-submission-guide-and-tips
+              - listitem [ref=e838]:
+                - link "Author Rewards Program" [ref=e839] [cursor=pointer]:
+                  - /url: //support.curseforge.com/en/support/solutions/articles/9000197898-rewards-program-terms-of-service
+              - listitem [ref=e840]:
+                - link "Apply for an API Key" [ref=e841] [cursor=pointer]:
+                  - /url: //support.curseforge.com/en/support/solutions/articles/9000208346-about-the-curseforge-api-and-how-to-apply-for-a-key
+              - listitem [ref=e842]:
+                - link "3rd Party API T&C" [ref=e843] [cursor=pointer]:
+                  - /url: //support.curseforge.com/en/support/solutions/articles/9000207405-curse-forge-3rd-party-api-terms-and-conditions
+          - listitem [ref=e844]:
+            - generic [ref=e845]: Community
+            - list [ref=e846]:
+              - listitem [ref=e847]:
+                - link "Join Our Discord!" [ref=e848] [cursor=pointer]:
+                  - /url: https://discord.gg/curseforge
+              - listitem [ref=e849]:
+                - link "Ideas Portal" [ref=e850] [cursor=pointer]:
+                  - /url: //curseforge-ideas.overwolf.com/
+              - listitem [ref=e851]:
+                - link "CF blog" [ref=e852] [cursor=pointer]:
+                  - /url: //blog.curseforge.com/
+              - listitem [ref=e853]:
+                - link "Newsletter" [ref=e854] [cursor=pointer]:
+                  - /url: //blog.curseforge.com/tag/newsletter/
+              - listitem [ref=e855]:
+                - link "Roadmap" [ref=e856] [cursor=pointer]:
+                  - /url: //trello.com/b/Slaz6xBq/curseforge-roadmap
+              - listitem [ref=e857]:
+                - link "Bukkit forums" [ref=e858] [cursor=pointer]:
+                  - /url: //bukkit.org/forums/
+              - listitem [ref=e859]:
+                - link "CurseForge Servers" [ref=e860] [cursor=pointer]:
+                  - /url: //www.curseforge.com/servers/minecraft
+          - listitem [ref=e861]:
+            - generic [ref=e862]: Support
+            - list [ref=e863]:
+              - listitem [ref=e864]:
+                - link "Knowledge base" [ref=e865] [cursor=pointer]:
+                  - /url: //support.curseforge.com/
+              - listitem [ref=e866]:
+                - link "Troubleshooting" [ref=e867] [cursor=pointer]:
+                  - /url: //support.curseforge.com/en/support/solutions/articles/9000194900-curseforge-troubleshooting
+              - listitem [ref=e868]:
+                - link "Contact us" [ref=e869] [cursor=pointer]:
+                  - /url: //support.curseforge.com/en/support/tickets/new
+          - listitem [ref=e870]:
+            - generic [ref=e871]: Companions
+            - list [ref=e872]:
+              - listitem [ref=e873]:
+                - link "Overwolf" [ref=e874] [cursor=pointer]:
+                  - /url: //overwolf.com
+              - listitem [ref=e875]:
+                - link "CurseForge for Studios" [ref=e876] [cursor=pointer]:
+                  - /url: //studios.curseforge.com
+              - listitem [ref=e877]:
+                - link "Tebex" [ref=e878] [cursor=pointer]:
+                  - /url: //tebex.io
+              - listitem [ref=e879]:
+                - link "Nitro" [ref=e880] [cursor=pointer]:
+                  - /url: //nitropay.com/
+      - list [ref=e881]:
+        - listitem [ref=e882]:
+          - link "Instagram link" [ref=e883] [cursor=pointer]:
+            - /url: https://www.instagram.com/curseforgeofficial
+            - img
+        - listitem [ref=e884]:
+          - link "Tiktok link" [ref=e885] [cursor=pointer]:
+            - /url: https://www.tiktok.com/@curseforge
+            - img
+        - listitem [ref=e886]:
+          - link "Youtube link" [ref=e887] [cursor=pointer]:
+            - /url: https://www.youtube.com/@CurseForge
+            - img
+        - listitem [ref=e888]:
+          - link "Discord link" [ref=e889] [cursor=pointer]:
+            - /url: https://discord.gg/curseforge
+            - img
+        - listitem [ref=e890]:
+          - link "X link" [ref=e891] [cursor=pointer]:
+            - /url: https://x.com/CurseForge
+            - img
+        - listitem [ref=e892]:
+          - link "Reddit link" [ref=e893] [cursor=pointer]:
+            - /url: https://www.reddit.com/r/CurseForge
+            - img
+      - list [ref=e895]:
+        - listitem [ref=e896]:
+          - link "Terms of Service" [ref=e897] [cursor=pointer]:
+            - /url: https://legal.overwolf.com/docs/overwolf/platform/platform-terms-of-use
+        - listitem [ref=e898]:
+          - link "Privacy Policy" [ref=e899] [cursor=pointer]:
+            - /url: https://legal.overwolf.com/docs/overwolf/platform/platform-privacy-policy
+        - listitem [ref=e900]:
+          - link "Licenses" [ref=e901] [cursor=pointer]:
+            - /url: //support.overwolf.com/en/support/solutions/articles/9000203492-licenses-we-use
+        - listitem [ref=e902]:
+          - link "Mod Author Terms" [ref=e903] [cursor=pointer]:
+            - /url: https://legal.overwolf.com/docs/curseforge/mod-authors-terms
+      - generic [ref=e904]: © 2026 Overwolf. All rights reserved.

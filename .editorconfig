@@ -1,0 +1,114 @@
+root = true
+
+# Repo-wide defaults. This codebase is upstream-derived (forked from
+# MelvinShwuaner/WorldSphereMod); do not bulk-reformat existing files.
+# These rules document conventions for *new* code and align the editor
+# with the line endings the repo has consistently warned about (LF).
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{cs,csproj,sln,props,targets}]
+indent_size = 4
+
+[*.{json,yml,yaml}]
+indent_size = 2
+
+[*.md]
+indent_size = 2
+trim_trailing_whitespace = false
+
+[Makefile]
+indent_style = tab
+
+# ---------------------------------------------------------------------------
+# C# style rules (advisory). Match the inherited upstream style — do not
+# enable aggressive reformat-on-save. Most of these are `suggestion` so the
+# IDE highlights drift without rewriting unrelated lines on every edit.
+# ---------------------------------------------------------------------------
+[*.cs]
+
+# `this.` qualification — upstream style is unqualified, follow it.
+dotnet_style_qualification_for_field    = false:suggestion
+dotnet_style_qualification_for_property = false:suggestion
+dotnet_style_qualification_for_method   = false:suggestion
+dotnet_style_qualification_for_event    = false:suggestion
+
+# Language keywords over BCL type names (int vs Int32) — upstream convention.
+dotnet_style_predefined_type_for_locals_parameters_members = true:suggestion
+dotnet_style_predefined_type_for_member_access            = true:suggestion
+
+# `var` — upstream uses it inconsistently; keep both forms acceptable.
+csharp_style_var_for_built_in_types     = true:silent
+csharp_style_var_when_type_is_apparent  = true:silent
+csharp_style_var_elsewhere              = true:silent
+
+# Expression-bodied members — allow where natural, don't force.
+csharp_style_expression_bodied_methods      = when_on_single_line:silent
+csharp_style_expression_bodied_constructors = false:silent
+csharp_style_expression_bodied_properties   = when_on_single_line:silent
+csharp_style_expression_bodied_accessors    = when_on_single_line:silent
+
+# Modern C# patterns — allowed but not required.
+csharp_style_pattern_matching_over_is_with_cast_check = true:suggestion
+csharp_style_pattern_matching_over_as_with_null_check = true:suggestion
+csharp_style_inlined_variable_declaration             = true:suggestion
+csharp_style_throw_expression                         = true:suggestion
+csharp_style_conditional_delegate_call                = true:suggestion
+
+# Braces: upstream uses Allman; keep new braces on a new line.
+csharp_new_line_before_open_brace             = all
+csharp_new_line_before_else                   = true
+csharp_new_line_before_catch                  = true
+csharp_new_line_before_finally                = true
+csharp_new_line_before_members_in_object_initializers = true
+csharp_new_line_before_members_in_anonymous_types     = true
+
+# Indentation inside blocks.
+csharp_indent_case_contents       = true
+csharp_indent_switch_labels       = true
+csharp_indent_labels              = one_less_than_current
+
+# Spacing — defaults match Roslyn / upstream.
+csharp_space_after_cast                                   = false
+csharp_space_after_keywords_in_control_flow_statements    = true
+csharp_space_between_method_declaration_parameter_list_parentheses = false
+csharp_space_between_method_call_parameter_list_parentheses        = false
+csharp_space_between_parentheses                          = false
+
+# `using` directives — System.* first, then alphabetical. Upstream sorts
+# this way already; flagging deviations as a hint, not an enforcement.
+dotnet_sort_system_directives_first  = true
+dotnet_separate_import_directive_groups = false
+
+# Naming — upstream uses `_camelCase` for private fields, `PascalCase`
+# elsewhere. Documented but not enforced (would touch every file).
+dotnet_naming_rule.private_fields_with_underscore.severity = suggestion
+dotnet_naming_rule.private_fields_with_underscore.symbols  = private_fields
+dotnet_naming_rule.private_fields_with_underscore.style    = underscore_camel_case
+
+dotnet_naming_symbols.private_fields.applicable_kinds            = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities  = private
+dotnet_naming_symbols.private_fields.required_modifiers          =
+
+dotnet_naming_style.underscore_camel_case.capitalization        = camel_case
+dotnet_naming_style.underscore_camel_case.required_prefix       = _
+
+# ---------------------------------------------------------------------------
+# Rust settings (phenotype-journey CLI, toolchain validation)
+# ---------------------------------------------------------------------------
+[*.rs]
+indent_size = 4
+indent_style = space
+
+# ---------------------------------------------------------------------------
+# TOML settings (Cargo.toml, Taskfile, config files)
+# ---------------------------------------------------------------------------
+[*.toml]
+indent_size = 2
+indent_style = space

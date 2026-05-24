@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wsm3d-mcp"
+version = "0.1.0"
+description = "FastMCP server for WorldSphereMod3D"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    {name = "KooshaPari", email = "kooshapari@gmail.com"},
+]
+dependencies = [
+    "fastmcp>=3.3.1",
+    "pydantic>=2.13.4",
+    "uvicorn>=0.47.0",
+    "python-dotenv>=1.2.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21.0",
+]
+
+[project.scripts]
+wsm3d-mcp = "wsm3d_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["wsm3d_mcp"]

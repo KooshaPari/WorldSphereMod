@@ -1,0 +1,52 @@
+name: phase-2-procedural-buildings
+output_dir: artifacts
+default_wait_seconds: 1
+steps:
+  - action: load_save
+    slot: 2
+    note: Load baseline save with building-heavy world content.
+  - action: wait_n_frames
+    frames: 12
+    fps: 30
+  - action: assert_telemetry
+    required: true
+    note: Bridge health proxy — game must be rendering before phase toggle.
+    checks:
+      - field: drawCalls
+        op: ">"
+        value: 0
+      - field: frameMs
+        op: "<"
+        value: 200
+  - action: toggle_flag
+    key: ProceduralBuildings
+    value: true
+    note: Enable Phase 2 procedural building meshes in SavedSettings.
+  - action: wait_n_frames
+    frames: 18
+    fps: 30
+    note: Allow procgen mesh emit and flush after phase toggle.
+  - action: screenshot
+    path: phase-2-procedural-buildings/buildings.png
+    vision:
+      required: true
+      prompt: >
+        Validate that buildings render as 3D procedural meshes rather than flat 2D
+        sprites, with no obvious UI crash indicators or shader compile error banners.
+        Return strict JSON with keys passes, reason, and confidence.
+      criteria:
+        must_show_procedural_buildings: true
+        no_error_dialog: true
+        no_shader_compile_banner: true
+  - action: assert_telemetry
+    required: true
+    checks:
+      - field: drawCalls
+        op: ">"
+        value: 0
+      - field: frameMs
+        op: "<"
+        value: 50
+      - field: instances
+        op: ">"
+        value: 10

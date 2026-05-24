@@ -1,0 +1,112 @@
+name: release
+
+# Tag release pipeline: build WorldSphereAPI, extract changelog from CHANGELOG.md,
+# and publish a pre-release GitHub Release with artifacts.
+#
+# Triggers:
+# 1. push: tags: ['v*']           — automatically on tag push (e.g., git push origin v2.0.0-beta.0)
+# 2. workflow_dispatch: inputs.version — manual dispatch with a custom version string
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., v2.0.0-beta.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      # See docs/ci-mod-compile-gap.md — mod DLL from hosted CI is not shippable.
+      - name: Stub WorldBox reference DLLs
+        shell: bash
+        run: bash Tools/ci-stub-worldbox-refs.sh
+
+      - name: Build WorldSphereAPI (always works — netstandard2.0)
+        run: dotnet build WorldSphereAPI.csproj -c Release
+
+      - name: Build WorldSphereMod (best-effort — see docs/ci-mod-compile-gap.md)
+        continue-on-error: true
+        run: dotnet build WorldSphereMod.csproj -c Release
+
+      - name: Extract release notes from CHANGELOG.md
+        id: changelog
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [ -z "$TAG" ] || [ "$TAG" = "HEAD" ]; then
+            TAG="${{ inputs.version }}"
+          fi
+          VER="${TAG#v}"
+
+          extract_section() {
+            local header="$1"
+            awk -v header="$header" '
+              $0 == header { flag=1; next }
+              flag && /^## \[/ { flag=0 }
+              flag
+            ' CHANGELOG.md | sed -e '/^$/d'
+          }
+
+          if [ -f CHANGELOG.md ]; then
+            NOTES=$(extract_section "## [Unreleased]")
+            if [ -z "$NOTES" ] && [ -n "$VER" ]; then
+              NOTES=$(extract_section "## [${VER}]")
+            fi
+            NOTES="${NOTES:0:5000}"
+            if [ -z "$NOTES" ]; then
+              NOTES="Release ${TAG} — see CHANGELOG.md for details."
+            fi
+          else
+            NOTES="Release ${TAG}"
+          fi
+
+          {
+            echo "body<<EOF"
+            echo "$NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Determine release tag
+        id: tag
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [ -z "$TAG" ] || [ "$TAG" = "HEAD" ]; then
+            TAG="${{ inputs.version }}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "WorldSphereMod3D ${{ steps.tag.outputs.tag }}"
+          body: ${{ steps.changelog.outputs.body }}
+          prerelease: true
+          generate_release_notes: false
+          files: |
+            bin/Release/netstandard2.0/WorldSphereAPI.dll
+            WorldSphereMod/mod.json
+            README.md
+            CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

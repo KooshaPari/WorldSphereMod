@@ -1,19 +1,28 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
-	  <LangVersion>9.0</LangVersion>
-    <Nullable>enable</Nullable>
+    <TargetFramework>net48</TargetFramework>
+	  <LangVersion>10.0</LangVersion>
+    <Nullable>annotations</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>WorldSphereMod3D</AssemblyName>
+    <RootNamespace>WorldSphereMod</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Remove="WorldSphereAPI\**" />
     <Compile Remove="WorldSphereTester\**" />
+    <Compile Remove="tests\**" />
+    <Compile Remove="Tools\Unity-Bake-Project\**" />
+    <Compile Remove="External\**" />
     <EmbeddedResource Remove="WorldSphereAPI\**" />
     <EmbeddedResource Remove="WorldSphereTester\**" />
+    <EmbeddedResource Remove="tests\**" />
+    <EmbeddedResource Remove="External\**" />
     <None Remove="WorldSphereAPI\**" />
     <None Remove="WorldSphereTester\**" />
+    <None Remove="tests\**" />
+    <None Remove="External\**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -23,89 +32,101 @@
 
   <ItemGroup>
     <Reference Include="0Harmony">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\StreamingAssets\mods\NML\Assemblies\0Harmony.dll</HintPath>
+      <HintPath>$(WorldBoxNMLAssemblies)/0Harmony.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
+      <HintPath>$(WorldBoxManaged)/Assembly-CSharp-firstpass.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\StreamingAssets\mods\NML\Assembly-CSharp-Publicized.dll</HintPath>
+      <HintPath>$(WorldBoxNML)/Assembly-CSharp-Publicized.dll</HintPath>
     </Reference>
+    <Reference Include="Facepunch.Steamworks.Posix">
+      <HintPath>$(WorldBoxNMLAssemblies)/Facepunch.Steamworks.Posix.dll</HintPath>
+    </Reference>
+    <Reference Include="Facepunch.Steamworks.Win64">
+      <HintPath>$(WorldBoxNMLAssemblies)/Facepunch.Steamworks.Win64.dll</HintPath>
+    </Reference>
+    <Reference Include="Gameloop.Vdf">
+      <HintPath>$(WorldBoxNMLAssemblies)/Gameloop.Vdf.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis">
+      <HintPath>$(WorldBoxNMLAssemblies)/Microsoft.CodeAnalysis.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis.CSharp">
+      <HintPath>$(WorldBoxNMLAssemblies)/Microsoft.CodeAnalysis.CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="Mono.Cecil">
+      <HintPath>$(WorldBoxNMLAssemblies)/Mono.Cecil.dll</HintPath>
+    </Reference>
+    <Reference Include="Mono.Cecil.Pdb">
+      <HintPath>$(WorldBoxNMLAssemblies)/Mono.Cecil.Pdb.dll</HintPath>
+    </Reference>
+    <Reference Include="MonoMod.RuntimeDetour">
+      <HintPath>$(WorldBoxNMLAssemblies)/MonoMod.RuntimeDetour.dll</HintPath>
+    </Reference>
+    <Reference Include="MonoMod.Utils">
+      <HintPath>$(WorldBoxNMLAssemblies)/MonoMod.Utils.dll</HintPath>
+    </Reference>
+    <Reference Include="NeoModLoader">
+      <HintPath>$(WorldBoxPath)/worldbox_Data/StreamingAssets/mods/NeoModLoader.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(WorldBoxManaged)/Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="SleekRender">
+      <HintPath>$(WorldBoxManaged)/SleekRender.dll</HintPath>
+    </Reference>
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Collections.Immutable">
+      <HintPath>$(WorldBoxNMLAssemblies)/System.Collections.Immutable.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Reflection.Metadata">
+      <HintPath>$(WorldBoxNMLAssemblies)/System.Reflection.Metadata.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe">
+      <HintPath>$(WorldBoxNMLAssemblies)/System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Text.Encoding.CodePages">
+      <HintPath>$(WorldBoxNMLAssemblies)/System.Text.Encoding.CodePages.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(WorldBoxManaged)/UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(WorldBoxManaged)/UnityEngine.InputLegacyModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.ParticleSystemModule">
+      <HintPath>$(WorldBoxManaged)/UnityEngine.ParticleSystemModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(WorldBoxManaged)/UnityEngine.PhysicsModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(WorldBoxManaged)/UnityEngine.TextRenderingModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.TilemapModule">
+      <HintPath>$(WorldBoxManaged)/UnityEngine.TilemapModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(WorldBoxManaged)/UnityEngine.UI.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>$(WorldBoxManaged)/UnityEngine.UIModule.dll</HintPath>
+    </Reference>
+    <Reference Include="YamlDotNet">
+      <HintPath>$(WorldBoxNMLAssemblies)/YamlDotNet.dll</HintPath>
+    </Reference>
+    <!-- 2026-05-23: revert to vendored DLL. External/Compound-Spheres source
+         clone causes AssemblyInfo conflicts. Fix will be applied via Harmony
+         patch on CompoundSpheres.SphereManager.Init instead. -->
     <Reference Include="CompoundSpheres">
       <HintPath>WorldSphereMod\Assemblies\CompoundSpheres.dll</HintPath>
     </Reference>
-    <Reference Include="Facepunch.Steamworks.Posix">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\StreamingAssets\mods\NML\Assemblies\Facepunch.Steamworks.Posix.dll</HintPath>
-    </Reference>
-    <Reference Include="Facepunch.Steamworks.Win64">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\StreamingAssets\mods\NML\Assemblies\Facepunch.Steamworks.Win64.dll</HintPath>
-    </Reference>
-    <Reference Include="Gameloop.Vdf">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\StreamingAssets\mods\NML\Assemblies\Gameloop.Vdf.dll</HintPath>
-    </Reference>
-    <Reference Include="Microsoft.CodeAnalysis">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\StreamingAssets\mods\NML\Assemblies\Microsoft.CodeAnalysis.dll</HintPath>
-    </Reference>
-    <Reference Include="Microsoft.CodeAnalysis.CSharp">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\StreamingAssets\mods\NML\Assemblies\Microsoft.CodeAnalysis.CSharp.dll</HintPath>
-    </Reference>
-    <Reference Include="Mono.Cecil">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\StreamingAssets\mods\NML\Assemblies\Mono.Cecil.dll</HintPath>
-    </Reference>
-    <Reference Include="Mono.Cecil.Pdb">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\StreamingAssets\mods\NML\Assemblies\Mono.Cecil.Pdb.dll</HintPath>
-    </Reference>
-    <Reference Include="MonoMod.RuntimeDetour">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\StreamingAssets\mods\NML\Assemblies\MonoMod.RuntimeDetour.dll</HintPath>
-    </Reference>
-    <Reference Include="MonoMod.Utils">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\StreamingAssets\mods\NML\Assemblies\MonoMod.Utils.dll</HintPath>
-    </Reference>
-    <Reference Include="NeoModLoader">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\StreamingAssets\mods\NeoModLoader.dll</HintPath>
-    </Reference>
-    <Reference Include="Newtonsoft.Json">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\Managed\Newtonsoft.Json.dll</HintPath>
-    </Reference>
-    <Reference Include="SleekRender">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\Managed\SleekRender.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Collections.Immutable">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\StreamingAssets\mods\NML\Assemblies\System.Collections.Immutable.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Reflection.Metadata">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\StreamingAssets\mods\NML\Assemblies\System.Reflection.Metadata.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Runtime.CompilerServices.Unsafe">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\StreamingAssets\mods\NML\Assemblies\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Text.Encoding.CodePages">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\StreamingAssets\mods\NML\Assemblies\System.Text.Encoding.CodePages.dll</HintPath>
-    </Reference>
-    <Reference Include="UnityEngine.CoreModule">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
-    </Reference>
-    <Reference Include="UnityEngine.InputLegacyModule">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
-    </Reference>
-    <Reference Include="UnityEngine.ParticleSystemModule">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\Managed\UnityEngine.ParticleSystemModule.dll</HintPath>
-    </Reference>
-    <Reference Include="UnityEngine.PhysicsModule">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
-    </Reference>
-    <Reference Include="UnityEngine.TextRenderingModule">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
-    </Reference>
-    <Reference Include="UnityEngine.TilemapModule">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\Managed\UnityEngine.TilemapModule.dll</HintPath>
-    </Reference>
-    <Reference Include="UnityEngine.UI">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\Managed\UnityEngine.UI.dll</HintPath>
-    </Reference>
-    <Reference Include="YamlDotNet">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\worldbox\worldbox_Data\StreamingAssets\mods\NML\Assemblies\YamlDotNet.dll</HintPath>
-    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="External\**" />
+
   </ItemGroup>
 
 </Project>

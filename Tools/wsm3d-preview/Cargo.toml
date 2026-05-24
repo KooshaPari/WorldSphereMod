@@ -1,0 +1,15 @@
+[package]
+name = "wsm3d-preview"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Pin away from edition2024-requiring transitives (clap_builder 4.6,
+# moxcms 0.8.1, etc) — local stable Rust is 1.83 and edition2024 was
+# stabilized in 1.85. Override these when bumping the MSRV.
+anyhow = "1"
+clap = { version = "=4.5.20", features = ["derive"] }
+clap_builder = "=4.5.20"
+image = { version = "=0.24.9", default-features = false, features = ["png"] }
+nalgebra = "0.33"
+rayon = "1"

@@ -1,0 +1,57 @@
+name: phase-10-lod
+output_dir: artifacts
+default_wait_seconds: 1
+steps:
+  - action: load_save
+    slot: 2
+    note: Load baseline save with many distant actors for LOD ladder verification.
+  - action: wait_n_frames
+    frames: 12
+    fps: 30
+  - action: health
+    required: true
+    expect_is_world_3d: true
+    note: Bridge health before LOD tuning.
+  - action: assert_telemetry
+    required: true
+    note: Game must be rendering before LOD tuning.
+    checks:
+      - field: drawCalls
+        op: ">"
+        value: 0
+      - field: frameMs
+        op: "<"
+        value: 200
+  - action: set_setting
+    key: LODScale
+    value: 0.5
+    note: Apply Phase 10 default LODScale (SavedSettings.cs) via bridge.
+  - action: wait_n_frames
+    frames: 24
+    fps: 30
+    note: Allow LOD distance thresholds to recompute after LODScale update.
+  - action: screenshot
+    path: phase-10-lod/lod-ladder.png
+    vision:
+      required: true
+      prompt: >
+        Validate that the world shows a mix of near full voxel meshes and distant
+        simplified proxies or impostor billboards (LOD ladder active), with no obvious
+        UI crash indicators or shader compile error banners. Return strict JSON with
+        keys passes, reason, and confidence.
+      criteria:
+        must_show_lod_ladder: true
+        no_error_dialog: true
+        no_shader_compile_banner: true
+  - action: assert_telemetry
+    required: true
+    checks:
+      - field: drawCalls
+        op: ">"
+        value: 0
+      - field: frameMs
+        op: "<"
+        value: 50
+      - field: instances
+        op: ">"
+        value: 10

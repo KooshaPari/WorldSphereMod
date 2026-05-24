@@ -1,0 +1,88 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>WorldSphereAPI</name>
+    </assembly>
+    <members>
+        <member name="T:WorldSphereAPI">
+            <summary>
+            WorldSphereMod API Calller. Compatible with both upstream WorldSphereMod (v1)
+            and the WorldSphereMod3D fork (v2). v2-only members fall back to safe defaults
+            when connected to a v1 host.
+            </summary>
+        </member>
+        <member name="P:WorldSphereAPI.IsWorld3D">
+            <summary>
+            returns true if the world Is 3D
+            </summary>
+        </member>
+        <member name="P:WorldSphereAPI.IsModel3D">
+            <summary>
+            returns true if the v2 mesh pipeline is active (voxel/procgen meshes,
+            not just camera-billboarded sprites). False on v1 hosts.
+            </summary>
+        </member>
+        <member name="M:WorldSphereAPI.RegisterCustomMesh(System.String,System.Object,System.Object)">
+            <summary>
+            Override the auto-voxelized mesh for a given asset id. No-op on v1 hosts.
+            </summary>
+            <param name="assetId">WorldBox asset id (e.g. "human" or "house_human")</param>
+            <param name="mesh">A <c>UnityEngine.Mesh</c> instance (typed as object to keep this assembly Unity-free)</param>
+            <param name="albedo">A <c>UnityEngine.Texture</c> instance, or <c>null</c></param>
+        </member>
+        <member name="M:WorldSphereAPI.RegisterBuildingRules(System.String,System.Object)">
+            <summary>
+            Override the procgen heuristic rules for a building asset (Phase 2). Pass a
+            <c>BuildingRules</c> instance typed as <see cref="T:System.Object"/> — external callers
+            can either copy the BuildingRules struct definition locally or use reflection
+            against the host assembly. No-op on v1 hosts.
+            </summary>
+            <param name="assetId">WorldBox building asset id (e.g. "house_human")</param>
+            <param name="rules">A WorldSphereMod.ProcGen.BuildingRules instance (boxed as object)</param>
+        </member>
+        <member name="M:WorldSphereAPI.GetSetting``1(System.String)">
+            <summary>
+            gets a setting
+            </summary>
+            <remarks>refer to SavedSettings.cs in the Mod Code to view all the settings</remarks>
+            <typeparam name="T">the type of the setting, this can be a boolean, float or an integer</typeparam>
+            <param name="Name">the Name of the setting</param>
+            <returns></returns>
+        </member>
+        <member name="M:WorldSphereAPI.MakeActorNonUpright(System.String)">
+            <summary>
+            Makes a actor with asset <paramref name="ID"/> non upright, it will face towards the ground and not rotate to the camera
+            </summary>
+            <param name="ID"></param>
+        </member>
+        <member name="M:WorldSphereAPI.MakeBuildingNonUpright(System.String)">
+            <summary>
+            Makes a building with asset <paramref name="ID"/> non upright, it will face towards the ground and not rotate to the camera
+            </summary>
+            <param name="ID"></param>
+        </member>
+        <member name="M:WorldSphereAPI.MakeProjectileNonUpright(System.String)">
+            <summary>
+            Makes a projectile with asset <paramref name="ID"/> non upright, it will face towards the ground and not rotate to the camera
+            </summary>
+            <param name="ID"></param>
+        </member>
+        <member name="M:WorldSphereAPI.EditEffect(System.String,System.Boolean,System.Boolean,System.Single,System.Boolean)">
+            <summary>
+            edits the data of an effect that worldspheremod uses
+            </summary>
+            <param name="ID">the asset ID of the effect</param>
+            <param name="isUpright">if upright, the effect will be rotated upright and can rotate towards the camera, like nukes for example</param>
+            <param name="SeperateSprite">if true, worldspheremod will make the spriterenderer of your effect completly seperate, any changes to your effect wll translate over to the spriterenderer, and the spriterenderer will be in 3D space, and have rotations</param>
+            <param name="ExtraHeight">how high off the ground the effect will be</param>
+            <param name="OnGround">if true, the base height of the effect is the height of the tile it is on, otherwise the base height is 0</param>
+        </member>
+        <member name="M:WorldSphereAPI.Connect(WorldSphereAPI@)">
+            <summary>
+            Connects to WorldSphereMod, if it is in the Game
+            </summary>
+            <remarks>only use this in post init</remarks>
+            <returns>true if worldspheremod is detected</returns>
+        </member>
+    </members>
+</doc>

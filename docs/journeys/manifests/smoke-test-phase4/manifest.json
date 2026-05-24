@@ -1,0 +1,26 @@
+{
+  "id": "smoke-test-phase4",
+  "intent": "In-game smoke-test gate for Phase 4 (MeshWater). Full checklist: docs/smoke-test-phase4.md",
+  "keyframe_count": 3,
+  "passed": false,
+  "steps": [
+    {
+      "index": 0,
+      "slug": "before",
+      "intent": "MeshWater=false with prior phases on. Capture with `wsm3d screenshot phase 4 -Name before` (see docs/smoke-test-phase4.md).",
+      "screenshot_path": "frame-000.png"
+    },
+    {
+      "index": 1,
+      "slug": "after",
+      "intent": "MeshWater=true, same scene and camera. Capture with `wsm3d screenshot phase 4 -Name after` (docs/smoke-test-phase4.md).",
+      "screenshot_path": "frame-001.png"
+    },
+    {
+      "index": 2,
+      "slug": "water",
+      "intent": "Shoreline/open-water closeup with mesh water on. Capture with `wsm3d screenshot phase 4 -Name water` (docs/smoke-test-phase4.md).",
+      "screenshot_path": "frame-002.png"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+name: phase-1-voxel-actors
+output_dir: artifacts
+default_wait_seconds: 1
+steps:
+  - action: load_save
+    slot: 2
+    note: Load the baseline save with voxel-heavy world content.
+  - action: wait_n_frames
+    frames: 12
+    fps: 30
+  - action: assert_telemetry
+    required: true
+    note: Bridge health proxy — game must be rendering before phase toggle.
+    checks:
+      - field: drawCalls
+        op: ">"
+        value: 0
+      - field: frameMs
+        op: "<"
+        value: 200
+  - action: toggle_flag
+    key: VoxelEntities
+    value: true
+    note: Enable Phase 1 voxel actor meshes in SavedSettings.
+  - action: wait_n_frames
+    frames: 18
+    fps: 30
+    note: Allow voxel mesh emit and flush after phase toggle.
+  - action: screenshot
+    path: phase-1-voxel-actors/actors.png
+    vision:
+      required: true
+      prompt: >
+        Validate that this world shows active voxel actors and no obvious UI crash indicators.
+        Return strict JSON with keys passes, reason, and confidence.
+      criteria:
+        must_contain_voxel_actors: true
+        no_error_dialog: true
+  - action: assert_telemetry
+    required: true
+    checks:
+      - field: drawCalls
+        op: "<"
+        value: 900
+      - field: frameMs
+        op: "<"
+        value: 50
+      - field: instances
+        op: ">"
+        value: 10

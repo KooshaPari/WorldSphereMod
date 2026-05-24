@@ -1,0 +1,26 @@
+{
+  "id": "smoke-test-phase9",
+  "intent": "In-game smoke-test gate for Phase 9 (PostFX). Full checklist: docs/smoke-test-phase9.md",
+  "keyframe_count": 3,
+  "passed": false,
+  "steps": [
+    {
+      "index": 0,
+      "slug": "before",
+      "intent": "PostFX=false with prior phases on. Capture with `wsm3d screenshot phase 9 -Name before` (see docs/smoke-test-phase9.md).",
+      "screenshot_path": "frame-000.png"
+    },
+    {
+      "index": 1,
+      "slug": "after",
+      "intent": "PostFX=true, same scene and camera. Capture with `wsm3d screenshot phase 9 -Name after` (docs/smoke-test-phase9.md).",
+      "screenshot_path": "frame-001.png"
+    },
+    {
+      "index": 2,
+      "slug": "postfx",
+      "intent": "Bloom/color-grading closeup. Capture with `wsm3d screenshot phase 9 -Name postfx` (docs/smoke-test-phase9.md).",
+      "screenshot_path": "frame-002.png"
+    }
+  ]
+}

@@ -1,0 +1,162 @@
+# Phase 9 — Particles, Decals, Post-Processing
+
+Source: design pass by `feature-dev:code-architect` (agent run 2026-05-17).
+Historical design-state snapshot; use `docs/HANDOFF.md` for current defaults.
+
+---
+
+## 1. Module Layout
+
+Four files under `WorldSphereMod/Code/Fx/` + a fifth driver.
+
+- **`ParticleEffectLibrary.cs`** — data layer. `ParticleBurst` record, per-effect `ParticleSystem` prefab table, VFX Graph runtime capability probe. No Harmony / no Effects.cs deps.
+- **`DecalPool.cs`** — lifecycle layer. Three `DecalProjector` sub-pools (Footprint, Scorch, Blood), TTL expiry, `Tick()`.
+- **`PostFxController.cs`** — post-FX layer. Creates the global `Volume` + `VolumeProfile` at world init, toggles `renderPostProcessing` on the main camera's `UniversalAdditionalCameraData`, responds to `PostFX` setting changes.
+- **`EffectPatches9.cs`** — integration shim. All Harmony patches for this phase live here.
+- **`FxFrameDriver.cs`** — `MonoBehaviour`, drains pools in `LateUpdate`.
+
+Namespace `WorldSphereMod.Fx`.
+
+---
+
+## 2. Public Type Signatures
+
+```csharp
+enum BurstShape { Sphere, Ring, Cone }
+
+record ParticleBurst(string EffectId, int Count, float Speed, float Lifetime,
+                    float Size, BurstShape Shape, Color TintA, Color TintB);
+
+static class ParticleEffectLibrary
+{
+    static bool VfxGraphAvailable { get; }
+    static void Init();
+    static void Fire(string effectId, Vector3 worldPos, float scale);
+    static void Clear();
+}
+
+enum DecalChannel { Footprint, Scorch, Blood }
+
+static class DecalPool
+{
+    static void Init(Transform parent);
+    static void Emit(DecalChannel channel, Vector3 worldPos, Quaternion rot, float ttl);
+    static void Tick();
+    static void Clear();
+}
+
+static class PostFxController
+{
+    static void Create();
+    static void Destroy();
+    static void ApplySetting(bool enabled);
+}
+```
+
+---
+
+## 3. Particle Burst Pipeline
+
+**Capability probe.** `Init()` tries `Type.GetType("UnityEngine.VFX.VisualEffect, Unity.VisualEffectGraph")`. If found + a `.vfx` asset is in the bundle, `VfxGraphAvailable = true`. Otherwise `ParticleSystem` mesh-render mode. Probe is runtime-only; assembly compiles cleanly without the VFX Graph package.
+
+**ParticleSystem path (primary).** Pool of 16 `ParticleSystem`s. `Fire(effectId, pos, scale)`:
+1. Look up `ParticleBurst` for effect ID; bail if missing.
+2. Acquire a pooled system; bail if pool empty (drop-on-overflow, no frame spike).
+3. Configure via `EmitParams`: position, color (lerp `TintA→TintB` per particle), `size * scale`, lifetime.
+4. Renderer in `RenderMode.Mesh` with a 2×2 voxel cube mesh cached at Init via `SpriteVoxelizer`.
+5. `Emit(count)`. Auto-returns to pool on `isAlive == false` in `Tick()`.
+
+**Sprite suppression.** `EffectPatches9` sets `effect.sprite_renderer.enabled = false` when `Fire` succeeded. `BaseEffect.deactivate` Postfix re-enables when effect is reset.
+
+**Initial burst table:**
+
+| Effect ID | Count | Shape | Lifetime |
+|---|---|---|---|
+| `fx_meteorite` | 24 | Cone | 0.6 s |
+| `fx_explosion_wave` | 40 | Ring | 0.4 s |
+| `fx_fire_smoke` | 20 | Sphere | 1.2 s |
+| `fx_antimatter_effect` | 32 | Sphere | 0.8 s |
+| `fx_napalm_flash` | 28 | Ring | 0.3 s |
+
+---
+
+## 4. Decal Pool
+
+**Three sub-pools.** `Footprint` (32, square, infinite TTL while unit alive). `Scorch` (16, round, TTL 30s). `Blood` (32, round, TTL 20s). All `DecalProjector`s parented to one Pool GameObject under `Sphere.Manager.transform`.
+
+**Acquire/return.** `Emit(channel, pos, rot, ttl)` dequeues from the sub-pool's `Queue<DecalProjector>`. Empty → drop. Sets `enabled = true`, position, `rot = Tools.GetRotation(...)` for slope alignment, TTL timestamp.
+
+**TTL expiry.** `Tick()` iterates the per-channel active list `List<(DecalProjector, float expiry)>`. Expired → disable + re-enqueue. Called from `FxFrameDriver.LateUpdate`.
+
+**Footprint lifecycle.** Actor-pinned (not TTL). `EffectPatches9` Postfix on `ActorManager.precalculateRenderDataParallel` per visible actor: `DecalPool.UpdateFootprint(actorId, pos, rot)` via a `Dictionary<int, DecalProjector>`. Released in `Actor.kill` / `Actor.remove` Postfix.
+
+---
+
+## 5. Post-FX Volume
+
+**Create.** Postfix on `Sphere.Begin`: instantiate `GameObject("WSM3D.PostFxVolume")`, add `Volume` (`isGlobal = true, weight = 1`), build `VolumeProfile` with three overrides:
+- `Bloom`: threshold 0.9, intensity 0.4, scatter 0.7. Subtle — avoids URP-bloom-soup.
+- `ColorAdjustments`: contrast 8, saturation 5. Warms midtones toward the WorldBox palette.
+- `Vignette`: intensity 0.25, smoothness 0.4.
+
+**Camera.** Call `mainCamera.GetUniversalAdditionalCameraData()` (URP extension method — creates the component if absent; do NOT use `GetComponent<>` because the data may not exist yet). Set `renderPostProcessing = Core.savedSettings.PostFX`. `ApplySetting(bool)` toggles live without reload.
+
+**Gate.** `Create()` early-returns if `!PostFX`. Volume only instantiated on opt-in.
+
+---
+
+## 6. Wire-Up
+
+- **Driver.** `Mod.Init` adds `FxFrameDriver` via the same `AddComponent` guard pattern as `VoxelFrameDriver` (`Mod.cs:37-39`). `LateUpdate` calls `DecalPool.Tick()` + pool-reclaim for `ParticleEffectLibrary`.
+- **World lifecycle.** `EffectPatches9` Postfixes on `Sphere.Begin` (→ `DecalPool.Init`, `ParticleEffectLibrary.Init`, `PostFxController.Create`) and `Sphere.Finish` (→ `Clear`/`Destroy`). All gated `Core.IsWorld3D`.
+- **Effect spawn.** Postfix on `BaseEffectController.GetObject` (`Effects.cs:182-204`): when `ParticleEffects && effectId in table`, `Fire` + suppress sprite.
+- **Decal hooks.** Postfix on `ExplosionFlash.start` → `Emit(Scorch, …, 30f)`. Postfix on `Actor.takeDamage` → `Emit(Blood, …, 20f)`. Footprint emit in the `ActorManager` Postfix.
+
+---
+
+## 7. Risks
+
+1. **VFX Graph availability.** URP decal output for VFX Graph is roadmap; Unity 2022.3 LTS ships without. Probe + `ParticleSystem` fallback covers this. VFX Graph assets can be added later without code change.
+2. **Decal pool perf on low-end GPUs.** 80 active projectors in dense combat may surface overdraw. Mitigations: hard pool cap with drop policy; `renderingLayerMask` restricting decals to terrain; profile before default-on.
+3. **Post-FX cost on integrated GPUs.** Bloom downsample/upsample pyramid ~2-3 ms on UHD 620 at 1080p. `PostFX` defaults false (`SavedSettings.cs:44`). Settings toggle exposes; Phase 10 can gate behind GPU tier check.
+4. **`UniversalAdditionalCameraData` null.** Use `GetUniversalAdditionalCameraData()` extension (auto-creates) not `GetComponent<>` (may be null).
+
+---
+
+## 8. Build Sequence (one PR, 8 atomic commits)
+
+1. `fx: ParticleEffectLibrary — pool + burst table` — data layer only.
+2. `fx: DecalPool — three sub-pools, Tick() expiry` — smoke-test via debug key.
+3. `fx: PostFxController — Volume + profile + camera enable` — editor-visible.
+4. `fx: FxFrameDriver MonoBehaviour; Sphere.Begin/Finish lifecycle wire`.
+5. `fx: EffectPatches9 — 5 effect IDs route to ParticleEffectLibrary.Fire; sprite suppression` — visual test of fx_explosion_wave.
+6. `fx: scorch + blood decal hooks (ExplosionFlash + Actor.takeDamage)`.
+7. `fx: footprint decal hook in ActorManager Postfix`.
+8. `fx: flip ParticleEffects=true (PostFX stays default-false); phase table + HANDOFF`.
+
+---
+
+## 9. Files
+
+**New:**
+- `WorldSphereMod/Code/Fx/{ParticleEffectLibrary,DecalPool,PostFxController,EffectPatches9,FxFrameDriver}.cs`
+
+**Modify:**
+- `WorldSphereMod/Code/Mod.cs:37-39` — add `AddComponent<FxFrameDriver>` guard.
+- `WorldSphereMod/Code/Effects.cs:258-271` — `BaseEffect.deactivate` Postfix: re-enable sprite when ParticleEffects and effect-id in table. One line.
+- `WorldSphereMod/Code/SavedSettings.cs` — add `public bool ParticleEffects = false;`. (`PostFX` at line 44 already present.)
+
+No changes to `Constants.cs`, `MeshInstanceBatcher.cs`, or Phase 1-8 files.
+
+---
+
+## Key references
+
+- `WorldSphereMod/Code/Constants.cs:20-30` — `EffectDatas` table; the five target effect IDs.
+- `WorldSphereMod/Code/Effects.cs:182-204` — `BaseEffectController.GetObject` Postfix (burst dispatch).
+- `WorldSphereMod/Code/Effects.cs:258-271` — `BaseEffect.deactivate` Postfix (sprite re-enable).
+- `WorldSphereMod/Code/Effects.cs:219-224` — `ExplosionFlash.start` (scorch decal).
+- `WorldSphereMod/Code/3DCamera.cs:107` — `CameraController.MainCamera`.
+- `WorldSphereMod/Code/Mod.cs:37-39` — `AddComponent` guard pattern.
+- `WorldSphereMod/Code/SavedSettings.cs:44` — `PostFX` flag.
+- `WorldSphereMod/Code/Voxel/SpriteVoxelizer.cs` — reused for particle cube mesh.

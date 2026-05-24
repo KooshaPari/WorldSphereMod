@@ -1,0 +1,57 @@
+name: phase-8-day-night
+output_dir: artifacts
+default_wait_seconds: 1
+steps:
+  - action: load_save
+    slot: 2
+    note: Load baseline save with sky visible for day/night verification.
+  - action: wait_n_frames
+    frames: 12
+    fps: 30
+  - action: health
+    required: true
+    expect_is_world_3d: true
+    note: Bridge health before phase toggle.
+  - action: assert_telemetry
+    required: true
+    note: Game must be rendering before phase toggle.
+    checks:
+      - field: drawCalls
+        op: ">"
+        value: 0
+      - field: frameMs
+        op: "<"
+        value: 200
+  - action: toggle_flag
+    key: DayNightCycle
+    value: true
+    note: Enable Phase 8 time-of-day driver, procedural sky, and fog in SavedSettings.
+  - action: wait_n_frames
+    frames: 30
+    fps: 30
+    note: Allow sky gradient and fog to advance after phase toggle.
+  - action: screenshot
+    path: phase-8-day-night/sky-cycle.png
+    vision:
+      required: true
+      prompt: >
+        Validate that the scene shows a procedural sky with sun/moon gradient and
+        atmospheric fog (not a flat solid-color skybox), with no obvious UI crash
+        indicators or shader compile error banners. Return strict JSON with keys
+        passes, reason, and confidence.
+      criteria:
+        must_show_day_night_cycle: true
+        no_error_dialog: true
+        no_shader_compile_banner: true
+  - action: assert_telemetry
+    required: true
+    checks:
+      - field: drawCalls
+        op: ">"
+        value: 0
+      - field: frameMs
+        op: "<"
+        value: 50
+      - field: instances
+        op: ">"
+        value: 10

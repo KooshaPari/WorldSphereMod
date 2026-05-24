@@ -1,0 +1,52 @@
+{
+  "id": "us-wsm-phase-3-crossed-foliage",
+  "intent": "Validate Phase 3 (CrossedQuadFoliage) renders trees and bushes with crossed quads and wind animation.",
+  "keyframe_count": 5,
+  "passed": false,
+  "recording_gif": null,
+  "steps": [
+    {
+      "index": 0,
+      "slug": "baseline",
+      "intent": "Baseline screenshot with phase off — vanilla flat foliage sprites visible.",
+      "screenshot_path": "frame-000.png",
+      "assertions": {
+        "must_contain": ["WorldBox"],
+        "must_not_contain": ["Exception", "Error"]
+      }
+    },
+    {
+      "index": 1,
+      "slug": "open-settings",
+      "intent": "Open the WorldSphere tab and locate the 3D Phases window.",
+      "screenshot_path": "frame-001.png",
+      "assertions": {
+        "must_contain": ["3D Phases"]
+      }
+    },
+    {
+      "index": 2,
+      "slug": "toggle-on",
+      "intent": "Toggle Crossed Quad Foliage (Phase 3) ON.",
+      "screenshot_path": "frame-002.png",
+      "assertions": {
+        "must_contain": ["Crossed Quad Foliage"]
+      }
+    },
+    {
+      "index": 3,
+      "slug": "reload-world",
+      "intent": "Regenerate the world so the new phase takes effect.",
+      "screenshot_path": "frame-003.png"
+    },
+    {
+      "index": 4,
+      "slug": "verify-foliage",
+      "intent": "Trees and bushes render as crossed quads with wind animation; flat sprites are replaced.",
+      "screenshot_path": "frame-004.png",
+      "assertions": {
+        "must_not_contain": ["Material needs to enable instancing", "Failed to compile", "Exception"]
+      }
+    }
+  ]
+}

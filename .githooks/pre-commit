@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Dispatches to .githooks/pre-commit.ps1
+# PowerShell is the canonical layer because most contributors are on Windows;
+# this bash shim ensures POSIX environments also run the same logic.
+
+set -e
+exec pwsh -NoProfile -File "$(dirname "$0")/pre-commit.ps1" "$@"

@@ -1,0 +1,16 @@
+name: test-gate
+
+# Blocking quality gate: PRs must pass offline live-verify stages (tests + journeys).
+# Mirrors DINOForge -gate.yml naming; implementation reuses live-verify-gate stages.
+
+on:
+  pull_request:
+  push:
+    branches: [main, "claude/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  dotnet-test:
+    uses: ./.github/workflows/live-verify-gate.yml

@@ -1,0 +1,41 @@
+# Vercel only needs the docs/ folder + the package.json inside it.
+# Everything below is build artefacts, source code, or out-of-scope assets
+# that would otherwise inflate the upload tarball (saw 54.9 MB before this).
+
+# .NET build output
+bin/
+obj/
+**/bin/
+**/obj/
+
+# .NET test bins
+tests/**/bin/
+tests/**/obj/
+
+# Game-bound assets (AssetBundles are binary blobs; the mod ships them, the docs don't)
+WorldSphereMod/AssetBundles/
+WorldSphereMod/Assemblies/
+WorldSphereMod/GameResources/
+WorldSphereMod/Resources/
+WorldSphereMod/Locales/
+
+# IDE / OS
+.vs/
+.idea/
+*.user
+desktop.ini
+Thumbs.db
+
+# Local Vercel state
+.vercel/
+
+# Git
+.git/
+
+# Heavy non-doc sources — let docs/ pull what it needs through its own pipeline.
+WorldSphereMod/Code/
+WorldSphereTester/
+WorldSphereAPI/
+*.csproj
+*.sln
+Directory.Build.props

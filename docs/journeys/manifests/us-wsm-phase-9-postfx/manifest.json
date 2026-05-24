@@ -1,0 +1,51 @@
+{
+  "id": "us-wsm-phase-9-postfx",
+  "intent": "Validate Phase 9 (PostFX) applies bloom and color grading post-processing effects.",
+  "keyframe_count": 5,
+  "passed": false,
+  "steps": [
+    {
+      "index": 0,
+      "slug": "baseline",
+      "intent": "Baseline screenshot with phase off — no post-processing visible.",
+      "screenshot_path": "frame-000.png",
+      "assertions": {
+        "must_contain": ["WorldBox"],
+        "must_not_contain": ["Exception", "Error"]
+      }
+    },
+    {
+      "index": 1,
+      "slug": "open-settings",
+      "intent": "Open the WorldSphere tab and locate the 3D Phases window.",
+      "screenshot_path": "frame-001.png",
+      "assertions": {
+        "must_contain": ["3D Phases"]
+      }
+    },
+    {
+      "index": 2,
+      "slug": "toggle-on",
+      "intent": "Toggle PostFX (Phase 9) ON.",
+      "screenshot_path": "frame-002.png",
+      "assertions": {
+        "must_contain": ["PostFX"]
+      }
+    },
+    {
+      "index": 3,
+      "slug": "reload-world",
+      "intent": "Regenerate the world so the new phase takes effect.",
+      "screenshot_path": "frame-003.png"
+    },
+    {
+      "index": 4,
+      "slug": "verify-effects",
+      "intent": "Bloom and color grading effects are visible; bright areas glow, colors are tinted.",
+      "screenshot_path": "frame-004.png",
+      "assertions": {
+        "must_not_contain": ["Material needs to enable instancing", "Failed to compile", "Exception"]
+      }
+    }
+  ]
+}

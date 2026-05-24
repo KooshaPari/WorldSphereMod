@@ -1,0 +1,75 @@
+name: nightly
+
+# Scheduled regression check: runs daily at 06:00 UTC + manual dispatch.
+# Offline verification (dotnet test + journey mock) reuses live-verify-gate stages.
+
+on:
+  schedule:
+    # 06:00 UTC (9pm PT / 6am UTC) — chosen to avoid peak GitHub Actions queues.
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  live-verify-offline:
+    uses: ./.github/workflows/live-verify-gate.yml
+
+  nightly-extras:
+    name: Lint & dashboard
+    needs: live-verify-offline
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Lint (if Justfile exists)
+        shell: bash
+        run: |
+          if [ -f Justfile ] && command -v just &>/dev/null; then
+            just lint || true
+          else
+            echo "::info::Justfile or 'just' not found; skipping lint."
+          fi
+
+      - name: Generate stats dashboard
+        shell: pwsh
+        run: pwsh Tools/wsm3d-stats.ps1
+
+      - name: Upload stats dashboard
+        if: hashFiles('docs/dashboard.md') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: wsm3d-stats-dashboard
+          path: docs/dashboard.md
+          if-no-files-found: ignore
+
+  notify-on-failure:
+    name: Notify on failure
+    needs: [live-verify-offline, nightly-extras]
+    if: failure()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Comment on latest commit if tests failed
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const run_url = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const commit_sha = context.payload.after || context.sha;
+            const message = `🔴 **Nightly regression check failed** — [view logs](${run_url})`;
+
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: commit_sha,
+              body: message,
+            }).catch(err => {
+              console.error("Failed to post comment:", err);
+            });

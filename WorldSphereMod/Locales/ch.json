@@ -35,6 +35,10 @@
   "perlin_noise_description": "使用柏林噪聲讓世界中的高度進行更細緻的區分",
   "upside_down_movement": "移動顛倒",
   "upside_down_movement_description": "如果視角相比初始是顛倒的，那操作也會隨之顛倒",    
+  "biome_blending": "Biome Blending",
+  "biome_blending_description": "Smooth terrain vertex colors across biome edges so grass, sand, and water transition over a few tiles.",
+  "mountain_slope_smoothing": "Mountain Slope Smoothing",
+  "mountain_slope_smoothing_description": "Blend a smooth heightfield overlay over mountain and cliff tiles.",
   "open_sprites": "打開貼圖文件",
   "open_sprites_description":  "打開包含模組資源的文件夾，可以對其進行編輯，然後重啓遊戲以生效"
 }

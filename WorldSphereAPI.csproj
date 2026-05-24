@@ -1,23 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net4.8</TargetFramework>
-	  <LangVersion>8.0</LangVersion>
-	  <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <!--
+      netstandard2.0 is a strict subset of the upstream net4.8 target and works
+      everywhere Unity does, so existing consumers keep working. The change lets
+      `dotnet build` succeed on CI runners that don't have the .NET Framework
+      4.8 reference pack installed.
+    -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>8.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="WorldSphereMod\**" />
-    <Compile Remove="WorldSphereTester\**" />
-    <EmbeddedResource Remove="WorldSphereMod\**" />
-    <EmbeddedResource Remove="WorldSphereTester\**" />
-    <None Remove="WorldSphereMod\**" />
-    <None Remove="WorldSphereTester\**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Remove=".gitignore" />
-    <None Remove="README.md" />
+    <Compile Include="WorldSphereAPI\WorldSphereAPI.cs" />
   </ItemGroup>
 
 </Project>

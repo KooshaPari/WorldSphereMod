@@ -1,0 +1,26 @@
+{
+  "id": "smoke-test-phase10",
+  "intent": "In-game smoke-test gate for Phase 10 (LOD impostor). Full checklist: docs/smoke-test-phase10.md",
+  "keyframe_count": 3,
+  "passed": false,
+  "steps": [
+    {
+      "index": 0,
+      "slug": "before",
+      "intent": "LOD impostor path off / full-detail baseline. Capture with `wsm3d screenshot phase 10 -Name before` (see docs/smoke-test-phase10.md).",
+      "screenshot_path": "frame-000.png"
+    },
+    {
+      "index": 1,
+      "slug": "after",
+      "intent": "LOD impostor tier active at distance, same scene and camera. Capture with `wsm3d screenshot phase 10 -Name after` (docs/smoke-test-phase10.md).",
+      "screenshot_path": "frame-001.png"
+    },
+    {
+      "index": 2,
+      "slug": "lod",
+      "intent": "Distant-entity impostor closeup. Capture with `wsm3d screenshot phase 10 -Name lod` (docs/smoke-test-phase10.md).",
+      "screenshot_path": "frame-002.png"
+    }
+  ]
+}

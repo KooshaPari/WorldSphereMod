@@ -1,0 +1,39 @@
+name: lint-gate
+
+# Blocking quality gate: PRs must pass `dotnet format --verify-no-changes`.
+# Mirrors DINOForge -gate.yml naming convention.
+
+on:
+  pull_request:
+  push:
+    branches: [main, "claude/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  format-check:
+    name: dotnet format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            5.0.x
+            8.0.x
+
+      # See docs/ci-mod-compile-gap.md — placeholders for HintPath resolution only.
+      - name: Stub WorldBox reference DLLs
+        shell: bash
+        run: bash Tools/ci-stub-worldbox-refs.sh
+
+      # Verify formatting on the netstandard2.0 API (always works in CI).
+      - name: Format check (WorldSphereAPI)
+        run: dotnet format WorldSphereAPI.csproj --verify-no-changes --verbosity diagnostic
+
+      # Main mod format-check is best-effort — see docs/ci-mod-compile-gap.md.
+      - name: Format check (WorldSphereMod, best-effort)
+        continue-on-error: true
+        run: dotnet format WorldSphereMod.csproj --verify-no-changes --verbosity diagnostic

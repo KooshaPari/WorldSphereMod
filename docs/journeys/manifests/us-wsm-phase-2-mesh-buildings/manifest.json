@@ -1,0 +1,51 @@
+{
+  "id": "us-wsm-phase-2-mesh-buildings",
+  "intent": "Validate Phase 2 (ProceduralBuildings) renders buildings as procedural meshes.",
+  "keyframe_count": 5,
+  "passed": false,
+  "steps": [
+    {
+      "index": 0,
+      "slug": "baseline",
+      "intent": "Baseline screenshot with phase off — vanilla 2D building sprites visible.",
+      "screenshot_path": "frame-000.png",
+      "assertions": {
+        "must_contain": ["WorldBox"],
+        "must_not_contain": ["Exception", "Error"]
+      }
+    },
+    {
+      "index": 1,
+      "slug": "open-settings",
+      "intent": "Open the WorldSphere tab and locate the 3D Phases window.",
+      "screenshot_path": "frame-001.png",
+      "assertions": {
+        "must_contain": ["3D Phases"]
+      }
+    },
+    {
+      "index": 2,
+      "slug": "toggle-on",
+      "intent": "Toggle Procedural Buildings (Phase 2) ON.",
+      "screenshot_path": "frame-002.png",
+      "assertions": {
+        "must_contain": ["Procedural Buildings"]
+      }
+    },
+    {
+      "index": 3,
+      "slug": "reload-world",
+      "intent": "Regenerate the world so the new phase takes effect.",
+      "screenshot_path": "frame-003.png"
+    },
+    {
+      "index": 4,
+      "slug": "verify-meshes",
+      "intent": "Buildings render as procedural 3D meshes; vanilla 2D sprites are replaced.",
+      "screenshot_path": "frame-004.png",
+      "assertions": {
+        "must_not_contain": ["Material needs to enable instancing", "Failed to compile", "Exception"]
+      }
+    }
+  ]
+}

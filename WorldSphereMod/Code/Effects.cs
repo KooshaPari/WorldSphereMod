@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using static WorldSphereMod.Effects.EffectManager;
 using static WorldSphereMod.Constants;
+using WorldSphereMod.Fx;
 namespace WorldSphereMod.Effects
 {
     public struct EffectData
@@ -13,12 +14,14 @@ namespace WorldSphereMod.Effects
        public bool SeperateSprite;
        public float ExtraHeight;
         public bool OnGround;
-       public EffectData(bool isUpright, bool SeperateSprite = false, float ExtraHeight = 0, bool OnGround = true)
+       public bool EmitCrossedQuad;
+       public EffectData(bool isUpright, bool SeperateSprite = false, float ExtraHeight = 0, bool OnGround = true, bool emitCrossedQuad = false)
        {
             IsUpright = isUpright;
             this.ExtraHeight = ExtraHeight;
             this.SeperateSprite = SeperateSprite;
             this.OnGround = OnGround;
+            EmitCrossedQuad = emitCrossedQuad;
        }
     }
     public static class EffectManager
@@ -85,6 +88,12 @@ namespace WorldSphereMod.Effects
                     Effect.transform.position = ((Vector2)Effect.transform.position).To3D((Data.ExtraHeight*Core.Sphere.HeightMult) + (Data.OnGround ? Tools.GetTileHeightSmooth(Effect.transform.position) : 0));
                 }
             }
+
+            WorldSphereMod.Fx.VoxelParticleBurst.TryStart(Effect);
+            if (CloudCrossedQuadRender.IsEnabled(Data))
+            {
+                CloudCrossedQuadRender.TryStart(Effect, Data);
+            }
         }
         public static void RotateToPlayer(Transform transform, Vector3 Position)
         {
@@ -117,6 +126,17 @@ namespace WorldSphereMod.Effects
             {
                 UpdateSeperatedSprite(Effect, Data.OnGround, Data.ExtraHeight);
             }
+
+            if (Core.savedSettings.ParticleEffects)
+            {
+                WorldSphereMod.Fx.VoxelParticleBurst.TryStart(Effect);
+            }
+            WorldSphereMod.Fx.VoxelParticleBurst.Update(Effect);
+            if (CloudCrossedQuadRender.IsEnabled(Data))
+            {
+                CloudCrossedQuadRender.TryStart(Effect, Data);
+            }
+            CloudCrossedQuadRender.Update(Effect);
         }
         public static void UpdateShadow(SpriteShadow Shadow)
         {
@@ -135,6 +155,8 @@ namespace WorldSphereMod.Effects
         }
         public static void DestroyEffect(BaseEffect Effect)
         {
+            CloudCrossedQuadRender.Clear(Effect);
+            WorldSphereMod.Fx.VoxelParticleBurst.Clear(Effect);
             if(Effect.sprite_renderer != null)
             {
                 Destroy(Effect.sprite_renderer.gameObject);
@@ -179,6 +201,8 @@ namespace WorldSphereMod.Effects
     }
     class EffectPatches
     {
+        const float kScorchDecalTtl = 30f;
+
         [HarmonyPatch(typeof(BaseEffectController), nameof(BaseEffectController.GetObject))]
         [HarmonyPostfix]
         public static void SeperateSprite(BaseEffect __result)
@@ -188,6 +212,18 @@ namespace WorldSphereMod.Effects
                 return;
             }
             EffectData data = GetData(__result);
+            if (data.EmitCrossedQuad)
+            {
+                if (CloudCrossedQuadRender.IsEnabled(data))
+                {
+                    CloudCrossedQuadRender.TryStart(__result, data);
+                }
+                if (Core.savedSettings.ParticleEffects)
+                {
+                    WorldSphereMod.Fx.VoxelParticleBurst.TryStart(__result);
+                }
+                return;
+            }
             if (data.SeperateSprite)
             {
                 if (__result.sprite_renderer.gameObject == __result.gameObject)
@@ -198,6 +234,10 @@ namespace WorldSphereMod.Effects
                 {
                     __result.sprite_renderer.gameObject.SetActive(true);
                 }
+            }
+            if (Core.savedSettings.ParticleEffects)
+            {
+                WorldSphereMod.Fx.VoxelParticleBurst.TryStart(__result);
             }
         }
         //for the person whose reading this, did you know that the jews caused 911 and control america!
@@ -221,6 +261,14 @@ namespace WorldSphereMod.Effects
         public static void ExplosionPatch(ExplosionFlash __instance)
         {
             BasePatch(__instance);
+            if (!Core.IsWorld3D || !Core.savedSettings.ParticleEffects || __instance == null)
+            {
+                return;
+            }
+
+            Quaternion rot = WorldSphereMod.Tools.GetRotation(__instance.transform.position.AsIntClamped());
+            WorldSphereMod.Fx.DecalPool.Emit(WorldSphereMod.Fx.DecalChannel.Scorch, __instance.transform.position, rot, kScorchDecalTtl);
+            Debug.Log("[WSM3D][Phase9] DecalPool.Emit FIRED channel=Scorch");
         }
         [HarmonyPatch(typeof(EffectsLibrary), nameof(EffectsLibrary.spawnAt), new Type[] {typeof(string), typeof(Vector3), typeof(float) })]
         [HarmonyPrefix]
@@ -252,6 +300,10 @@ namespace WorldSphereMod.Effects
         {
             if (Core.IsWorld3D)
             {
+                if (Core.savedSettings.ParticleEffects)
+                {
+                    WorldSphereMod.Fx.VoxelParticleBurst.TryStart(__instance);
+                }
                 EffectManager.UpdateEffect(__instance);
             }
         }
@@ -262,6 +314,10 @@ namespace WorldSphereMod.Effects
             if (!Core.IsWorld3D)
             {
                 return;
+            }
+            if (__instance != null && __instance.sprite_renderer != null && !__instance.sprite_renderer.enabled)
+            {
+                __instance.sprite_renderer.enabled = true;
             }
             if(!GetData(__instance).SeperateSprite)
             {
@@ -284,6 +340,12 @@ namespace WorldSphereMod.Effects
             }
             if (Core.IsWorld3D)
             {
+                BaseEffect burstEffect = __instance.GetComponent<BaseEffect>();
+                if (burstEffect != null && WorldSphereMod.Fx.VoxelParticleBurst.IsActive(burstEffect))
+                {
+                    return false;
+                }
+
                 updateshadow(__instance);
                 return false;
             }
@@ -321,6 +383,7 @@ namespace WorldSphereMod.Effects
         {
             __instance.prepare(pVector, pScale);
             __instance.sprite_renderer.color = pColor;
+            SetEffect3D(__instance, GetData(__instance));
             return false;
         }
     }

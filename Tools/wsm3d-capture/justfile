@@ -1,0 +1,7 @@
+set shell := ["powershell.exe", "-NoProfile", "-Command"]
+
+build:
+    cargo build --manifest-path {{justfile_directory()}}/Cargo.toml
+
+smoke-test:
+    $ts = Get-Date -Format "yyyyMMdd-HHmmss"; $out = "C:/Users/koosh/Dev/WorldSphereMod/docs/journeys/scratch/process-bound-test-$ts.png"; New-Item -ItemType Directory -Path (Split-Path $out) -Force | Out-Null; cargo run --manifest-path {{justfile_directory()}}/Cargo.toml -- worldbox $out

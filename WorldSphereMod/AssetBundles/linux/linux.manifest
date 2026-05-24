@@ -1,0 +1,9 @@
+ManifestFileVersion: 0
+UnityVersion: 6000.3.11f1
+CRC: 3411461381
+HashAppended: 0
+AssetBundleManifest:
+  AssetBundleInfos:
+    Info_0:
+      Name: worldsphere
+      Dependencies: {}

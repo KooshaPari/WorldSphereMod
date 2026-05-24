@@ -1,0 +1,28 @@
+name: bridge-health-vision
+output_dir: artifacts
+default_wait_seconds: 0.5
+steps:
+  - action: wait_n_frames
+    frames: 6
+    fps: 30
+    note: Brief settle after bridge is up before capture.
+  - action: screenshot
+    path: bridge-health-vision/desktop.png
+    vision:
+      required: false
+      prompt: >
+        Confirm the captured frame shows a stable 3D world view with no crash or
+        modal error dialogs. Return strict JSON with keys passes, reason, and confidence.
+      criteria:
+        stable_world_view: true
+        no_modal_error: true
+        no_crash_overlay: true
+  - action: assert_telemetry
+    required: true
+    checks:
+      - field: drawCalls
+        op: ">"
+        value: 0
+      - field: frameMs
+        op: "<"
+        value: 200

@@ -1,0 +1,21 @@
+// Phase 6 Step 6. Per-vertex rigid-skinning kernel.
+// One thread per vertex; reads bind-pose verts + per-vertex bone index + bone matrices.
+// Outputs skinned verts to a destination buffer suitable for Graphics.DrawProcedural.
+#pragma kernel CSMain
+
+StructuredBuffer<float3>   _Vertices;
+StructuredBuffer<uint>     _BoneIndices;
+StructuredBuffer<float4x4> _BoneMatrices;
+RWStructuredBuffer<float3> _SkinnedVertices;
+uint _VertexCount;
+
+[numthreads(64, 1, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    uint vid = id.x;
+    if (vid >= _VertexCount) return;
+    uint boneIdx = _BoneIndices[vid];
+    float4x4 m = _BoneMatrices[boneIdx];
+    float3 p = _Vertices[vid];
+    _SkinnedVertices[vid] = mul(m, float4(p, 1.0)).xyz;
+}

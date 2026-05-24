@@ -82,19 +82,50 @@ namespace WorldSphereMod.NewCamera
     //this manages the camera
     public static class CameraManager
     {
+        const float DefaultStrategyZoomHeight = 30f;
+        const KeyCode EmergencySnapKey = KeyCode.F12;
         public static Vector2 Position => Manager.transform.position;
         public static Transform transform => MainCamera.transform;
+        static void SnapCameraToWorldCenter()
+        {
+            Camera camera = Camera.main;
+            if (camera == null)
+            {
+                return;
+            }
+
+            Vector3 snappedPosition = new Vector3(MapBox.width * 0.5f, DefaultStrategyZoomHeight, MapBox.height * 0.5f);
+            camera.transform.position = snappedPosition;
+            camera.transform.eulerAngles = new Vector3(45f, 0f, 0f);
+            Height = DefaultStrategyZoomHeight;
+            if (Manager != null)
+            {
+                Manager._target_zoom = DefaultStrategyZoomHeight;
+            }
+            if (MainCamera != null && MainCamera != camera)
+            {
+                MainCamera.transform.position = snappedPosition;
+                MainCamera.transform.eulerAngles = new Vector3(45f, 0f, 0f);
+            }
+
+            UnityEngine.Debug.Log("[WSM3D] Emergency camera snap: centered at " + snappedPosition);
+        }
         public static void MakeCamera3D()
         {
             OriginalCamera.enabled = false;
             MainCamera.enabled = true;
             Manager.main_camera = MainCamera;
+            Height = DefaultStrategyZoomHeight;
+            MainCamera.transform.position = Core.Sphere.SpherePos(Position.x, Position.y, Height);
         }
         public static void MakeCamera2D()
         {
-            OriginalCamera.enabled = true;
-            MainCamera.enabled = false;
-            Manager.main_camera = OriginalCamera;
+            // Null-guard: Become2D fires during world-load before camera init can
+            // complete; without these guards an NRE blocks the entire load sequence
+            // (user-reported 'fail to load past 001: close windows 100%').
+            if (OriginalCamera != null) OriginalCamera.enabled = true;
+            if (MainCamera != null) MainCamera.enabled = false;
+            if (OriginalCamera != null) Manager.main_camera = OriginalCamera;
         }
         public static Texture GetSkyboxTexture()
         {
@@ -126,6 +157,11 @@ namespace WorldSphereMod.NewCamera
         {
             if (!Core.IsWorld3D)
             {
+                return;
+            }
+            if (Input.GetKeyDown(EmergencySnapKey))
+            {
+                SnapCameraToWorldCenter();
                 return;
             }
             MainCamera.transform.position = Core.Sphere.SpherePos(Position.x, Position.y, Height);
@@ -251,7 +287,7 @@ namespace WorldSphereMod.NewCamera
             Vector2 tPos = ControllableUnit._unit_main.current_position;
             Vector3 tCam = World.world.camera.transform.position;
             tCam.x = tPos.x;
-            tCam.y = tPos.y;
+            tCam.y = Height;
             if (!Core.savedSettings.FirstPerson && Core.IsWorld3D)
             {
                 tCam += (Vector3)GetMovementVector(-Height/2, true);
@@ -393,6 +429,9 @@ namespace WorldSphereMod.NewCamera
         }
         static void ResetZoom()
         {
+            // Null-guard: centerCamera fires during world-gen cleanUpWorld; Manager
+            // + main_camera may not be fully wired yet -> NRE blocks load.
+            if (Manager == null || Manager.main_camera == null || World.world == null) return;
             int tInitialZoom;
             if (Screen.width < Screen.height)
             {
@@ -423,10 +462,17 @@ namespace WorldSphereMod.NewCamera
         }
         static bool Prefix()
         {
-            if (Core.savedSettings.Is3D)
+            try
             {
-                ResetZoom();
-                return false;
+                if (Core.savedSettings != null && Core.savedSettings.Is3D)
+                {
+                    ResetZoom();
+                    return false;
+                }
+            }
+            catch (System.Exception ex)
+            {
+                UnityEngine.Debug.LogWarning("[WSM3D] Size3D.Prefix: " + ex.Message + " - falling back to vanilla");
             }
             return true;
         }
@@ -459,10 +505,13 @@ namespace WorldSphereMod.NewCamera
         {
             CodeMatcher Matcher = new CodeMatcher(instructions);
             Matcher.MatchForward(false, new CodeMatch(OpCodes.Call, AccessTools.Method(typeof(InputHelpers), nameof(InputHelpers.GetMouseButton))));
+            if (Matcher.Pos < 0 || Matcher.IsInvalid)
             {
-                Matcher.RemoveInstruction();
-                Matcher.Insert(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(UpdateVelocity), nameof(GetMouseIf2D))));
+                global::UnityEngine.Debug.LogWarning("[WSM3D] UpdateVelocity transpiler: InputHelpers.GetMouseButton not found in vanilla IL — skipping");
+                return instructions;
             }
+            Matcher.RemoveInstruction();
+            Matcher.Insert(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(UpdateVelocity), nameof(GetMouseIf2D))));
             return Matcher.Instructions();
         }
         public static bool GetMouseIf2D(int pButton)

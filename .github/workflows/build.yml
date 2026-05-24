@@ -1,0 +1,48 @@
+name: build
+
+on:
+  push:
+    branches: [ main, "claude/**" ]
+  pull_request:
+
+jobs:
+  dotnet-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 5.0.x
+
+      - name: Setup .NET SDK for tests
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # WorldBox reference DLLs are not available on hosted runners. Placeholders
+      # satisfy HintPath resolution only; see docs/ci-mod-compile-gap.md.
+      - name: Stub WorldBox reference DLLs
+        shell: bash
+        run: bash Tools/ci-stub-worldbox-refs.sh
+
+      - name: Build WorldSphereAPI (blocking gate)
+        run: dotnet build WorldSphereAPI.csproj -c Release
+
+      # Main mod compile needs real game/NML metadata — zero-byte stubs cannot
+      # produce a loadable DLL. Kept as best-effort signal until stub generation
+      # or a self-hosted runner with WORLDBOX_PATH is wired up.
+      - name: Build mod (best-effort — see docs/ci-mod-compile-gap.md)
+        continue-on-error: true
+        run: dotnet build WorldSphereMod.csproj -c Release
+
+      - name: Discover coverage-focused E2E tests
+        run: |
+          dotnet test tests/WorldSphereMod.Tests.E2E/WorldSphereMod.Tests.E2E.csproj \
+            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests|FullyQualifiedName~CiWorkflowInvariantsTests" \
+            --list-tests
+
+      - name: Run coverage-focused E2E tests
+        run: |
+          dotnet test tests/WorldSphereMod.Tests.E2E/WorldSphereMod.Tests.E2E.csproj \
+            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests|FullyQualifiedName~CiWorkflowInvariantsTests"

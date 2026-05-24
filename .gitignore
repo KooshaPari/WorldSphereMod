@@ -1,3 +1,50 @@
-/.vs
-/obj
-/bin
+.vs
+**/obj/
+**/bin/
+tmp_*
+*.tmp
+**/screenshots/
+
+# VitePress
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
+# docs npm audit (dependency-security-audit workflow / local `npm audit` in docs/)
+docs/audit-report.json
+
+# Tools/wsm3d-stats.ps1 generated dashboard
+docs/dashboard.md
+
+# npm
+**/node_modules/
+
+# Vercel
+.vercel/
+
+# tools cache (phenotype-journeys build, etc.)
+tools/.cache/
+tools/journey-records/target/
+tools/wsm-log-parser/target/
+Tools/wsm-log-parser/target/
+
+# Rust build artifacts
+Tools/**/target/
+
+# Codex worker scratch
+.codex-*.out
+.codex-wave*.log
+
+# Tool session logs
+Tools/*.log
+Tools/bake-shaders.log
+Tools/.reports/
+Tools/wsm3d-playcua/__pycache__/
+
+# Unity local boot config
+Tools/Unity-Bake-Project/ProjectSettings/boot.config
+
+# Auto-screenshot diagnostic captures (large + accumulate fast; baseline kept in commits)
+docs/journeys/scratch/in-mod-*.png
+Tools/Unity-Bake-Project/Library/
+Tools/Unity-Bake-Project/Logs/
+Tools/Unity-Bake-Project/Temp/

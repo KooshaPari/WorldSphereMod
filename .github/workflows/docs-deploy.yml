@@ -1,0 +1,77 @@
+name: docs-deploy
+
+# Deploys the VitePress docs site to GitHub Pages.
+#
+# Triggers:
+#   - push to the active dev branch (claude/research-ultraplan-fork-DdgI5)
+#     or main, when docs/** changes.
+#   - workflow_dispatch for manual deploys.
+#
+# Pages target URL: https://kooshapari.github.io/WorldSphereMod/
+#
+# Repo setup required (one time): in GitHub repo Settings -> Pages, set
+# "Build and deployment -> Source" to "GitHub Actions".
+
+on:
+  push:
+    branches:
+      - main
+      - claude/research-ultraplan-fork-DdgI5
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build VitePress site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install dependencies
+        working-directory: docs
+        run: npm ci
+
+      - name: Build docs
+        working-directory: docs
+        run: npm run docs:build
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/.vitepress/dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

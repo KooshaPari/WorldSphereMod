@@ -1,0 +1,57 @@
+name: phase-6-skeletal-animation
+output_dir: artifacts
+default_wait_seconds: 1
+steps:
+  - action: load_save
+    slot: 2
+    note: Load baseline save with humanoid actors for skeletal verification.
+  - action: wait_n_frames
+    frames: 12
+    fps: 30
+  - action: health
+    required: true
+    expect_is_world_3d: true
+    note: Bridge health before phase toggle.
+  - action: assert_telemetry
+    required: true
+    note: Game must be rendering before phase toggle.
+    checks:
+      - field: drawCalls
+        op: ">"
+        value: 0
+      - field: frameMs
+        op: "<"
+        value: 200
+  - action: toggle_flag
+    key: SkeletalAnimation
+    value: true
+    note: Enable Phase 6 skeletal rig driver for voxel actors in SavedSettings.
+  - action: wait_n_frames
+    frames: 24
+    fps: 30
+    note: Allow rig bind and skinned voxel mesh emit after phase toggle.
+  - action: screenshot
+    path: phase-6-skeletal-animation/actors-rig.png
+    vision:
+      required: true
+      prompt: >
+        Validate that humanoid voxel actors show proper limbed body silhouettes with
+        skeletal animation (walk or idle poses), not sparse tri-dot static meshes,
+        with no obvious UI crash indicators or shader compile error banners.
+        Return strict JSON with keys passes, reason, and confidence.
+      criteria:
+        must_show_skeletal_animation: true
+        no_error_dialog: true
+        no_shader_compile_banner: true
+  - action: assert_telemetry
+    required: true
+    checks:
+      - field: drawCalls
+        op: ">"
+        value: 0
+      - field: frameMs
+        op: "<"
+        value: 50
+      - field: instances
+        op: ">"
+        value: 10

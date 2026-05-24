@@ -1,0 +1,25 @@
+ManifestFileVersion: 0
+CRC: 731046349
+Hashes:
+  AssetFileHash:
+    serializedVersion: 2
+    Hash: 7919cf3b197fb7f9d9d1775b38b631a0
+  TypeTreeHash:
+    serializedVersion: 2
+    Hash: 87b0bba9d18ffc75f60c50b410bd4a4e
+  IncrementalBuildHash:
+    serializedVersion: 2
+    Hash: 7919cf3b197fb7f9d9d1775b38b631a0
+HashAppended: 0
+ClassTypes:
+- Class: 48
+  Script: {instanceID: 0}
+SerializeReferenceClassIdentifiers: []
+Assets:
+- Assets/WSM3D/Shaders/OpaqueVertexColor.shader
+- Assets/WSM3D/Shaders/GerstnerWater.shader
+- Assets/WSM3D/Shaders/Impostor.shader
+- Assets/WSM3D/Shaders/ProceduralSky.shader
+- Assets/WSM3D/Shaders/ColorGradingLUT.shader
+- Assets/WSM3D/Shaders/ScreenSpaceAO.shader
+Dependencies: []

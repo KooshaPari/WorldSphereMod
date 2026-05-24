@@ -1,0 +1,26 @@
+{
+  "id": "smoke-test-phase6",
+  "intent": "In-game smoke-test gate for Phase 6 (SkeletalAnimation). Full checklist: docs/smoke-test-phase6.md",
+  "keyframe_count": 3,
+  "passed": false,
+  "steps": [
+    {
+      "index": 0,
+      "slug": "before",
+      "intent": "SkeletalAnimation=false with prior phases on. Capture with `wsm3d screenshot phase 6 -Name before` (see docs/smoke-test-phase6.md).",
+      "screenshot_path": "frame-000.png"
+    },
+    {
+      "index": 1,
+      "slug": "after",
+      "intent": "SkeletalAnimation=true, same scene and camera. Capture with `wsm3d screenshot phase 6 -Name after` (docs/smoke-test-phase6.md).",
+      "screenshot_path": "frame-001.png"
+    },
+    {
+      "index": 2,
+      "slug": "skeletal",
+      "intent": "Animated voxel actor closeup. Capture with `wsm3d screenshot phase 6 -Name skeletal` (docs/smoke-test-phase6.md).",
+      "screenshot_path": "frame-002.png"
+    }
+  ]
+}

@@ -78,6 +78,17 @@ namespace WorldSphereMod.TileMapToSphere
             }
             return true;
         }
+        static void Postfix()
+        {
+            if (Core.GeneratingSphere)
+            {
+                return;
+            }
+            if (Core.IsWorld3D && Core.savedSettings.BiomeBlending)
+            {
+                TileMapToSphere.MarkBiomeBlendDirty();
+            }
+        }
     }
     public class TileQueue
     {
@@ -127,6 +138,7 @@ namespace WorldSphereMod.TileMapToSphere
     [HarmonyPatch(typeof(WorldTilemap), nameof(WorldTilemap.redrawTiles))]
     public static class TileMapToSphere
     {
+        static bool _biomeBlendDirty;
         public static void AddToQueue(WorldTile pTile)
         {
             ScaleQueue.AddTile(pTile);
@@ -164,6 +176,10 @@ namespace WorldSphereMod.TileMapToSphere
             TextureQueue?.Dispose();
             ScaleQueue?.Dispose();
         }
+        public static void MarkBiomeBlendDirty()
+        {
+            _biomeBlendDirty = true;
+        }
         public static bool Prefix(bool pForceAll)
         {
             if (Core.GeneratingSphere && pForceAll)
@@ -173,6 +189,7 @@ namespace WorldSphereMod.TileMapToSphere
             }
             return true;
         }
+
         static void CheckScales(TileZone pZone)
         {
             if (!ScaleQueue.HasZone(pZone))
@@ -243,6 +260,11 @@ namespace WorldSphereMod.TileMapToSphere
                 checkZoneToRender(tZone2);
             }
             Finish();
+            if (_biomeBlendDirty && Core.savedSettings.BiomeBlending)
+            {
+                _biomeBlendDirty = false;
+                Core.Sphere.RefreshColors();
+            }
         }
         static void Finish()
         {
@@ -318,6 +340,7 @@ namespace WorldSphereMod.TileMapToSphere
                 Bench.bench("Refresh Sphere", "game_total");
                 if (Core.IsWorld3D)
                 {
+                    // Upstream terrain mesh source: SphereManager.Refresh* / Sphere.RefreshSphere().
                     Core.Sphere.RefreshSphere();
                 }
                 Bench.benchEnd("Refresh Sphere", "game_total");
@@ -341,79 +364,101 @@ namespace WorldSphereMod.TileMapToSphere
         [HarmonyTranspiler]
         public static IEnumerable<CodeInstruction> WorldTranspiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
         {
-            CodeMatcher Matcher = new CodeMatcher(instructions, generator);
-            while (Matcher.FindNext(FindPixels))
-            {
-                Matcher.RemoveInstruction();
-                Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, GetPixel));
-                Matcher.Advance(-2);
-                CodeInstruction instruct = Matcher.Instruction;
-                Matcher.Insert(new CodeInstruction(OpCodes.Ldsfld, Pixels));
-                Tools.MoveLabels(instruct, Matcher.Instruction);
-                Matcher.MatchForward(false, FindStelem);
-                Matcher.RemoveInstruction();
-                Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, SetPixel));
-            }
-            return Matcher.Instructions();
+            try {
+                CodeMatcher Matcher = new CodeMatcher(instructions, generator);
+                while (Matcher.FindNext(FindPixels))
+                {
+                    Matcher.RemoveInstruction();
+                    Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, GetPixel));
+                    Matcher.Advance(-2);
+                    CodeInstruction instruct = Matcher.Instruction;
+                    Matcher.Insert(new CodeInstruction(OpCodes.Ldsfld, Pixels));
+                    Tools.MoveLabels(instruct, Matcher.Instruction);
+                    Matcher.MatchForward(false, FindStelem);
+                    if (Matcher.Pos < 0 || Matcher.IsInvalid) { global::UnityEngine.Debug.LogWarning("[WSM3D] WorldTranspiler: Stelem not found — partial transpile"); break; }
+                    Matcher.RemoveInstruction();
+                    Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, SetPixel));
+                }
+                return Matcher.Instructions();
+            } catch (System.Exception ex) { global::UnityEngine.Debug.LogWarning("[WSM3D] WorldTranspiler failed: " + ex.GetType().Name + " — returning original"); return instructions; }
         }
         //this transpiler replaces all references in a maplayer from its color array to a custom color array that tracks the changes made
         public static IEnumerable<CodeInstruction> MapLayerTranspiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
         {
-            CodeMatcher Matcher = new CodeMatcher(instructions, generator);
-            while (Matcher.FindNext(FindPixels))
-            {
+            try {
+                CodeMatcher Matcher = new CodeMatcher(instructions, generator);
+                while (Matcher.FindNext(FindPixels))
+                {
+                    Matcher.RemoveInstruction();
+                    Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, GetPixel));
+                    Matcher.Advance(-1);
+                    CodeInstruction instruct = Matcher.Instruction;
+                    Matcher.Insert(new CodeInstruction(OpCodes.Ldsfld, Pixels));
+                    Tools.MoveLabels(instruct, Matcher.Instruction);
+                    Matcher.MatchForward(false, FindStelem);
+                    if (Matcher.Pos < 0 || Matcher.IsInvalid) { global::UnityEngine.Debug.LogWarning("[WSM3D] MapLayerTranspiler: Stelem not found — partial transpile"); break; }
+                    Matcher.RemoveInstruction();
+                    Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, SetPixel));
+                }
+                return Matcher.Instructions();
+            } catch (System.Exception ex) { global::UnityEngine.Debug.LogWarning("[WSM3D] MapLayerTranspiler failed: " + ex.GetType().Name + " — returning original"); return instructions; }
+        }
+        //why maxim
+        public static IEnumerable<CodeInstruction> ZoneLayerTranspiler(IEnumerable<CodeInstruction> instructions)
+        {
+            try {
+                CodeMatcher Matcher = new CodeMatcher(instructions);
+                Matcher.MatchForward(false, FindPixels);
+                if (Matcher.Pos < 0 || Matcher.IsInvalid) { global::UnityEngine.Debug.LogWarning("[WSM3D] ZoneLayerTranspiler: pixels field not found — skipping"); return instructions; }
                 Matcher.RemoveInstruction();
                 Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, GetPixel));
                 Matcher.Advance(-1);
                 CodeInstruction instruct = Matcher.Instruction;
                 Matcher.Insert(new CodeInstruction(OpCodes.Ldsfld, Pixels));
                 Tools.MoveLabels(instruct, Matcher.Instruction);
-                Matcher.MatchForward(false, FindStelem);
-                Matcher.RemoveInstruction();
-                Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, SetPixel));
-            }
-            return Matcher.Instructions();
-        }
-        //why maxim
-        public static IEnumerable<CodeInstruction> ZoneLayerTranspiler(IEnumerable<CodeInstruction> instructions)
-        {
-            CodeMatcher Matcher = new CodeMatcher(instructions);
-            Matcher.MatchForward(false, FindPixels);
-            Matcher.RemoveInstruction();
-            Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, GetPixel));
-            Matcher.Advance(-1);
-            CodeInstruction instruct = Matcher.Instruction;
-            Matcher.Insert(new CodeInstruction(OpCodes.Ldsfld, Pixels));
-            Tools.MoveLabels(instruct, Matcher.Instruction);
-            while (Matcher.FindNext(FindStelem))
-            {
-                Matcher.RemoveInstruction();
-                Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, SetPixel));
-            }
-            return Matcher.Instructions();
+                while (Matcher.FindNext(FindStelem))
+                {
+                    Matcher.RemoveInstruction();
+                    Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, SetPixel));
+                }
+                return Matcher.Instructions();
+            } catch (System.Exception ex) { global::UnityEngine.Debug.LogWarning("[WSM3D] ZoneLayerTranspiler failed: " + ex.GetType().Name + " — returning original"); return instructions; }
         }
         //why the fuck maxim
         public static IEnumerable<CodeInstruction> AVerySpecificTranspiler(IEnumerable<CodeInstruction> instructions)
         {
-            CodeMatcher Matcher = new CodeMatcher(instructions);
-            Matcher.MatchForward(false, new CodeMatch(OpCodes.Ldelem));
-            Matcher.RemoveInstruction();
-            Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(PixelArray), "get_Item")));
-            return Matcher.Instructions();
+            try {
+                CodeMatcher Matcher = new CodeMatcher(instructions);
+                Matcher.MatchForward(false, new CodeMatch(OpCodes.Ldelem));
+                if (Matcher.Pos < 0 || Matcher.IsInvalid) { global::UnityEngine.Debug.LogWarning("[WSM3D] AVerySpecificTranspiler: Ldelem not found — skipping"); return instructions; }
+                Matcher.RemoveInstruction();
+                Matcher.Insert(new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(PixelArray), "get_Item")));
+                return Matcher.Instructions();
+            } catch (System.Exception ex) { global::UnityEngine.Debug.LogWarning("[WSM3D] AVerySpecificTranspiler failed: " + ex.GetType().Name + " — returning original"); return instructions; }
         }
         [HarmonyPatch(typeof(MapLayer), nameof(MapLayer.clear))]
         [HarmonyPrefix]
         static bool ClearPatch(MapLayer __instance)
         {
-            if (__instance.pixels != null)
+            // Null-guards: clearWorld fires during world generation BEFORE
+            // Core.Sphere + CachedColors are initialized. Without these guards
+            // an NRE here blocks the load sequence ('005: Becoming 2D!' loop).
+            if (__instance == null || __instance.pixels == null) return false;
+            if (Core.Sphere.CachedColors == null) return true;
+            PixelArray buf;
+            if (!Core.Sphere.CachedColors.TryGetValue(__instance, out buf) || buf == null) return true;
+            try
             {
-                __instance.pixels_to_update.Clear();
-                Color32 color = Color.clear;
-                for (int i = 0; i < __instance.pixels.Length; i++)
-                {
-                    Core.Sphere.CachedColors[__instance][i] = color;
-                }
+                if (__instance.pixels_to_update != null) __instance.pixels_to_update.Clear();
+                UnityEngine.Color32 color = UnityEngine.Color.clear;
+                int n = __instance.pixels.Length;
+                for (int i = 0; i < n; i++) buf[i] = color;
                 __instance.updatePixels();
+            }
+            catch (System.Exception ex)
+            {
+                UnityEngine.Debug.LogWarning("[WSM3D] ClearPatch: " + ex.Message + " - falling back to vanilla");
+                return true;
             }
             return false;
         }
@@ -437,9 +482,23 @@ namespace WorldSphereMod.TileMapToSphere
             int num = __instance.texture.height * __instance.texture.width;
             Color32 color = Color.clear;
             __instance.pixels = new Color32[num];
+            // Lazy-init Core.Sphere.CachedColors entry for this MapLayer if
+            // missing. User saw pale-blue blank world because this loop NREd
+            // when CachedColors[__instance] was null/missing, aborting MapBox
+            // texture init mid-recreateSizes → terrain tiles render with no
+            // texture → pale-blue fallback.
+            if (Core.Sphere.CachedColors == null)
+            {
+                Core.Sphere.CachedColors = new System.Collections.Generic.Dictionary<MapLayer, PixelArray>();
+            }
+            if (!Core.Sphere.CachedColors.TryGetValue(__instance, out PixelArray cached) || cached == null)
+            {
+                PixelArray.AddLayer(__instance, 0);
+                cached = Core.Sphere.CachedColors[__instance];
+            }
             for (int i = 0; i < num; i++)
             {
-                Core.Sphere.CachedColors[__instance][i] = color;
+                cached[i] = color;
             }
             __instance.updatePixels();
             return false;

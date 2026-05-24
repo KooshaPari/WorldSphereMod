@@ -1,0 +1,33 @@
+language: en
+reviews:
+  profile: chill
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: true
+  path_filters:
+    - bin/**
+    - obj/**
+    - tools/.cache/**
+    - "**/*.dll"
+    - "**/*.pdb"
+    - "**/AssetBundles/**"
+    - "**/GameResources/**/*.png"
+    - "docs/journeys/manifests/**/frame-*.png"
+  path_instructions:
+    - path: "WorldSphereMod/Code/Voxel/**"
+      instructions: "Review Phase 1 rendering changes for instancing correctness + sprite-hide gating."
+    - path: "Tools/wsm3d-mcp/**"
+      instructions: "Python MCP server; check async signatures + stderr/stdout discipline."
+    - path: "Tools/wsm3d.ps1"
+      instructions: "PowerShell CLI; check param() blocks + path handling."
+    - path: "tests/**"
+      instructions: "xUnit tests; check FluentAssertions usage + static-text-based assertions for Unity-dep classes."
+    - path: "docs/journeys/manifests/**"
+      instructions: "JSON manifests for phenotype journeys; check schema compliance."
+    - path: ".github/workflows/**"
+      instructions: "CI; pin action majors, no inline shell logic."
+chat:
+  auto_reply: true

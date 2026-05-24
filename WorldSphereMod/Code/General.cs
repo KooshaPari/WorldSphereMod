@@ -177,19 +177,24 @@ namespace WorldSphereMod.General
     {
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
-            CodeMatcher Matcher = new CodeMatcher(instructions);
-            Matcher.MatchForward(false, new CodeMatch(OpCodes.Call, AccessTools.Method(typeof(Vector2), nameof(Vector2.Lerp))));
-            Matcher.RemoveInstruction();
-            Matcher.Insert(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Tools.MathStuff), nameof(Tools.MathStuff.Lerp3D))));
-            return Matcher.Instructions();
+            try {
+                CodeMatcher Matcher = new CodeMatcher(instructions);
+                Matcher.MatchForward(false, new CodeMatch(OpCodes.Call, AccessTools.Method(typeof(Vector2), nameof(Vector2.Lerp))));
+                if (Matcher.Pos < 0 || Matcher.IsInvalid) { global::UnityEngine.Debug.LogWarning("[WSM3D] Lerp3D transpiler: Vector2.Lerp not found — skipping"); return instructions; }
+                Matcher.RemoveInstruction();
+                Matcher.Insert(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Tools.MathStuff), nameof(Tools.MathStuff.Lerp3D))));
+                return Matcher.Instructions();
+            } catch (System.Exception ex) { global::UnityEngine.Debug.LogWarning("[WSM3D] Lerp3D transpiler failed: " + ex.GetType().Name + " — returning original IL"); return instructions; }
         }
     }
     public class Move3D
     {
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
+            try {
             CodeMatcher Matcher = new CodeMatcher(instructions);
             Matcher.MatchForward(false, new CodeMatch((CodeInstruction instruct) => instruct.opcode == OpCodes.Call && instruct.operand is MethodInfo info && info.Name == "MoveTowards"));
+            if (Matcher.Pos < 0 || Matcher.IsInvalid) { global::UnityEngine.Debug.LogWarning("[WSM3D] Move3D transpiler: MoveTowards Call not found — skipping"); return instructions; }
             if ((Matcher.Operand as MethodInfo).DeclaringType == typeof(Vector2))
             {
                 Matcher.RemoveInstruction();
@@ -201,6 +206,7 @@ namespace WorldSphereMod.General
                 Matcher.Insert(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Tools), nameof(Tools.MoveTowardsV3))));
             }
             return Matcher.Instructions();
+            } catch (System.Exception ex) { global::UnityEngine.Debug.LogWarning("[WSM3D] Move3D transpiler failed: " + ex.GetType().Name + " — returning original"); return instructions; }
         }
     }
     [HarmonyPatch(typeof(PlayerControl), nameof(PlayerControl.getMousePos))]
@@ -405,6 +411,11 @@ namespace WorldSphereMod.General
         {
             CodeMatcher Matcher = new CodeMatcher(instructions);
             Matcher.MatchForward(false, new CodeMatch(OpCodes.Callvirt, setpos));
+            if (Matcher.Pos < 0 || Matcher.IsInvalid)
+            {
+                global::UnityEngine.Debug.LogWarning("[WSM3D] DontShowPossessedUnit transpiler: Actor.isInsideSomething Callvirt not found in vanilla IL — skipping");
+                return instructions;
+            }
             Matcher.RemoveInstruction();
             Matcher.Insert(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(DontShowPossessedUnit), nameof(IsVisible))));
             return Matcher.Instructions();

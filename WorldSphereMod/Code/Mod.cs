@@ -1,7 +1,10 @@
-﻿using CompoundSpheres;
+using CompoundSpheres;
 using NeoModLoader.api;
 using NeoModLoader.constants;
+using NeoModLoader.utils;
+using System.Collections;
 using System.IO;
+using System.Reflection;
 using UnityEngine;
 using WorldSphereMod;
     public class Mod : MonoBehaviour, IMod, IStagedLoad, ILocalizable
@@ -18,11 +21,48 @@ using WorldSphereMod;
     {
         declare = pModDecl;
         Object = pGameObject;
-        if (!SystemInfo.supportsInstancing || !SystemInfo.supportsComputeShaders || !SystemInfo.supportsIndirectArgumentsBuffer)
+        WorldSphereMod.Rig.RigDriver.Clear();
+        if (!SystemInfo.supportsInstancing)
         {
             throw new IncompatibleHardwareException();
         }
+        if (!SystemInfo.supportsComputeShaders || !SystemInfo.supportsIndirectArgumentsBuffer)
+        {
+            Debug.LogWarning("[WSM3D] Compute/IndirectArgs not supported; impostor-only mode.");
+            WorldSphereMod.LOD.LodSelector.ImpostorOnlyMode = true;
+        }
+        WorldSphereMod.Bridge.BridgeServer.EnsureCreated();
+        IsAutoTest = System.Environment.GetEnvironmentVariable("WSM3D_AUTOTEST") == "1"
+                    || (Core.savedSettings != null && Core.savedSettings.AutoTest);
     }
+
+    public static void LogAssetBundleInventory(WrappedAssetBundle bundle)
+    {
+        if (bundle == null)
+        {
+            return;
+        }
+
+        var assetBundleField = typeof(WrappedAssetBundle).GetField("assetBundle", BindingFlags.NonPublic | BindingFlags.Instance);
+        var assetBundle = assetBundleField?.GetValue(bundle);
+        if (assetBundle == null)
+        {
+            return;
+        }
+
+        var loadAllAssets = assetBundle.GetType().GetMethod("LoadAllAssets", BindingFlags.Public | BindingFlags.Instance, null, System.Type.EmptyTypes, null);
+        var assets = loadAllAssets?.Invoke(assetBundle, null) as UnityEngine.Object[];
+        if (assets == null)
+        {
+            return;
+        }
+
+        foreach (var asset in assets)
+        {
+            Debug.Log("[WSM3D] worldsphere bundle asset: " + asset.name);
+        }
+    }
+
     public string GetUrl()
     {
         return "https://github.com/MelvinShwuaner?tab=repositories";
@@ -30,12 +70,126 @@ using WorldSphereMod;
 
     public void Init()
     {
-        Core.Init();
+        InitProfiler.Measure("Core.Init", () => { try { Core.Init(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] Core.Init FAILED: " + ex + System.Environment.NewLine + ex.StackTrace); } });
+        bool profileMode = false;
+        foreach (var arg in System.Environment.GetCommandLineArgs())
+        {
+            if (string.Equals(arg, "--profile-mode", System.StringComparison.OrdinalIgnoreCase))
+            {
+                profileMode = true;
+                break;
+            }
+        }
+        if (profileMode && !Core.savedSettings.ProfilerDump)
+        {
+            Core.savedSettings.ProfilerDump = true;
+            Core.SaveSettings();
+            Debug.Log("[WSM3D] --profile-mode detected; enabling ProfilerDump for overlay and frame profiler.");
+        }
+        if (Object != null)
+        {
+            InitProfiler.Measure("ScheduleDeferredInit", ScheduleDeferredInit);
+        }
     }
 
-    public void PostInit()
+    void ScheduleDeferredInit()
     {
+        if (Object == null || Object.GetComponent<DeferredInitRunner>() != null)
+        {
+            return;
+        }
+
+        Object.AddComponent<DeferredInitRunner>();
+    }
+
+    sealed class DeferredInitRunner : MonoBehaviour
+    {
+        bool _started;
+
+        void Awake()
+        {
+            if (_started)
+            {
+                return;
+            }
+
+            _started = true;
+            StartCoroutine(Run());
+        }
+
+        IEnumerator Run()
+        {
+            yield return null;
+
+            // Phase 1: per-frame flush driver for batched voxel mesh draw calls.
+            // No-op when SavedSettings.VoxelEntities is false (Flush early-returns
+            // until a material is resolved on first Submit).
+            if (Object != null && Object.GetComponent<WorldSphereMod.Voxel.VoxelFrameDriver>() == null)
+            {
+                InitProfiler.Measure("AddComponent: VoxelFrameDriver", () =>
+                {
+                    try { Object.AddComponent<WorldSphereMod.Voxel.VoxelFrameDriver>(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] VoxelFrameDriver FAILED: " + ex); }
+                });
+                yield return null;
+            }
+            if (Object != null && Object.GetComponent<WorldSphereMod.Perf.ProfilerFrameDriver>() == null)
+            {
+                InitProfiler.Measure("AddComponent: ProfilerFrameDriver", () =>
+                {
+                    Object.AddComponent<WorldSphereMod.Perf.ProfilerFrameDriver>();
+                });
+                yield return null;
+            }
+            if (Object != null && Object.GetComponent<WorldSphereMod.Foliage.WindSwayDriver>() == null)
+            {
+                InitProfiler.Measure("AddComponent: WindSwayDriver", () =>
+                {
+                    Object.AddComponent<WorldSphereMod.Foliage.WindSwayDriver>();
+                });
+                yield return null;
+            }
+            // Phase 7 Step 1: rig-tracker MonoBehaviour. EnsureCreated is idempotent
+            // and gated on IsWorld3D && WorldspaceUI internally.
+            InitProfiler.Measure("EnsureCreated: WorldUIRenderer", () => { try { WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] WorldUIRenderer FAILED: " + ex); } });
+            yield return null;
+            if (Core.savedSettings != null && Core.savedSettings.ProfilerDump)
+            {
+                InitProfiler.Measure("EnsureCreated: RuntimeStatsOverlay", () => { try { WorldSphereMod.Worldspace.RuntimeStatsOverlay.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] RuntimeStatsOverlay FAILED: " + ex); } });
+            }
+            yield return null;
+            InitProfiler.Measure("EnsureCreated: TimeOfDay", () => { try { WorldSphereMod.Lighting.TimeOfDay.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] TimeOfDay FAILED: " + ex); } });
+            yield return null;
+            InitProfiler.Measure("EnsureCreated: ProceduralSky", () => { try { WorldSphereMod.Lighting.ProceduralSky.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] ProceduralSky FAILED: " + ex); } });
+            yield return null;
+            InitProfiler.Measure("EnsureCreated: CubemapLighting", () => { try { WorldSphereMod.Lighting.CubemapLighting.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] CubemapLighting FAILED: " + ex); } });
+            yield return null;
+            InitProfiler.Measure("EnsureCreated: ColorGradingLUT", () => { try { WorldSphereMod.Lighting.ColorGradingLUT.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] ColorGradingLUT FAILED: " + ex); } });
+            yield return null;
+            InitProfiler.Measure("EnsureCreated: ScreenSpaceAO", () => { try { WorldSphereMod.PostFx.ScreenSpaceAO.ApplySetting(Core.savedSettings != null && Core.savedSettings.SSAOEnabled); } catch (System.Exception ex) { Debug.LogError("[WSM3D] ScreenSpaceAO FAILED: " + ex); } });
+            yield return null;
+            InitProfiler.Measure("EnsureCreated: ScreenSpaceGI", () => { try { WorldSphereMod.PostFx.ScreenSpaceGI.ApplySetting(Core.savedSettings != null && Core.savedSettings.SSGIEnabled); } catch (System.Exception ex) { Debug.LogError("[WSM3D] ScreenSpaceGI FAILED: " + ex); } });
+            yield return null;
+            InitProfiler.Measure("EnsureCreated: WeatherDriver", () => { try { WorldSphereMod.Weather.WeatherDriver.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] WeatherDriver FAILED: " + ex); } });
+        }
+    }
+
+public void PostInit()
+{
+        // Re-create bridge if it died during scene transition (DontDestroyOnLoad
+        // doesn't survive LoadSceneMode.Single). EnsureCreated is idempotent.
+        WorldSphereMod.Bridge.BridgeServer.EnsureCreated();
+        WorldSphereMod.Renderer.WSM3DRenderer.EnsureCreated();
         Core.PostInit();
+        if (Object != null && Object.GetComponent<WorldSphereMod.AutoScreenshotDriver>() == null)
+        {
+            Object.AddComponent<WorldSphereMod.AutoScreenshotDriver>();
+        }
+        if (!IsAutoTest && Core.savedSettings != null && Core.savedSettings.AutoTest)
+        {
+            IsAutoTest = true;
+        }
+        if (Core.savedSettings.DebugSpawnBuildings && Object != null && Object.GetComponent<WorldSphereMod.ProcGen.DebugSpawnBuildingsDriver>() == null) Object.AddComponent<WorldSphereMod.ProcGen.DebugSpawnBuildingsDriver>();
+        if (IsAutoTest && Object != null && Object.GetComponent<AutoTestDriver>() == null) Object.AddComponent<AutoTestDriver>();
     }
 
     public string GetLocaleFilesDirectory(ModDeclare pModDeclare)
@@ -51,5 +205,7 @@ using WorldSphereMod;
     }
 
     public static GameObject Object;
+    public static bool IsAutoTest;
     static ModDeclare declare;
 }
+ 
