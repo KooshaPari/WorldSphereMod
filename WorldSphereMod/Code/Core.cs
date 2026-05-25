@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using HarmonyLib;
@@ -447,23 +448,22 @@ namespace WorldSphereMod
         } 
         public static void Become3D()
         {
-            // Wrap each step in try/catch so a NRE in any single subsystem (notably
-            // CompoundSpheres.SphereManager.Init at line 107 — Melvin's library
-            // throws when called too early or with stale state) does not break the
-            // SmoothLoader retry loop.
+            // Sphere.Begin starts a coroutine that spreads tile+buffer init
+            // across frames; the onCreated callback fires once the Manager
+            // exists (before buffers finish) and triggers the remaining 3D
+            // subsystem setup. DrawTiles is gated on Manager.IsReady so
+            // rendering waits for buffer uploads to complete.
             try { Sphere.Begin(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogError("[WSM3D] Sphere.Begin failed: " + ex); }
+        }
+        static void FinishBecome3D()
+        {
             try { CameraManager.MakeCamera3D(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] MakeCamera3D failed: " + ex.Message); }
             try { WorldSphereMod.Lighting.CubemapLighting.EnsureCreated(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] CubemapLighting failed: " + ex.Message); }
             try { WorldSphereMod.PostFx.WSM3DPostStack.EnsureCreated(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] WSM3DPostStack failed: " + ex.Message); }
-            // Drive ProceduralSky.EnsureCreated AFTER IsWorld3D has flipped true.
-            // The earlier InitProfiler-wrapped call during Mod.Init early-returns
-            // because Core.IsWorld3D is still false at that point — so the skybox
-            // bind never happens. This is the diagnosed root cause of "HDR cubemap
-            // not visible despite flag=true" 2026-05-22.
             try { WorldSphereMod.Lighting.ProceduralSky.EnsureCreated(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] ProceduralSky.EnsureCreated failed: " + ex.Message); }
             try { Do3DStuff(); }
@@ -569,10 +569,6 @@ namespace WorldSphereMod
                 sw.Restart();
                 int width = MapBox.width;
                 int height = MapBox.height;
-                // Guard: SphereManager.Init line 107 dereferences SphereTileMaterial
-                // without null-check (pre-DLL fix). If material/mesh failed to load
-                // from bundle, skip CreateSphereManager entirely -- world remains 2D
-                // but doesn't pale-blue-crash.
                 if (CompoundSphereMaterial == null || CompoundSphereMesh == null)
                 {
                     UnityEngine.Debug.LogError("[WSM3D] Sphere.Begin: CompoundSphereMaterial or CompoundSphereMesh missing — skipping CreateSphereManager. Bundle load likely failed.");
@@ -580,12 +576,23 @@ namespace WorldSphereMod
                 }
                 Debug.Log($"[WSM3D][PERF] Sphere.Begin.PreCreateManager={sw.Elapsed.TotalMilliseconds:F3}ms");
                 sw.Restart();
-                Manager = SphereManager.Creator.CreateSphereManager(width, height, SphereManagerConfig);
-                Debug.Log($"[WSM3D][PERF] Sphere.Begin.CreateSphereManager={sw.Elapsed.TotalMilliseconds:F3}ms");
-                Debug.Log($"[WSM3D] Sphere.Begin: shape={savedSettings.CurrentShape} " +
-                    $"({(CurrentShape.IsWrapped ? "cylindrical" : "flat")}) " +
-                    $"width={width} height={height} radius={Manager.Radius:F3}");
-                LogDiagnostics("[WSM3D] Sphere.Begin");
+                // Use async path to spread heavy tile+buffer init across frames.
+                // Manager is assigned in onCreated (fires after tiles built,
+                // before buffer fill). FinishBecome3D runs the camera/lighting
+                // setup that needs Manager. DrawTiles is gated on IsReady so
+                // rendering waits until all buffers are uploaded.
+                Mod.Object.GetComponent<MonoBehaviour>().StartCoroutine(
+                    SphereManager.Creator.CreateSphereManagerAsync(width, height, SphereManagerConfig,
+                        mgr =>
+                        {
+                            Manager = mgr;
+                            Debug.Log($"[WSM3D][PERF] Sphere.Begin.ManagerCreated={sw.Elapsed.TotalMilliseconds:F3}ms");
+                            Debug.Log($"[WSM3D] Sphere.Begin: shape={savedSettings.CurrentShape} " +
+                                $"({(CurrentShape.IsWrapped ? "cylindrical" : "flat")}) " +
+                                $"width={width} height={height} radius={mgr.Radius:F3}");
+                            FinishBecome3D();
+                        },
+                        chunkSize: 4096));
             }
             static Color32 GetBaseColor(int index)
             {
@@ -843,6 +850,7 @@ namespace WorldSphereMod
             }
             public static void DrawTiles(int CameraX)
             {
+                if (Manager == null || !Manager.IsReady) return;
                 Manager.DrawTiles(CameraX);
             }
             static void CreateCachedColors()
