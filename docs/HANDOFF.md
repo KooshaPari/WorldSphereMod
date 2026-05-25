@@ -62,6 +62,17 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 | World-unload sink | `WorldSphereMod/Code/Voxel/WorldUnloadPatch.cs` |
 | Live verification (programmatic + agentic gates) | `docs/live-verification.md` — canonical live proof bundle: [`#canonical-live-proof-bundle`](live-verification.md#canonical-live-proof-bundle) |
 
+## Phenotype shared packages
+
+These shared packages are extracted dependencies that this repo now consumes
+instead of carrying the underlying implementation inline.
+
+1. `phenotype-postfx` (`C:/Users/koosh/Dev/phenotype-postfx`) — BRP
+   post-processing stack extracted from `WSM3DPostStack`.
+2. `phenotype-voxel` (`C:/Users/koosh/Dev/phenotype-voxel`) — shared voxel
+   substrate with depth extrusion, instancing, and shape registry upstreamed
+   from WSM3D.
+
 ## What's shipped (per phase)
 
 | Phase | State | Notes |

@@ -16,6 +16,9 @@
 | Bloom + ACES in one stack | **Shipped** | BRP shaders: `BrpBloom.shader` (threshold+blur+composite) + `BrpACES.shader` (filmic tonemap). |
 | `PostFX` master toggle → visible stack | **Shipped** | `PostFX` flag gates entire `WSM3DPostStack`; sub-passes gated by `SSAOEnabled`, `SSGIEnabled`, `BloomEnabled`, `ACESTonemapping`, `ColorGradingLut`. |
 
+The shared BRP post-processing stack has been extracted to
+`phenotype-postfx` (`C:/Users/koosh/Dev/phenotype-postfx`).
+
 **Runtime wiring**
 
 - `Core.ApplyPhaseToggle` → `WSM3DPostStack.ApplySetting` (`PostFX`), `WSM3DPostStack.RefreshMaterials` (sub-pass toggles).
