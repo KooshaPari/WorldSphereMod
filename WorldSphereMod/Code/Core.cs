@@ -932,7 +932,7 @@ namespace WorldSphereMod
                     {
                         // Rebake 2022.3.62f3: load bundle shaders that compile on WorldBox GPU.
                         // ProceduralSky/Impostor/ScreenSpaceAO/GI/BrpBloom/BrpACES still bake with empty .name — omit until fixed.
-                        foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ScreenSpaceAO", "ColorGradingLUT", "ProceduralSky", "Impostor", "ScreenSpaceGI", "BrpBloom", "BrpACES" })
+                        foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ColorGradingLUT" })
                         {
                             string assetPath = $"assets/wsm3d/shaders/{shaderName.ToLowerInvariant()}.shader";
                             var sh = shaderAb.GetObject<UnityEngine.Shader>(assetPath);
