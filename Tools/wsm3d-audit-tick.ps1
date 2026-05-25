@@ -209,8 +209,8 @@ if (-not $SkipLive -and $health) {
     try {
         Push-Location $RepoRoot
         if (-not $health.isWorld3D) {
-            Write-TickLog 'waiting for isWorld3D (60s)' 'INFO'
-            $deadline = (Get-Date).AddSeconds(60)
+            Write-TickLog 'waiting for isWorld3D (150s)' 'INFO'
+            $deadline = (Get-Date).AddSeconds(150)
             while ((Get-Date) -lt $deadline) {
                 $health = Get-BridgeHealth
                 if ($health -and $health.isWorld3D) { break }
