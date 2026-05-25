@@ -124,6 +124,8 @@ public sealed class BridgeSaveLoadStabilityInvariantsTests
         var loadSaveHooks = ReadSourceFile("WorldSphereMod/Code/Bridge/BridgeLoadSaveHooks.cs");
         loadSaveHooks.Should().Contain("SaveManager.loadWorld",
             "Harmony postfix must re-bind bridge after save/load transitions");
+        loadSaveHooks.Should().Contain("typeof(string), typeof(bool)",
+            "loadWorld(string, bool) must be patched explicitly to avoid Harmony ambiguous/undefined target errors");
         loadSaveHooks.Should().Contain("BridgeServer.EnsureCreated()",
             "loadWorld postfix must recreate DDOL bridge host when scene transition destroys it");
 

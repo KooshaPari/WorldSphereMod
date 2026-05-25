@@ -6,10 +6,11 @@ namespace WorldSphereMod.Bridge
 {
     /// <summary>
     /// Re-bind bridge host + drain queued RPC after save/load transitions.
+    /// WorldBox exposes loadWorld(string, bool) only (no single-string overload).
     /// See docs/journeys/scratch/bridge-scene-transition-known-issue.md.
     /// </summary>
-    [HarmonyPatch(typeof(SaveManager), nameof(SaveManager.loadWorld))]
-    public static class BridgeLoadSavePostfix
+    [HarmonyPatch(typeof(SaveManager), nameof(SaveManager.loadWorld), typeof(string), typeof(bool))]
+    public static class BridgeLoadSaveHooks
     {
         [HarmonyPostfix]
         public static void Postfix()
