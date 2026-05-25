@@ -875,9 +875,11 @@ namespace WorldSphereMod
                 if (CompoundSphereMaterial == null)
                     Debug.LogError("[WSM3D] CompoundSphereMaterial missing from bundle.");
 
-                // Load the shader-only bundle separately so a bad rebuild can
-                // never corrupt the legacy worldsphere bundle again.
-                WrappedAssetBundle shaderAb = AssetBundleUtils.GetAssetBundle("wsm3d-shaders");
+                // wsm3d-shaders bundle disabled: baked in Unity 6.3 but WorldBox
+                // runs Unity 2022.3. Loading it registers corrupted shaders that
+                // crash the GPU ("Shader not supported on this GPU"). Skip until
+                // bundle is rebaked in Unity 2022.3.
+                WrappedAssetBundle shaderAb = null; // AssetBundleUtils.GetAssetBundle("wsm3d-shaders");
                 if (shaderAb == null)
                 {
                     Debug.LogWarning("[WSM3D] AssetBundleUtils.GetAssetBundle('wsm3d-shaders') returned null — shader bundle not baked yet. Consumers will fall back to Shader.Find / Standard.");
