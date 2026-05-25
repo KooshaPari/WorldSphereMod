@@ -31,6 +31,39 @@ public class SavedSettingsTests
         return File.ReadAllText(path);
     }
 
+    private static string ExtractMethodBody(string source, string signature)
+    {
+        var headerIndex = source.IndexOf(signature, StringComparison.Ordinal);
+        headerIndex.Should().BeGreaterThanOrEqualTo(0, $"method signature should exist: {signature}");
+
+        var openBrace = source.IndexOf('{', headerIndex);
+        openBrace.Should().BeGreaterThanOrEqualTo(0, "method must open with a '{'");
+
+        var depth = 0;
+        for (int i = openBrace; i < source.Length; i++)
+        {
+            var c = source[i];
+            if (c == '{')
+            {
+                depth++;
+                continue;
+            }
+
+            if (c != '}')
+            {
+                continue;
+            }
+
+            depth--;
+            if (depth == 0)
+            {
+                return source.Substring(openBrace + 1, i - openBrace - 1);
+            }
+        }
+
+        throw new InvalidOperationException("Unbalanced braces while extracting method body");
+    }
+
     [Fact]
     public void SavedSettings_declares_Version_field_with_initial_value_2_0()
     {
@@ -284,5 +317,31 @@ public class SavedSettingsTests
 
         Regex.Match(source, @"public\s+int\s+SmoothingIterations\s*=\s*0")
             .Success.Should().BeTrue("SmoothingIterations must default to 0 when smoothing is off");
+    }
+
+    [Fact]
+    public void SavedSettings_lightweight_preset_disables_postfx_bloom_and_aces()
+    {
+        var source = ReadSavedSettingsSource();
+        var body = ExtractMethodBody(source, "public static void ApplyLightweightPreset(SavedSettings s)");
+
+        body.Should().Contain("s.PostFX = false");
+        body.Should().Contain("s.SSAOEnabled = false");
+        body.Should().Contain("s.SSGIEnabled = false");
+        body.Should().Contain("s.BloomEnabled = false");
+        body.Should().Contain("s.ACESTonemapping = false");
+    }
+
+    [Fact]
+    public void SavedSettings_full_preset_enables_postfx_bloom_and_aces()
+    {
+        var source = ReadSavedSettingsSource();
+        var body = ExtractMethodBody(source, "public static void ApplyFullPreset(SavedSettings s)");
+
+        body.Should().Contain("s.PostFX = true");
+        body.Should().Contain("s.SSAOEnabled = true");
+        body.Should().Contain("s.SSGIEnabled = true");
+        body.Should().Contain("s.BloomEnabled = true");
+        body.Should().Contain("s.ACESTonemapping = true");
     }
 }

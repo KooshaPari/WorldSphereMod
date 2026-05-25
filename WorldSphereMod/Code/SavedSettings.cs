@@ -148,6 +148,8 @@ public class SavedSettings
             s.PostFX = false;
             s.SSAOEnabled = false;
             s.SSGIEnabled = false;
+            s.BloomEnabled = false;
+            s.ACESTonemapping = false;
             s.ParticleEffects = false;
             s.WeatherRain = false;
             s.DebugSanityCube = false;
@@ -176,6 +178,8 @@ public class SavedSettings
             s.PostFX = true;
             s.SSAOEnabled = true;
             s.SSGIEnabled = true;
+            s.BloomEnabled = true;
+            s.ACESTonemapping = true;
             s.ParticleEffects = true;
             s.WeatherRain = true;
             s.DebugSanityCube = true;
