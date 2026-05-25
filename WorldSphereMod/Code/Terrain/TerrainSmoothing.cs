@@ -371,57 +371,53 @@ namespace WorldSphereMod.Terrain
 
             // SKIP GetUnderlyingTerrainMaterial path — copying a vanilla terrain Material
             // produces magenta-fallback meshes at runtime (user-confirmed screenshot).
-            // Go straight to the WSM3D candidate chain.
-            // Standard FIRST: user-confirmed that OpaqueVertexColor renders
-            // slope quads pure black even with grey emission applied
-            // (5fafe5e). Standard with brown _Color + emission produces the
-            // expected visible tinted slope. Falls through to others only if
-            // Standard somehow isn't present.
-            string[] candidates =
+            // Resolve the bundled opaque vertex-color shader directly from the cache so
+            // slope quads use the same shader path as the working voxel meshes.
+            Shader? shader = null;
+            if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("OpaqueVertexColor", out var bundledShader) && bundledShader != null)
             {
-                "Standard",
-                "WSM3D/OpaqueVertexColor",
-                "Universal Render Pipeline/Lit",
-                "Universal Render Pipeline/Unlit",
-                "Sprites/Default",
-            };
-
-            foreach (string name in candidates)
-            {
-                Shader shader = Shader.Find(name);
-                if (shader == null)
-                {
-                    continue;
-                }
-
-                Material material = new Material(shader)
-                {
-                    name = "WSM3D.MountainSlopeSmoothing"
-                };
-                // Set a brown base color directly. _EmissionColor was unreliable
-                // because OpaqueVertexColor's shader didn't honor _EMISSION
-                // keyword, leaving slopes black. With Standard shader as primary,
-                // both _Color and _EmissionColor are honored.
-                material.color = new Color(0.55f, 0.45f, 0.35f, 1f);
-                try
-                {
-                    material.EnableKeyword("_EMISSION");
-                    material.SetColor("_EmissionColor", new Color(0.5f, 0.4f, 0.3f, 1f));
-                    material.SetColor("_BaseColor", new Color(0.55f, 0.45f, 0.35f, 1f));
-                } catch { }
-                material.enableInstancing = true;
-                if (!material.enableInstancing)
-                {
-                    UnityEngine.Object.Destroy(material);
-                    continue;
-                }
-
-                _material = material;
-                return true;
+                shader = bundledShader;
+                Debug.Log("[WSM3D] Mountain slope material resolved via Core.Sphere.LoadedShaders cache.");
             }
 
-            Debug.LogWarning("[WSM3D] No mountain slope smoothing shader found; overlay disabled.");
-            return false;
+            if (shader == null)
+            {
+                shader = Shader.Find("WSM3D/OpaqueVertexColor");
+                if (shader != null)
+                {
+                    Debug.Log("[WSM3D] Mountain slope material resolved via Shader.Find('WSM3D/OpaqueVertexColor').");
+                }
+            }
+
+            if (shader == null)
+            {
+                Debug.LogWarning("[WSM3D] No mountain slope smoothing shader found; overlay disabled.");
+                return false;
+            }
+
+            Material material = new Material(shader)
+            {
+                name = "WSM3D.MountainSlopeSmoothing",
+                enableInstancing = true,
+            };
+            if (!material.enableInstancing)
+            {
+                UnityEngine.Object.Destroy(material);
+                Debug.LogWarning("[WSM3D] Mountain slope smoothing material rejected enableInstancing; overlay disabled.");
+                return false;
+            }
+
+            material.color = new Color(0.55f, 0.45f, 0.35f, 1f);
+            try
+            {
+                material.SetColor("_BaseColor", new Color(0.55f, 0.45f, 0.35f, 1f));
+                material.SetColor("_Color", new Color(0.55f, 0.45f, 0.35f, 1f));
+            }
+            catch { }
+
+            _material = material;
+            return true;
+
         }
     }
 
