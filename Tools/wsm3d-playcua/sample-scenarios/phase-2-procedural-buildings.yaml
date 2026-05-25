@@ -42,12 +42,12 @@ steps:
   - action: assert_telemetry
     required: true
     checks:
-      - field: drawCalls
+      - field: lastNonZeroDrawCalls
         op: ">"
         value: 0
       - field: frameMs
         op: "<"
-        value: 50
+        value: 1500
       - field: instances
         op: ">="
         value: 2

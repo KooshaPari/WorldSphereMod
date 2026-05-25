@@ -70,11 +70,11 @@ public class SavedSettingsTests
         var source = ReadSavedSettingsSource();
 
         // Must declare: public string Version = "2.3";
-        var pattern = @"public\s+string\s+Version\s*=\s*""2\.2""";
+        var pattern = @"public\s+string\s+Version\s*=\s*""2\.3""";
         var match = Regex.Match(source, pattern);
 
         match.Success.Should().BeTrue(
-            "SavedSettings must declare: public string Version = \"2.0\";");
+            "SavedSettings must declare: public string Version = \"2.3\";");
     }
 
     [Fact]

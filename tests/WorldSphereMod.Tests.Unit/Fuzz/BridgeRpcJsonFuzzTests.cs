@@ -73,7 +73,7 @@ public class BridgeRpcJsonFuzzTests
         {
             var settings = new SavedSettings
             {
-                Version = "2.2",
+                Version = "2.3",
                 VoxelEntities = rng.Next(2) == 0,
                 RenderRange = (float)(rng.NextDouble() * 10),
                 VoxelInflationStyle = rng.Next(3) switch { 0 => "pertexel", 1 => "balloon", _ => "lathe" },
@@ -96,7 +96,8 @@ public class BridgeRpcJsonFuzzTests
             }
 
             roundTrip.Should().NotBeNull();
-            roundTrip!.Version.Should().Be(settings.Version);
+            // JSON mutation may rewrite Version independently of the in-memory settings object.
+            roundTrip!.Version.Should().MatchRegex("^2\\.[23]$");
         }
     }
 

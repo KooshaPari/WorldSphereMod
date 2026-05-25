@@ -14,7 +14,7 @@ Shader "WSM3D/StratumVoxelPBR"
         _NormalMap ("Normal", 2D) = "bump" {}
         _OcclusionMap ("Occlusion", 2D) = "white" {}
         _MetallicGlossMap ("Metallic (R) Smoothness (A)", 2D) = "white" {}
-        [Optional] _HeightMap ("Height", 2D) = "black" {}
+        _HeightMap ("Height", 2D) = "black" {}
         _Color ("Tint", Color) = (1,1,1,1)
     }
 
