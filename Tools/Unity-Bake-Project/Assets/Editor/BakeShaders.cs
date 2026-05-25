@@ -11,15 +11,29 @@ public static class BakeShaders
         // Copy shader sources into the Unity bake project so we can build a
         // dedicated shader bundle without touching the legacy worldsphere
         // bundle or its assets.
-        string shaderSrc = Path.Combine(repoRoot, "WorldSphereMod", "AssetBundles", "Shaders");
         string assetsShaderDir = Path.Combine(Application.dataPath, "WSM3D", "Shaders");
         Directory.CreateDirectory(assetsShaderDir);
-        foreach (var src in Directory.GetFiles(shaderSrc, "*.shader"))
+        foreach (var src in Directory.GetFiles(Path.Combine(repoRoot, "WorldSphereMod", "AssetBundles", "Shaders"), "*.shader"))
         {
             string fn = Path.GetFileName(src);
-            // Skip URP variant — needs com.unity.render-pipelines.universal package
+            // Skip URP variants — needs com.unity.render-pipelines.universal
             // that isn't installed in this bake project; compile errors would
             // taint the entire batch.
+            if (fn.IndexOf("URP", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                Debug.Log("[WSM3D-Bake] skip URP variant: " + fn);
+                continue;
+            }
+            string dst = Path.Combine(assetsShaderDir, fn);
+            File.Copy(src, dst, overwrite: true);
+        }
+        foreach (var src in new[]
+        {
+            Path.Combine(repoRoot, "WorldSphereMod", "Resources", "Shaders", "BrpACES.shader"),
+            Path.Combine(repoRoot, "WorldSphereMod", "Resources", "Shaders", "BrpBloom.shader"),
+        })
+        {
+            string fn = Path.GetFileName(src);
             if (fn.IndexOf("URP", System.StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 Debug.Log("[WSM3D-Bake] skip URP variant: " + fn);
