@@ -267,136 +267,142 @@ namespace WorldSphereMod
         //literally the core function of the mod
         static void Patch()
         {
-
-            Patcher = new Harmony(HarmonyID);
-
-            // Conditional patching: types with [Phase] attribute are only patched if their
-            // phase gate is enabled in SavedSettings. This avoids IL detour overhead for
-            // disabled phases (~80-150ms per disabled phase at Init time).
-            var types = typeof(PhaseAttribute).Assembly.GetTypes();
-            foreach (var type in types)
+            try
             {
-                var phaseAttr = type.GetCustomAttribute<PhaseAttribute>();
-                var hasPatch = type.GetCustomAttribute<HarmonyPatch>() != null;
-                if (!PhasePatchGate.ShouldApplyHarmonyPatch(type, savedSettings))
-                {
-                    continue;
-                }
+                Patcher = new Harmony(HarmonyID);
 
-                // Only patch this type if it has a [HarmonyPatch] attribute.
-                if (hasPatch)
+                // Conditional patching: types with [Phase] attribute are only patched if their
+                // phase gate is enabled in SavedSettings. This avoids IL detour overhead for
+                // disabled phases (~80-150ms per disabled phase at Init time).
+                var types = typeof(PhaseAttribute).Assembly.GetTypes();
+                foreach (var type in types)
                 {
-                    Patcher.CreateClassProcessor(type).Patch();
-                    if (phaseAttr != null)
+                    var phaseAttr = type.GetCustomAttribute<PhaseAttribute>();
+                    var hasPatch = type.GetCustomAttribute<HarmonyPatch>() != null;
+                    if (!PhasePatchGate.ShouldApplyHarmonyPatch(type, savedSettings))
                     {
-                        PhasePatchManager.MarkTypePatched(type);
+                        continue;
+                    }
+
+                    // Only patch this type if it has a [HarmonyPatch] attribute.
+                    if (hasPatch)
+                    {
+                        Patcher.CreateClassProcessor(type).Patch();
+                        if (phaseAttr != null)
+                        {
+                            PhasePatchManager.MarkTypePatched(type);
+                        }
                     }
                 }
+
+                Patcher.PatchAll(typeof(WorldSphereMod.Bridge.BridgePerFrameTick));
+                Patcher.PatchAll(typeof(WorldSphereMod.Bridge.BridgeSurvivalBackup));
+                Patcher.PatchAll(typeof(SphereControl));
+                Patcher.PatchAll(typeof(Dist3D));
+                Patcher.PatchAll(typeof(EffectPatches));
+                Patcher.PatchAll(typeof(MovementEnhancement));
+                Patcher.PatchAll(typeof(Drop3D));
+                Patcher.PatchAll(typeof(FixCrabzilla));
+                Patcher.PatchAll(typeof(AddLayers));
+                Patcher.PatchAll(typeof(QuantumSpritePatches));
+                Patcher.PatchAll(typeof(WorldLoop));
+                Patcher.PatchAll(typeof(SourcePatches));
+
+                MethodInfo WorldLoopPatch = Method(typeof(WorldLoop), nameof(WorldLoop.Tiles));
+                Patcher.Patch(Method(typeof(GeneratorTool), nameof(GeneratorTool.getTile)), new HarmonyMethod(WorldLoopPatch));
+                Patcher.Patch(Method(typeof(MapBox), nameof(MapBox.GetTile)), new HarmonyMethod(WorldLoopPatch));
+
+                MethodInfo Lerp3DPatch = Method(typeof(Lerp3D), nameof(Lerp3D.Transpiler));
+                Patcher.Patch(Method(typeof(PlayerControl), nameof(PlayerControl.clickedStart)), null, null, new HarmonyMethod(Lerp3DPatch));
+
+                HarmonyMethod brushTranspiler = new HarmonyMethod(Method(typeof(BrushTranspiler), nameof(BrushTranspiler.Transpiler)));
+                Patcher.Transpile(Method(typeof(MapAction), nameof(MapAction.applyTileDamage)), brushTranspiler);
+                Patcher.Transpile(Method(typeof(MapBox), nameof(MapBox.loopWithBrush), new Type[] { typeof(WorldTile), typeof(BrushData), typeof(PowerActionWithID), typeof(string) }), brushTranspiler);
+                Patcher.Transpile(Method(typeof(MapBox), nameof(MapBox.loopWithBrush), new Type[] { typeof(WorldTile), typeof(BrushData), typeof(PowerAction), typeof(GodPower) }), brushTranspiler);
+                Patcher.Transpile(Method(typeof(BehWormDigEat), nameof(BehWormDigEat.loopWithBrush)), brushTranspiler);
+                Patcher.Transpile(Method(typeof(MapBox), nameof(MapBox.loopWithBrushPowerForDropsRandom)), brushTranspiler);
+
+                MethodInfo EffectPatch = Method(typeof(EffectPatches), nameof(EffectPatches.BasePatch));
+                Patcher.Patch(Method(typeof(BaseEffect), nameof(BaseEffect.prepare), new Type[] { }), null, new HarmonyMethod(EffectPatch));
+                Patcher.Patch(Method(typeof(BaseEffect), nameof(BaseEffect.prepare), new Type[] {typeof(WorldTile), typeof(float) }), null, new HarmonyMethod(EffectPatch));
+                Patcher.Patch(Method(typeof(BaseEffect), nameof(BaseEffect.prepare), new Type[] {typeof(Vector2), typeof(float) }), null, new HarmonyMethod(EffectPatch));
+                //may allah forgive me
+                HarmonyMethod MapLayerTranspiler = new HarmonyMethod(Method(typeof(AddLayers), nameof(AddLayers.MapLayerTranspiler)));
+                Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.drawBuildings)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(BurnedTilesLayer), nameof(BurnedTilesLayer.UpdateDirty)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(ConwayLife), nameof(ConwayLife.UpdateVisual)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.clear)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.drawCitizenJobs)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.drawConstructionTiles)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.drawProfession)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.drawTargetedBy)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.drawUnitKingdoms)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.drawUnitsInside)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.drawUnitTiles)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.fill), new Type[] {typeof(List<WorldTile>), typeof(Color), typeof(bool)}), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.fill), new Type[] { typeof(WorldTile[]), typeof(Color), typeof(bool) }), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(DebugLayerCursor), nameof(DebugLayerCursor.fill), new Type[] { typeof(List<WorldTile>), typeof(Color), typeof(bool) }), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(DebugLayerCursor), nameof(DebugLayerCursor.fill), new Type[] { typeof(WorldTile[]), typeof(Color), typeof(bool) }), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(DebugLayerCursor), nameof(DebugLayerCursor.drawIsland)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(ExplosionsEffects), nameof(ExplosionsEffects.UpdateDirty)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(FireLayer), nameof(FireLayer.UpdateDirty)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(LavaLayer), nameof(LavaLayer.drawLavaPixel)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(LavaLayer), nameof(LavaLayer.updateLava)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(PathFindingVisualiser), nameof(PathFindingVisualiser.showPath)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(PixelFlashEffects), nameof(PixelFlashEffects.UpdateDirty)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(UnitLayer), nameof(UnitLayer.UpdateDirty)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(WorldLayerEdges), nameof(WorldLayerEdges.redraw)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(WorldLayerEdges), nameof(WorldLayerEdges.redrawTile)), MapLayerTranspiler);
+                Patcher.Transpile(Method(typeof(ZoneCalculator), nameof(ZoneCalculator.applyMetaColorsToZone)), AddLayers.ZoneLayerTranspiler);
+                Patcher.Transpile(Method(typeof(ZoneCalculator), nameof(ZoneCalculator.colorZone)), AddLayers.ZoneLayerTranspiler);
+                Patcher.Transpile(Method(typeof(ZoneCalculator), nameof(ZoneCalculator.colorZone)), AddLayers.AVerySpecificTranspiler);
+                Patcher.Transpile(Method(typeof(ZoneCalculator), nameof(ZoneCalculator.applyMetaColorsToZoneFull)), AddLayers.ZoneLayerTranspiler);
+                Patcher.Transpile(Method(typeof(ZoneCalculator), nameof(ZoneCalculator.applyMetaColorsToZoneFull)), AddLayers.AVerySpecificTranspiler);
+
+                Patcher.Transpile(Method(typeof(Actor), nameof(Actor.updateMovement)), Move3D.Transpiler);
+                Patcher.Transpile(Method(typeof(Actor), nameof(Actor.tryToAttack)), Move3D.Transpiler);
+                Patcher.Transpile(Method(typeof(MapBox), nameof(MapBox.checkAttackFor)), Move3D.Transpiler);
+                Patcher.Transpile(Method(typeof(Actor), nameof(Actor.updatePossessedMovementTowards)), Move3D.Transpiler);
+                Patcher.Transpile(Method(typeof(CombatActionLibrary), nameof(CombatActionLibrary.getAttackTargetPosition)), Move3D.Transpiler);
+                Patcher.Transpile(Method(typeof(MusicBoxContainerTiles), nameof(MusicBoxContainerTiles.calculatePan)), Move3D.Transpiler);
+
+                HarmonyMethod previewPatch = new HarmonyMethod(Method(typeof(PreviewPatch), nameof(PreviewPatch.Prefix)));
+                HarmonyMethod previewPatchpostfix = new HarmonyMethod(Method(typeof(PreviewPatch), nameof(PreviewPatch.Postfix)));
+                Patcher.Patch(AccessTools.Method(typeof(PreviewHelper), nameof(PreviewHelper.convertMapToTexture)), previewPatch, previewPatchpostfix);
+                Patcher.Patch(AccessTools.Method(typeof(PreviewHelper), nameof(PreviewHelper.getCurrentWorldPreview)), previewPatch, previewPatchpostfix);
+
+                Patcher.Transpile(Method(typeof(MoveCamera), nameof(MoveCamera.zoomToBounds)), MinZoomTranspiler.Transpiler);
+                Patcher.Transpile(Method(typeof(MoveCamera), nameof(MoveCamera.updateMobileCamera)), MinZoomTranspiler.Transpiler);
+
+                Patcher.Transpile(Method(typeof(HeatRayEffect), nameof(HeatRayEffect.update)), DisableSettingPositions.Transpiler);
+
+                //this is where the fun begins 
+                DimensionConverter.ConvertPositions(Method(typeof(Boulder), nameof(Boulder.updateCurrentPosition)), 1);
+                DimensionConverter.ConvertPositions(Method(typeof(Boulder), nameof(Boulder.actionLanded)));
+                DimensionConverter.ConvertQuantum(Method(typeof(Santa), nameof(Santa.updatePosition)), DimensionConverter.YToZ);
+                DimensionConverter.ConvertQuantum(Method(typeof(HeatRayEffect), nameof(HeatRayEffect.play)), DimensionConverter.ToQuantum);
+
+                DimensionConverter.ConvertQuantum(Method(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.drawShadowsBuildings)), DimensionConverter.ToShadow);
+                DimensionConverter.ConvertQuantum(Method(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.drawFires)), DimensionConverter.ToFire);
+                DimensionConverter.ConvertQuantum(Method(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.drawShadowsUnit)), DimensionConverter.ToShadow);
+                DimensionConverter.ConvertPositions(Method(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.drawUnitAttackRange)));
+                DimensionConverter.ConvertPositions(Method(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.drawUnitSize)));
+                DimensionConverter.ConvertPositions(Method(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.drawUnitsAvatars)));
+                DimensionConverter.ConvertPositions(Method(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.drawLightAreas)));
+
+                DimensionConverter.ConvertPositions(Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.setPosOnly), new Type[] {typeof(Vector2)}));
+                DimensionConverter.ConvertPositions(Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.setPosOnly), new Type[] { typeof(Vector2).MakeByRefType() }));
+                DimensionConverter.ConvertPositions(Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.setPosOnly), new Type[] { typeof(Vector3).MakeByRefType() }));
+                DimensionConverter.ConvertPositions(Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.set), new Type[] { typeof(Vector2).MakeByRefType(), typeof(Vector3).MakeByRefType() }));
+                DimensionConverter.ConvertQuantum(Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.set), new Type[] { typeof(Vector2).MakeByRefType(), typeof(float) }), DimensionConverter.ToQuantum);
+                DimensionConverter.ConvertQuantum(Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.set), new Type[] { typeof(Vector3).MakeByRefType(), typeof(float) }), DimensionConverter.ToQuantumWithHeight);
+                DimensionConverter.ConvertPositions(Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.set), new Type[] { typeof(Vector3).MakeByRefType(), typeof(Vector2).MakeByRefType() }));
+                DimensionConverter.ConvertPositions(Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.set), new Type[] { typeof(Vector3).MakeByRefType(), typeof(Vector3).MakeByRefType() }));
             }
-
-            Patcher.PatchAll(typeof(WorldSphereMod.Bridge.BridgePerFrameTick));
-            Patcher.PatchAll(typeof(WorldSphereMod.Bridge.BridgeSurvivalBackup));
-            Patcher.PatchAll(typeof(SphereControl));
-            Patcher.PatchAll(typeof(Dist3D));
-            Patcher.PatchAll(typeof(EffectPatches));
-            Patcher.PatchAll(typeof(MovementEnhancement));
-            Patcher.PatchAll(typeof(Drop3D));
-            Patcher.PatchAll(typeof(FixCrabzilla));
-            Patcher.PatchAll(typeof(AddLayers));
-            Patcher.PatchAll(typeof(QuantumSpritePatches));
-            Patcher.PatchAll(typeof(WorldLoop));
-            Patcher.PatchAll(typeof(SourcePatches));
-
-            MethodInfo WorldLoopPatch = Method(typeof(WorldLoop), nameof(WorldLoop.Tiles));
-            Patcher.Patch(Method(typeof(GeneratorTool), nameof(GeneratorTool.getTile)), new HarmonyMethod(WorldLoopPatch));
-            Patcher.Patch(Method(typeof(MapBox), nameof(MapBox.GetTile)), new HarmonyMethod(WorldLoopPatch));
-
-            MethodInfo Lerp3DPatch = Method(typeof(Lerp3D), nameof(Lerp3D.Transpiler));
-            Patcher.Patch(Method(typeof(PlayerControl), nameof(PlayerControl.clickedStart)), null, null, new HarmonyMethod(Lerp3DPatch));
-
-            HarmonyMethod brushTranspiler = new HarmonyMethod(Method(typeof(BrushTranspiler), nameof(BrushTranspiler.Transpiler)));
-            Patcher.Transpile(Method(typeof(MapAction), nameof(MapAction.applyTileDamage)), brushTranspiler);
-            Patcher.Transpile(Method(typeof(MapBox), nameof(MapBox.loopWithBrush), new Type[] { typeof(WorldTile), typeof(BrushData), typeof(PowerActionWithID), typeof(string) }), brushTranspiler);
-            Patcher.Transpile(Method(typeof(MapBox), nameof(MapBox.loopWithBrush), new Type[] { typeof(WorldTile), typeof(BrushData), typeof(PowerAction), typeof(GodPower) }), brushTranspiler);
-            Patcher.Transpile(Method(typeof(BehWormDigEat), nameof(BehWormDigEat.loopWithBrush)), brushTranspiler);
-            Patcher.Transpile(Method(typeof(MapBox), nameof(MapBox.loopWithBrushPowerForDropsRandom)), brushTranspiler);
-
-            MethodInfo EffectPatch = Method(typeof(EffectPatches), nameof(EffectPatches.BasePatch));
-            Patcher.Patch(Method(typeof(BaseEffect), nameof(BaseEffect.prepare), new Type[] { }), null, new HarmonyMethod(EffectPatch));
-            Patcher.Patch(Method(typeof(BaseEffect), nameof(BaseEffect.prepare), new Type[] {typeof(WorldTile), typeof(float) }), null, new HarmonyMethod(EffectPatch));
-            Patcher.Patch(Method(typeof(BaseEffect), nameof(BaseEffect.prepare), new Type[] {typeof(Vector2), typeof(float) }), null, new HarmonyMethod(EffectPatch));
-            //may allah forgive me
-            HarmonyMethod MapLayerTranspiler = new HarmonyMethod(Method(typeof(AddLayers), nameof(AddLayers.MapLayerTranspiler)));
-            Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.drawBuildings)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(BurnedTilesLayer), nameof(BurnedTilesLayer.UpdateDirty)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(ConwayLife), nameof(ConwayLife.UpdateVisual)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.clear)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.drawCitizenJobs)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.drawConstructionTiles)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.drawProfession)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.drawTargetedBy)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.drawUnitKingdoms)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.drawUnitsInside)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.drawUnitTiles)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.fill), new Type[] {typeof(List<WorldTile>), typeof(Color), typeof(bool)}), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(DebugLayer), nameof(DebugLayer.fill), new Type[] { typeof(WorldTile[]), typeof(Color), typeof(bool) }), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(DebugLayerCursor), nameof(DebugLayerCursor.fill), new Type[] { typeof(List<WorldTile>), typeof(Color), typeof(bool) }), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(DebugLayerCursor), nameof(DebugLayerCursor.fill), new Type[] { typeof(WorldTile[]), typeof(Color), typeof(bool) }), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(DebugLayerCursor), nameof(DebugLayerCursor.drawIsland)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(ExplosionsEffects), nameof(ExplosionsEffects.UpdateDirty)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(FireLayer), nameof(FireLayer.UpdateDirty)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(LavaLayer), nameof(LavaLayer.drawLavaPixel)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(LavaLayer), nameof(LavaLayer.updateLava)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(PathFindingVisualiser), nameof(PathFindingVisualiser.showPath)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(PixelFlashEffects), nameof(PixelFlashEffects.UpdateDirty)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(UnitLayer), nameof(UnitLayer.UpdateDirty)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(WorldLayerEdges), nameof(WorldLayerEdges.redraw)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(WorldLayerEdges), nameof(WorldLayerEdges.redrawTile)), MapLayerTranspiler);
-            Patcher.Transpile(Method(typeof(ZoneCalculator), nameof(ZoneCalculator.applyMetaColorsToZone)), AddLayers.ZoneLayerTranspiler);
-            Patcher.Transpile(Method(typeof(ZoneCalculator), nameof(ZoneCalculator.colorZone)), AddLayers.ZoneLayerTranspiler);
-            Patcher.Transpile(Method(typeof(ZoneCalculator), nameof(ZoneCalculator.colorZone)), AddLayers.AVerySpecificTranspiler);
-            Patcher.Transpile(Method(typeof(ZoneCalculator), nameof(ZoneCalculator.applyMetaColorsToZoneFull)), AddLayers.ZoneLayerTranspiler);
-            Patcher.Transpile(Method(typeof(ZoneCalculator), nameof(ZoneCalculator.applyMetaColorsToZoneFull)), AddLayers.AVerySpecificTranspiler);
-
-            Patcher.Transpile(Method(typeof(Actor), nameof(Actor.updateMovement)), Move3D.Transpiler);
-            Patcher.Transpile(Method(typeof(Actor), nameof(Actor.tryToAttack)), Move3D.Transpiler);
-            Patcher.Transpile(Method(typeof(MapBox), nameof(MapBox.checkAttackFor)), Move3D.Transpiler);
-            Patcher.Transpile(Method(typeof(Actor), nameof(Actor.updatePossessedMovementTowards)), Move3D.Transpiler);
-            Patcher.Transpile(Method(typeof(CombatActionLibrary), nameof(CombatActionLibrary.getAttackTargetPosition)), Move3D.Transpiler);
-            Patcher.Transpile(Method(typeof(MusicBoxContainerTiles), nameof(MusicBoxContainerTiles.calculatePan)), Move3D.Transpiler);
-
-            HarmonyMethod previewPatch = new HarmonyMethod(Method(typeof(PreviewPatch), nameof(PreviewPatch.Prefix)));
-            HarmonyMethod previewPatchpostfix = new HarmonyMethod(Method(typeof(PreviewPatch), nameof(PreviewPatch.Postfix)));
-            Patcher.Patch(AccessTools.Method(typeof(PreviewHelper), nameof(PreviewHelper.convertMapToTexture)), previewPatch, previewPatchpostfix);
-            Patcher.Patch(AccessTools.Method(typeof(PreviewHelper), nameof(PreviewHelper.getCurrentWorldPreview)), previewPatch, previewPatchpostfix);
-
-            Patcher.Transpile(Method(typeof(MoveCamera), nameof(MoveCamera.zoomToBounds)), MinZoomTranspiler.Transpiler);
-            Patcher.Transpile(Method(typeof(MoveCamera), nameof(MoveCamera.updateMobileCamera)), MinZoomTranspiler.Transpiler);
-
-            Patcher.Transpile(Method(typeof(HeatRayEffect), nameof(HeatRayEffect.update)), DisableSettingPositions.Transpiler);
-
-            //this is where the fun begins 
-            DimensionConverter.ConvertPositions(Method(typeof(Boulder), nameof(Boulder.updateCurrentPosition)), 1);
-            DimensionConverter.ConvertPositions(Method(typeof(Boulder), nameof(Boulder.actionLanded)));
-            DimensionConverter.ConvertQuantum(Method(typeof(Santa), nameof(Santa.updatePosition)), DimensionConverter.YToZ);
-            DimensionConverter.ConvertQuantum(Method(typeof(HeatRayEffect), nameof(HeatRayEffect.play)), DimensionConverter.ToQuantum);
-
-            DimensionConverter.ConvertQuantum(Method(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.drawShadowsBuildings)), DimensionConverter.ToShadow);
-            DimensionConverter.ConvertQuantum(Method(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.drawFires)), DimensionConverter.ToFire);
-            DimensionConverter.ConvertQuantum(Method(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.drawShadowsUnit)), DimensionConverter.ToShadow);
-            DimensionConverter.ConvertPositions(Method(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.drawUnitAttackRange)));
-            DimensionConverter.ConvertPositions(Method(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.drawUnitSize)));
-            DimensionConverter.ConvertPositions(Method(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.drawUnitsAvatars)));
-            DimensionConverter.ConvertPositions(Method(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.drawLightAreas)));
-
-            DimensionConverter.ConvertPositions(Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.setPosOnly), new Type[] {typeof(Vector2)}));
-            DimensionConverter.ConvertPositions(Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.setPosOnly), new Type[] { typeof(Vector2).MakeByRefType() }));
-            DimensionConverter.ConvertPositions(Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.setPosOnly), new Type[] { typeof(Vector3).MakeByRefType() }));
-            DimensionConverter.ConvertPositions(Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.set), new Type[] { typeof(Vector2).MakeByRefType(), typeof(Vector3).MakeByRefType() }));
-            DimensionConverter.ConvertQuantum(Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.set), new Type[] { typeof(Vector2).MakeByRefType(), typeof(float) }), DimensionConverter.ToQuantum);
-            DimensionConverter.ConvertQuantum(Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.set), new Type[] { typeof(Vector3).MakeByRefType(), typeof(float) }), DimensionConverter.ToQuantumWithHeight);
-            DimensionConverter.ConvertPositions(Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.set), new Type[] { typeof(Vector3).MakeByRefType(), typeof(Vector2).MakeByRefType() }));
-            DimensionConverter.ConvertPositions(Method(typeof(GroupSpriteObject), nameof(GroupSpriteObject.set), new Type[] { typeof(Vector3).MakeByRefType(), typeof(Vector3).MakeByRefType() }));
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError("[WSM3D] Core.Init FAILED: " + ex);
+            }
         } 
         public static void Become3D()
         {
