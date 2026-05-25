@@ -934,10 +934,7 @@ namespace WorldSphereMod
                         // pow(0) guard, #pragma target 3.0). Library/ cache purged so Unity 2022.3
                         // regenerates from clean state — eliminates the ManagedStream crash that
                         // was caused by a stale Unity 6000.3 ArtifactDB in the bake project.
-                        // Only these 3 compile cleanly into AssetBundles without variant stripping.
-                        // The other 7 (PostFX, sky, impostor) load via Resources.Load / Shader.Find
-                        // fallback chains in their respective consumers (WSM3DPostStack, ProceduralSky, etc).
-                        foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ColorGradingLUT" })
+                        foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ColorGradingLUT", "StratumVoxelPBR", "ProceduralSky", "Impostor", "ScreenSpaceAO", "ScreenSpaceGI", "BrpBloom", "BrpACES" })
                         {
                             UnityEngine.Shader sh = null;
                             try
