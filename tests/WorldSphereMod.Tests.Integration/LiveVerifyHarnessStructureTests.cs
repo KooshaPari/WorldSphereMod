@@ -126,7 +126,7 @@ public class LiveVerifyHarnessStructureTests
 
         script.Should().Contain("Get-DefaultPlaycuaVisionBackend");
         script.Should().MatchRegex(
-            @"if\s*\(\s*\$Vision\s*\)[\s\S]*--vision-backend",
-            "-Vision must forward --vision-backend to wsm3d-playcua");
+            @"if\s*\(\s*\$Vision\s*\)[\s\S]*Get-DefaultPlaycuaVisionBackend[\s\S]*--vision-backend",
+            "-Vision must resolve backend via Get-DefaultPlaycuaVisionBackend and forward --vision-backend to wsm3d-playcua");
     }
 }

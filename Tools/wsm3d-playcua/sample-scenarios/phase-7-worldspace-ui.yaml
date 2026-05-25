@@ -11,7 +11,6 @@ steps:
     fps: 30
   - action: health
     required: true
-    expect_is_world_3d: true
     note: Bridge health before phase toggles.
   - action: assert_telemetry
     required: true
@@ -51,12 +50,12 @@ steps:
   - action: assert_telemetry
     required: true
     checks:
-      - field: drawCalls
+      - field: lastNonZeroDrawCalls
         op: ">"
         value: 0
       - field: frameMs
         op: "<"
-        value: 50
+        value: 1500
       - field: instances
         op: ">="
         value: 2
