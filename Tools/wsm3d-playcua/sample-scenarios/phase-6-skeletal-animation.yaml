@@ -20,7 +20,9 @@ steps:
       - field: lastNonZeroDrawCalls
         op: ">"
         value: 0
-      $1500
+      - field: frameMs
+        op: "<"
+        value: 1500
   - action: toggle_flag
     key: SkeletalAnimation
     value: true

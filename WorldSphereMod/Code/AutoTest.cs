@@ -114,7 +114,7 @@ namespace WorldSphereMod
                 Debug.Log("[WSM3D] AutoTest: loading save slot=" + slot + " path=" + path);
                 SaveManager.setCurrentPathAndId(path, slot);
                 World.world.save_manager.prepareLoading();
-                World.world.save_manager.loadWorld(path);
+                World.world.save_manager.loadWorld(path, false);
                 return;
             }
 

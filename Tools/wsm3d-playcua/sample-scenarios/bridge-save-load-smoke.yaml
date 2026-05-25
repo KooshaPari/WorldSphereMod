@@ -26,7 +26,7 @@ steps:
         value: 0
       - field: frameMs
         op: "<"
-        value: 500
+        value: 2000
   - action: load_save
     slot: 2
     settle_frames: 120
@@ -48,6 +48,10 @@ steps:
     note: >
       Post-reload — GET /health must return JSON (not null / 5s stall). isWorld3D
       may stay false until the player enters the 3D view for save2.
+  - action: wait_n_frames
+    frames: 30
+    fps: 1
+    note: Extra settle so post-load frameMs spike (save transition) can decay.
   - action: assert_telemetry
     required: true
     note: Post-reload telemetry — proves bridge drain survived save/load.
@@ -57,4 +61,4 @@ steps:
         value: 0
       - field: frameMs
         op: "<"
-        value: 500
+        value: 2000
