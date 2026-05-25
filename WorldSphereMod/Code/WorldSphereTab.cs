@@ -365,12 +365,28 @@ namespace WorldSphereMod.UI
             if (!TryResolvePhaseToggleField(phaseToggleId, out FieldInfo? settingField))
             {
                 global::UnityEngine.Debug.LogWarning($"[WSM3D] Missing SavedSettings field for phase toggle '{phaseToggleId}'.");
+                WorldSphereMod.Worldspace.PhaseToast.ShowError($"{phaseToggleId} could not be toggled: unknown setting");
                 return;
             }
 
             bool nextValue = !(settingField.GetValue(Core.savedSettings) as bool? ?? false);
             settingField.SetValue(Core.savedSettings, nextValue);
-            Core.ApplyPhaseToggle(settingField.Name, nextValue);
+
+            try
+            {
+                Core.ApplyPhaseToggle(settingField.Name, nextValue);
+            }
+            catch (System.Exception ex)
+            {
+                string reason = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
+                global::UnityEngine.Debug.LogError($"[WSM3D] {settingField.Name} toggle failed: {ex}");
+                WorldSphereMod.Worldspace.PhaseToast.ShowError($"{settingField.Name} could not be {(nextValue ? "enabled" : "disabled")}: {reason}");
+                // Revert the setting since the toggle failed
+                settingField.SetValue(Core.savedSettings, !nextValue);
+                Core.SaveSettings();
+                return;
+            }
+
             Core.SaveSettings();
 
             if (!PlayerConfig.dict.ContainsKey(phaseToggleId))
@@ -398,6 +414,12 @@ namespace WorldSphereMod.UI
 
         static void SuppressPhasesWindowOnWorldLoad()
         {
+            // Skip suppression on first install so FirstRunWelcome can open the window.
+            if (Core.IsFirstInstall && !Core.savedSettings.HasSeenWelcome)
+            {
+                MapBox.on_world_loaded -= SuppressPhasesWindowOnWorldLoad;
+                return;
+            }
             try
             {
                 SuppressPhasesWindow();
@@ -769,6 +791,7 @@ namespace WorldSphereMod.UI
             if (ID == "3D Phases")
             {
                 WorldSphereTab.PreloadPhaseIcons();
+                AddQuickStartGuide(Object);
             }
             LoadInputOptions(Buttons);
         }
@@ -838,6 +861,67 @@ namespace WorldSphereMod.UI
                 }
             }
             PowerButtonSelector.instance.checkToggleIcons();
+        }
+
+        static void AddQuickStartGuide(GameObject content)
+        {
+            if (content == null) return;
+
+            string guideText = LM.Get("wsm3d_quick_start_guide");
+            if (string.IsNullOrEmpty(guideText) || guideText == "wsm3d_quick_start_guide")
+            {
+                guideText =
+                    "--- Quick Start ---\n" +
+                    "Voxel Actors (P1): 3D voxel units, items, projectiles\n" +
+                    "Mesh Buildings (P2): Procedural 3D buildings\n" +
+                    "Foliage (P3): Crossed-quad trees and bushes\n" +
+                    "Mesh Water (P4): Gerstner-wave water surface\n" +
+                    "Sun + Shadows (P5): Directional light + cascades\n" +
+                    "Skeletal Anim (P6): Auto-rigged voxel actors\n" +
+                    "Worldspace UI (P7): 3D nameplates and HP bars\n" +
+                    "Day/Night (P8): Procedural sky + time cycle\n" +
+                    "Post FX (P9): Bloom, SSAO, SSGI, color grading\n" +
+                    "---\n" +
+                    "Enable phases top-to-bottom for best results.\n" +
+                    "Reload the world after toggling.";
+            }
+
+            GameObject guideGo = new GameObject("QuickStartGuide", typeof(RectTransform));
+            guideGo.transform.SetParent(content.transform, false);
+            guideGo.transform.SetAsFirstSibling();
+
+            RectTransform guideRect = guideGo.GetComponent<RectTransform>();
+            guideRect.sizeDelta = new Vector2(200, 220);
+
+            GameObject textRef = GameObject.Find("/Canvas Container Main/Canvas - Windows/windows/3D Phases/Background/Title");
+            if (textRef != null)
+            {
+                GameObject textGo = UnityEngine.Object.Instantiate(textRef, guideGo.transform);
+                textGo.SetActive(true);
+
+                var textComp = textGo.GetComponent<Text>();
+                if (textComp != null)
+                {
+                    textComp.text = guideText;
+                    textComp.fontSize = 9;
+                    textComp.resizeTextMaxSize = 9;
+                    textComp.alignment = TextAnchor.UpperLeft;
+                }
+
+                var textRt = textGo.GetComponent<RectTransform>();
+                if (textRt != null)
+                {
+                    textRt.anchorMin = new Vector2(0, 0);
+                    textRt.anchorMax = new Vector2(1, 1);
+                    textRt.offsetMin = Vector2.zero;
+                    textRt.offsetMax = Vector2.zero;
+                    textRt.localPosition = Vector3.zero;
+                    textRt.sizeDelta = new Vector2(200, 220);
+                }
+            }
+
+            // Expand the content area to accommodate the guide.
+            content.GetComponent<RectTransform>().sizeDelta += new Vector2(0, 230);
         }
 
         static void AddPhaseIconAndLabel(GameObject parent, string phaseId)

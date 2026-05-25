@@ -120,6 +120,9 @@ public class SavedSettings
         public bool WeatherSnow = false;
         public bool WeatherLightning = false;
 
+        // First-run experience: set true after the welcome dialog has been shown once.
+        public bool HasSeenWelcome = false;
+
         // Phase 10: LOD ladder + impostor fallback.
         public float LODScale = 0.5f;
         public float WaterDetail = 1.0f;

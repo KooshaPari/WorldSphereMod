@@ -86,5 +86,9 @@
   "weather_snow": "Weather: Snow",
   "weather_snow_description": "Slow-falling snowflakes.",
   "weather_lightning": "Weather: Lightning",
-  "weather_lightning_description": "Periodic lightning flash + vertical bolt."
+  "weather_lightning_description": "Periodic lightning flash + vertical bolt.",
+  "worldspace_health_3d": "3D Health Bars",
+  "worldspace_health_3d_description": "Worldspace 3D mesh health bars instead of legacy billboard quads.",
+  "wsm3d_welcome_message": "WorldSphere 3D is installed! Voxel actors are enabled by default. Open the 3D Phases panel to enable more features.",
+  "wsm3d_quick_start_guide": "--- Quick Start ---\nVoxel Actors (P1): 3D voxel units, items, projectiles\nMesh Buildings (P2): Procedural 3D buildings\nFoliage (P3): Crossed-quad trees and bushes\nMesh Water (P4): Gerstner-wave water surface\nSun + Shadows (P5): Directional light + cascades\nSkeletal Anim (P6): Auto-rigged voxel actors\nWorldspace UI (P7): 3D nameplates and HP bars\nDay/Night (P8): Procedural sky + time cycle\nPost FX (P9): Bloom, SSAO, SSGI, color grading\n---\nEnable phases top-to-bottom for best results.\nReload the world after toggling."
 }

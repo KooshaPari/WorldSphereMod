@@ -29,6 +29,8 @@ namespace WorldSphereMod
 
         public static Harmony Patcher;
         internal static bool ClearVoxelMeshCacheOnFirstFrame;
+        /// <summary>True when no settings file existed at load time (fresh install).</summary>
+        public static bool IsFirstInstall { get; private set; }
         public static void SaveSettings()
         {
             string json = JsonConvert.SerializeObject(savedSettings, Formatting.Indented);
@@ -47,6 +49,8 @@ namespace WorldSphereMod
             }
             catch
             {
+                IsFirstInstall = true;
+                savedSettings.VoxelEntities = true;
                 SaveSettings();
                 return false;
             }
@@ -167,7 +171,20 @@ namespace WorldSphereMod
 
         public static void ApplyPhaseToggle(string flagName, bool newValue)
         {
-            PhasePatchManager.ApplyPhaseToggle(flagName, newValue);
+            WorldSphereMod.Worldspace.PhaseToast.EnsureCreated();
+            try
+            {
+                PhasePatchManager.ApplyPhaseToggle(flagName, newValue);
+            }
+            catch (System.Exception ex)
+            {
+                string reason = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
+                string msg = $"{flagName} could not be {(newValue ? "enabled" : "disabled")}: Harmony patch failed — {reason}";
+                Debug.LogError($"[WSM3D] {msg}\n{ex}");
+                WorldSphereMod.Worldspace.PhaseToast.ShowError(msg);
+                return;
+            }
+
             // Invalidate voxel cache + material when render-affecting flags change.
             // Without this, toggling VoxelEntities / ProceduralBuildings / etc has no
             // visible delta because cached meshes + materials persist across the
@@ -181,63 +198,73 @@ namespace WorldSphereMod
                 try { WorldSphereMod.Voxel.VoxelMeshCache.Clear(); } catch { }
                 try { WorldSphereMod.Voxel.VoxelRender.Reset(); } catch { }
             }
-            if (flagName == nameof(SavedSettings.HighShadows))
+            try
             {
-                WorldSphereMod.Lighting.SunDriver.ApplyShadowSettings();
-            }
-            if (flagName == nameof(SavedSettings.WorldspaceUI) && newValue)
-            {
-                WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated();
-            }
-            if (flagName == nameof(SavedSettings.MountainSlopeSmoothing))
-            {
-                if (newValue)
+                if (flagName == nameof(SavedSettings.HighShadows))
                 {
-                    WorldSphereMod.Terrain.MountainSlopeSurface.EnsureActive();
+                    WorldSphereMod.Lighting.SunDriver.ApplyShadowSettings();
                 }
-                else
+                if (flagName == nameof(SavedSettings.WorldspaceUI) && newValue)
                 {
-                    WorldSphereMod.Terrain.MountainSlopeSurface.Destroy();
+                    WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated();
                 }
-            }
-            if (flagName == nameof(SavedSettings.DayNightCycle) && newValue)
-            {
-                WorldSphereMod.Lighting.TimeOfDay.EnsureCreated();
-                WorldSphereMod.Lighting.ProceduralSky.EnsureCreated();
-            }
-            if (flagName == nameof(SavedSettings.DayNightCycle) && !newValue)
-            {
-                WorldSphereMod.Lighting.ProceduralSky.ApplySetting(false);
-            }
-            if (flagName == nameof(SavedSettings.HdrSkybox))
-            {
-                WorldSphereMod.Lighting.CubemapLighting.ApplySetting(newValue);
-            }
-            if (flagName == nameof(SavedSettings.PostFX))
-            {
-                WorldSphereMod.PostFx.WSM3DPostStack.ApplySetting(newValue);
-            }
-            if (flagName == nameof(SavedSettings.ColorGradingLut) ||
-                flagName == nameof(SavedSettings.SSAOEnabled) ||
-                flagName == nameof(SavedSettings.SSAOQuality) ||
-                flagName == nameof(SavedSettings.SSGIEnabled) ||
-                flagName == nameof(SavedSettings.BloomEnabled) ||
-                flagName == nameof(SavedSettings.ACESTonemapping))
-            {
-                WorldSphereMod.PostFx.WSM3DPostStack.RefreshMaterials();
-            }
-            if (flagName == nameof(SavedSettings.WeatherRain) ||
-                flagName == nameof(SavedSettings.WeatherSnow) ||
-                flagName == nameof(SavedSettings.WeatherLightning))
-            {
-                if (Core.savedSettings.WeatherRain || Core.savedSettings.WeatherSnow || Core.savedSettings.WeatherLightning)
+                if (flagName == nameof(SavedSettings.MountainSlopeSmoothing))
                 {
-                    WorldSphereMod.Weather.WeatherDriver.EnsureCreated();
+                    if (newValue)
+                    {
+                        WorldSphereMod.Terrain.MountainSlopeSurface.EnsureActive();
+                    }
+                    else
+                    {
+                        WorldSphereMod.Terrain.MountainSlopeSurface.Destroy();
+                    }
                 }
-                else
+                if (flagName == nameof(SavedSettings.DayNightCycle) && newValue)
                 {
-                    WorldSphereMod.Weather.WeatherDriver.Teardown();
+                    WorldSphereMod.Lighting.TimeOfDay.EnsureCreated();
+                    WorldSphereMod.Lighting.ProceduralSky.EnsureCreated();
                 }
+                if (flagName == nameof(SavedSettings.DayNightCycle) && !newValue)
+                {
+                    WorldSphereMod.Lighting.ProceduralSky.ApplySetting(false);
+                }
+                if (flagName == nameof(SavedSettings.HdrSkybox))
+                {
+                    WorldSphereMod.Lighting.CubemapLighting.ApplySetting(newValue);
+                }
+                if (flagName == nameof(SavedSettings.PostFX))
+                {
+                    WorldSphereMod.PostFx.WSM3DPostStack.ApplySetting(newValue);
+                }
+                if (flagName == nameof(SavedSettings.ColorGradingLut) ||
+                    flagName == nameof(SavedSettings.SSAOEnabled) ||
+                    flagName == nameof(SavedSettings.SSAOQuality) ||
+                    flagName == nameof(SavedSettings.SSGIEnabled) ||
+                    flagName == nameof(SavedSettings.BloomEnabled) ||
+                    flagName == nameof(SavedSettings.ACESTonemapping))
+                {
+                    WorldSphereMod.PostFx.WSM3DPostStack.RefreshMaterials();
+                }
+                if (flagName == nameof(SavedSettings.WeatherRain) ||
+                    flagName == nameof(SavedSettings.WeatherSnow) ||
+                    flagName == nameof(SavedSettings.WeatherLightning))
+                {
+                    if (Core.savedSettings.WeatherRain || Core.savedSettings.WeatherSnow || Core.savedSettings.WeatherLightning)
+                    {
+                        WorldSphereMod.Weather.WeatherDriver.EnsureCreated();
+                    }
+                    else
+                    {
+                        WorldSphereMod.Weather.WeatherDriver.Teardown();
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                string reason = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
+                string msg = $"{flagName} could not be {(newValue ? "enabled" : "disabled")}: {reason}";
+                Debug.LogError($"[WSM3D] {msg}\n{ex}");
+                WorldSphereMod.Worldspace.PhaseToast.ShowError(msg);
             }
     }
 

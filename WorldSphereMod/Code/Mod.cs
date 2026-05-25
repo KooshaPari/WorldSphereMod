@@ -156,6 +156,7 @@ using WorldSphereMod;
             {
                 InitProfiler.Measure("EnsureCreated: RuntimeStatsOverlay", () => { try { WorldSphereMod.Worldspace.RuntimeStatsOverlay.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] RuntimeStatsOverlay FAILED: " + ex); } });
             }
+            InitProfiler.Measure("EnsureCreated: PhaseToast", () => { try { WorldSphereMod.Worldspace.PhaseToast.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] PhaseToast FAILED: " + ex); } });
             yield return null;
             InitProfiler.Measure("EnsureCreated: TimeOfDay", () => { try { WorldSphereMod.Lighting.TimeOfDay.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] TimeOfDay FAILED: " + ex); } });
             yield return null;
@@ -186,6 +187,11 @@ public void PostInit()
         }
         if (Core.savedSettings.DebugSpawnBuildings && Object != null && Object.GetComponent<WorldSphereMod.ProcGen.DebugSpawnBuildingsDriver>() == null) Object.AddComponent<WorldSphereMod.ProcGen.DebugSpawnBuildingsDriver>();
         if (IsAutoTest && Object != null && Object.GetComponent<AutoTestDriver>() == null) Object.AddComponent<AutoTestDriver>();
+        // First-run welcome: auto-open settings tab + show tooltip on fresh install.
+        if (Core.IsFirstInstall && !Core.savedSettings.HasSeenWelcome && Object != null && Object.GetComponent<WorldSphereMod.FirstRunWelcome>() == null)
+        {
+            Object.AddComponent<WorldSphereMod.FirstRunWelcome>();
+        }
     }
 
     public string GetLocaleFilesDirectory(ModDeclare pModDeclare)
