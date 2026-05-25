@@ -934,10 +934,7 @@ namespace WorldSphereMod
                         // pow(0) guard, #pragma target 3.0). Library/ cache purged so Unity 2022.3
                         // regenerates from clean state — eliminates the ManagedStream crash that
                         // was caused by a stale Unity 6000.3 ArtifactDB in the bake project.
-                        foreach (var shaderName in new[] {
-                            "OpaqueVertexColor", "GerstnerWater", "ColorGradingLUT",
-                            "StratumVoxelPBR", "ProceduralSky", "Impostor",
-                            "ScreenSpaceAO", "ScreenSpaceGI", "BrpBloom", "BrpACES" })
+                        foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ColorGradingLUT" })
                         {
                             string assetPath = $"assets/wsm3d/shaders/{shaderName.ToLowerInvariant()}.shader";
                             var sh = shaderAb.GetObject<UnityEngine.Shader>(assetPath);
