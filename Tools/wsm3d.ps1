@@ -15,7 +15,7 @@
   ./wsm3d.ps1 render-budget -DryRun
   ./wsm3d.ps1 settings get -Key VoxelEntities
   ./wsm3d.ps1 settings set -Key VoxelEntities -Value true
-  ./wsm3d.ps1 toggle -Phase VoxelEntities
+  ./wsm3d.ps1 toggle VoxelEntities
   ./wsm3d.ps1 relaunch
   ./wsm3d.ps1 status -Json
   ./wsm3d.ps1 journey verify -Id smoke-test-phase1
@@ -81,6 +81,10 @@ $script:PhaseMap = @{
     "day_night_cycle"     = "DayNightCycle"
     "post_fx"             = "PostFX"
     "particle_effects"    = "ParticleEffects"
+    "ssao_enabled"        = "SSAOEnabled"
+    "ssgi_enabled"        = "SSGIEnabled"
+    "bloom_enabled"       = "BloomEnabled"
+    "aces_tonemapping"    = "ACESTonemapping"
 }
 
 # === Helpers ===
@@ -1960,8 +1964,9 @@ Commands:
       Patch one setting. Value is parsed to match the field type.
       Refuses to write while WorldBox is running unless -Force is supplied.
 
-  toggle -Phase <name>
-      Flip a phase flag on/off. Name can be camelCase (VoxelEntities) or snake_case (voxel_entities).
+  toggle [-Phase] <name>
+      Flip a phase or post-FX flag on/off. Legacy toggle -Phase <name> still works. Name can be
+      camelCase (VoxelEntities, BloomEnabled) or snake_case (voxel_entities, bloom_enabled).
 
   status [-Json]
       Print build state, game running, log mtime, and last live-verify test counts when
@@ -2044,7 +2049,8 @@ Examples:
   wsm3d screenshot phase 1 -Name before -WindowOnly
   wsm3d screenshot phase 2 -Name buildings -WindowOnly
   wsm3d journey capture -Id sample-journey -NonInteractive
-  wsm3d toggle -Phase voxel_entities
+  wsm3d toggle voxel_entities
+  wsm3d toggle BloomEnabled
   wsm3d phases enable-all
   wsm3d phases preset safe-min
   wsm3d status -Json
@@ -2224,6 +2230,8 @@ try {
             $params = @{}
             if ($commandArgs -contains "-Phase") {
                 $params["Phase"] = $commandArgs[$commandArgs.IndexOf("-Phase") + 1]
+            } elseif ($commandArgs.Count -gt 0 -and -not $commandArgs[0].StartsWith("-")) {
+                $params["Phase"] = $commandArgs[0]
             }
             Invoke-Toggle @params
         }
