@@ -156,7 +156,7 @@ namespace WorldSphereMod.Lighting
             {
                 return;
             }
-            _previousCustomReflection = RenderSettings.customReflection;
+            try { _previousCustomReflection = RenderSettings.customReflection; } catch { _previousCustomReflection = null; }
             _previousAmbientMode = RenderSettings.ambientMode;
             _previousDefaultReflectionMode = RenderSettings.defaultReflectionMode;
             _previousReflectionIntensity = RenderSettings.reflectionIntensity;
