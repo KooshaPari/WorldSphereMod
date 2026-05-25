@@ -267,7 +267,14 @@ namespace WorldSphereMod
         // load the textures after mods are loaded incase some mods add new world tiles
         public static void PostInit()
         {
-            Sphere.Prepare();
+            try
+            {
+                Sphere.Prepare();
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[WSM3D] Sphere.Prepare FAILED: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
+            }
         }
         const string HarmonyID = "WorldSphereMod";
         //this mod makes the game 3D, of course im patching alot (rip compatibility)
@@ -875,11 +882,8 @@ namespace WorldSphereMod
                 if (CompoundSphereMaterial == null)
                     Debug.LogError("[WSM3D] CompoundSphereMaterial missing from bundle.");
 
-                // wsm3d-shaders bundle disabled: baked in Unity 6.3 but WorldBox
-                // runs Unity 2022.3. Loading it registers corrupted shaders that
-                // crash the GPU ("Shader not supported on this GPU"). Skip until
-                // bundle is rebaked in Unity 2022.3.
-                WrappedAssetBundle shaderAb = null; // AssetBundleUtils.GetAssetBundle("wsm3d-shaders");
+                // Rebaked with Unity 2022.3.62f3 (see Tools/bake-shaders.ps1).
+                WrappedAssetBundle shaderAb = AssetBundleUtils.GetAssetBundle("wsm3d-shaders");
                 if (shaderAb == null)
                 {
                     Debug.LogWarning("[WSM3D] AssetBundleUtils.GetAssetBundle('wsm3d-shaders') returned null — shader bundle not baked yet. Consumers will fall back to Shader.Find / Standard.");
@@ -888,7 +892,8 @@ namespace WorldSphereMod
                 {
                     try
                     {
-                        foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ScreenSpaceAO", "ScreenSpaceGI", "BrpBloom", "BrpACES", "ColorGradingLUT", "ProceduralSky", "Impostor" })
+                        // Rebake 2022.3.62f3: load safe shaders first; omit ScreenSpaceAO/GI/BrpBloom/BrpACES until bake fixes empty-name assets.
+                        foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ProceduralSky", "ColorGradingLUT", "Impostor" })
                         {
                             string assetPath = $"assets/wsm3d/shaders/{shaderName.ToLowerInvariant()}.shader";
                             var sh = shaderAb.GetObject<UnityEngine.Shader>(assetPath);

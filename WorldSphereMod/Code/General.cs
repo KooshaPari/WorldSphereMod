@@ -13,10 +13,12 @@ namespace WorldSphereMod.General
     public delegate IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions);
     public class SphereControl
     {
+        static bool _clearing;
         [HarmonyPatch(typeof(MapBox), nameof(MapBox.finishMakingWorld))]
         [HarmonyPostfix]
         static void CreateSphere()
         {
+            _clearing = false;
             Core.Generated = true;
             if(Core.savedSettings.Is3D)
             {
@@ -25,9 +27,10 @@ namespace WorldSphereMod.General
         }
         [HarmonyPatch(typeof(MapBox), nameof(MapBox.addClearWorld))]
         [HarmonyPrefix]
-        static void DestroySphere(ref int pNextWidth)
+        static void DestroySphere()
         {
-            pNextWidth = -1;
+            if (_clearing) return;
+            _clearing = true;
             Core.Generated = false;
             SmoothLoader.add(delegate { Core.Become2D(); }, "Becoming 2D!");
         }
