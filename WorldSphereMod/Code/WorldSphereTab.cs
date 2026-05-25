@@ -791,7 +791,6 @@ namespace WorldSphereMod.UI
             if (ID == "3D Phases")
             {
                 WorldSphereTab.PreloadPhaseIcons();
-                AddQuickStartGuide(Object);
             }
             LoadInputOptions(Buttons);
         }
