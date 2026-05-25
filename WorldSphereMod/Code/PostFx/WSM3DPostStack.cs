@@ -25,6 +25,11 @@ namespace WorldSphereMod.PostFx
         {
             if (!Core.IsWorld3D) return;
             if (Core.savedSettings == null || !Core.savedSettings.PostFX) return;
+            if (_shadersUnavailable)
+            {
+                Debug.LogWarning("[WSM3D] WSM3DPostStack: skipping EnsureCreated — shader bundle unavailable. Rebake with Unity 2022.3.");
+                return;
+            }
 
             Camera cam = ResolveMainCamera();
             if (cam == null) return;
@@ -35,6 +40,13 @@ namespace WorldSphereMod.PostFx
 
         public static void ApplySetting(bool enabled)
         {
+            if (enabled && _shadersUnavailable)
+            {
+                Debug.LogWarning("[WSM3D] PostFX requires shader bundle rebake — toggle is a no-op.");
+                WorldSphereMod.Worldspace.PhaseToast.ShowWarning("PostFX requires shader bundle rebake.");
+                return;
+            }
+
             Camera cam = ResolveMainCamera();
             if (cam == null) return;
 
@@ -161,7 +173,8 @@ namespace WorldSphereMod.PostFx
             bool anyMaterial = _ssaoMat != null || _ssgiMat != null || _bloomMat != null || _acesMat != null || _lutMat != null;
             if (!anyMaterial)
             {
-                Debug.LogWarning("[WSM3D] WSM3DPostStack: no shaders resolved — destroying PostStack component to avoid black camera.");
+                Debug.LogWarning("[WSM3D] WSM3DPostStack: no shaders resolved — destroying PostStack component to avoid black camera. PostFX toggle will be a no-op until bundle is rebaked.");
+                _shadersUnavailable = true;
                 _initialized = false;
                 if (_instance == this) _instance = null;
                 Destroy(this);
