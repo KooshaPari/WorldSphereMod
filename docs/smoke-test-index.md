@@ -40,6 +40,13 @@ Screenshot helper (game focused, writes `docs/screenshots/phase-<n>-<name>.png`)
 pwsh Tools/wsm3d.ps1 screenshot phase <n> -Name <slug> -WindowOnly
 ```
 
+Manual smoke orchestrator (install, launch, checklist, optional PlayCUA baselines):
+
+```powershell
+pwsh Tools/manual-smoke.ps1 -Phase 1 -Install -Launch -PlaycuaBaseline
+pwsh Tools/manual-smoke.ps1 -AllPhases -PlaycuaBaseline
+```
+
 ---
 
 ## Phase matrix

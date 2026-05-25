@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using Xunit;
@@ -343,5 +344,57 @@ public class SavedSettingsTests
         body.Should().Contain("s.SSGIEnabled = true");
         body.Should().Contain("s.BloomEnabled = true");
         body.Should().Contain("s.ACESTonemapping = true");
+    }
+
+    private static string ReadWsm3dPs1Source()
+    {
+        var root = FindRepoRoot();
+        var path = Path.Combine(root, "Tools/wsm3d.ps1");
+        File.Exists(path).Should().BeTrue($"wsm3d.ps1 must exist at {path}");
+        return File.ReadAllText(path);
+    }
+
+    private static Dictionary<string, bool> ParsePhaseDefaultsFromWsm3dPs1()
+    {
+        var source = ReadWsm3dPs1Source();
+        var blockMatch = Regex.Match(
+            source,
+            @"\$script:PhaseDefaults\s*=\s*@\{([^}]+)\}",
+            RegexOptions.Singleline);
+        blockMatch.Success.Should().BeTrue("wsm3d.ps1 must declare $script:PhaseDefaults");
+
+        var defaults = new Dictionary<string, bool>(StringComparer.Ordinal);
+        foreach (Match entry in Regex.Matches(
+                     blockMatch.Groups[1].Value,
+                     @"""([^""]+)""\s*=\s*\$(true|false)"))
+        {
+            defaults[entry.Groups[1].Value] = bool.Parse(entry.Groups[2].Value);
+        }
+
+        defaults.Count.Should().BeGreaterThan(0, "PhaseDefaults must list at least one phase flag");
+        return defaults;
+    }
+
+    private static bool ReadSavedSettingsBoolDefault(string fieldName)
+    {
+        var source = ReadSavedSettingsSource();
+        var pattern = $@"public\s+bool\s+{Regex.Escape(fieldName)}\s*=\s*(true|false)";
+        var match = Regex.Match(source, pattern);
+        match.Success.Should().BeTrue($"SavedSettings must declare bool default for {fieldName}");
+        return bool.Parse(match.Groups[1].Value);
+    }
+
+    [Fact]
+    public void Wsm3d_PhaseDefaults_match_SavedSettings_bool_defaults()
+    {
+        var phaseDefaults = ParsePhaseDefaultsFromWsm3dPs1();
+
+        foreach (var (fieldName, ps1Default) in phaseDefaults)
+        {
+            var csDefault = ReadSavedSettingsBoolDefault(fieldName);
+            ps1Default.Should().Be(
+                csDefault,
+                $"Tools/wsm3d.ps1 PhaseDefaults['{fieldName}'] must match SavedSettings.cs default");
+        }
     }
 }
