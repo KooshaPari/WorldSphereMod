@@ -88,4 +88,5 @@ Shader "Hidden/ScreenSpaceGI"
             ENDCG
         }
     }
+    FallBack Off
 }

@@ -158,4 +158,5 @@ Shader "Hidden/WSM3D/BrpBloom"
             ENDCG
         }
     }
+    FallBack Off
 }

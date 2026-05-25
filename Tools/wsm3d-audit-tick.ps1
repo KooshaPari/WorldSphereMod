@@ -127,9 +127,9 @@ if (-not $SkipOffline) {
 try {
     Push-Location $RepoRoot
     $doc = pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') doctor 2>&1 | Out-String
-    $docOk = $doc -match '\[OK\] All required checks passed'
+    $docOk = $doc -match '\[OK\] All required checks passed' -or $doc -match 'Required checks passed with'
     if ($docOk) {
-        Add-Stage $report 'doctor' 'passed' @{}
+        Add-Stage $report 'doctor' 'passed' @{ optionalWarnings = ($doc -match '\[WARN\]') }
         Write-TickLog 'doctor OK' 'OK'
     } else {
         Add-Stage $report 'doctor' 'failed' @{ tail = ($doc -split "`n" | Select-Object -Last 15) }

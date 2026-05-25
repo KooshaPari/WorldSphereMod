@@ -73,4 +73,5 @@ Shader "WSM3D/ProceduralSky"
             ENDCG
         }
     }
+    FallBack Off
 }
