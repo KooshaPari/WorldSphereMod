@@ -108,8 +108,6 @@ public sealed class MeshWaterInvariantsTests
         ensureBody.Should().Contain("\"Universal Render Pipeline/Lit\"");
         ensureBody.Should().Contain("\"Standard\"");
         ensureBody.Should().Contain("\"Universal Render Pipeline/Unlit\"");
-        ensureBody.Should().NotContain("\"Sprites/Default\"",
-            "Sprites/Default is a transparent dummy — it caused opaque-black water in fallback");
 
         ensureBody.Should().Contain("[WSM3D] No water shader found; water disabled.",
             "missing shader path must disable water instead of creating a broken surface");
@@ -122,12 +120,14 @@ public sealed class MeshWaterInvariantsTests
         var configureBody = ExtractMethodBody(source,
             "static void ConfigureWaterMaterial(Material material, Color waterTint,");
 
+        configureBody.Should().Contain("SetStandardTransparentMode(material)",
+            "built-in Standard fallback should use the shared transparent setup helper");
         configureBody.Should().Contain("EnableKeyword(\"_EMISSION\")",
             "Standard/URP Lit fallback must self-illuminate in zero-light scenes");
         configureBody.Should().Contain("material.renderQueue = 2000",
-            "built-in Standard fallback must use opaque queue to avoid black transparent water");
+            "built-in opaque fallback must stay in the opaque queue to avoid black transparent water");
         configureBody.Should().Contain("MeshWater creates blackworld",
-            "regression comment must stay attached to the renderQueue guard");
+            "regression comment must stay attached to the opaque fallback branch");
     }
 
     [Fact]

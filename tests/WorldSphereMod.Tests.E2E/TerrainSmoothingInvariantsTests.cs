@@ -235,7 +235,7 @@ public sealed class TerrainSmoothingInvariantsTests
         ensureBody.Should().Contain("Shader.Find(\"WSM3D/OpaqueVertexColor\")",
             "slope material must fall back to Shader.Find when cache misses");
         ensureBody.Should().Contain("Color.white",
-            "tint must be white so vertex colors are the sole albedo source (non-white darkens to black)");
+            "tint must be white so vertex colors are the sole albedo source");
         ensureBody.Should().Contain("material.enableInstancing",
             "slope material must validate instancing before adoption");
         ensureBody.Should().Contain("[WSM3D] No mountain slope smoothing shader found; overlay disabled.",
