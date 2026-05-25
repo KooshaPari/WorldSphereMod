@@ -936,17 +936,25 @@ namespace WorldSphereMod
                         // was caused by a stale Unity 6000.3 ArtifactDB in the bake project.
                         foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ColorGradingLUT", "StratumVoxelPBR", "ProceduralSky", "Impostor", "ScreenSpaceAO", "ScreenSpaceGI", "BrpBloom", "BrpACES" })
                         {
-                            string assetPath = $"assets/wsm3d/shaders/{shaderName.ToLowerInvariant()}.shader";
-                            // Unity bundle paths are case-sensitive; try the exact-case path too
-                            var sh = shaderAb.GetObject<UnityEngine.Shader>(assetPath);
-                            if (sh == null)
+                            UnityEngine.Shader sh = null;
+                            try
                             {
-                                assetPath = $"Assets/WSM3D/Shaders/{shaderName}.shader";
+                                string assetPath = $"assets/wsm3d/shaders/{shaderName.ToLowerInvariant()}.shader";
                                 sh = shaderAb.GetObject<UnityEngine.Shader>(assetPath);
+                                if (sh == null)
+                                {
+                                    assetPath = $"Assets/WSM3D/Shaders/{shaderName}.shader";
+                                    sh = shaderAb.GetObject<UnityEngine.Shader>(assetPath);
+                                }
+                            }
+                            catch (System.Exception ex)
+                            {
+                                Debug.LogWarning($"[WSM3D] Shader '{shaderName}' threw during bundle load: {ex.Message}");
+                                continue;
                             }
                             if (sh == null)
                             {
-                                Debug.LogWarning($"[WSM3D] Shader not in wsm3d-shaders bundle: {shaderName} (tried lowercase + exact-case paths)");
+                                Debug.LogWarning($"[WSM3D] Shader not in wsm3d-shaders bundle: {shaderName}");
                                 continue;
                             }
                             // Reject corrupted shader assets: a Shader object whose
