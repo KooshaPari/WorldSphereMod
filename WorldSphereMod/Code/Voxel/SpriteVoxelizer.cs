@@ -28,7 +28,7 @@ namespace WorldSphereMod.Voxel
         /// <see cref="ResolveDepth"/> cannot run. Prefer <c>depth = -1</c> so
         /// <see cref="WorldSphereMod.SavedSettings.VoxelSpriteDepth"/> applies.
         /// </summary>
-        public const int DefaultDepth = 3;
+        public const int DefaultDepth = 8;
         static readonly HashSet<string> _unreadableSpriteWarnings = new HashSet<string>();
         static int _buildPerTexelDiagCount;
         static readonly object _buildPerTexelDiagLock = new object();
@@ -264,7 +264,7 @@ namespace WorldSphereMod.Voxel
         {
             if (depth > 0) return depth;
             int configuredDepth = Core.savedSettings != null ? Core.savedSettings.VoxelSpriteDepth : 0;
-            return configuredDepth > 0 ? configuredDepth : 3;
+            return configuredDepth > 0 ? configuredDepth : DefaultDepth;
         }
 
         /// <summary>
@@ -412,7 +412,7 @@ namespace WorldSphereMod.Voxel
             bool[,,] solid = new bool[w, h, depth];
             Color32[,,] color = new Color32[w, h, depth];
             float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
-            const float minDepthScale = 0.25f;
+            const float minDepthScale = 0.15f;
             const float maxDepthScale = 1.00f;
 
             for (int y = 0; y < h; y++)
@@ -730,7 +730,7 @@ namespace WorldSphereMod.Voxel
             // 2.5D extrusions. Same recipe as BuildOrganicBlob but applied here so
             // ShapeHint routing no longer matters for the skinned path. Disable via
             // VoxelColorTonemap-style toggle later if needed.
-            const float kMinDepthScale = 0.30f;
+            const float kMinDepthScale = 0.15f;
             const float kMaxDepthScale = 1.00f;
             float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
             int[] depthScaleHistogram = null;
@@ -754,11 +754,14 @@ namespace WorldSphereMod.Voxel
                         : tex[row + x];
                     if (c.a > 16)
                     {
-                        float worldX = (x0 + x - sprite.pivot.x) / ppu;
-                        float worldZ = (y0 + y - sprite.pivot.y) / ppu;
+                        float worldX = (x - sprite.pivot.x) / ppu;
+                        float worldZ = (y - sprite.pivot.y) / ppu;
                         float noise = Mathf.PerlinNoise(worldX * 0.22f + 0.13f, worldZ * 0.22f + 0.73f);
-                        float depthScale = Mathf.Lerp(kMinDepthScale, kMaxDepthScale, noise);
-                        int columnDepth = Mathf.Clamp(Mathf.RoundToInt(depth * depthScale), 1, depth);
+                        // Luminance: brighter / more saturated pixels extrude deeper
+                        float lum = (c.r * 0.299f + c.g * 0.587f + c.b * 0.114f) / 255f;
+                        float combined = noise * 0.6f + lum * 0.4f;
+                        float depthScale = Mathf.Lerp(kMinDepthScale, kMaxDepthScale, combined);
+                        int columnDepth = Mathf.Clamp(Mathf.RoundToInt(depth * depthScale), 2, depth);
                         if (logNoiseHistogram)
                         {
                             int bin = Mathf.Clamp(Mathf.FloorToInt(depthScale * depthScaleHistogram.Length), 0, depthScaleHistogram.Length - 1);
