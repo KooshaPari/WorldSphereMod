@@ -910,11 +910,7 @@ namespace WorldSphereMod
                     Debug.LogError("[WSM3D] CompoundSphereMaterial missing from bundle.");
 
                 // Rebaked with Unity 2022.3.62f3 (see Tools/bake-shaders.ps1).
-                // wsm3d-shaders bundle disabled: baked in Unity 6.3 but WorldBox
-                // runs 2022.3. Loading corrupted shaders triggers ManagedStream
-                // exceptions → Unity crash reporter → game freeze. Re-enable after
-                // rebaking the bundle in Unity 2022.3.
-                WrappedAssetBundle shaderAb = null; // AssetBundleUtils.GetAssetBundle("wsm3d-shaders");
+                WrappedAssetBundle shaderAb = AssetBundleUtils.GetAssetBundle("wsm3d-shaders");
                 if (shaderAb == null)
                 {
                     Debug.LogWarning("[WSM3D] AssetBundleUtils.GetAssetBundle('wsm3d-shaders') returned null — shader bundle not baked yet. Consumers will fall back to Shader.Find / Standard.");
@@ -923,8 +919,9 @@ namespace WorldSphereMod
                 {
                     try
                     {
-                        // Rebake 2022.3.62f3 (Tools/bake-shaders.ps1): skip empty-name / unsupported at runtime.
-                        foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ProceduralSky", "ColorGradingLUT", "Impostor", "ScreenSpaceAO", "ScreenSpaceGI", "BrpBloom", "BrpACES" })
+                        // Rebake 2022.3.62f3: load bundle shaders that compile on WorldBox GPU.
+                        // ProceduralSky/Impostor/ScreenSpaceAO/GI/BrpBloom/BrpACES still bake with empty .name — omit until fixed.
+                        foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ColorGradingLUT" })
                         {
                             string assetPath = $"assets/wsm3d/shaders/{shaderName.ToLowerInvariant()}.shader";
                             var sh = shaderAb.GetObject<UnityEngine.Shader>(assetPath);
