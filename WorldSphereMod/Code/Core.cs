@@ -917,10 +917,8 @@ namespace WorldSphereMod
                 if (CompoundSphereMaterial == null)
                     Debug.LogError("[WSM3D] CompoundSphereMaterial missing from bundle.");
 
-                // wsm3d-shaders bundle: some shaders (OpaqueVertexColor, GerstnerWater,
-                // ColorGradingLUT) load fine; others cause ManagedStream errors.
-                // Load the bundle but catch per-shader errors silently to avoid
-                // triggering Unity's crash reporter.
+                // wsm3d-shaders bundle rebaked with Unity 2022.3.62f3. All 8 shaders
+                // now compile. Load with try/catch in case bundle file is missing.
                 WrappedAssetBundle shaderAb = null;
                 try { shaderAb = AssetBundleUtils.GetAssetBundle("wsm3d-shaders"); }
                 catch { shaderAb = null; }
@@ -934,7 +932,7 @@ namespace WorldSphereMod
                     {
                         // Rebake 2022.3.62f3: load bundle shaders that compile on WorldBox GPU.
                         // ProceduralSky/Impostor/ScreenSpaceAO/GI/BrpBloom/BrpACES still bake with empty .name — omit until fixed.
-                        foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ColorGradingLUT" })
+                        foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ScreenSpaceAO", "ColorGradingLUT", "ProceduralSky", "Impostor", "ScreenSpaceGI", "BrpBloom", "BrpACES" })
                         {
                             string assetPath = $"assets/wsm3d/shaders/{shaderName.ToLowerInvariant()}.shader";
                             var sh = shaderAb.GetObject<UnityEngine.Shader>(assetPath);
