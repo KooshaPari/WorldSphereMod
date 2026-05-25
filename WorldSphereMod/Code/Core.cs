@@ -94,6 +94,13 @@ namespace WorldSphereMod
 
                 field.SetValue(loadedData, field.GetValue(currentDefaults));
             }
+
+            // v2.3 swapped the Shapes list order: index 0 changed from
+            // cylindrical to flat. Reset CurrentShape to the new default
+            // so users upgrading from v2.2 don't silently land in the wrong
+            // shape mode (root cause of invisible terrain when the old
+            // cylindrical index 0 maps to the new flat entry).
+            loadedData.CurrentShape = currentDefaults.CurrentShape;
         }
 
         static void LogPhaseFlagDefaults(SavedSettings loadedData)
@@ -541,6 +548,9 @@ namespace WorldSphereMod
                 sw.Restart();
                 Manager = SphereManager.Creator.CreateSphereManager(width, height, SphereManagerConfig);
                 Debug.Log($"[WSM3D][PERF] Sphere.Begin.CreateSphereManager={sw.Elapsed.TotalMilliseconds:F3}ms");
+                Debug.Log($"[WSM3D] Sphere.Begin: shape={savedSettings.CurrentShape} " +
+                    $"({(CurrentShape.IsWrapped ? "cylindrical" : "flat")}) " +
+                    $"width={width} height={height} radius={Manager.Radius:F3}");
                 LogDiagnostics("[WSM3D] Sphere.Begin");
             }
             static Color32 GetBaseColor(int index)
@@ -925,33 +935,54 @@ namespace WorldSphereMod
                                  || shName.StartsWith("Hidden/Internal", System.StringComparison.OrdinalIgnoreCase);
                     if (isBroken)
                     {
-                        // Try unlit candidates in order — Standard reads pure
-                        // black when scene lighting isn't fully wired, so we
-                        // prefer anything that doesn't need NdotL. Sprites/
-                        // Default is always present in every Unity build and
-                        // renders the assigned color directly, so it's the
-                        // bulletproof last resort. WSM3D/OpaqueVertexColor
-                        // is opaque + lit-color-free, our own bundled shader
-                        // that always loads.
+                        // The CompoundSphere shader uses StructuredBuffers
+                        // (Matrixes, Scales, Colors, Textures) for indirect
+                        // instancing. Generic fallback shaders (Unlit/Color,
+                        // Standard, etc.) cannot read these buffers, so ALL
+                        // instances render at identity transform as 1-unit
+                        // meshes at origin — effectively invisible terrain.
+                        //
+                        // Priority: try "CompoundSphere" by name first (works
+                        // if the shader is baked into the worldsphere bundle
+                        // and was registered with Unity). Then try generic
+                        // fallbacks for at least a visible (though incorrectly
+                        // positioned) terrain.
                         Shader? fallback = null;
-                        string[] candidates =
-                        {
-                            "Unlit/Color",
-                            "Unlit/Texture",
-                            "Universal Render Pipeline/Unlit",
-                            "Particles/Standard Unlit",
-                            "WSM3D/OpaqueVertexColor",
-                            "Sprites/Default",
-                            "Standard",
-                        };
                         string chosen = "<none>";
-                        foreach (var n in candidates)
+
+                        // First: try to recover the CompoundSphere shader from
+                        // the bundle or Unity's global lookup.
+                        var csShader = Shader.Find("CompoundSphere");
+                        if (csShader != null && !string.IsNullOrEmpty(csShader.name))
                         {
-                            // First try our bundle cache; only OpaqueVertexColor + ProceduralSky are valid there.
-                            if (LoadedShaders.TryGetValue(n.Substring(n.LastIndexOf('/') + 1), out var cached) && cached != null) { fallback = cached; chosen = n + " (cache)"; break; }
-                            var sh2 = Shader.Find(n);
-                            if (sh2 != null) { fallback = sh2; chosen = n; break; }
+                            fallback = csShader;
+                            chosen = "CompoundSphere (Shader.Find)";
                         }
+
+                        // Second: try generic shaders as last resort. These
+                        // will NOT support the StructuredBuffer instancing —
+                        // terrain will likely be invisible or a single tile
+                        // at origin.
+                        if (fallback == null)
+                        {
+                            string[] candidates =
+                            {
+                                "Unlit/Color",
+                                "Unlit/Texture",
+                                "Universal Render Pipeline/Unlit",
+                                "Particles/Standard Unlit",
+                                "WSM3D/OpaqueVertexColor",
+                                "Sprites/Default",
+                                "Standard",
+                            };
+                            foreach (var n in candidates)
+                            {
+                                if (LoadedShaders.TryGetValue(n.Substring(n.LastIndexOf('/') + 1), out var cached) && cached != null) { fallback = cached; chosen = n + " (cache)"; break; }
+                                var sh2 = Shader.Find(n);
+                                if (sh2 != null) { fallback = sh2; chosen = n; break; }
+                            }
+                        }
+
                         if (fallback != null)
                         {
                             CompoundSphereMaterial.shader = fallback;
@@ -959,15 +990,22 @@ namespace WorldSphereMod
                             CompoundSphereMaterial.color = tan;
                             try { CompoundSphereMaterial.SetColor("_BaseColor", tan); } catch { }
                             try { CompoundSphereMaterial.SetColor("_Color", tan); } catch { }
-                            // Belt-and-suspenders emission so even if a future
-                            // path swaps the shader back to Standard the
-                            // material still reads tan.
                             try
                             {
                                 CompoundSphereMaterial.EnableKeyword("_EMISSION");
                                 CompoundSphereMaterial.SetColor("_EmissionColor", new Color(0.55f, 0.50f, 0.40f, 1f));
                             } catch { }
-                            UnityEngine.Debug.LogWarning($"[WSM3D] CompoundSphereMaterial had broken shader; reassigned to '{chosen}' (resolved name='{fallback.name}') with tan color + emission.");
+                            bool isGenericFallback = !chosen.Contains("CompoundSphere");
+                            if (isGenericFallback)
+                            {
+                                UnityEngine.Debug.LogError($"[WSM3D] TERRAIN WILL BE INVISIBLE: CompoundSphereMaterial shader is broken (was '{shName}'), " +
+                                    $"fell back to '{chosen}' which cannot read the StructuredBuffer instancing data (Matrixes/Scales/Colors). " +
+                                    "Rebake the worldsphere AssetBundle with the CompoundSphere shader included.");
+                            }
+                            else
+                            {
+                                UnityEngine.Debug.LogWarning($"[WSM3D] CompoundSphereMaterial shader recovered to '{chosen}' (resolved name='{fallback.name}').");
+                            }
                         }
                     }
                 }
