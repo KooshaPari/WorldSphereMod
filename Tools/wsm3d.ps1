@@ -1841,22 +1841,27 @@ function Invoke-PlaycuaScenarios {
     }
 
     $failed = @()
-    foreach ($scenario in $Scenarios) {
-        $scenarioReport = Join-Path $artifactRoot ("playcua-" + $scenario.BaseName + ".json")
-        $pyArgs = @(
-            $playcuaMain,
-            $scenario.FullName,
-            "--report", $scenarioReport
-        )
-        if ($PSBoundParameters.ContainsKey("VisionBackend")) {
-            $pyArgs += @("--vision-backend", $(if ($VisionBackend) { $VisionBackend } else { "off" }))
-        }
+    Push-Location $RepoRoot
+    try {
+        foreach ($scenario in $Scenarios) {
+            $scenarioReport = Join-Path $artifactRoot ("playcua-" + $scenario.BaseName + ".json")
+            $pyArgs = @(
+                $playcuaMain,
+                $scenario.FullName,
+                "--report", $scenarioReport
+            )
+            if ($PSBoundParameters.ContainsKey("VisionBackend")) {
+                $pyArgs += @("--vision-backend", $(if ($VisionBackend) { $VisionBackend } else { "off" }))
+            }
 
-        Write-Info "playcua: $($scenario.Name) ..."
-        & $python @pyArgs
-        if ($LASTEXITCODE -ne 0) {
-            $failed += $scenario.Name
+            Write-Info "playcua: $($scenario.Name) ..."
+            & $python @pyArgs
+            if ($LASTEXITCODE -ne 0) {
+                $failed += $scenario.Name
+            }
         }
+    } finally {
+        Pop-Location
     }
 
     if ($failed.Count -gt 0) {

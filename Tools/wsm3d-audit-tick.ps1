@@ -224,6 +224,16 @@ if (-not $SkipLive -and $health) {
                 Add-Stage $report 'playcua-run-all' 'passed' @{}
                 [void]$report.completed.Add('playcua-run-all')
                 Write-TickLog 'playcua run-all 13/13' 'OK'
+                try {
+                    pwsh (Join-Path $RepoRoot 'Tools/sync-playcua-screenshots.ps1') 2>&1 | Out-Null
+                    $synced = @(Get-ChildItem -LiteralPath $ScreenshotsDir -Filter 'phase-*.png' -File -ErrorAction SilentlyContinue).Count
+                    if ($synced -gt 0) {
+                        Add-Stage $report 'screenshot-sync' 'passed' @{ count = $synced }
+                        [void]$report.completed.Add('screenshot-sync')
+                    }
+                } catch {
+                    Add-Stage $report 'screenshot-sync' 'failed' @{ error = $_.Exception.Message }
+                }
             } else {
                 Add-Stage $report 'playcua-run-all' 'failed' @{ exitCode = $LASTEXITCODE; tail = ($runAll -split "`n" | Select-Object -Last 20) }
                 Write-TickLog 'playcua run-all failed' 'ERR'

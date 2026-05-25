@@ -5,6 +5,7 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $Dest = Join-Path $RepoRoot 'docs/screenshots'
 $sources = @(
+    (Join-Path $RepoRoot 'artifacts'),
     (Join-Path $RepoRoot 'Tools/wsm3d-playcua/artifacts'),
     (Join-Path $RepoRoot 'Tools/wsm3d-playcua/.reports/run-all-artifacts/artifacts'),
     (Join-Path $RepoRoot 'Tools/wsm3d-playcua/.reports/live-verify-artifacts/artifacts')
