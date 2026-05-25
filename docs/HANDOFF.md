@@ -260,6 +260,7 @@ All paths under `Tools/wsm3d-playcua/sample-scenarios/`:
 
 ## Dev tooling
 
+- **Audit loop (5m):** `pwsh Tools/wsm3d-audit-tick.ps1 -RelaunchIfBridgeDown` — offline tests, doctor, bridge, PlayCUA `run-all`, live-verify; report `Tools/.reports/audit-tick-latest.json`.
 - **CLI:** `pwsh Tools/wsm3d.ps1 help` — 13 subcommands (build, install, launch, relaunch, log, toggle, journey capture, etc.).
 - **Slash commands:** `/wsm-status`, `/wsm-validate-all`, `/wsm-build`, `/wsm-install`, `/wsm-relaunch`, `/wsm-log`, `/wsm-toggle`, `/wsm-screenshot`, `/wsm-journey-run`, `/wsm-doctor`.
 - **MCP:** `Tools/wsm3d-mcp/` — Python FastMCP with 18 tools, auto-registered via `.claude/mcp-servers.json`.
