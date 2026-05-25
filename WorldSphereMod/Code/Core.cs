@@ -930,9 +930,14 @@ namespace WorldSphereMod
                 {
                     try
                     {
-                        // Rebake 2022.3.62f3: load bundle shaders that compile on WorldBox GPU.
-                        // ProceduralSky/Impostor/ScreenSpaceAO/GI/BrpBloom/BrpACES still bake with empty .name — omit until fixed.
-                        foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ColorGradingLUT" })
+                        // All 8 shaders fixed in commit 92de3a8 (static const arrays → functions,
+                        // pow(0) guard, #pragma target 3.0). Library/ cache purged so Unity 2022.3
+                        // regenerates from clean state — eliminates the ManagedStream crash that
+                        // was caused by a stale Unity 6000.3 ArtifactDB in the bake project.
+                        foreach (var shaderName in new[] {
+                            "OpaqueVertexColor", "GerstnerWater", "ColorGradingLUT",
+                            "StratumVoxelPBR", "ProceduralSky", "Impostor",
+                            "ScreenSpaceAO", "ScreenSpaceGI", "BrpBloom", "BrpACES" })
                         {
                             string assetPath = $"assets/wsm3d/shaders/{shaderName.ToLowerInvariant()}.shader";
                             var sh = shaderAb.GetObject<UnityEngine.Shader>(assetPath);
@@ -976,8 +981,7 @@ namespace WorldSphereMod
                 }
 
                 // Inspect CompoundSphereMaterial's shader. If its shader was
-                // bundled corrupted (empty .name like the 4-of-6 broken
-                // shaders above), the terrain tiles render as black
+                // bundled corrupted (empty .name), the terrain tiles render as black
                 // trapezoids — user-reported 2026-05-23. Reassign to
                 // Standard with a tan _Color so terrain at least shows up.
                 if (CompoundSphereMaterial != null)
