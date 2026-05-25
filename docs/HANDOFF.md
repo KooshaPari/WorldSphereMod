@@ -2,7 +2,7 @@
 
 Canonical "next session starts here" doc for WorldSphereMod3D.
 
-**Last updated:** 2026-05-24 (`3bf2ad9`; `f5a93ae` or newer after pull)
+**Last updated:** 2026-05-25 (`2e40b09` + local tooling commits)
 
 ## TL;DR
 
@@ -230,7 +230,7 @@ Short form:
 
 ## Recommended next steps
 
-1. **Visual verification with populated world** — automation passes (`playcua run-all` 13/13, offline tests 499). Copy desktop captures to `docs/screenshots/` via `pwsh Tools/sync-playcua-screenshots.ps1` after `playcua` (cwd must be repo root — fixed in `wsm3d.ps1`). Human still judges kingdom/actor visuals in-game.
+1. **Visual verification with populated world** — automation passes (`pwsh Tools/do-all.ps1` → 13/13 after retry, journey mock 20/20, offline tests ~499). Sync captures: `pwsh Tools/sync-playcua-screenshots.ps1` (see `docs/screenshots/README.md`). Human still judges kingdom/actor visuals in-game.
 2. Smoke-test Phase 2 procedural buildings the same way Phase 1 was proven: toggle `ProceduralBuildings`, capture screenshots, and diff against canonical output.
 3. Rebake `wsm3d-shaders` bundle — **rebaked 2026-05-25** via `pwsh Tools/bake-shaders.ps1` (Unity 2022.3.62f3); `Core.cs` loads all nine tagged shaders with empty-name/GPU guards. Confirm in-game `LoadedShaders[count=…]` after `install.ps1` + relaunch.
 4. Implement ADR-0006 (Phase 6 Step 9 DrawProceduralIndirect skinning) — 2–3 day estimate if we decide to replace the visible skinned-mesh path with GPU-resident batching later.
@@ -260,7 +260,9 @@ All paths under `Tools/wsm3d-playcua/sample-scenarios/`:
 
 ## Dev tooling
 
-- **Audit loop (5m):** `pwsh Tools/wsm3d-audit-tick.ps1 -RelaunchIfBridgeDown` — offline tests, doctor, bridge, PlayCUA `run-all`, live-verify; report `Tools/.reports/audit-tick-latest.json`.
+- **Do all (one shot):** `pwsh Tools/do-all.ps1` — offline verify, relaunch, journey mock, PlayCUA `run-all` with relaunch retries, screenshot sync, live-verify; report `Tools/.reports/do-all-latest.json`.
+- **Audit loop (5m):** `pwsh Tools/wsm3d-audit-tick.ps1 -RelaunchIfBridgeDown` — offline tests, doctor, bridge, journey mock, PlayCUA `run-all` (2 attempts + relaunch), screenshot sync; report `Tools/.reports/audit-tick-latest.json`.
+- **PlayCUA flakes:** `wsm3d.ps1 playcua run-all` retries each scenario up to 2×; full `run-all` retries via `do-all.ps1` / audit tick.
 - **CLI:** `pwsh Tools/wsm3d.ps1 help` — 13 subcommands (build, install, launch, relaunch, log, toggle, journey capture, etc.).
 - **Slash commands:** `/wsm-status`, `/wsm-validate-all`, `/wsm-build`, `/wsm-install`, `/wsm-relaunch`, `/wsm-log`, `/wsm-toggle`, `/wsm-screenshot`, `/wsm-journey-run`, `/wsm-doctor`.
 - **MCP:** `Tools/wsm3d-mcp/` — Python FastMCP with 18 tools, auto-registered via `.claude/mcp-servers.json`.

@@ -65,6 +65,11 @@ try {
             Add-DoAllStage 'playcua-run-all' 'passed' @{ attempts = $attempt }
             pwsh (Join-Path $RepoRoot 'Tools/sync-playcua-screenshots.ps1') | Out-Host
             pwsh (Join-Path $RepoRoot 'Tools/wsm-live-verify.ps1') -Live -SkipOffline | Out-Host
+            if ($LASTEXITCODE -ne 0) {
+                Add-DoAllStage 'live-verify-live' 'failed' @{ exitCode = $LASTEXITCODE }
+            } else {
+                Add-DoAllStage 'live-verify-live' 'passed' @{}
+            }
         } else {
             Add-DoAllStage 'playcua-run-all' 'failed' @{ attempts = $attempt }
         }

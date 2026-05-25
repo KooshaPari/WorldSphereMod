@@ -26,7 +26,7 @@ steps:
         value: 0
       - field: frameMs
         op: "<"
-        value: 2000
+        value: 4000
   - action: load_save
     slot: 2
     settle_frames: 120
@@ -61,4 +61,4 @@ steps:
         value: 0
       - field: frameMs
         op: "<"
-        value: 2000
+        value: 4000

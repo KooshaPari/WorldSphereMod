@@ -236,8 +236,23 @@ if (-not $SkipLive -and $health) {
                 Add-Stage $report 'journey-mock' 'failed' @{ exitCode = $LASTEXITCODE }
             }
 
-            $runAll = pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') playcua run-all -VisionBackend off 2>&1 | Out-String
-            if ($LASTEXITCODE -eq 0 -and $runAll -match 'playcua passed') {
+            $runOk = $false
+            $runTail = ''
+            foreach ($attempt in 1..2) {
+                if ($attempt -gt 1) {
+                    Write-TickLog 'playcua run-all retry — relaunch' 'WARN'
+                    pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') relaunch -NoBuild 2>&1 | Out-Null
+                    Start-Sleep -Seconds 75
+                    $health = Get-BridgeHealth
+                }
+                $runAll = pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') playcua run-all -VisionBackend off 2>&1 | Out-String
+                $runTail = ($runAll -split "`n" | Select-Object -Last 20) -join "`n"
+                if ($LASTEXITCODE -eq 0 -and $runAll -match 'playcua passed') {
+                    $runOk = $true
+                    break
+                }
+            }
+            if ($runOk) {
                 Add-Stage $report 'playcua-run-all' 'passed' @{}
                 [void]$report.completed.Add('playcua-run-all')
                 Write-TickLog 'playcua run-all 13/13' 'OK'
@@ -252,7 +267,7 @@ if (-not $SkipLive -and $health) {
                     Add-Stage $report 'screenshot-sync' 'failed' @{ error = $_.Exception.Message }
                 }
             } else {
-                Add-Stage $report 'playcua-run-all' 'failed' @{ exitCode = $LASTEXITCODE; tail = ($runAll -split "`n" | Select-Object -Last 20) }
+                Add-Stage $report 'playcua-run-all' 'failed' @{ exitCode = $LASTEXITCODE; tail = $runTail }
                 Write-TickLog 'playcua run-all failed' 'ERR'
             }
 
@@ -279,7 +294,7 @@ if (-not $SkipLive -and $health) {
 
 # --- static blockers ---
 [void]$report.blockers.Add('vision-backend: inference Fireworks key or OmniRoute for -Live -Vision')
-[void]$report.blockers.Add('shader-bake: 6/9 bundle shaders empty-name — fix bake sources before widening Core.cs whitelist')
+[void]$report.blockers.Add('shader-bake: confirm LoadedShaders[count] in Player.log after install — Core skips empty-name/unsupported GPU shaders')
 
 $report.durationMs = [math]::Round(((Get-Date) - $started).TotalMilliseconds, 0)
 $report.finishedAt = (Get-Date).ToUniversalTime().ToString('o')
