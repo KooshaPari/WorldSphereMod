@@ -27,6 +27,7 @@ Shader "WSM3D/ScreenSpaceAO"
             #pragma vertex vert_img
             #pragma fragment frag
             #pragma target 3.0
+            #pragma skip_variants FOG_LINEAR FOG_EXP FOG_EXP2
             #include "UnityCG.cginc"
 
             sampler2D _MainTex;

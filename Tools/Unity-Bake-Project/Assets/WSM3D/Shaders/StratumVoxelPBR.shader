@@ -36,6 +36,8 @@ Shader "WSM3D/StratumVoxelPBR"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_instancing
+            #pragma target 3.0
+            #pragma skip_variants FOG_LINEAR FOG_EXP FOG_EXP2
             #include "UnityCG.cginc"
 
             struct appdata
@@ -83,5 +85,5 @@ Shader "WSM3D/StratumVoxelPBR"
         }
     }
 
-    Fallback "WSM3D/OpaqueVertexColor"
+    Fallback "Diffuse"
 }

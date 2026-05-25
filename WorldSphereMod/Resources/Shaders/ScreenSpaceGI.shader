@@ -15,6 +15,7 @@ Shader "Hidden/ScreenSpaceGI"
             #pragma vertex vert
             #pragma fragment frag
             #pragma target 3.0
+            #pragma skip_variants FOG_LINEAR FOG_EXP FOG_EXP2
 
             #include "UnityCG.cginc"
 
@@ -88,5 +89,5 @@ Shader "Hidden/ScreenSpaceGI"
             ENDCG
         }
     }
-    FallBack Off
+    Fallback Off
 }
