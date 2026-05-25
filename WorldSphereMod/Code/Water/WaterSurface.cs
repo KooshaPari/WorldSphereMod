@@ -213,7 +213,7 @@ namespace WorldSphereMod.Water
             Shader? s = null;
             // The bundled GerstnerWater shader now compiles in the built-in
             // render pipeline, so prefer it over the Standard fallback.
-            const bool kGerstnerKnownBroken = true;
+            const bool kGerstnerKnownBroken = false;
             if (!kGerstnerKnownBroken)
             {
                 if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("GerstnerWater", out var bundledWater) && bundledWater != null)
@@ -352,8 +352,11 @@ namespace WorldSphereMod.Water
         {
             // MeshWater creates blackworld when the Standard fallback uses Transparent queue:
             // alpha-blended surfaces with waterTint alpha 0.55 and no real scene lighting
-            // blend toward black. Use opaque queue so the emission self-illumination dominates.
-            material.SetFloat("_Mode", 3f);
+            // blend toward black. Use opaque mode so the emission self-illumination dominates.
+            // _Mode=0 is Standard shader's Opaque mode — _Mode=3 (Transparent) was wrong here
+            // because it changes which shader passes are active, even when blend/queue are
+            // overridden to opaque values; the result is invisible geometry.
+            material.SetFloat("_Mode", 0f);
             material.SetOverrideTag("RenderType", "Opaque");
             material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
             material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);

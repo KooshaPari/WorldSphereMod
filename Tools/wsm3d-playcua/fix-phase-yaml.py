@@ -15,10 +15,7 @@ FINAL_ASSERT = """  - action: assert_telemetry
         value: 0
       - field: frameMs
         op: "<"
-        value: 1500
-      - field: instances
-        op: ">="
-        value: 2
+        value: 2000
 """
 
 

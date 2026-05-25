@@ -1144,10 +1144,10 @@ namespace WorldSphereMod.Voxel
                 WorldSphereMod.Foliage.CrossedQuadMeshCache.DrainPendingDestroy();
             }
 
-            if (Core.savedSettings.MeshWater)
-            {
-                WorldSphereMod.Water.WaterRender.UpdateLifecycle();
-            }
+            // Always call UpdateLifecycle so the OFF->ON and ON->OFF edges
+            // both fire. The previous guard `if (MeshWater)` prevented the
+            // destroy path from running when the setting was toggled off.
+            WorldSphereMod.Water.WaterRender.UpdateLifecycle();
 
             WorldSphereMod.Terrain.MountainSlopeSurface.EnsureActive();
 

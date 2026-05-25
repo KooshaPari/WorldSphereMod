@@ -391,6 +391,15 @@ namespace WorldSphereMod.Terrain
 
             if (shader == null)
             {
+                shader = Shader.Find("Standard");
+                if (shader != null)
+                {
+                    Debug.Log("[WSM3D] Mountain slope material resolved via Standard fallback.");
+                }
+            }
+
+            if (shader == null)
+            {
                 Debug.LogWarning("[WSM3D] No mountain slope smoothing shader found; overlay disabled.");
                 return false;
             }
@@ -428,7 +437,16 @@ namespace WorldSphereMod.Terrain
             }
             catch { }
 
+            // Slight emission so slope quads are visible even when scene
+            // lighting is minimal (same rationale as WaterSurface fallback).
+            material.EnableKeyword("_EMISSION");
+            if (material.HasProperty("_EmissionColor"))
+            {
+                material.SetColor("_EmissionColor", new Color(0.15f, 0.15f, 0.15f, 1f));
+            }
+
             _material = material;
+            Debug.Log($"[WSM3D] Mountain slope material created: shader='{shader.name}' instancing={material.enableInstancing}");
             return true;
 
         }

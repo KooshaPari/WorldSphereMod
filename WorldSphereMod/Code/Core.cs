@@ -630,7 +630,7 @@ namespace WorldSphereMod
                 {
                     return fallback;
                 }
-                const int radius = 2;
+                const int radius = 3;
                 float totalWeight = 0f;
                 float r = 0f;
                 float g = 0f;
