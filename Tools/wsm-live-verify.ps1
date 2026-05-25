@@ -14,7 +14,7 @@
   Enable Stage 3 (bridge, playcua, SSIM). Without -Live, Stage 3 is skipped.
 
 .PARAMETER Vision
-  Pass --vision-backend omniroute to wsm3d-playcua screenshot checks.
+  Pass --vision-backend to wsm3d-playcua (default: fireworks if FIREWORKS_API_KEY set, else omniroute).
 
 .PARAMETER Phase
   Restrict phase-previews SSIM to a single phase number (1-10). PlayCUA always runs every sample-scenarios/*.yaml.
@@ -38,8 +38,9 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 
-function Import-OmniRouteVisionEnv {
-    $envFile = Join-Path $PSScriptRoot "omniroute-vision.env"
+function Import-VisionEnvFile {
+    param([string]$FileName)
+    $envFile = Join-Path $PSScriptRoot $FileName
     if (-not (Test-Path -LiteralPath $envFile)) { return }
     Get-Content -LiteralPath $envFile | ForEach-Object {
         if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
@@ -48,7 +49,25 @@ function Import-OmniRouteVisionEnv {
     }
 }
 
-Import-OmniRouteVisionEnv
+function Import-VisionEnv {
+    Import-VisionEnvFile "omniroute-vision.env"
+    Import-VisionEnvFile "fireworks-vision.env"
+    if (-not $env:FIREWORKS_API_KEY) {
+        $userFw = [Environment]::GetEnvironmentVariable("FIREWORKS_API_KEY", "User")
+        if ($userFw) { $env:FIREWORKS_API_KEY = $userFw }
+    }
+}
+
+function Get-DefaultPlaycuaVisionBackend {
+    $explicit = if ($env:PLAYCUA_VISION_BACKEND) { $env:PLAYCUA_VISION_BACKEND.Trim().ToLowerInvariant() } else { "" }
+    if ($explicit -in @("fireworks", "omniroute", "anthropic", "off")) { return $explicit }
+    if ($env:FIREWORKS_API_KEY) { return "fireworks" }
+    if ($env:OMNROUTE_API_KEY) { return "omniroute" }
+    if ($env:ANTHROPIC_API_KEY) { return "anthropic" }
+    return "off"
+}
+
+Import-VisionEnv
 $reportDir = Join-Path $repoRoot "Tools/.reports"
 $reportPath = Join-Path $reportDir "live-verify-latest.json"
 $ssimThreshold = 0.95
@@ -564,7 +583,11 @@ if (-not $Live) {
                 "--report", $scenarioReport
             )
             if ($Vision) {
-                $args += @("--vision-backend", "omniroute")
+                $visionBackend = Get-DefaultPlaycuaVisionBackend
+                if ($visionBackend -eq "off") {
+                    throw "Vision requested but no backend configured (set FIREWORKS_API_KEY or OMNROUTE_API_KEY)."
+                }
+                $args += @("--vision-backend", $visionBackend)
             }
 
             Write-Host ("playcua " + $scenario.Name + " ...")

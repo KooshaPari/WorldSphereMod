@@ -39,6 +39,7 @@ namespace WorldSphereMod.Rig
         static readonly Dictionary<long, ActorRigInstance> _actorRigs = new Dictionary<long, ActorRigInstance>();
         static readonly List<long> _scratchRemove = new List<long>();
         static Transform? _root;
+        static Material? _skinnedMaterial;
         const int kPerfLogIntervalFrames = 60;
         static int _perfFrameCounter;
         static double _perfWindowMs;
@@ -162,6 +163,12 @@ namespace WorldSphereMod.Rig
                 RemoveRig(key);
             }
 
+            if (_skinnedMaterial != null)
+            {
+                Object.Destroy(_skinnedMaterial);
+                _skinnedMaterial = null;
+            }
+
             if (_root != null)
             {
                 Object.Destroy(_root.gameObject);
@@ -212,7 +219,7 @@ namespace WorldSphereMod.Rig
             go.transform.SetParent(root, worldPositionStays: false);
             SkinnedMeshRenderer renderer = go.AddComponent<SkinnedMeshRenderer>();
             renderer.sharedMesh = mesh;
-            renderer.sharedMaterial = VoxelRender.GetResolvedMaterial();
+            renderer.sharedMaterial = GetOrCreateSkinnedMaterial();
             renderer.updateWhenOffscreen = true;
             renderer.receiveShadows = false;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -414,7 +421,71 @@ namespace WorldSphereMod.Rig
 
         static bool EnsureHumanoidRigMaterial()
         {
-            return VoxelRender.GetResolvedMaterial() != null || VoxelRender.EnsureMaterial();
+            return GetOrCreateSkinnedMaterial() != null;
+        }
+
+        /// <summary>
+        /// SkinnedMeshRenderer cannot use the instanced voxel batcher material.
+        /// GPU instancing on a SkinnedMeshRenderer causes shader variant lookup
+        /// failure (magenta) because Unity has no instanced skinning variant for
+        /// Standard or OpaqueVertexColor. We clone the resolved voxel material
+        /// once and disable instancing so the shader compiles for the skinned
+        /// rendering path.
+        /// </summary>
+        static Material? GetOrCreateSkinnedMaterial()
+        {
+            if (_skinnedMaterial != null)
+            {
+                return _skinnedMaterial;
+            }
+
+            // Resolve via LoadedShaders first (OpaqueVertexColor from bundle).
+            Shader? shader = null;
+            if (Core.Sphere.LoadedShaders.TryGetValue("OpaqueVertexColor", out var bundled) && bundled != null)
+            {
+                shader = bundled;
+            }
+            if (shader == null)
+            {
+                shader = Shader.Find("WSM3D/OpaqueVertexColor");
+            }
+            if (shader == null)
+            {
+                shader = Shader.Find("Standard");
+            }
+            if (shader == null)
+            {
+                return null;
+            }
+
+            _skinnedMaterial = new Material(shader)
+            {
+                name = "WSM3D.Rig.Skinned",
+                enableInstancing = false,
+            };
+            _skinnedMaterial.SetInt("_Cull", 0);
+            _skinnedMaterial.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Geometry + 1;
+            _skinnedMaterial.SetTexture("_MainTex", Texture2D.whiteTexture);
+            _skinnedMaterial.SetColor("_Color", Color.white);
+            _skinnedMaterial.SetTexture("_BaseMap", Texture2D.whiteTexture);
+            _skinnedMaterial.SetColor("_BaseColor", Color.white);
+            _skinnedMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+            _skinnedMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+            _skinnedMaterial.SetInt("_ZWrite", 1);
+            _skinnedMaterial.DisableKeyword("_ALPHABLEND_ON");
+            _skinnedMaterial.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            _skinnedMaterial.DisableKeyword("_ALPHATEST_ON");
+            _skinnedMaterial.SetFloat("_Cutoff", 0.0f);
+
+            if (shader.name == "Standard")
+            {
+                _skinnedMaterial.EnableKeyword("_EMISSION");
+                _skinnedMaterial.SetColor("_EmissionColor", new Color(1.5f, 1.5f, 1.5f, 1f));
+                _skinnedMaterial.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            }
+
+            UnityDebug.Log($"[WSM3D] RigDriver skinned material created: shader='{shader.name}', instancing=false");
+            return _skinnedMaterial;
         }
 
         static void RemoveRig(long actorKey)

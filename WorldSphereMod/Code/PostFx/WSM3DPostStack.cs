@@ -175,21 +175,42 @@ namespace WorldSphereMod.PostFx
         {
             string cacheKey = System.IO.Path.GetFileNameWithoutExtension(resourcePath);
             Shader shader = null;
+
+            // Step 1: bundle cache (populated by Core.LoadAssets from wsm3d-shaders bundle)
             if (Core.IsWorld3D && Core.Sphere.LoadedShaders.TryGetValue(cacheKey, out var bundled) && bundled != null)
             {
                 shader = bundled;
                 Debug.Log($"[WSM3D] PostStack shader '{cacheKey}' resolved via Core.Sphere.LoadedShaders cache.");
             }
+
+            // Step 2: Shader.Find with WSM3D/ prefix (AssetBundle-declared names)
             shader ??= Shader.Find("WSM3D/" + cacheKey);
+
+            // Step 3: Resources.Load (only works inside Unity project Assets/Resources)
             shader ??= Resources.Load<Shader>(resourcePath);
+
+            // Step 4: Shader.Find with exact fallback name (Hidden/* declared names)
             shader ??= Shader.Find(fallbackName);
+
+            // Step 5: try Hidden/ + cacheKey in case the shader was registered
+            // under its Resources/Shaders declared name (e.g. Hidden/ScreenSpaceGI)
+            if (shader == null && !fallbackName.StartsWith("Hidden/" + cacheKey, System.StringComparison.Ordinal))
+            {
+                shader = Shader.Find("Hidden/" + cacheKey);
+            }
+
             if (shader != null)
             {
                 Debug.Log($"[WSM3D] PostStack material '{cacheKey}' created via shader '{shader.name}'.");
             }
             else
             {
-                Debug.LogWarning($"[WSM3D] PostStack shader '{cacheKey}' not found in any resolution path (LoadedShaders, Shader.Find, Resources, fallback).");
+                bool hasBundleCache = Core.IsWorld3D && Core.Sphere.LoadedShaders.Count > 0;
+                Debug.LogWarning($"[WSM3D] PostStack shader '{cacheKey}' not found in any resolution path " +
+                    $"(LoadedShaders[count={Core.Sphere.LoadedShaders.Count},hasBundleCache={hasBundleCache}], " +
+                    $"Shader.Find('WSM3D/{cacheKey}'), Resources.Load('{resourcePath}'), " +
+                    $"Shader.Find('{fallbackName}')). " +
+                    "The wsm3d-shaders AssetBundle likely failed to load — rebake with Unity 2022.3 to match WorldBox runtime.");
             }
             return shader != null ? new Material(shader) : null;
         }

@@ -127,27 +127,27 @@ class VisionValidator:
         return parse_vision_response(full)
 
 
-class OmniRouteVisionValidator:
-    """OpenAI-compatible chat completions via OmniRoute for vision checks."""
+class OpenAICompatibleVisionValidator:
+    """OpenAI-compatible chat completions (image_url) for vision checks."""
 
     def __init__(
         self,
         api_key: str | None,
-        base_url: str = "http://127.0.0.1:20128/v1",
-        model: str | None = None,
+        base_url: str,
+        model: str | None,
+        provider: str,
         timeout_s: float = 120.0,
     ) -> None:
         self.api_key = (api_key or "").strip()
         self.base_url = base_url.rstrip("/")
         self.model = (model or "").strip()
+        self.provider = provider
         self.timeout_s = timeout_s
 
         if not self.api_key:
-            raise VisionValidationError("OmniRoute API key unavailable (set OMNROUTE_API_KEY)")
+            raise VisionValidationError(f"{provider} API key unavailable")
         if not self.model:
-            raise VisionValidationError(
-                "OmniRoute vision model unavailable (set OMNROUTE_VISION_MODEL or OMNROUTE_VISION_COMBO)"
-            )
+            raise VisionValidationError(f"{provider} vision model unavailable")
 
     def validate(self, image_path: Path, prompt: str, criteria: Any) -> Dict[str, Any]:
         if not image_path.exists():
@@ -193,29 +193,29 @@ class OmniRouteVisionValidator:
                 if attempt == 0 and exc.code in {408, 429, 500, 502, 503, 504}:
                     continue
                 detail = exc.read().decode("utf-8", errors="replace")[:240]
-                raise VisionValidationError(f"OmniRoute HTTP {exc.code}: {detail}") from exc
+                raise VisionValidationError(f"{self.provider} HTTP {exc.code}: {detail}") from exc
             except urllib.error.URLError as exc:
                 if attempt == 0:
                     continue
-                raise VisionValidationError(f"OmniRoute request failed: {exc}") from exc
+                raise VisionValidationError(f"{self.provider} request failed: {exc}") from exc
         else:
-            raise VisionValidationError("OmniRoute request failed after retry")
+            raise VisionValidationError(f"{self.provider} request failed after retry")
 
         try:
             data = json.loads(body) if body else {}
         except json.JSONDecodeError as exc:
-            raise VisionValidationError(f"OmniRoute non-JSON response: {body[:180]}") from exc
+            raise VisionValidationError(f"{self.provider} non-JSON response: {body[:180]}") from exc
 
         if not isinstance(data, dict):
-            raise VisionValidationError("OmniRoute response was not a JSON object")
+            raise VisionValidationError(f"{self.provider} response was not a JSON object")
 
         choices = data.get("choices")
         if not isinstance(choices, list) or not choices:
-            raise VisionValidationError(f"OmniRoute missing choices: {str(data)[:180]}")
+            raise VisionValidationError(f"{self.provider} missing choices: {str(data)[:180]}")
 
         message = choices[0].get("message") if isinstance(choices[0], dict) else None
         if not isinstance(message, dict):
-            raise VisionValidationError("OmniRoute choice missing message")
+            raise VisionValidationError(f"{self.provider} choice missing message")
 
         content = message.get("content", "")
         if isinstance(content, list):
@@ -230,3 +230,52 @@ class OmniRouteVisionValidator:
             full = str(content)
 
         return parse_vision_response(full)
+
+
+class OmniRouteVisionValidator(OpenAICompatibleVisionValidator):
+    """OpenAI-compatible chat completions via OmniRoute for vision checks."""
+
+    def __init__(
+        self,
+        api_key: str | None,
+        base_url: str = "http://127.0.0.1:20128/v1",
+        model: str | None = None,
+        timeout_s: float = 120.0,
+    ) -> None:
+        super().__init__(
+            api_key=api_key,
+            base_url=base_url,
+            model=model,
+            provider="OmniRoute",
+            timeout_s=timeout_s,
+        )
+        if not self.api_key:
+            raise VisionValidationError("OmniRoute API key unavailable (set OMNROUTE_API_KEY)")
+        if not self.model:
+            raise VisionValidationError(
+                "OmniRoute vision model unavailable (set OMNROUTE_VISION_MODEL or OMNROUTE_VISION_COMBO)"
+            )
+
+
+class FireworksVisionValidator(OpenAICompatibleVisionValidator):
+    """Fireworks AI Kimi (k2p5) vision via OpenAI-compatible chat completions."""
+
+    def __init__(
+        self,
+        api_key: str | None,
+        base_url: str = "https://api.fireworks.ai/inference/v1",
+        model: str | None = None,
+        timeout_s: float = 120.0,
+    ) -> None:
+        resolved_model = (model or "").strip() or "accounts/fireworks/models/kimi-k2p5"
+        super().__init__(
+            api_key=api_key,
+            base_url=base_url,
+            model=resolved_model,
+            provider="Fireworks",
+            timeout_s=timeout_s,
+        )
+        if not self.api_key:
+            raise VisionValidationError(
+                "Fireworks API key unavailable (set FIREWORKS_API_KEY — see Dino/scripts/proof/test-fireworks-kimi.ps1)"
+            )

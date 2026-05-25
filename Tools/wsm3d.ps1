@@ -40,8 +40,9 @@ $script:PhenotypeJourneyRepo = "C:/Users/koosh/Dino/tools/phenotype-journeys"
 $script:PhenotypeJourneyCache = Join-Path $RepoRoot "tools/.cache/phenotype-journeys"
 $script:BridgePort = 8766
 $script:BridgeHealthUrl = "http://127.0.0.1:8766/health"
-function Import-OmniRouteVisionEnv {
-    $envFile = Join-Path $script:ToolsDir "omniroute-vision.env"
+function Import-VisionEnvFile {
+    param([string]$FileName)
+    $envFile = Join-Path $script:ToolsDir $FileName
     if (-not (Test-Path -LiteralPath $envFile)) { return }
     Get-Content -LiteralPath $envFile | ForEach-Object {
         if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
@@ -50,7 +51,25 @@ function Import-OmniRouteVisionEnv {
     }
 }
 
-Import-OmniRouteVisionEnv
+function Import-VisionEnv {
+    Import-VisionEnvFile "omniroute-vision.env"
+    Import-VisionEnvFile "fireworks-vision.env"
+    if (-not $env:FIREWORKS_API_KEY) {
+        $userFw = [Environment]::GetEnvironmentVariable("FIREWORKS_API_KEY", "User")
+        if ($userFw) { $env:FIREWORKS_API_KEY = $userFw }
+    }
+}
+
+function Get-DefaultPlaycuaVisionBackend {
+    $explicit = ($env:PLAYCUA_VISION_BACKEND ?? "").Trim().ToLowerInvariant()
+    if ($explicit -in @("fireworks", "omniroute", "anthropic", "off")) { return $explicit }
+    if ($env:FIREWORKS_API_KEY) { return "fireworks" }
+    if ($env:OMNROUTE_API_KEY) { return "omniroute" }
+    if ($env:ANTHROPIC_API_KEY) { return "anthropic" }
+    return "off"
+}
+
+Import-VisionEnv
 $script:OmniRouteBaseUrl = if ($env:OMNROUTE_BASE_URL) { $env:OMNROUTE_BASE_URL.TrimEnd('/') } else { "http://127.0.0.1:20128/v1" }
 $script:GitSubmodulePaths = @("External/Compound-Spheres")
 $script:LiveVerifyReportPath = Join-Path $RepoRoot "Tools/.reports/live-verify-latest.json"
@@ -222,6 +241,30 @@ function Test-BridgeHealthy {
     try {
         $response = Invoke-RestMethod -Uri $Url -Method Get -TimeoutSec 8
         return [bool]($response -and $response.ok -ne $false)
+    } catch {
+        return $false
+    }
+}
+
+function Test-FireworksReachable {
+    param(
+        [string]$BaseUrl = $(if ($env:FIREWORKS_BASE_URL) { $env:FIREWORKS_BASE_URL.TrimEnd('/') } else { "https://api.fireworks.ai/inference/v1" }),
+        [string]$Model = $(if ($env:FIREWORKS_VISION_MODEL) { $env:FIREWORKS_VISION_MODEL } else { "accounts/fireworks/models/kimi-k2p5" })
+    )
+    if (-not $env:FIREWORKS_API_KEY) { return $false }
+    try {
+        $body = @{
+            model       = $Model
+            max_tokens  = 8
+            temperature = 0
+            messages    = @(@{ role = "user"; content = "ok" })
+        } | ConvertTo-Json -Compress
+        $headers = @{
+            Authorization = "Bearer $($env:FIREWORKS_API_KEY)"
+            "Content-Type" = "application/json"
+        }
+        $null = Invoke-WebRequest -Uri "$BaseUrl/chat/completions" -Method Post -Headers $headers -Body $body -TimeoutSec 20 -UseBasicParsing
+        return $true
     } catch {
         return $false
     }
@@ -1462,6 +1505,23 @@ function Invoke-Doctor {
             }
     }
 
+    if (Test-FireworksReachable) {
+        $fwModel = if ($env:FIREWORKS_VISION_MODEL) { $env:FIREWORKS_VISION_MODEL } else { "accounts/fireworks/models/kimi-k2p5" }
+        $checks += New-DoctorCheck -Id "fireworks" -Status "ok" -Required $false -Optional $true `
+            -Message "Fireworks Kimi vision reachable" `
+            -Details @{ model = $fwModel; default_backend = (Get-DefaultPlaycuaVisionBackend) }
+    } elseif ($env:FIREWORKS_API_KEY) {
+        $checks += New-DoctorCheck -Id "fireworks" -Status "skip" -Required $false -Optional $true `
+            -Message "FIREWORKS_API_KEY set but chat/completions probe failed" `
+            -Details @{
+                remediation = "Deploy accounts/fireworks/models/kimi-k2p5 on Fireworks; see Tools/fireworks-vision.env.example."
+            }
+    } else {
+        $checks += New-DoctorCheck -Id "fireworks" -Status "skip" -Required $false -Optional $true `
+            -Message "Fireworks not configured (optional; uses User-scope FIREWORKS_API_KEY from Dino runbook)" `
+            -Details @{ remediation = "Set FIREWORKS_API_KEY (User env) or copy Tools/fireworks-vision.env.example." }
+    }
+
     if (Test-OmniRouteReachable) {
         $checks += New-DoctorCheck -Id "omniroute" -Status "ok" -Required $false -Optional $true `
             -Message "OmniRoute reachable" `
@@ -1471,7 +1531,7 @@ function Invoke-Doctor {
             -Message "OmniRoute not reachable (optional for vision)" `
             -Details @{
                 base_url = $script:OmniRouteBaseUrl
-                remediation = "Start OmniRoute locally or set OMNROUTE_BASE_URL; required only for -VisionBackend omniroute."
+                remediation = "Start OmniRoute locally or set OMNROUTE_BASE_URL; use -VisionBackend fireworks when FIREWORKS_API_KEY is set."
             }
     }
 
@@ -1754,7 +1814,7 @@ function Invoke-PlaycuaScenarios {
     param(
         [Parameter(Mandatory = $true)]
         [System.IO.FileInfo[]]$Scenarios,
-        [ValidateSet("omniroute", "anthropic", "off")]
+        [ValidateSet("fireworks", "omniroute", "anthropic", "off")]
         [string]$VisionBackend,
         [string]$ArtifactSubdir = "run-all-artifacts"
     )
@@ -1802,7 +1862,7 @@ function Invoke-PlaycuaScenarios {
 
 function Invoke-PlaycuaRunBridge {
     param(
-        [ValidateSet("omniroute", "anthropic", "off")]
+        [ValidateSet("fireworks", "omniroute", "anthropic", "off")]
         [string]$VisionBackend
     )
 

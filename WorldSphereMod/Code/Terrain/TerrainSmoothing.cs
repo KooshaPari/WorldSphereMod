@@ -407,11 +407,14 @@ namespace WorldSphereMod.Terrain
                 return false;
             }
 
-            material.color = new Color(0.55f, 0.45f, 0.35f, 1f);
+            // Tint must be white so vertex colors are the sole albedo source.
+            // OpaqueVertexColor multiplies vertex color * _Color; a non-white
+            // tint darkens the already earth-toned vertex colors to near-black.
+            material.color = Color.white;
             try
             {
-                material.SetColor("_BaseColor", new Color(0.55f, 0.45f, 0.35f, 1f));
-                material.SetColor("_Color", new Color(0.55f, 0.45f, 0.35f, 1f));
+                material.SetColor("_BaseColor", Color.white);
+                material.SetColor("_Color", Color.white);
             }
             catch { }
 

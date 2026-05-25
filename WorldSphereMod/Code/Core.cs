@@ -826,7 +826,7 @@ namespace WorldSphereMod
                 {
                     try
                     {
-                        foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ScreenSpaceAO", "ColorGradingLUT", "ProceduralSky", "Impostor" })
+                        foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ScreenSpaceAO", "ScreenSpaceGI", "BrpBloom", "BrpACES", "ColorGradingLUT", "ProceduralSky", "Impostor" })
                         {
                             string assetPath = $"assets/wsm3d/shaders/{shaderName.ToLowerInvariant()}.shader";
                             var sh = shaderAb.GetObject<UnityEngine.Shader>(assetPath);

@@ -52,7 +52,8 @@ public class LiveVerificationHarnessInvariantsTests
         var main = ReadRepoFile(PlaycuaMainRelative);
 
         main.Should().Contain("--vision-backend");
-        main.Should().Contain("choices=[\"omniroute\", \"anthropic\", \"off\"]");
+        main.Should().Contain("choices=[\"fireworks\", \"omniroute\", \"anthropic\", \"off\"]");
+        main.Should().Contain("if backend == \"fireworks\":");
         main.Should().Contain("OmniRouteVisionValidator");
         main.Should().Contain("if backend == \"omniroute\":");
     }

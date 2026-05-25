@@ -225,15 +225,17 @@ public sealed class TerrainSmoothingInvariantsTests
     }
 
     [Fact]
-    public void MountainSlopeSurface_EnsureMaterial_prefers_Standard_shader_chain()
+    public void MountainSlopeSurface_EnsureMaterial_resolves_OpaqueVertexColor_with_white_tint()
     {
         var source = ReadSource(TerrainSmoothingRelative);
         var ensureBody = ExtractMethodBody(source, "static bool EnsureMaterial()");
 
-        ensureBody.Should().Contain("string[] candidates =");
-        ensureBody.Should().Contain("\"Standard\"",
-            "Standard must remain the primary slope material to avoid black OpaqueVertexColor regressions");
-        ensureBody.Should().Contain("\"WSM3D/OpaqueVertexColor\"");
+        ensureBody.Should().Contain("LoadedShaders.TryGetValue(\"OpaqueVertexColor\"",
+            "slope material must resolve from the bundle-loaded shader cache first");
+        ensureBody.Should().Contain("Shader.Find(\"WSM3D/OpaqueVertexColor\")",
+            "slope material must fall back to Shader.Find when cache misses");
+        ensureBody.Should().Contain("Color.white",
+            "tint must be white so vertex colors are the sole albedo source (non-white darkens to black)");
         ensureBody.Should().Contain("material.enableInstancing",
             "slope material must validate instancing before adoption");
         ensureBody.Should().Contain("[WSM3D] No mountain slope smoothing shader found; overlay disabled.",

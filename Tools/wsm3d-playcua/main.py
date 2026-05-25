@@ -29,8 +29,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-def _load_omniroute_env_file() -> None:
-    env_file = Path(__file__).resolve().parent.parent / "omniroute-vision.env"
+def _load_env_file(filename: str) -> None:
+    env_file = Path(__file__).resolve().parent.parent / filename
     if not env_file.is_file():
         return
     for line in env_file.read_text(encoding="utf-8").splitlines():
@@ -44,9 +44,11 @@ def _load_omniroute_env_file() -> None:
             os.environ[key] = value
 
 
-_load_omniroute_env_file()
+_load_env_file("omniroute-vision.env")
+_load_env_file("fireworks-vision.env")
 
 from vision import (
+    FireworksVisionValidator,
     OmniRouteVisionValidator,
     VisionValidationError,
     VisionValidator,
@@ -524,11 +526,20 @@ def _execute_scenario(
 
 
 def _default_vision_backend() -> str:
+    explicit = (os.getenv("PLAYCUA_VISION_BACKEND") or "").strip().lower()
+    if explicit in {"fireworks", "omniroute", "anthropic", "off"}:
+        return explicit
+    if os.getenv("FIREWORKS_API_KEY", "").strip():
+        return "fireworks"
     if os.getenv("OMNROUTE_API_KEY", "").strip():
         return "omniroute"
     if os.getenv("ANTHROPIC_API_KEY", "").strip():
         return "anthropic"
     return "off"
+
+
+def _fireworks_model_from_env() -> str:
+    return (os.getenv("FIREWORKS_VISION_MODEL") or "accounts/fireworks/models/kimi-k2p5").strip()
 
 
 def _omniroute_model_from_env() -> str:
@@ -545,6 +556,13 @@ def _create_vision_validator(args: argparse.Namespace) -> VisionValidatorProtoco
             base_url=args.omniroute_base_url,
             model=args.omniroute_model,
             timeout_s=args.omniroute_timeout,
+        )
+    if backend == "fireworks":
+        return FireworksVisionValidator(
+            api_key=args.fireworks_key,
+            base_url=args.fireworks_base_url,
+            model=args.fireworks_model,
+            timeout_s=args.fireworks_timeout,
         )
     if backend == "anthropic":
         if not args.anthropic_key:
@@ -567,12 +585,33 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--vision-backend",
-        choices=["omniroute", "anthropic", "off"],
+        choices=["fireworks", "omniroute", "anthropic", "off"],
         default=None,
         help=(
-            "Vision provider (default: omniroute if OMNROUTE_API_KEY set, "
-            "else anthropic if ANTHROPIC_API_KEY set, else off)"
+            "Vision provider (default: fireworks if FIREWORKS_API_KEY set, "
+            "else omniroute if OMNROUTE_API_KEY set, else anthropic, else off)"
         ),
+    )
+    parser.add_argument(
+        "--fireworks-base-url",
+        default=os.getenv("FIREWORKS_BASE_URL", "https://api.fireworks.ai/inference/v1"),
+        help="Fireworks OpenAI-compatible base URL (or FIREWORKS_BASE_URL)",
+    )
+    parser.add_argument(
+        "--fireworks-key",
+        default=os.getenv("FIREWORKS_API_KEY", ""),
+        help="Fireworks API key (or FIREWORKS_API_KEY env / User scope on Windows)",
+    )
+    parser.add_argument(
+        "--fireworks-model",
+        default=_fireworks_model_from_env(),
+        help="Fireworks vision model (FIREWORKS_VISION_MODEL, default kimi-k2p5)",
+    )
+    parser.add_argument(
+        "--fireworks-timeout",
+        type=float,
+        default=120.0,
+        help="HTTP timeout seconds for Fireworks vision requests",
     )
     parser.add_argument(
         "--omniroute-base-url",
