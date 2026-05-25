@@ -22,10 +22,7 @@ namespace WorldSphereMod.General
             Core.Generated = true;
             if(Core.savedSettings.Is3D)
             {
-                // TEMP: Become3D disabled — Sphere.Begin/SphereManager freezes the main thread.
-                // VoxelEntities + other phases still work via Harmony hooks.
-                Debug.Log("[WSM3D] Become3D SKIPPED (SphereManager freeze workaround)");
-                // SmoothLoader.add(delegate { Core.Become3D(); }, "Becoming 3D!");
+                SmoothLoader.add(delegate { Core.Become3D(); }, "Becoming 3D!");
             }
         }
         [HarmonyPatch(typeof(MapBox), nameof(MapBox.addClearWorld))]
