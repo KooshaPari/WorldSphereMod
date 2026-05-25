@@ -7,8 +7,12 @@ using UnityEngine;
 namespace WorldSphereMod.Terrain
 {
     /// <summary>
-    /// Cliff-facing slope mesh for upstream terrain. The underlying voxel-like terrain
-    /// remains unchanged; this only emits geometry for steep tile transitions.
+    /// Smooth interpolated terrain mesh overlay for height transitions.
+    /// Instead of flat billboard quads between height levels, this generates
+    /// a continuous height-interpolated mesh where each tile vertex height is
+    /// bilinearly blended from surrounding tile centers — like OptiFine smooth
+    /// terrain. The underlying tile data stays blocky; only the visual overlay
+    /// is smooth.
     /// </summary>
     public sealed class MountainSlopeSurface : MonoBehaviour
     {
@@ -21,6 +25,9 @@ namespace WorldSphereMod.Terrain
         MeshRenderer? _renderer;
         Mesh? _mesh;
         bool _dirty = true;
+
+        // Subdivision level per tile edge for the smooth mesh (2 = 4 sub-quads per tile).
+        const int SubDiv = 2;
 
         struct CliffQuad
         {
@@ -147,6 +154,77 @@ namespace WorldSphereMod.Terrain
             }
         }
 
+        /// <summary>
+        /// Returns the tile height at integer tile coords, clamped/wrapped to map bounds.
+        /// </summary>
+        float SampleTileHeight(int x, int y, int width, int height, bool wrapped)
+        {
+            if (wrapped)
+            {
+                x = ((x % width) + width) % width;
+            }
+            else
+            {
+                x = Mathf.Clamp(x, 0, width - 1);
+            }
+            y = Mathf.Clamp(y, 0, height - 1);
+
+            WorldTile tile = World.world.GetTileSimple(x, y);
+            if (tile == null) return 0f;
+            return tile.TileHeight();
+        }
+
+        /// <summary>
+        /// Returns the biome color at integer tile coords, clamped/wrapped to map bounds.
+        /// </summary>
+        Color32 SampleTileColor(int x, int y, int width, int height, bool wrapped)
+        {
+            if (wrapped)
+            {
+                x = ((x % width) + width) % width;
+            }
+            else
+            {
+                x = Mathf.Clamp(x, 0, width - 1);
+            }
+            y = Mathf.Clamp(y, 0, height - 1);
+
+            WorldTile tile = World.world.GetTileSimple(x, y);
+            if (tile == null) return new Color32(128, 128, 128, 255);
+            return Core.Sphere.GetColor(tile.data.tile_id);
+        }
+
+        /// <summary>
+        /// Computes an interpolated corner height at the junction of four tiles.
+        /// The corner at (cx, cy) in tile-corner space sits at the meeting point of
+        /// tiles (cx-1,cy-1), (cx,cy-1), (cx-1,cy), (cx,cy). We average their heights.
+        /// </summary>
+        float CornerHeight(int cx, int cy, int width, int height, bool wrapped)
+        {
+            float h00 = SampleTileHeight(cx - 1, cy - 1, width, height, wrapped);
+            float h10 = SampleTileHeight(cx,     cy - 1, width, height, wrapped);
+            float h01 = SampleTileHeight(cx - 1, cy,     width, height, wrapped);
+            float h11 = SampleTileHeight(cx,     cy,     width, height, wrapped);
+            return (h00 + h10 + h01 + h11) * 0.25f;
+        }
+
+        /// <summary>
+        /// Computes an interpolated corner color at the junction of four tiles.
+        /// Averages the biome colors of the four adjacent tiles.
+        /// </summary>
+        Color32 CornerColor(int cx, int cy, int width, int height, bool wrapped)
+        {
+            Color32 c00 = SampleTileColor(cx - 1, cy - 1, width, height, wrapped);
+            Color32 c10 = SampleTileColor(cx,     cy - 1, width, height, wrapped);
+            Color32 c01 = SampleTileColor(cx - 1, cy,     width, height, wrapped);
+            Color32 c11 = SampleTileColor(cx,     cy,     width, height, wrapped);
+            return new Color32(
+                (byte)((c00.r + c10.r + c01.r + c11.r) / 4),
+                (byte)((c00.g + c10.g + c01.g + c11.g) / 4),
+                (byte)((c00.b + c10.b + c01.b + c11.b) / 4),
+                255);
+        }
+
         void RebuildMesh()
         {
             if (_mesh == null)
@@ -169,66 +247,137 @@ namespace WorldSphereMod.Terrain
                 return;
             }
 
+            // Use DetectCliffQuads to identify tiles involved in height transitions.
+            // We then generate smooth interpolated geometry for those tiles and their
+            // immediate neighbors instead of flat billboard quads.
             List<CliffQuad> quads = DetectCliffQuads(width, height);
             if (quads.Count == 0)
             {
                 return;
             }
 
-            Debug.Log($"[WSM3D] MountainSlopeSmoothing rebuilt {quads.Count} cliff quads.");
+            bool wrapped = Core.Sphere.IsWrapped;
 
-            Vector3[] vertices = new Vector3[quads.Count * 4];
-            Color32[] colors = new Color32[quads.Count * 4];
-            int[] triangles = new int[quads.Count * 6];
-
-            int vi = 0;
-            int ti = 0;
+            // Collect the set of tiles that need smooth geometry: every tile touching
+            // a cliff edge plus its immediate neighbors for smooth falloff.
+            HashSet<long> smoothTileSet = new HashSet<long>();
             for (int i = 0; i < quads.Count; i++)
             {
-                CliffQuad quad = quads[i];
-                if (quad.IsVertical)
+                CliffQuad q = quads[i];
+                for (int dy = -1; dy <= 1; dy++)
                 {
-                    Vector3 p00 = Core.Sphere.SpherePos(quad.X, quad.Y, quad.HeightA);
-                    Vector3 p01 = Core.Sphere.SpherePos(quad.X, quad.Y + 1, quad.HeightA);
-                    Vector3 p10 = Core.Sphere.SpherePos(quad.X + 1, quad.Y, quad.HeightB);
-                    Vector3 p11 = Core.Sphere.SpherePos(quad.X + 1, quad.Y + 1, quad.HeightB);
-
-                    vertices[vi++] = p00;
-                    vertices[vi++] = p01;
-                    vertices[vi++] = p10;
-                    vertices[vi++] = p11;
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        int tx = q.X + dx;
+                        int ty = q.Y + dy;
+                        if (ty < 0 || ty >= height) continue;
+                        if (wrapped)
+                        {
+                            tx = ((tx % width) + width) % width;
+                        }
+                        else
+                        {
+                            if (tx < 0 || tx >= width) continue;
+                        }
+                        smoothTileSet.Add((long)ty * width + tx);
+                    }
                 }
-                else
-                {
-                    Vector3 p00 = Core.Sphere.SpherePos(quad.X, quad.Y, quad.HeightA);
-                    Vector3 p10 = Core.Sphere.SpherePos(quad.X + 1, quad.Y, quad.HeightA);
-                    Vector3 p01 = Core.Sphere.SpherePos(quad.X, quad.Y + 1, quad.HeightB);
-                    Vector3 p11 = Core.Sphere.SpherePos(quad.X + 1, quad.Y + 1, quad.HeightB);
-
-                    vertices[vi++] = p00;
-                    vertices[vi++] = p10;
-                    vertices[vi++] = p01;
-                    vertices[vi++] = p11;
-                }
-
-                int baseColor = i * 4;
-                colors[baseColor] = quad.ColorA;
-                colors[baseColor + 1] = quad.ColorA;
-                colors[baseColor + 2] = quad.ColorB;
-                colors[baseColor + 3] = quad.ColorB;
-
-                int baseVertex = i * 4;
-                triangles[ti++] = baseVertex;
-                triangles[ti++] = baseVertex + 1;
-                triangles[ti++] = baseVertex + 2;
-                triangles[ti++] = baseVertex + 2;
-                triangles[ti++] = baseVertex + 1;
-                triangles[ti++] = baseVertex + 3;
             }
 
-            _mesh.vertices = vertices;
-            _mesh.triangles = triangles;
-            _mesh.colors32 = colors;
+            int tileCount = smoothTileSet.Count;
+            int vertsPerTile = (SubDiv + 1) * (SubDiv + 1);
+            int trisPerTile = SubDiv * SubDiv * 6;
+
+            List<Vector3> vertices = new List<Vector3>(tileCount * vertsPerTile);
+            List<Color32> colors = new List<Color32>(tileCount * vertsPerTile);
+            List<int> triangles = new List<int>(tileCount * trisPerTile);
+
+            // Small height offset so the smooth overlay sits just above the flat terrain
+            // and avoids z-fighting.
+            const float HeightBias = 0.02f;
+
+            foreach (long key in smoothTileSet)
+            {
+                int ty = (int)(key / width);
+                int tx = (int)(key % width);
+
+                // Corner heights for this tile's 4 corners (in tile-corner space):
+                //   (tx, ty) ---- (tx+1, ty)
+                //      |              |
+                //   (tx, ty+1) -- (tx+1, ty+1)
+                float hBL = CornerHeight(tx,     ty,     width, height, wrapped);
+                float hBR = CornerHeight(tx + 1, ty,     width, height, wrapped);
+                float hTL = CornerHeight(tx,     ty + 1, width, height, wrapped);
+                float hTR = CornerHeight(tx + 1, ty + 1, width, height, wrapped);
+
+                Color32 cBL = CornerColor(tx,     ty,     width, height, wrapped);
+                Color32 cBR = CornerColor(tx + 1, ty,     width, height, wrapped);
+                Color32 cTL = CornerColor(tx,     ty + 1, width, height, wrapped);
+                Color32 cTR = CornerColor(tx + 1, ty + 1, width, height, wrapped);
+
+                int baseVertex = vertices.Count;
+
+                // Generate a (SubDiv+1) x (SubDiv+1) grid of vertices across this tile,
+                // with bilinearly interpolated heights from the 4 corner values.
+                for (int sy = 0; sy <= SubDiv; sy++)
+                {
+                    float fy = (float)sy / SubDiv;
+                    for (int sx = 0; sx <= SubDiv; sx++)
+                    {
+                        float fx = (float)sx / SubDiv;
+
+                        // Bilinear interpolation of height
+                        float h = Mathf.Lerp(
+                            Mathf.Lerp(hBL, hBR, fx),
+                            Mathf.Lerp(hTL, hTR, fx),
+                            fy) + HeightBias;
+
+                        // Bilinear interpolation of color
+                        byte r = (byte)Mathf.RoundToInt(Mathf.Lerp(
+                            Mathf.Lerp(cBL.r, cBR.r, fx),
+                            Mathf.Lerp(cTL.r, cTR.r, fx), fy));
+                        byte g = (byte)Mathf.RoundToInt(Mathf.Lerp(
+                            Mathf.Lerp(cBL.g, cBR.g, fx),
+                            Mathf.Lerp(cTL.g, cTR.g, fx), fy));
+                        byte b = (byte)Mathf.RoundToInt(Mathf.Lerp(
+                            Mathf.Lerp(cBL.b, cBR.b, fx),
+                            Mathf.Lerp(cTL.b, cTR.b, fx), fy));
+
+                        // Project onto sphere via Core.Sphere.SpherePos(
+                        float worldX = tx + fx;
+                        float worldY = ty + fy;
+                        vertices.Add(Core.Sphere.SpherePos(worldX, worldY, h));
+                        colors.Add(new Color32(r, g, b, 255));
+                    }
+                }
+
+                // Emit triangles for the SubDiv x SubDiv sub-grid
+                int stride = SubDiv + 1;
+                for (int sy = 0; sy < SubDiv; sy++)
+                {
+                    for (int sx = 0; sx < SubDiv; sx++)
+                    {
+                        int i00 = baseVertex + sy * stride + sx;
+                        int i10 = i00 + 1;
+                        int i01 = i00 + stride;
+                        int i11 = i01 + 1;
+
+                        triangles.Add(i00);
+                        triangles.Add(i01);
+                        triangles.Add(i10);
+
+                        triangles.Add(i10);
+                        triangles.Add(i01);
+                        triangles.Add(i11);
+                    }
+                }
+            }
+
+            Debug.Log($"[WSM3D] MountainSlopeSmoothing rebuilt {quads.Count} cliff quads -> {smoothTileSet.Count} smooth tiles, {vertices.Count} verts.");
+
+            _mesh.SetVertices(vertices);
+            _mesh.SetTriangles(triangles, 0);
+            _mesh.SetColors(colors);
             _mesh.RecalculateNormals();
             _mesh.RecalculateBounds();
         }

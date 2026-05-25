@@ -6,6 +6,7 @@ namespace WorldSphereMod.PostFx
     public sealed class WSM3DPostStack : MonoBehaviour
     {
         static WSM3DPostStack _instance;
+        static bool _shadersUnavailable;
         static readonly int BloomTexId = Shader.PropertyToID("_BloomTex");
         static readonly int ExposureId = Shader.PropertyToID("_Exposure");
         static readonly int ThresholdId = Shader.PropertyToID("_Threshold");

@@ -61,7 +61,7 @@ public class SavedSettings
         // vary shape but still use ResolveDepth. "lathe" ignores depth setting.
         // "auto" defers to AssetShapeRegistry per sprite name. See spec Known gaps.
         public string VoxelInflationStyle = "pertexel";
-        public float VoxelScaleMultiplier = 4.0f;
+        public float VoxelScaleMultiplier = 8.0f;
         public bool DebugVoxelOutline = false;
         public bool DebugSanityCube = false;
         public bool DebugSpawnBuildings = false;

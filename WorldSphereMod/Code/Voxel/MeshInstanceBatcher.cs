@@ -65,7 +65,7 @@ namespace WorldSphereMod.Voxel
         static readonly int _baseColorProp = Shader.PropertyToID("_BaseColor");
         static readonly int _colorPropUnlit = Shader.PropertyToID("_Color");
         static readonly int _emissionProp = Shader.PropertyToID("_EmissionColor");
-        static readonly UnityEngine.Color _bakeEmission = new UnityEngine.Color(0f, 0f, 0f, 1f);
+        static readonly UnityEngine.Color _bakeEmission = new UnityEngine.Color(1.5f, 1.5f, 1.5f, 1f);
         const int kBatch = 1023;
         const float kDebugCubeSize = 0.5f;
         static bool UseBrg => Core.savedSettings != null && Core.savedSettings.UseBRG;

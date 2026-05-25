@@ -14,7 +14,11 @@ namespace WorldSphereMod.Water
         static readonly Vector4 BaseWaveAmp = new Vector4(0.12f, 0.075f, 0.05f, 0f);
         static readonly Vector4 BaseWaveFreq = new Vector4(0.45f, 1.1f, 2.0f, 0f);
         static readonly Vector4 BaseWaveSpeed = new Vector4(1.0f, 1.6f, 2.4f, 0f);
-        const float BobAmplitude = 0.05f;
+        // Bob disabled: on a sphere, translating the GO in local-Y shifts the
+        // mesh tangentially on the top face and radially on the sides, making it
+        // "float 1 ft above" from most camera angles and only visible at edges.
+        // Vertex-based wave displacement belongs in the shader (GerstnerWater).
+        const float BobAmplitude = 0f;
         const float BobSpeed = 0.8f;
 
         static Material? _material;
@@ -168,11 +172,10 @@ namespace WorldSphereMod.Water
             float freqScale = Mathf.Lerp(0.95f, 1.1f, detail01);
             float speedScale = Mathf.Lerp(0.95f, 1.05f, detail01);
 
-            // Keep the object itself in motion even when the shader falls back to a flat
-            // material, so the surface still reads as water during runtime diagnostics.
-            float bobScale = Mathf.Lerp(0.85f, 1.25f, detail01);
-            float bob = Mathf.Sin(_waveTime * BobSpeed) * BobAmplitude * bobScale;
-            transform.localPosition = _baseLocalPosition + new Vector3(0f, bob, 0f);
+            // Bob removed: on a sphere, shifting localPosition in Y moves vertices
+            // tangentially, not radially. The mesh must stay at (0,0,0) so SpherePos
+            // vertices land exactly on the sphere surface. Wave motion is the shader's job.
+            transform.localPosition = _baseLocalPosition;
 
             // Write to the per-renderer instance material so we never mutate the shared template.
             if (_instanceMaterial == null) return;
