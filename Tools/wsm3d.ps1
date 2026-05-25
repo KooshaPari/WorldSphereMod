@@ -76,16 +76,16 @@ $script:LiveVerifyReportPath = Join-Path $RepoRoot "Tools/.reports/live-verify-l
 
 # Phase defaults from SavedSettings.cs (also used by safe-min preset)
 $script:PhaseDefaults = @{
-    "VoxelEntities"       = $false
+    "VoxelEntities"       = $true
     "ProceduralBuildings" = $false
-    "CrossedQuadFoliage"  = $true
+    "CrossedQuadFoliage"  = $false
     "MeshWater"           = $false
     "HighShadows"         = $false
     "SkeletalAnimation"   = $false
-    "WorldspaceUI"        = $true
+    "WorldspaceUI"        = $false
     "DayNightCycle"       = $false
     "PostFX"              = $false
-    "ParticleEffects"     = $true
+    "ParticleEffects"     = $false
 }
 
 # Phase slug to camelCase mapping

@@ -58,10 +58,10 @@ public class Wsm3dCliInvariantsTests
         var script = ReadWsm3dScript();
 
         script.Should().Contain("$script:PhaseDefaults = @{");
-        script.Should().Contain(@"""VoxelEntities""       = $false");
-        script.Should().Contain(@"""CrossedQuadFoliage""  = $true");
-        script.Should().Contain(@"""WorldspaceUI""        = $true");
-        script.Should().Contain(@"""ParticleEffects""     = $true");
+        script.Should().Contain(@"""VoxelEntities""       = $true");
+        script.Should().Contain(@"""CrossedQuadFoliage""  = $false");
+        script.Should().Contain(@"""WorldspaceUI""        = $false");
+        script.Should().Contain(@"""ParticleEffects""     = $false");
 
         var presetBlock = Regex.Match(
             script,
