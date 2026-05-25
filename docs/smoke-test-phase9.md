@@ -46,8 +46,8 @@ If any of those fail, Phase 0–8 plumbing has regressed. Don't proceed.
 
 | Check | Expected | Failure mode if broken |
 |---|---|---|
-| Post-processing visible | Deterministic SSAO -> SSGI -> Bloom -> ACES -> LUT chain; bright areas bloom, highlights roll off filimically, and LUT grading still applies | Identical to OFF -> `PostFX` did not attach `WSM3DPostStack` or `BrpBloom.shader` / `BrpACES.shader` failed to load |
-| SSAO when `SSAOEnabled` on | Contact shading in crevices (subtle) | No AO → `ScreenSpaceAO` gated off or pipeline missing |
+| Post-processing visible | Deterministic SSAO -> SSGI -> Bloom -> ACES -> LUT chain; bright areas bloom, highlights roll off filmically, and LUT grading still applies | Identical to OFF -> `PostFX` did not attach `WSM3DPostStack` or `BrpBloom.shader` / `BrpACES.shader` failed to load |
+| SSAO when `SSAOEnabled` on | Contact shading in crevices (subtle) | No AO → SSAO pass gated off or unified stack input missing |
 | Bloom when `BloomEnabled` on | Soft halos and composite around bright emissive areas; default OFF for Phase 9 | No bloom → `BloomEnabled` false or `BrpBloom.shader` missing |
 | ACES when `ACESTonemapping` on | Filmic shoulder on bright sky / lights; default ON for Phase 9 | Harsh clipping or linear-looking highlights → `ACESTonemapping` false or `BrpACES.shader` missing |
 | Particle bursts on supported IDs | Pooled bursts on combat/effect hooks (5 IDs) | No particles → `ParticleEffects` false or effect ID unmapped |

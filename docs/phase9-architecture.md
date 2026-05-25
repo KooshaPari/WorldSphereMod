@@ -11,7 +11,7 @@ Four files under `WorldSphereMod/Code/Fx/` + the unified BRP post stack in `Worl
 
 - **`ParticleEffectLibrary.cs`** — data layer. `ParticleBurst` record, per-effect `ParticleSystem` prefab table, VFX Graph runtime capability probe. No Harmony / no Effects.cs deps.
 - **`DecalPool.cs`** — lifecycle layer. Three `DecalProjector` sub-pools (Footprint, Scorch, Blood), TTL expiry, `Tick()`.
-- **`WSM3DPostStack.cs`** — BRP post-FX layer at `WorldSphereMod/Code/PostFx/WSM3DPostStack.cs`. Owns SSAO, SSGI, bloom, ACES, and LUT in a single deterministic `OnRenderImage` ping-pong chain, destroys its created materials and temp RTs on teardown, and removes legacy `ScreenSpaceAO` / `ScreenSpaceGI` / `ColorGradingLUT` camera components on attach.
+- **`WSM3DPostStack.cs`** — BRP post-FX layer at `WorldSphereMod/Code/PostFx/WSM3DPostStack.cs`. Owns SSAO, SSGI, bloom, ACES, and LUT in a single deterministic `OnRenderImage` ping-pong chain, destroys its created materials and temp RTs on teardown, and removes legacy `ScreenSpaceAO` / `ScreenSpaceGI` / `ColorGradingLUT` camera components on attach. Bloom and ACES are implemented by the shipped BRP shaders in `WorldSphereMod/Resources/Shaders/BrpBloom.shader` and `WorldSphereMod/Resources/Shaders/BrpACES.shader`.
 - **`EffectPatches9.cs`** — integration shim. All Harmony patches for this phase live here.
 - **`FxFrameDriver.cs`** — `MonoBehaviour`, drains pools in `LateUpdate`.
 
@@ -141,6 +141,8 @@ sealed class WSM3DPostStack : MonoBehaviour
 - `WorldSphereMod/Code/PostFx/WSM3DPostStack.cs`
 
 **Modify:**
+- `WorldSphereMod/Resources/Shaders/BrpBloom.shader` — BRP bloom chain used by `WSM3DPostStack`.
+- `WorldSphereMod/Resources/Shaders/BrpACES.shader` — BRP ACES tonemapper used by `WSM3DPostStack`.
 - `WorldSphereMod/Code/Mod.cs:37-39` — add `AddComponent<FxFrameDriver>` guard.
 - `WorldSphereMod/Code/Effects.cs:258-271` — `BaseEffect.deactivate` Postfix: re-enable sprite when ParticleEffects and effect-id in table. One line.
 - `WorldSphereMod/Code/SavedSettings.cs` — add `public bool ParticleEffects = false;`. (`PostFX` at line 44 already present.)
