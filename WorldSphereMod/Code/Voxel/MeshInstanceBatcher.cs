@@ -299,11 +299,7 @@ namespace WorldSphereMod.Voxel
                 FrameBucketCount++;
             }
 
-            float instancingEfficiency = FrameInstances > 0 ? ((float)FrameBucketCount / FrameInstances) : 0f;
-            if (FrameInstances > 0 && instancingEfficiency > 0.1f)
-            {
-                Debug.LogWarning($"[WSM3D][DIAG] InstancingEfficiency={instancingEfficiency:F4} (FrameBucketCount={FrameBucketCount}, FrameInstances={FrameInstances}, useFallbackPath={_useFallbackPath})");
-            }
+            // InstancingEfficiency computed on-demand via property getter.
 
             if (verboseDrawLogging)
             {
@@ -506,16 +502,8 @@ namespace WorldSphereMod.Voxel
             if (material.shader != null &&
                 material.shader.name.StartsWith("Standard", System.StringComparison.Ordinal))
             {
-                if (!material.IsKeywordEnabled("INSTANCING_ON"))
-                {
-                    material.EnableKeyword("INSTANCING_ON");
-                }
-
-                if (!material.IsKeywordEnabled("INSTANCING_ON"))
-                {
-                    reason = $"[WSM3D] DrawMeshInstanced blocked: Standard material '{material.name}' does not expose INSTANCING_ON.";
-                    return false;
-                }
+                reason = $"[WSM3D] DrawMeshInstanced blocked: Standard shader does not support GPU instancing in this runtime.";
+                return false;
             }
 
             return true;
