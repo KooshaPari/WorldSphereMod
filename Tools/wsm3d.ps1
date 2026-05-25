@@ -61,7 +61,7 @@ function Import-VisionEnv {
 }
 
 function Get-DefaultPlaycuaVisionBackend {
-    $explicit = ($env:PLAYCUA_VISION_BACKEND ?? "").Trim().ToLowerInvariant()
+    $explicit = if ($env:PLAYCUA_VISION_BACKEND) { $env:PLAYCUA_VISION_BACKEND.Trim().ToLowerInvariant() } else { "" }
     if ($explicit -in @("fireworks", "omniroute", "anthropic", "off")) { return $explicit }
     if ($env:FIREWORKS_API_KEY) { return "fireworks" }
     if ($env:OMNROUTE_API_KEY) { return "omniroute" }
@@ -1511,10 +1511,16 @@ function Invoke-Doctor {
             -Message "Fireworks Kimi vision reachable" `
             -Details @{ model = $fwModel; default_backend = (Get-DefaultPlaycuaVisionBackend) }
     } elseif ($env:FIREWORKS_API_KEY) {
+        $hint = if ($env:FIREWORKS_API_KEY -like 'fpk_*') {
+            "FIREWORKS_API_KEY looks like a Fire Pass key (fpk_*); use a Fireworks inference API key for chat/completions."
+        } else {
+            "Deploy accounts/fireworks/models/kimi-k2p5 or check FIREWORKS_VISION_MODEL."
+        }
         $checks += New-DoctorCheck -Id "fireworks" -Status "skip" -Required $false -Optional $true `
             -Message "FIREWORKS_API_KEY set but chat/completions probe failed" `
             -Details @{
-                remediation = "Deploy accounts/fireworks/models/kimi-k2p5 on Fireworks; see Tools/fireworks-vision.env.example."
+                remediation = $hint
+                doc = "Tools/fireworks-vision.env.example"
             }
     } else {
         $checks += New-DoctorCheck -Id "fireworks" -Status "skip" -Required $false -Optional $true `
@@ -1872,7 +1878,7 @@ function Invoke-PlaycuaRunBridge {
 
 function Invoke-PlaycuaRunAll {
     param(
-        [ValidateSet("omniroute", "anthropic", "off")]
+        [ValidateSet("fireworks", "omniroute", "anthropic", "off")]
         [string]$VisionBackend
     )
 
@@ -2052,13 +2058,13 @@ Commands:
   journey verify -Id <id>|<manifest-path> [-Live]
       Verify a manifest with phenotype-journey. Defaults to mock mode (--mock).
 
-  playcua run-all [-VisionBackend omniroute|anthropic|off]
+  playcua run-all [-VisionBackend fireworks|omniroute|anthropic|off]
       Run every Tools/wsm3d-playcua/sample-scenarios/*.yaml via python main.py.
       Requires bridge on 127.0.0.1:8766. Writes per-scenario JSON under
       Tools/wsm3d-playcua/.reports/run-all-artifacts/. Omit -VisionBackend to use
       main.py defaults (OMNROUTE_API_KEY / ANTHROPIC_API_KEY env).
 
-  playcua run-bridge [-VisionBackend omniroute|anthropic|off]
+  playcua run-bridge [-VisionBackend fireworks|omniroute|anthropic|off]
       Run only bridge-*.yaml PlayCUA scenarios (smoke + vision gate without phase YAMLs).
 
   watch [-Launch] [-Filter <pattern>]

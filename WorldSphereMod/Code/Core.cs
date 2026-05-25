@@ -512,8 +512,8 @@ namespace WorldSphereMod
             }
             static List<Shape> Shapes = new List<Shape>()
             {
-                new Shape(CylindricalToCartesian, CylindricalToCartesianFast, CartesianToCylindrical, CylindricalRotation, CylindricalInitiation, RenderRange, true), //cylinder
-                new Shape(FlatToCartesian, FlatToCartesianFast, CartesianToFlat, FlatRotation, FlatInitiation, RenderRangeFlat, false)//flat
+                new Shape(FlatToCartesian, FlatToCartesianFast, CartesianToFlat, FlatRotation, FlatInitiation, RenderRangeFlat, false), //flat
+                new Shape(CylindricalToCartesian, CylindricalToCartesianFast, CartesianToCylindrical, CylindricalRotation, CylindricalInitiation, RenderRange, true) //cylinder (sphere mode)
             };
             public static void Begin()
             {

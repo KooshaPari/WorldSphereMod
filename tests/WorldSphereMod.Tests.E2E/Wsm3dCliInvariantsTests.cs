@@ -146,7 +146,7 @@ public class Wsm3dCliInvariantsTests
 
         completion.Should().Contain(@"""run-all""");
         completion.Should().Contain("-VisionBackend");
-        completion.Should().Contain(@"""omniroute"", ""anthropic"", ""off""");
+        completion.Should().Contain(@"""fireworks"", ""omniroute"", ""anthropic"", ""off""");
     }
 
     [Fact]

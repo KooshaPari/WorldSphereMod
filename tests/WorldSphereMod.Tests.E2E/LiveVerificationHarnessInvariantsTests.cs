@@ -55,6 +55,7 @@ public class LiveVerificationHarnessInvariantsTests
         main.Should().Contain("choices=[\"fireworks\", \"omniroute\", \"anthropic\", \"off\"]");
         main.Should().Contain("if backend == \"fireworks\":");
         main.Should().Contain("OmniRouteVisionValidator");
+        main.Should().Contain("if backend == \"fireworks\":");
         main.Should().Contain("if backend == \"omniroute\":");
     }
 
@@ -110,7 +111,8 @@ public class LiveVerificationHarnessInvariantsTests
         script.Should().Contain("0.95");
         script.Should().Contain("wsm3d-playcua");
         script.Should().Contain("--vision-backend");
-        script.Should().Contain("omniroute");
+        script.Should().Contain("Get-DefaultPlaycuaVisionBackend");
+        script.Should().Contain("fireworks");
     }
 
     [Fact]
@@ -137,8 +139,9 @@ public class LiveVerificationHarnessInvariantsTests
         fn.Groups[1].Value.Should().Contain("Get-ChildItem");
 
         script.Should().Contain("foreach ($scenario in $scenarios)");
-        script.Should().MatchRegex(
-            @"if\s*\(\s*\$Vision\s*\)[\s\S]*--vision-backend[\s\S]*omniroute");
+        script.Should().Contain("if ($Vision)");
+        script.Should().Contain("Get-DefaultPlaycuaVisionBackend");
+        script.Should().Contain('--vision-backend", $visionBackend');
 
         yamlOnDisk.Should().Contain("bridge-health-vision.yaml");
         yamlOnDisk.Should().Contain("bridge-save-load-smoke.yaml");
