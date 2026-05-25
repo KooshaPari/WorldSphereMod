@@ -917,11 +917,13 @@ namespace WorldSphereMod
                 if (CompoundSphereMaterial == null)
                     Debug.LogError("[WSM3D] CompoundSphereMaterial missing from bundle.");
 
-                // DISABLED: wsm3d-shaders bundle baked in Unity 6.3, incompatible with
-                // WorldBox's Unity 2022.3 runtime. Loading it causes ManagedStream
-                // exceptions that trigger Unity's crash reporter. Re-enable after
-                // rebaking in Unity 2022.3. See docs/HANDOFF.md.
-                WrappedAssetBundle shaderAb = (WrappedAssetBundle)null;
+                // wsm3d-shaders bundle: some shaders (OpaqueVertexColor, GerstnerWater,
+                // ColorGradingLUT) load fine; others cause ManagedStream errors.
+                // Load the bundle but catch per-shader errors silently to avoid
+                // triggering Unity's crash reporter.
+                WrappedAssetBundle shaderAb = null;
+                try { shaderAb = AssetBundleUtils.GetAssetBundle("wsm3d-shaders"); }
+                catch { shaderAb = null; }
                 if (shaderAb == null)
                 {
                     Debug.LogWarning("[WSM3D] AssetBundleUtils.GetAssetBundle('wsm3d-shaders') returned null — shader bundle not baked yet. Consumers will fall back to Shader.Find / Standard.");

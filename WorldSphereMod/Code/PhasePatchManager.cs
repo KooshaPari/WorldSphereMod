@@ -27,10 +27,24 @@ namespace WorldSphereMod
             {
                 foreach (var type in phaseTypes)
                 {
+                    if (type.GetCustomAttribute<HarmonyPatch>() == null)
+                    {
+                        Debug.Log($"[WSM3D] PhasePatchManager: skipping patch for non-HarmonyPatch type {type.FullName}");
+                        continue;
+                    }
+
                     if (PatchedTypes.Add(type))
                     {
-                        Core.Patcher.CreateClassProcessor(type).Patch();
-                        affected++;
+                        try
+                        {
+                            Core.Patcher.CreateClassProcessor(type).Patch();
+                            affected++;
+                        }
+                        catch (Exception ex)
+                        {
+                            PatchedTypes.Remove(type);
+                            Debug.LogWarning($"[WSM3D] PhasePatchManager: Patch() failed for {type.FullName}: {ex.Message}");
+                        }
                     }
                 }
             }
@@ -38,12 +52,12 @@ namespace WorldSphereMod
             {
                 foreach (var type in phaseTypes)
                 {
-                if (PatchedTypes.Remove(type))
-                {
-                    UnpatchClass(type);
-                    affected++;
+                    if (PatchedTypes.Remove(type))
+                    {
+                        UnpatchClass(type);
+                        affected++;
+                    }
                 }
-            }
             }
 
             Debug.Log($"[WSM3D] PhasePatchManager: {flagName} -> {newValue} ({affected} types affected)");
@@ -51,23 +65,62 @@ namespace WorldSphereMod
 
         private static void UnpatchClass(Type type)
         {
-            var processor = Core.Patcher.CreateClassProcessor(type);
+            if (type.GetCustomAttribute<HarmonyPatch>() == null)
+            {
+                Debug.Log($"[WSM3D] PhasePatchManager: skipping unpatch for non-HarmonyPatch type {type.FullName}");
+                return;
+            }
+
+            PatchClassProcessor processor;
+            try
+            {
+                processor = Core.Patcher.CreateClassProcessor(type);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[WSM3D] PhasePatchManager: CreateClassProcessor failed for {type.FullName}: {ex.Message}");
+                return;
+            }
+
+            if (processor == null)
+            {
+                Debug.LogWarning($"[WSM3D] PhasePatchManager: CreateClassProcessor returned null for {type.FullName}");
+                return;
+            }
+
             var getBulkMethods = processor
                 .GetType()
                 .GetMethod("GetBulkMethods", BindingFlags.Instance | BindingFlags.NonPublic);
 
             if (getBulkMethods == null) return;
 
-            if (getBulkMethods.Invoke(processor, new object[] { }) is IEnumerable patchMethods)
+            IEnumerable patchMethods;
+            try
             {
-                foreach (var patchMethod in patchMethods)
-                {
-                    if (patchMethod is not MethodBase method)
-                    {
-                        continue;
-                    }
+                patchMethods = getBulkMethods.Invoke(processor, new object[] { }) as IEnumerable;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[WSM3D] PhasePatchManager: GetBulkMethods.Invoke failed for {type.FullName}: {ex.Message}");
+                return;
+            }
 
+            if (patchMethods == null) return;
+
+            foreach (var patchMethod in patchMethods)
+            {
+                if (patchMethod is not MethodBase method)
+                {
+                    continue;
+                }
+
+                try
+                {
                     Core.Patcher.Unpatch(method, HarmonyPatchType.All, Core.Patcher.Id);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[WSM3D] PhasePatchManager: Unpatch failed for {method.Name} on {type.FullName}: {ex.Message}");
                 }
             }
         }

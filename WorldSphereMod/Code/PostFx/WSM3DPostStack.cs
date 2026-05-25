@@ -157,6 +157,16 @@ namespace WorldSphereMod.PostFx
                 ApplySSGIParams();
             }
 
+            bool anyMaterial = _ssaoMat != null || _ssgiMat != null || _bloomMat != null || _acesMat != null || _lutMat != null;
+            if (!anyMaterial)
+            {
+                Debug.LogWarning("[WSM3D] WSM3DPostStack: no shaders resolved — destroying PostStack component to avoid black camera.");
+                _initialized = false;
+                if (_instance == this) _instance = null;
+                Destroy(this);
+                return;
+            }
+
             _initialized = true;
             Debug.Log($"[WSM3D] WSM3DPostStack initialized: SSAO={_ssaoMat != null} SSGI={_ssgiMat != null} Bloom={_bloomMat != null} ACES={_acesMat != null} LUT={_lutMat != null}");
         }
