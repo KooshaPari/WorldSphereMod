@@ -23,10 +23,13 @@ Shader "WSM3D/Impostor"
 
         Pass
         {
+            Name "ImpostorPass"
+
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_instancing
+            #pragma target 3.0
             #include "UnityCG.cginc"
 
             sampler2D _MainTex;

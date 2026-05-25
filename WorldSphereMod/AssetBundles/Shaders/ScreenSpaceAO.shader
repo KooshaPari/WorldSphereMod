@@ -26,6 +26,7 @@ Shader "WSM3D/ScreenSpaceAO"
             CGPROGRAM
             #pragma vertex vert_img
             #pragma fragment frag
+            #pragma target 3.0
             #include "UnityCG.cginc"
 
             sampler2D _MainTex;
@@ -33,12 +34,18 @@ Shader "WSM3D/ScreenSpaceAO"
             float4 _MainTex_TexelSize;
             float _Radius, _Intensity, _Bias;
 
-            static const float2 kKernel[8] = {
-                float2( 0.707,  0.000), float2( 0.354,  0.612),
-                float2( 0.000,  0.707), float2(-0.354,  0.612),
-                float2(-0.707,  0.000), float2(-0.354, -0.612),
-                float2( 0.000, -0.707), float2( 0.354, -0.612)
-            };
+            float2 GetKernelSample(int idx)
+            {
+                // 8-tap rotated kernel (45-degree increments)
+                if (idx == 0) return float2( 0.707,  0.000);
+                if (idx == 1) return float2( 0.354,  0.612);
+                if (idx == 2) return float2( 0.000,  0.707);
+                if (idx == 3) return float2(-0.354,  0.612);
+                if (idx == 4) return float2(-0.707,  0.000);
+                if (idx == 5) return float2(-0.354, -0.612);
+                if (idx == 6) return float2( 0.000, -0.707);
+                return float2( 0.354, -0.612);
+            }
 
             float SampleLinearDepth(float2 uv)
             {
@@ -55,7 +62,7 @@ Shader "WSM3D/ScreenSpaceAO"
                 float2 ts = _MainTex_TexelSize.xy * _Radius * 32;
                 [unroll] for (int k = 0; k < 8; k++)
                 {
-                    float2 off = kKernel[k] * ts;
+                    float2 off = GetKernelSample(k) * ts;
                     float d = SampleLinearDepth(i.uv + off);
                     float diff = max(centerDepth - d - _Bias, 0);
                     occlusion += saturate(diff * 6);

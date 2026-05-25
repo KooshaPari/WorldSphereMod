@@ -19,6 +19,7 @@ Shader "Hidden/WSM3D/BrpBloom"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma target 3.0
             #include "UnityCG.cginc"
 
             sampler2D _MainTex;
@@ -52,6 +53,7 @@ Shader "Hidden/WSM3D/BrpBloom"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma target 3.0
             #include "UnityCG.cginc"
 
             sampler2D _MainTex;
@@ -62,16 +64,24 @@ Shader "Hidden/WSM3D/BrpBloom"
 
             v2f vert(appdata v) { v2f o; o.pos = UnityObjectToClipPos(v.vertex); o.uv = v.uv; return o; }
 
-            static const float weights[5] = { 0.227027, 0.194594, 0.121622, 0.054054, 0.016216 };
+            float GetBlurWeight(int idx)
+            {
+                if (idx == 0) return 0.227027;
+                if (idx == 1) return 0.194594;
+                if (idx == 2) return 0.121622;
+                if (idx == 3) return 0.054054;
+                return 0.016216;
+            }
 
             fixed4 frag(v2f i) : SV_Target
             {
                 float2 texel = float2(_MainTex_TexelSize.x, 0);
-                float3 result = tex2D(_MainTex, i.uv).rgb * weights[0];
+                float3 result = tex2D(_MainTex, i.uv).rgb * GetBlurWeight(0);
                 for (int j = 1; j < 5; j++)
                 {
-                    result += tex2D(_MainTex, i.uv + texel * j).rgb * weights[j];
-                    result += tex2D(_MainTex, i.uv - texel * j).rgb * weights[j];
+                    float w = GetBlurWeight(j);
+                    result += tex2D(_MainTex, i.uv + texel * j).rgb * w;
+                    result += tex2D(_MainTex, i.uv - texel * j).rgb * w;
                 }
                 return fixed4(result, 1);
             }
@@ -85,6 +95,7 @@ Shader "Hidden/WSM3D/BrpBloom"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma target 3.0
             #include "UnityCG.cginc"
 
             sampler2D _MainTex;
@@ -95,16 +106,24 @@ Shader "Hidden/WSM3D/BrpBloom"
 
             v2f vert(appdata v) { v2f o; o.pos = UnityObjectToClipPos(v.vertex); o.uv = v.uv; return o; }
 
-            static const float weights[5] = { 0.227027, 0.194594, 0.121622, 0.054054, 0.016216 };
+            float GetBlurWeight(int idx)
+            {
+                if (idx == 0) return 0.227027;
+                if (idx == 1) return 0.194594;
+                if (idx == 2) return 0.121622;
+                if (idx == 3) return 0.054054;
+                return 0.016216;
+            }
 
             fixed4 frag(v2f i) : SV_Target
             {
                 float2 texel = float2(0, _MainTex_TexelSize.y);
-                float3 result = tex2D(_MainTex, i.uv).rgb * weights[0];
+                float3 result = tex2D(_MainTex, i.uv).rgb * GetBlurWeight(0);
                 for (int j = 1; j < 5; j++)
                 {
-                    result += tex2D(_MainTex, i.uv + texel * j).rgb * weights[j];
-                    result += tex2D(_MainTex, i.uv - texel * j).rgb * weights[j];
+                    float w = GetBlurWeight(j);
+                    result += tex2D(_MainTex, i.uv + texel * j).rgb * w;
+                    result += tex2D(_MainTex, i.uv - texel * j).rgb * w;
                 }
                 return fixed4(result, 1);
             }
@@ -118,6 +137,7 @@ Shader "Hidden/WSM3D/BrpBloom"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma target 3.0
             #include "UnityCG.cginc"
 
             sampler2D _MainTex;

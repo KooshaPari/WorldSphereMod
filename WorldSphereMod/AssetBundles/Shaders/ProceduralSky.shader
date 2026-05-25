@@ -30,9 +30,12 @@ Shader "WSM3D/ProceduralSky"
 
         Pass
         {
+            Name "ProceduralSkyPass"
+
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma target 3.0
             #include "UnityCG.cginc"
 
             struct appdata { float4 vertex : POSITION; };
@@ -54,7 +57,7 @@ Shader "WSM3D/ProceduralSky"
             {
                 float3 d = normalize(i.dir);
                 float h = saturate(d.y);
-                fixed3 sky = lerp(_SkyHorizon.rgb, _SkyTopColor.rgb, pow(h, 0.5));
+                fixed3 sky = lerp(_SkyHorizon.rgb, _SkyTopColor.rgb, sqrt(max(h, 0.0)));
                 if (d.y < 0)
                 {
                     sky = lerp(_SkyHorizon.rgb, _SkyGround.rgb, saturate(-d.y * 2));
@@ -63,7 +66,7 @@ Shader "WSM3D/ProceduralSky"
                 float sunDot = saturate(dot(d, sun));
                 float sunMask = smoothstep(1 - _SunSize, 1 - _SunSize * 0.2, sunDot);
                 sky += _SunColor.rgb * sunMask * _SunIntensity;
-                float halo = pow(sunDot, 16) * 0.4;
+                float halo = pow(max(sunDot, 0.0), 16) * 0.4;
                 sky += _SunColor.rgb * halo;
                 return fixed4(sky, 1);
             }
