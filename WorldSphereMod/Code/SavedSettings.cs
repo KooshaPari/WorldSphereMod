@@ -45,10 +45,10 @@ public class SavedSettings
         public int SmoothingIterations = 0;
         // Symmetric Z extrusion depth for greedy Build() and styles that call
         // SpriteVoxelizer.ResolveDepth (pertexel/greedy/extruded, balloon,
-        // organicblob, legacy-pertexel, rig BuildPerTexel). Default 3 per
+        // organicblob, legacy-pertexel, rig BuildPerTexel). Default 8 per
         // docs/journeys/scratch/voxel-depth-extrusion-spec.md. Ignored by lathe
         // (sprite width) and by AssetShapeRegistry "auto" routing.
-        public int VoxelSpriteDepth = 3;
+        public int VoxelSpriteDepth = 8;
         // Luminance depth complement (docs/journeys/scratch/luminance-depth-spec.md).
         // Phase 1 global knobs only; per-sprite tuning deferred. Hybrid DT+luminance
         // in SpriteVoxelizer (BuildBalloon / BuildPerTexel) not wired yet — off until then.
@@ -78,7 +78,7 @@ public class SavedSettings
         // Phase 3: Crossed-quad foliage (vs. billboarded sprite top tiles).
         public bool CrossedQuadFoliage = false;
         // Terrain polish: blend biome colors across tile boundaries.
-        public bool BiomeBlending = false;
+        public bool BiomeBlending = true;
         // Phase 4: Mesh water surface (vs. flat tile color).
         public bool MeshWater = false;
         // Worldspace health bar style: true => 3D mesh bars, false => legacy billboard quads.

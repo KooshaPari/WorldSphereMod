@@ -200,19 +200,20 @@ namespace WorldSphereMod.Water
             if (_materialAttempted) return false;
             _materialAttempted = true;
 
-            Color waterTint = new Color(0.15f, 0.40f, 0.55f, 0.6f);
+            Color waterTint = new Color(0.15f, 0.40f, 0.55f, 0.55f);
             int surfaceTypeId = Shader.PropertyToID("_Surface");
             int alphaClipId = Shader.PropertyToID("_AlphaClip");
             int baseColorId = Shader.PropertyToID("_BaseColor");
             int colorId = Shader.PropertyToID("_Color");
             int smoothnessId = Shader.PropertyToID("_Smoothness");
             int metallicId = Shader.PropertyToID("_Metallic");
+            int emissionId = Shader.PropertyToID("_EmissionColor");
             bool isLit = false;
 
             Shader? s = null;
             // The bundled GerstnerWater shader now compiles in the built-in
             // render pipeline, so prefer it over the Standard fallback.
-            const bool kGerstnerKnownBroken = false;
+            const bool kGerstnerKnownBroken = true;
             if (!kGerstnerKnownBroken)
             {
                 if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("GerstnerWater", out var bundledWater) && bundledWater != null)
@@ -234,7 +235,7 @@ namespace WorldSphereMod.Water
                 m.enableInstancing = true;
                 if (m.enableInstancing)
                 {
-                    ConfigureWaterMaterial(m, waterTint, baseColorId, colorId, smoothnessId, metallicId, surfaceTypeId, alphaClipId);
+                    ConfigureWaterMaterial(m, waterTint, baseColorId, colorId, smoothnessId, metallicId, surfaceTypeId, alphaClipId, emissionId);
                     _material = m;
                     Debug.Log($"[WSM3D] Water material resolved via '{s.name}' (transparent blue)");
                     return true;
@@ -244,8 +245,9 @@ namespace WorldSphereMod.Water
 
             string[] candidates =
             {
-                "Universal Render Pipeline/Lit",
+                "Sprites/Default",
                 "Standard",
+                "Universal Render Pipeline/Lit",
                 "Universal Render Pipeline/Unlit",
             };
             foreach (var name in candidates)
@@ -260,7 +262,7 @@ namespace WorldSphereMod.Water
                     continue;
                 }
                 isLit = name == "Universal Render Pipeline/Lit";
-                ConfigureWaterMaterial(m, waterTint, baseColorId, colorId, smoothnessId, metallicId, surfaceTypeId, alphaClipId, isLit);
+                ConfigureWaterMaterial(m, waterTint, baseColorId, colorId, smoothnessId, metallicId, surfaceTypeId, alphaClipId, emissionId, isLit, name);
                 _material = m;
                 Debug.Log($"[WSM3D] Water material resolved via '{name}' (transparent blue)");
                 return true;
@@ -274,7 +276,7 @@ namespace WorldSphereMod.Water
         }
 
         static void ConfigureWaterMaterial(Material material, Color waterTint,
-            int baseColorId, int colorId, int smoothnessId, int metallicId, int surfaceTypeId, int alphaClipId, bool isUrpLit = false)
+            int baseColorId, int colorId, int smoothnessId, int metallicId, int surfaceTypeId, int alphaClipId, int emissionId, bool isUrpLit = false, string shaderName = "")
         {
             if (material.HasProperty(baseColorId))
             {
@@ -309,27 +311,34 @@ namespace WorldSphereMod.Water
                     material.SetFloat(alphaClipId, 0f);
                 }
             }
-
-            // Force emission to the water tint -- Standard shader is lit; in this
-            // scene the water layer receives ~0 directional/ambient light so the lit
-            // base color computes to ~0 -> opaque black mesh. Adding emission ==
-            // waterTint guarantees pixels light up regardless of scene lighting.
-            material.EnableKeyword("_EMISSION");
-            int emissionId = Shader.PropertyToID("_EmissionColor");
-            if (material.HasProperty(emissionId))
+            else if (shaderName == "Standard")
             {
-                // Boost emission so water is visibly blue, not dim/black.
-                // waterTint = (0.15, 0.40, 0.55, 0.6). At 1.5x emission was
-                // (0.225, 0.60, 0.825) — still dark in zero-light scenes.
-                // Use a brighter ocean-blue baseline + 3x intensity so the
-                // water visibly self-emits even with no ambient/directional.
-                material.SetColor(emissionId, new Color(0.30f, 0.60f, 1.20f, 1f));
+                SetStandardTransparentMode(material);
             }
-            // Opaque queue (was 3000 = Transparent). Standard shader fallback for water
-            // renders OPAQUE BLACK at the Transparent queue without explicit blend mode
-            // config -> the 'MeshWater creates blackworld' regression. Continuum/
-            // WaterGerstner shaders handle their own alpha; built-in Standard does not.
-            material.renderQueue = 2000;
+            else if (shaderName == "Sprites/Default")
+            {
+                material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                material.SetInt("_ZWrite", 0);
+                material.renderQueue = 3000;
+            }
+            else
+            {
+                material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                material.SetInt("_ZWrite", 0);
+                material.renderQueue = 3000;
+            }
+
+            if (shaderName != "Sprites/Default")
+            {
+                // Keep the fallback readable even if the scene has almost no lighting.
+                material.EnableKeyword("_EMISSION");
+                if (material.HasProperty(emissionId))
+                {
+                    material.SetColor(emissionId, new Color(0.30f, 0.60f, 1.20f, 1f));
+                }
+            }
 
             material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
             if (!_emissionDiagnosticsLogged)
@@ -346,6 +355,19 @@ namespace WorldSphereMod.Water
         static string FormatColor(Color color)
         {
             return $"({color.r:0.###}, {color.g:0.###}, {color.b:0.###}, {color.a:0.###})";
+        }
+
+        static void SetStandardTransparentMode(Material material)
+        {
+            material.SetFloat("_Mode", 3f);
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            material.SetInt("_ZWrite", 0);
+            material.DisableKeyword("_ALPHATEST_ON");
+            material.DisableKeyword("_ALPHABLEND_ON");
+            material.EnableKeyword("_ALPHAPREMULTIPLY_ON");
+            material.renderQueue = 3000;
         }
     }
 }

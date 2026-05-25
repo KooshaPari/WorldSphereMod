@@ -129,12 +129,14 @@ namespace WorldSphereMod.Lighting
                 shader = shaderRequest.asset as Shader;
             }
             shader ??= Shader.Find("Hidden/ColorGradingLUT");
+            shader ??= Shader.Find("Hidden/Internal-Colored");
             if (shader == null)
             {
-                Debug.LogWarning("[WSM3D] ColorGradingLUT shader not found; check Resources/Shaders/ColorGradingLUT and skip grading.");
+                Debug.LogWarning("[WSM3D] ColorGradingLUT: all shader resolution paths exhausted (LoadedShaders, Shader.Find, Resources, built-in).");
                 _initializing = false;
                 yield break;
             }
+            Debug.Log($"[WSM3D] ColorGradingLUT shader resolved: '{shader.name}'.");
 
             _lutMaterial = new Material(shader) { name = "WSM3D.ColorGradingLUT" };
 

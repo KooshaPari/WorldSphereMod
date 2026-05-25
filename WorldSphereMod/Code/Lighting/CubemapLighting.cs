@@ -79,11 +79,23 @@ namespace WorldSphereMod.Lighting
             Cubemap? skyCubemap = request.asset as Cubemap;
             if (skyCubemap == null)
             {
-                Debug.LogWarning($"[WSM3D] Cubemap '{CubemapResourcePath}' not found in Resources; HDR reflection probe skipped.");
+                Debug.LogWarning($"[WSM3D] Cubemap '{CubemapResourcePath}' not found in Resources; trying fallback paths.");
+                skyCubemap = Resources.Load<Cubemap>("Cubemap/sky_default");
+                skyCubemap ??= Resources.Load<Cubemap>("sky-default");
+            }
+            if (skyCubemap == null)
+            {
+                Debug.Log("[WSM3D] CubemapLighting: no custom cubemap found, applying skybox-derived ambient + reflection mode.");
+                CapturePreviousReflectionState();
+                RenderSettings.ambientMode = AmbientMode.Skybox;
+                RenderSettings.defaultReflectionMode = DefaultReflectionMode.Skybox;
+                RenderSettings.reflectionIntensity = 1f;
+                _applied = true;
                 _loadInProgress = false;
                 yield break;
             }
 
+            Debug.Log($"[WSM3D] CubemapLighting loaded cubemap '{skyCubemap.name}'.");
             CapturePreviousReflectionState();
             RenderSettings.customReflection = skyCubemap;
             RenderSettings.ambientMode = AmbientMode.Skybox;

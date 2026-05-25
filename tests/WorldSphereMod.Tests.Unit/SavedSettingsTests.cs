@@ -99,7 +99,7 @@ public class SavedSettingsTests
             ("VoxelEntities", true),
             ("ProceduralBuildings", false),
             ("CrossedQuadFoliage", false),
-            ("BiomeBlending", false),
+            ("BiomeBlending", true),
             ("MeshWater", false),
             ("HighShadows", false),
             ("SkeletalAnimation", false),
@@ -188,7 +188,7 @@ public class SavedSettingsTests
     [InlineData("VoxelEntities", "true")]
     [InlineData("ProceduralBuildings", "false")]
     [InlineData("CrossedQuadFoliage", "false")]
-    [InlineData("BiomeBlending", "false")]
+    [InlineData("BiomeBlending", "true")]
     [InlineData("MeshWater", "false")]
     [InlineData("HighShadows", "false")]
     [InlineData("SkeletalAnimation", "false")]

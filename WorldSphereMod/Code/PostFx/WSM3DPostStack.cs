@@ -107,7 +107,10 @@ namespace WorldSphereMod.PostFx
 
             Shader lutShader = null;
             if (Core.IsWorld3D && Core.Sphere.LoadedShaders.TryGetValue("ColorGradingLUT", out var bundled) && bundled != null)
+            {
                 lutShader = bundled;
+                Debug.Log("[WSM3D] PostStack LUT shader resolved via Core.Sphere.LoadedShaders cache.");
+            }
             lutShader ??= Shader.Find("WSM3D/ColorGradingLUT");
             lutShader ??= Resources.Load<Shader>("Shaders/ColorGradingLUT");
             lutShader ??= Shader.Find("Hidden/ColorGradingLUT");
@@ -115,12 +118,31 @@ namespace WorldSphereMod.PostFx
             {
                 _lutMat = new Material(lutShader) { name = "WSM3D.PostStack.LUT" };
                 _lutTexture = Resources.Load<Texture2D>("LUT/default");
-                if (_lutTexture != null && _lutMat.HasProperty("_LutTex"))
-                    _lutMat.SetTexture("_LutTex", _lutTexture);
-                else if (_lutTexture != null && _lutMat.HasProperty("_LookupTex"))
-                    _lutMat.SetTexture("_LookupTex", _lutTexture);
+                if (_lutTexture == null)
+                {
+                    _lutTexture = Resources.Load<Texture2D>("LUT/lut_default");
+                    _lutTexture ??= Resources.Load<Texture2D>("lut_default");
+                }
+                if (_lutTexture != null)
+                {
+                    if (_lutMat.HasProperty("_LutTex"))
+                        _lutMat.SetTexture("_LutTex", _lutTexture);
+                    else if (_lutMat.HasProperty("_LookupTex"))
+                        _lutMat.SetTexture("_LookupTex", _lutTexture);
+                    else if (_lutMat.HasProperty("_LUT_Tex2D"))
+                        _lutMat.SetTexture("_LUT_Tex2D", _lutTexture);
+                    Debug.Log($"[WSM3D] PostStack LUT texture loaded: {_lutTexture.name} ({_lutTexture.width}x{_lutTexture.height}).");
+                }
+                else
+                {
+                    Debug.LogWarning("[WSM3D] PostStack LUT texture not found in Resources (LUT/default, LUT/lut_default, lut_default). Color grading pass will be skipped at render time.");
+                }
                 if (_lutMat.HasProperty("_LutParams"))
                     _lutMat.SetVector("_LutParams", new Vector4(16f / 256f, 1f / 16f, 1f, 0f));
+            }
+            else
+            {
+                Debug.LogWarning("[WSM3D] PostStack LUT shader not found in any resolution path.");
             }
 
             if (_ssaoMat != null)
@@ -151,8 +173,24 @@ namespace WorldSphereMod.PostFx
 
         static Material TryLoadMaterial(string resourcePath, string fallbackName)
         {
-            Shader shader = Resources.Load<Shader>(resourcePath);
+            string cacheKey = System.IO.Path.GetFileNameWithoutExtension(resourcePath);
+            Shader shader = null;
+            if (Core.IsWorld3D && Core.Sphere.LoadedShaders.TryGetValue(cacheKey, out var bundled) && bundled != null)
+            {
+                shader = bundled;
+                Debug.Log($"[WSM3D] PostStack shader '{cacheKey}' resolved via Core.Sphere.LoadedShaders cache.");
+            }
+            shader ??= Shader.Find("WSM3D/" + cacheKey);
+            shader ??= Resources.Load<Shader>(resourcePath);
             shader ??= Shader.Find(fallbackName);
+            if (shader != null)
+            {
+                Debug.Log($"[WSM3D] PostStack material '{cacheKey}' created via shader '{shader.name}'.");
+            }
+            else
+            {
+                Debug.LogWarning($"[WSM3D] PostStack shader '{cacheKey}' not found in any resolution path (LoadedShaders, Shader.Find, Resources, fallback).");
+            }
             return shader != null ? new Material(shader) : null;
         }
 

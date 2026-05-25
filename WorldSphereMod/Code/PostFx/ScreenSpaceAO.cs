@@ -135,28 +135,43 @@ namespace WorldSphereMod.PostFx
         IEnumerator ConfigureMaterialAsync()
         {
             _initializing = true;
-            ResourceRequest request = Resources.LoadAsync<Shader>(ShaderResourcePath);
-            yield return request;
-            if (_destroyed)
-            {
-                _initializing = false;
-                yield break;
-            }
-            Shader? shader = request.asset as Shader;
-            shader ??= Shader.Find(ShaderFallbackName);
+
+            Shader? shader = ResolveShader();
             if (shader == null)
             {
-                Debug.LogWarning("[WSM3D] ScreenSpaceAO: shader not found (Resources/Shaders/ScreenSpaceAO or Hidden/ScreenSpaceAO)");
-                _initializing = false;
-                yield break;
+                ResourceRequest request = Resources.LoadAsync<Shader>(ShaderResourcePath);
+                yield return request;
+                if (_destroyed) { _initializing = false; yield break; }
+                shader = request.asset as Shader;
             }
-            if (_destroyed)
+            shader ??= Shader.Find(ShaderFallbackName);
+            shader ??= Shader.Find("Hidden/Internal-DepthNormalsTexture");
+            if (shader == null)
             {
+                Debug.LogWarning("[WSM3D] ScreenSpaceAO: all shader resolution paths exhausted (LoadedShaders, Shader.Find, Resources, built-in).");
                 _initializing = false;
                 yield break;
             }
+            if (_destroyed) { _initializing = false; yield break; }
             _material = new Material(shader);
+            Debug.Log($"[WSM3D] ScreenSpaceAO material created via shader '{shader.name}'.");
             _initializing = false;
+        }
+
+        static Shader? ResolveShader()
+        {
+            if (Core.IsWorld3D && Core.Sphere.LoadedShaders.TryGetValue("ScreenSpaceAO", out var bundled) && bundled != null)
+            {
+                Debug.Log("[WSM3D] ScreenSpaceAO shader resolved via Core.Sphere.LoadedShaders cache.");
+                return bundled;
+            }
+            Shader? s = Shader.Find("WSM3D/ScreenSpaceAO");
+            if (s != null)
+            {
+                Debug.Log("[WSM3D] ScreenSpaceAO shader resolved via Shader.Find('WSM3D/ScreenSpaceAO').");
+                return s;
+            }
+            return null;
         }
 
         internal static void BuildKernelStatic()
