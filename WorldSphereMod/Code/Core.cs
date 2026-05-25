@@ -906,6 +906,16 @@ namespace WorldSphereMod
                                 Debug.LogError($"[WSM3D] Shader '{shaderName}' loaded with empty name — bake produced corrupted asset, skipping LoadedShaders cache. Consumer will fall back.");
                                 continue;
                             }
+                            // Also reject shaders that have a valid name but are
+                            // unsupported on this GPU (none of subshaders/fallbacks
+                            // are suitable). Using such a shader triggers Unity's
+                            // "ERROR: Shader shader is not supported on this GPU"
+                            // and can hang the game (Responding=False).
+                            if (!sh.isSupported)
+                            {
+                                Debug.LogError($"[WSM3D] Shader '{shaderName}' (resolved name='{sh.name}') is not supported on this GPU — skipping LoadedShaders cache. Consumer will fall back.");
+                                continue;
+                            }
                             LoadedShaders[shaderName] = sh;
                             Debug.Log($"[WSM3D] Loaded shader from wsm3d-shaders bundle: WSM3D/{shaderName} -> {sh.name}");
                         }
@@ -914,6 +924,9 @@ namespace WorldSphereMod
                     {
                         Debug.LogWarning("[WSM3D] Shader load: " + ex.Message);
                     }
+                    // Log which shaders actually made it into the cache so
+                    // "LoadedShaders[count=2]" in the log can be diagnosed.
+                    Debug.Log($"[WSM3D] LoadedShaders[count={LoadedShaders.Count}]: {string.Join(", ", LoadedShaders.Keys)}");
                 }
 
                 // Inspect CompoundSphereMaterial's shader. If its shader was

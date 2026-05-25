@@ -395,6 +395,16 @@ namespace WorldSphereMod.Terrain
                 return false;
             }
 
+            // Guard: a shader that loaded from the bundle with a valid name
+            // can still be unsupported on this GPU (no subshaders/fallbacks
+            // match). Using it produces "ERROR: Shader shader is not
+            // supported on this GPU" and a game hang.
+            if (!shader.isSupported)
+            {
+                Debug.LogError($"[WSM3D] Mountain slope shader '{shader.name}' is not supported on this GPU; overlay disabled.");
+                return false;
+            }
+
             Material material = new Material(shader)
             {
                 name = "WSM3D.MountainSlopeSmoothing",
