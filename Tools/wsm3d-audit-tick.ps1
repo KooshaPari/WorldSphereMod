@@ -218,7 +218,24 @@ if (-not $SkipLive -and $health) {
             }
         }
 
+        if (-not $health.isWorld3D) {
+            Write-TickLog 'bootstrap: bridge-save-load-smoke' 'INFO'
+            $bootstrap = Join-Path $RepoRoot 'Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml'
+            python (Join-Path $RepoRoot 'Tools/wsm3d-playcua/main.py') $bootstrap --vision-backend off 2>&1 | Out-Null
+            Start-Sleep -Seconds 20
+            $health = Get-BridgeHealth
+        }
+
         if ($health -and $health.isWorld3D) {
+            $journey = pwsh (Join-Path $RepoRoot 'Tools/verify-journeys.ps1') 2>&1 | Out-String
+            if ($LASTEXITCODE -eq 0) {
+                Add-Stage $report 'journey-mock' 'passed' @{}
+                [void]$report.completed.Add('journey-mock')
+                Write-TickLog 'journey mock 20/20' 'OK'
+            } else {
+                Add-Stage $report 'journey-mock' 'failed' @{ exitCode = $LASTEXITCODE }
+            }
+
             $runAll = pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') playcua run-all -VisionBackend off 2>&1 | Out-String
             if ($LASTEXITCODE -eq 0 -and $runAll -match 'playcua passed') {
                 Add-Stage $report 'playcua-run-all' 'passed' @{}

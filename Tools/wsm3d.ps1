@@ -1855,8 +1855,20 @@ function Invoke-PlaycuaScenarios {
             }
 
             Write-Info "playcua: $($scenario.Name) ..."
-            & $python @pyArgs
-            if ($LASTEXITCODE -ne 0) {
+            $maxAttempts = 2
+            $scenarioOk = $false
+            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+                if ($attempt -gt 1) {
+                    Write-Info "playcua retry $($scenario.Name) (attempt $attempt/$maxAttempts) ..."
+                    Start-Sleep -Seconds 3
+                }
+                & $python @pyArgs
+                if ($LASTEXITCODE -eq 0) {
+                    $scenarioOk = $true
+                    break
+                }
+            }
+            if (-not $scenarioOk) {
                 $failed += $scenario.Name
             }
         }

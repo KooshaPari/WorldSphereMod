@@ -27,7 +27,7 @@ namespace WorldSphereMod.PostFx
             if (Core.savedSettings == null || !Core.savedSettings.PostFX) return;
             if (_shadersUnavailable)
             {
-                Debug.LogWarning("[WSM3D] WSM3DPostStack: skipping EnsureCreated — shader bundle unavailable. Rebake with Unity 2022.3.");
+                Debug.LogWarning("[WSM3D] WSM3DPostStack: skipping EnsureCreated — PostFX shaders unavailable.");
                 return;
             }
 
@@ -42,8 +42,8 @@ namespace WorldSphereMod.PostFx
         {
             if (enabled && _shadersUnavailable)
             {
-                Debug.LogWarning("[WSM3D] PostFX requires shader bundle rebake — toggle is a no-op.");
-                WorldSphereMod.Worldspace.PhaseToast.ShowWarning("PostFX requires shader bundle rebake.");
+                Debug.LogWarning("[WSM3D] PostFX shaders unavailable — toggle is a no-op.");
+                WorldSphereMod.Worldspace.PhaseToast.ShowWarning("PostFX shaders unavailable");
                 return;
             }
 
@@ -173,10 +173,11 @@ namespace WorldSphereMod.PostFx
             bool anyMaterial = _ssaoMat != null || _ssgiMat != null || _bloomMat != null || _acesMat != null || _lutMat != null;
             if (!anyMaterial)
             {
-                Debug.LogWarning("[WSM3D] WSM3DPostStack: no shaders resolved — destroying PostStack component to avoid black camera. PostFX toggle will be a no-op until bundle is rebaked.");
+                Debug.LogWarning("[WSM3D] WSM3DPostStack: no shaders resolved — destroying PostStack component to avoid black camera. PostFX shaders unavailable.");
                 _shadersUnavailable = true;
                 _initialized = false;
                 if (_instance == this) _instance = null;
+                WorldSphereMod.Worldspace.PhaseToast.ShowWarning("PostFX shaders unavailable");
                 Destroy(this);
                 return;
             }
@@ -234,7 +235,7 @@ namespace WorldSphereMod.PostFx
                     $"(LoadedShaders[count={Core.Sphere.LoadedShaders.Count},hasBundleCache={hasBundleCache}], " +
                     $"Shader.Find('WSM3D/{cacheKey}'), Resources.Load('{resourcePath}'), " +
                     $"Shader.Find('{fallbackName}')). " +
-                    "The wsm3d-shaders AssetBundle likely failed to load — rebake with Unity 2022.3 to match WorldBox runtime.");
+                    "PostFX shaders are unavailable — Unity cannot runtime-compile .shader source files outside an AssetBundle.");
             }
             return shader != null ? new Material(shader) : null;
         }

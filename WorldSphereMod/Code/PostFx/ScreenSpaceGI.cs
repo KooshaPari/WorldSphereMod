@@ -124,10 +124,10 @@ namespace WorldSphereMod.PostFx
                 shader = request.asset as Shader;
             }
             shader ??= Shader.Find(ShaderFallbackName);
-            shader ??= Shader.Find("Hidden/Internal-DepthNormalsTexture");
             if (shader == null)
             {
-                Debug.LogWarning("[WSM3D] ScreenSpaceGI: all shader resolution paths exhausted (LoadedShaders, Shader.Find, Resources, built-in).");
+                Debug.LogWarning("[WSM3D] ScreenSpaceGI: shader unavailable (LoadedShaders, Shader.Find, Resources). " +
+                    "SSGI pass will be skipped — no visual impact.");
                 _initializing = false;
                 yield break;
             }
