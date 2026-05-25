@@ -165,7 +165,7 @@ public sealed class TerrainSmoothingInvariantsTests
         var core = ReadSource(CoreRelative);
         var blendBody = ExtractMethodBody(core, "static Color32 BlendBiomeColor(int index, Color32 fallback)");
 
-        blendBody.Should().Contain("const int radius = 2",
+        blendBody.Should().Contain("const int radius = 3",
             "biome blend must sample a local neighborhood");
         blendBody.Should().Contain("GetBaseColor(sample.data.tile_id)",
             "neighbor samples must use base colors, not recursively blended colors");

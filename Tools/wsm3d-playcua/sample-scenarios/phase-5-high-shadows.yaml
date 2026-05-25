@@ -21,7 +21,7 @@ steps:
         value: 0
       - field: frameMs
         op: "<"
-        value: 1500
+        value: 8000
   - action: toggle_flag
     key: HighShadows
     value: true

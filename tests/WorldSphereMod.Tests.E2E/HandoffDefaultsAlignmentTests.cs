@@ -200,7 +200,7 @@ public class HandoffDefaultsAlignmentTests
         handoff.Should().NotContain("Bridge health check failed");
         handoff.Should().Contain("bridge-health-vision");
         handoff.Should().Contain("bridge-save-load-smoke");
-        handoff.Should().Contain("Phase scenarios + SSIM require OmniRoute reachable");
+        handoff.Should().Contain("phase SSIM still need inference/OmniRoute vision backend");
         handoff.Should().Contain("BridgeLoadSaveHooks` must patch `loadWorld(string, bool)` explicitly");
 
         liveVerification.Should().Contain("pre/post `health` + telemetry passed");

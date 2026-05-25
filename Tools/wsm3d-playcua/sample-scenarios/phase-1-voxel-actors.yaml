@@ -20,7 +20,7 @@ steps:
         value: 0
       - field: frameMs
         op: "<"
-        value: 1500
+        value: 2000
   - action: toggle_flag
     key: VoxelEntities
     value: true

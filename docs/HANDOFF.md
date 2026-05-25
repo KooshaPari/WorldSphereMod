@@ -234,7 +234,7 @@ Short form:
 2. Smoke-test Phase 2 procedural buildings the same way Phase 1 was proven: toggle `ProceduralBuildings`, capture screenshots, and diff against canonical output.
 3. Rebake `wsm3d-shaders` bundle — **rebaked 2026-05-25** via `pwsh Tools/bake-shaders.ps1` (Unity 2022.3.62f3); `Core.cs` loads all nine tagged shaders with empty-name/GPU guards. Confirm in-game `LoadedShaders[count=…]` after `install.ps1` + relaunch.
 4. Implement ADR-0006 (Phase 6 Step 9 DrawProceduralIndirect skinning) — 2–3 day estimate if we decide to replace the visible skinned-mesh path with GPU-resident batching later.
-5. Flip ADR-0007 status to **Accepted** after safe-min / per-phase toggle smoke confirms init gate matches runtime `PhasePatchManager` behavior.
+5. ~~Flip ADR-0007 status to **Accepted**~~ — **done** (`docs/adr/ADR-0007-conditional-patch-dispatch.md`). `PhaseToast` ships in-game phase feedback.
 
 ## PlayCUA sample scenarios (13 YAML)
 

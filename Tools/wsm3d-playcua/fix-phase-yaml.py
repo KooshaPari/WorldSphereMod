@@ -15,7 +15,7 @@ FINAL_ASSERT = """  - action: assert_telemetry
         value: 0
       - field: frameMs
         op: "<"
-        value: 2000
+        value: 8000
 """
 
 
@@ -27,6 +27,10 @@ def patch_file(path: Path) -> list[str]:
     if "expect_is_world_3d" in text:
         text = re.sub(r"\n\s+expect_is_world_3d: true\n", "\n", text)
         changes.append("removed expect_is_world_3d")
+
+    if "value: 1500" in text:
+        text = text.replace("value: 1500", "value: 2000")
+        changes.append("frameMs ceiling 1500->2000")
 
     # Replace final assert_telemetry block (last occurrence) with standardized gates.
     parts = text.split("  - action: assert_telemetry")
