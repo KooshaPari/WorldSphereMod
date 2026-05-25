@@ -141,7 +141,7 @@ public class LiveVerificationHarnessInvariantsTests
         script.Should().Contain("foreach ($scenario in $scenarios)");
         script.Should().Contain("if ($Vision)");
         script.Should().Contain("Get-DefaultPlaycuaVisionBackend");
-        script.Should().Contain('--vision-backend", $visionBackend');
+        script.Should().Contain("--vision-backend\", $visionBackend");
 
         yamlOnDisk.Should().Contain("bridge-health-vision.yaml");
         yamlOnDisk.Should().Contain("bridge-save-load-smoke.yaml");

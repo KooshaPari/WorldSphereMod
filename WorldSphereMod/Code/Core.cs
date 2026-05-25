@@ -712,6 +712,46 @@ namespace WorldSphereMod
                     ? Vector3.Distance(cameraPos, centerPos)
                     : 0f;
                 bool cameraInside = Manager != null && CameraManager.MainCamera != null && cameraDistance < radius;
+
+                // Compute the actual camera-to-nearest-tile-surface distance.
+                // For cylindrical: the camera sits at (Radius + Height) from
+                // the cylinder axis; nearest surface is at Radius, so the gap
+                // is Height. For flat: the camera Y minus the tile plane Y=0.
+                float cameraToSurface = -1f;
+                if (Manager != null && CameraManager.MainCamera != null)
+                {
+                    if (IsWrapped)
+                    {
+                        // Cylindrical: distance from camera to cylinder surface
+                        float camR = Mathf.Sqrt(cameraPos.x * cameraPos.x + cameraPos.y * cameraPos.y);
+                        cameraToSurface = Mathf.Abs(camR - radius);
+                    }
+                    else
+                    {
+                        // Flat: camera Y above the tile plane
+                        cameraToSurface = Mathf.Abs(cameraPos.y);
+                    }
+                }
+
+                // Compute world-space tile extent by sampling corner tiles.
+                Vector3 tileBoundsMin = default;
+                Vector3 tileBoundsMax = default;
+                if (Manager != null)
+                {
+                    Vector3 p00 = Manager.SphereTilePosition(0, 0);
+                    Vector3 pMaxMax = Manager.SphereTilePosition(Manager.Rows - 1, Manager.Cols - 1);
+                    tileBoundsMin = Vector3.Min(p00, pMaxMax);
+                    tileBoundsMax = Vector3.Max(p00, pMaxMax);
+                    // For cylindrical, also sample the extremes
+                    if (IsWrapped)
+                    {
+                        Vector3 pMidMax = Manager.SphereTilePosition(Manager.Rows / 2, Manager.Cols - 1);
+                        Vector3 pMid0 = Manager.SphereTilePosition(Manager.Rows / 2, 0);
+                        tileBoundsMin = Vector3.Min(tileBoundsMin, Vector3.Min(pMidMax, pMid0));
+                        tileBoundsMax = Vector3.Max(tileBoundsMax, Vector3.Max(pMidMax, pMid0));
+                    }
+                }
+
                 int texturedTiles = 0;
                 int totalTiles = 0;
                 if (Manager != null)
@@ -729,15 +769,25 @@ namespace WorldSphereMod
                         }
                     }
                 }
-                string meshBounds = CompoundSphereMesh != null ? CompoundSphereMesh.bounds.ToString() : "<null>";
+                string meshBoundsLocal = CompoundSphereMesh != null ? CompoundSphereMesh.bounds.ToString() : "<null>";
                 int passCount = CompoundSphereMaterial != null ? CompoundSphereMaterial.passCount : -1;
                 int renderQueue = CompoundSphereMaterial != null ? CompoundSphereMaterial.renderQueue : -1;
                 int managerLayer = Manager != null ? Manager.gameObject.layer : -1;
                 int cameraMask = CameraManager.MainCamera != null ? CameraManager.MainCamera.cullingMask : -1;
+                string shaderName = CompoundSphereMaterial != null && CompoundSphereMaterial.shader != null
+                    ? CompoundSphereMaterial.shader.name : "<null>";
+                bool cameraOrtho = CameraManager.MainCamera != null && CameraManager.MainCamera.orthographic;
+                float cameraFov = CameraManager.MainCamera != null ? CameraManager.MainCamera.fieldOfView : -1f;
+                float cameraNear = CameraManager.MainCamera != null ? CameraManager.MainCamera.nearClipPlane : -1f;
+                float cameraFar = CameraManager.MainCamera != null ? CameraManager.MainCamera.farClipPlane : -1f;
+                string shape = IsWrapped ? "cylindrical" : "flat";
                 Debug.Log(
-                    $"{prefix} camera={cameraName} cameraPos={cameraPos} sphereCenter={centerPos} radius={radius:F3} " +
-                    $"cameraDistance={cameraDistance:F3} cameraInsideSphere={cameraInside} cameraLayerMask=0x{cameraMask:X8} managerLayer={managerLayer} " +
-                    $"meshBounds={meshBounds} materialRenderQueue={renderQueue} materialPassCount={passCount} texturedTiles={texturedTiles}/{totalTiles}");
+                    $"{prefix} camera={cameraName} cameraPos={cameraPos} shape={shape} sphereCenter={centerPos} radius={radius:F3} " +
+                    $"cameraToOrigin={cameraDistance:F3} cameraToSurface={cameraToSurface:F3} cameraInsideSphere={cameraInside} " +
+                    $"cameraOrtho={cameraOrtho} cameraFov={cameraFov:F1} cameraNear={cameraNear:F2} cameraFar={cameraFar:F1} " +
+                    $"cameraLayerMask=0x{cameraMask:X8} managerLayer={managerLayer} " +
+                    $"meshBoundsLocal={meshBoundsLocal} tileBoundsWorld=({tileBoundsMin} -> {tileBoundsMax}) " +
+                    $"shader={shaderName} materialRenderQueue={renderQueue} materialPassCount={passCount} texturedTiles={texturedTiles}/{totalTiles}");
             }
             public static Vector3 TilePosWithHeight(float X, float Y, float Z)
             {
