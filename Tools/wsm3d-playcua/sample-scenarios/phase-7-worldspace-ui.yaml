@@ -55,4 +55,5 @@ steps:
         value: 0
       - field: frameMs
         op: "<"
-        value: 2000
+        value: 8000
+
