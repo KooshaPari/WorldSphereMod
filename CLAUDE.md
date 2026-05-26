@@ -47,6 +47,9 @@ $env:WORLDBOX_PATH = "C:/Program Files (x86)/Steam/steamapps/common/worldbox"
 dotnet build WorldSphereMod.csproj -c Release
 ```
 
+After a successful `dotnet build`, always launch through NML and check
+`Player.log` for compile errors before treating the build as valid.
+
 CI in `.github/workflows/build.yml` builds only `WorldSphereAPI.csproj`
 (it's Unity-free, targets netstandard2.0). The main mod can't be built in
 CI because it needs WorldBox's reference DLLs — that's local-only.
@@ -131,6 +134,10 @@ those files; changes can cascade.
   rebuilt from Unity 2022.3 — not editable by hand.
 - **SavedSettings folder is snake_case.** NML's `Paths.ModsConfigPath` resolves to `mods_config/` on Windows (lowercase + underscore), NOT `ModsConfig/`. The CLI hardcodes the right path; the MCP server auto-discovers via glob.
 - **CompoundSpheres.dll is a runtime dep, not stale.** `WorldSphereMod/Assemblies/CompoundSpheres.dll` (23KB) must stay shipped — `Mod.cs`, `Tools.cs`, `Core.cs`, `WaterRender.cs`, `TileMapToSphere.cs`, `CompoundSphereScripts.cs` all `using CompoundSpheres;`. Without it, NML's Roslyn compile fails with ~60 CS0246 errors.
+- **NML Roslyn Compatibility.** `dotnet build` uses net48 Roslyn, but NML compiles the mod with Unity's embedded Roslyn, which is stricter. Known incompatibilities:
+  - `.Length` on non-array types is treated as a method group.
+  - `tiles_list.Length` breaks for that reason.
+  - Always test with NML and check `Player.log` for `error CS` after launch.
 
 ## When you're done with a phase
 
