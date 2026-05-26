@@ -106,6 +106,7 @@ namespace WorldSphereMod.Voxel
         static bool _verboseDrawLoggingArmed;
         static bool _verboseDrawLoggingConsumed;
         static bool _renderTargetLogged;
+        static bool _flushBucketDiagLogged;
         static bool _allCamerasLogged;
         static int _mainThreadId;
         static Mesh? _debugCubeMesh;
@@ -210,6 +211,21 @@ namespace WorldSphereMod.Voxel
             FrameDrawCalls = 0;
             FrameInstances = 0;
             FrameBucketCount = 0;
+
+            // TEMPORARY DIAGNOSTIC: one-shot bucket inventory at Flush
+            if (!_flushBucketDiagLogged && _buckets.Count > 0)
+            {
+                _flushBucketDiagLogged = true;
+                int pendingDrained = Volatile.Read(ref _pendingSubmissionCount);
+                Debug.Log($"[WSM3D][DIAG-BATCHER] Flush bucket inventory: buckets={_buckets.Count} pendingSubmissions={pendingDrained} useFallback={_useFallbackPath} instancingBroken={_instancingErrorLogged}");
+                foreach (var diagKv in _buckets)
+                {
+                    string meshName = diagKv.Key.Mesh != null ? diagKv.Key.Mesh.name : "<null>";
+                    string matName = diagKv.Key.Material != null ? diagKv.Key.Material.name : "<null>";
+                    int count = diagKv.Value.Matrices.Count;
+                    Debug.Log($"[WSM3D][DIAG-BATCHER]   bucket mesh={meshName} mat={matName} instances={count}");
+                }
+            }
 
             var bucketEnumerator = _buckets.GetEnumerator();
             while (bucketEnumerator.MoveNext())
@@ -514,6 +530,7 @@ namespace WorldSphereMod.Voxel
             _verboseDrawLoggingArmed = false;
             _verboseDrawLoggingConsumed = false;
             _renderTargetLogged = false;
+            _flushBucketDiagLogged = false;
             _allCamerasLogged = false;
             FrameDrawCalls = 0;
             FrameInstances = 0;

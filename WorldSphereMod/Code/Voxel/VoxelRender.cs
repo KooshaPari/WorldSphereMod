@@ -389,6 +389,9 @@ namespace WorldSphereMod.Voxel
             }
         }
 
+        internal static int _submitDiagCount;
+        static bool _submitDiagLogged;
+
         /// <summary>Per-frame submission. Matrix should already include scale.</summary>
         public static bool Submit(Mesh mesh, Matrix4x4 trs, Color tint)
         {
@@ -397,6 +400,13 @@ namespace WorldSphereMod.Voxel
             // Pre-empting Submit here used to permanently disable voxel rendering after
             // the first instancing exception. Now we always submit; Flush picks the right path.
             if (_material == null && !EnsureMaterial()) return false;
+            _submitDiagCount++;
+            // TEMPORARY DIAGNOSTIC: log first non-sanity-cube submit
+            if (!_submitDiagLogged && mesh != null && mesh.name != "WSM3D.SanityTestCube")
+            {
+                _submitDiagLogged = true;
+                Debug.Log($"[WSM3D][DIAG-SUBMIT] First non-sanity Submit: mesh={mesh.name} verts={mesh.vertexCount} matName={_material?.name} trs.pos={trs.GetColumn(3)} tint={tint} totalSubmits={_submitDiagCount}");
+            }
             MeshInstanceBatcher.Submit(mesh, _material!, trs, tint);
             return true;
         }
@@ -1222,7 +1232,8 @@ namespace WorldSphereMod.Voxel
             if (now - _telemetryLastTime > 10f)
             {
                 _telemetryLastTime = now;
-                Debug.Log($"[WSM3D][Telemetry] frameMs={Time.unscaledDeltaTime*1000:F2} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} cacheSize={VoxelMeshCache.Count} cacheHits={VoxelMeshCache.HitCount} cacheMisses={VoxelMeshCache.MissCount} gcMB={(System.GC.GetTotalMemory(false) / 1048576f):F1}");
+                Debug.Log($"[WSM3D][Telemetry] frameMs={Time.unscaledDeltaTime*1000:F2} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} cacheSize={VoxelMeshCache.Count} cacheHits={VoxelMeshCache.HitCount} cacheMisses={VoxelMeshCache.MissCount} submits={VoxelRender._submitDiagCount} gcMB={(System.GC.GetTotalMemory(false) / 1048576f):F1}");
+                VoxelRender._submitDiagCount = 0;
             }
 
             WorldSphereMod.Voxel.VoxelMeshCache.BeginFrame();
