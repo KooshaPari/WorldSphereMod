@@ -204,10 +204,10 @@ public sealed class TerrainSmoothingInvariantsTests
 
         detectBody.Should().Contain("tile.TileHeight()",
             "cliff detection must compare upstream tile heights");
-        detectBody.Should().Contain("Mathf.Abs(tileHeight - rightHeight) > 1f",
-            "horizontal cliff edges must exceed one height unit");
-        detectBody.Should().Contain("Mathf.Abs(tileHeight - upHeight) > 1f",
-            "vertical cliff edges must exceed one height unit");
+        detectBody.Should().Contain("Mathf.Abs(tileHeight - rightHeight) > 0.1f",
+            "horizontal cliff edges must exceed minimum height threshold for smooth coverage");
+        detectBody.Should().Contain("Mathf.Abs(tileHeight - upHeight) > 0.1f",
+            "vertical cliff edges must exceed minimum height threshold for smooth coverage");
         detectBody.Should().Contain("Core.Sphere.GetColor(tile.data.tile_id)",
             "cliff quads must carry biome-blended tile colors");
     }

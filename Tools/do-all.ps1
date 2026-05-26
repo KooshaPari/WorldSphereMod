@@ -127,15 +127,20 @@ try {
         if ($Vision -and $env:OMNROUTE_BASE_URL -and $env:OMNROUTE_API_KEY) {
             Write-Host "=== do-all: omniroute probe ($($env:OMNROUTE_BASE_URL)) ===" -ForegroundColor Cyan
             try {
+                $tsStatus = & tailscale status 2>&1 | Out-String
+                if ($tsStatus -match 'kooshas-laptop[^\r\n]*offline') {
+                    throw 'kooshas-laptop offline on Tailscale — start laptop + OmniRoute before vision probes'
+                }
                 $base = $env:OMNROUTE_BASE_URL.TrimEnd('/')
                 $modelCount = $null
                 try {
-                    $models = Invoke-RestMethod -Uri "$base/models" -Headers @{ Authorization = "Bearer $env:OMNROUTE_API_KEY" } -TimeoutSec 45
+                    $models = Invoke-RestMethod -Uri "$base/models" -Headers @{ Authorization = "Bearer $env:OMNROUTE_API_KEY" } -TimeoutSec 30
                     $modelCount = @($models.data).Count
                 } catch {
                     Write-Host "omniroute /models slow or unavailable (continuing with chat probe): $($_.Exception.Message)" -ForegroundColor DarkYellow
                 }
                 $modelId = if ($env:OMNROUTE_VISION_MODEL) { $env:OMNROUTE_VISION_MODEL } else { 'gemini/gemini-2.5-flash' }
+                $chatTimeoutSec = if ($null -ne $modelCount) { 120 } else { 25 }
                 $body = @{
                     model       = $modelId
                     max_tokens  = 24
@@ -145,7 +150,7 @@ try {
                 $chat = Invoke-RestMethod -Uri "$base/chat/completions" -Method Post -Headers @{
                     Authorization  = "Bearer $env:OMNROUTE_API_KEY"
                     'Content-Type' = 'application/json'
-                } -Body $body -TimeoutSec 300
+                } -Body $body -TimeoutSec $chatTimeoutSec
                 $txt = $chat.choices[0].message.content
                 Add-DoAllStage 'omniroute-probe' 'passed' @{ models = $modelCount; model = $modelId; reply = $txt }
                 Write-Host "omniroute vision probe OK ($modelId): $txt" -ForegroundColor Green

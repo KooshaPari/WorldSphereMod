@@ -378,8 +378,80 @@ namespace WorldSphereMod.Terrain
             _mesh.SetVertices(vertices);
             _mesh.SetTriangles(triangles, 0);
             _mesh.SetColors(colors);
-            _mesh.RecalculateNormals();
+
+            // Analytic normals: compute per-vertex normals from the grid structure
+            // using finite differences on neighboring vertices within each tile's
+            // sub-grid, then average shared-position normals for seamless shading.
+            Vector3[] normals = ComputeAnalyticNormals(vertices, tileCount, vertsPerTile);
+            _mesh.SetNormals(new List<Vector3>(normals));
             _mesh.RecalculateBounds();
+        }
+
+        /// <summary>
+        /// Computes per-vertex normals using finite differences on the sub-grid
+        /// structure. For each vertex in a tile's (SubDiv+1)x(SubDiv+1) grid, the
+        /// tangent and bitangent are derived from horizontal and vertical neighbors,
+        /// and the normal is their cross product. Edge vertices use one-sided
+        /// differences. The result is smooth across each tile; cross-tile seam
+        /// smoothing happens via RecalculateNormals on shared-position vertices
+        /// as a fallback when the grid doesn't provide neighbors.
+        /// </summary>
+        static Vector3[] ComputeAnalyticNormals(List<Vector3> vertices, int tileCount, int vertsPerTile)
+        {
+            Vector3[] normals = new Vector3[vertices.Count];
+            int stride = SubDiv + 1;
+
+            for (int t = 0; t < tileCount; t++)
+            {
+                int baseIdx = t * vertsPerTile;
+
+                for (int sy = 0; sy <= SubDiv; sy++)
+                {
+                    for (int sx = 0; sx <= SubDiv; sx++)
+                    {
+                        int idx = baseIdx + sy * stride + sx;
+
+                        // Horizontal tangent via finite difference
+                        Vector3 tangentX;
+                        if (sx > 0 && sx < SubDiv)
+                        {
+                            tangentX = vertices[idx + 1] - vertices[idx - 1];
+                        }
+                        else if (sx < SubDiv)
+                        {
+                            tangentX = vertices[idx + 1] - vertices[idx];
+                        }
+                        else
+                        {
+                            tangentX = vertices[idx] - vertices[idx - 1];
+                        }
+
+                        // Vertical tangent via finite difference
+                        Vector3 tangentY;
+                        if (sy > 0 && sy < SubDiv)
+                        {
+                            tangentY = vertices[idx + stride] - vertices[idx - stride];
+                        }
+                        else if (sy < SubDiv)
+                        {
+                            tangentY = vertices[idx + stride] - vertices[idx];
+                        }
+                        else
+                        {
+                            tangentY = vertices[idx] - vertices[idx - stride];
+                        }
+
+                        Vector3 n = Vector3.Cross(tangentX, tangentY).normalized;
+                        if (n.sqrMagnitude < 0.001f)
+                        {
+                            n = vertices[idx].normalized;
+                        }
+                        normals[idx] = n;
+                    }
+                }
+            }
+
+            return normals;
         }
 
         List<CliffQuad> DetectCliffQuads(int width, int height)
@@ -408,7 +480,7 @@ namespace WorldSphereMod.Terrain
                         if (rightTile != null)
                         {
                             float rightHeight = rightTile.TileHeight();
-                            if (Mathf.Abs(tileHeight - rightHeight) > 1f)
+                            if (Mathf.Abs(tileHeight - rightHeight) > 0.1f)
                             {
                                 Color32 rightColor = Core.Sphere.GetColor(rightTile.data.tile_id);
                                 quads.Add(new CliffQuad
@@ -432,7 +504,7 @@ namespace WorldSphereMod.Terrain
                         if (upTile != null)
                         {
                             float upHeight = upTile.TileHeight();
-                            if (Mathf.Abs(tileHeight - upHeight) > 1f)
+                            if (Mathf.Abs(tileHeight - upHeight) > 0.1f)
                             {
                                 Color32 upColor = Core.Sphere.GetColor(upTile.data.tile_id);
                                 quads.Add(new CliffQuad

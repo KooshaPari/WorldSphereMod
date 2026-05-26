@@ -11,9 +11,10 @@ namespace WorldSphereMod.Water
         static readonly int WaveAmpId = Shader.PropertyToID("_WaveAmp");
         static readonly int WaveFreqId = Shader.PropertyToID("_WaveFreq");
         static readonly int WaveSpeedId = Shader.PropertyToID("_WaveSpeed");
-        static readonly Vector4 BaseWaveAmp = new Vector4(0.12f, 0.075f, 0.05f, 0f);
+        static readonly Vector4 BaseWaveAmp = new Vector4(0.04f, 0.025f, 0.015f, 0f);
         static readonly Vector4 BaseWaveFreq = new Vector4(0.45f, 1.1f, 2.0f, 0f);
         static readonly Vector4 BaseWaveSpeed = new Vector4(1.0f, 1.6f, 2.4f, 0f);
+        static readonly int WaveAmplitudeId = Shader.PropertyToID("_WaveAmplitude");
         // Bob disabled: on a sphere, translating the GO in local-Y shifts the
         // mesh tangentially on the top face and radially on the sides, making it
         // "float 1 ft above" from most camera angles and only visible at edges.
@@ -36,8 +37,10 @@ namespace WorldSphereMod.Water
         // rebuild — RebuildMesh runs on world load and on every tile change, so the dropped
         // allocations add up across a long session.
         readonly List<Vector3> _vertsScratch = new List<Vector3>();
+        readonly List<Color> _colorsScratch = new List<Color>();
         readonly List<int> _trisScratch = new List<int>();
         readonly Dictionary<long, int> _cornerIndexScratch = new Dictionary<long, int>();
+        readonly Dictionary<long, (float depthSum, int count)> _cornerDepthScratch = new Dictionary<long, (float, int)>();
 
         public static WaterSurface? Create(Transform parent)
         {
@@ -101,28 +104,36 @@ namespace WorldSphereMod.Water
             int tileCount = tiles.Length;
             int width = MapBox.width;
             int height = MapBox.height;
-            float depthSum = 0f;
-            int depthCount = 0;
+            float maxDepth = WaterMaskBuffer.MaxDepth();
 
             var vertices = _vertsScratch;
+            var colors = _colorsScratch;
             var triangles = _trisScratch;
             var cornerIndex = _cornerIndexScratch;
+            var cornerDepth = _cornerDepthScratch;
             vertices.Clear();
+            colors.Clear();
             triangles.Clear();
             cornerIndex.Clear();
+            cornerDepth.Clear();
             float sea = WaterMaskBuffer.SeaLevel;
 
-            // Vertex dedup at grid corners. cx is modulo width so the cylindrical X-wrap seam
-            // collapses to one vertex per shared corner — eliminates the lighting stripe that
-            // RecalculateNormals would otherwise produce from split duplicate verts.
-
-            int GetCorner(int cx, int cy)
+            int GetCorner(int cx, int cy, float tileDepth)
             {
                 int wx = ((cx % width) + width) % width;
                 long key = ((long)wx << 32) | (uint)cy;
+                if (cornerDepth.TryGetValue(key, out var prev))
+                {
+                    cornerDepth[key] = (prev.depthSum + tileDepth, prev.count + 1);
+                }
+                else
+                {
+                    cornerDepth[key] = (tileDepth, 1);
+                }
                 if (cornerIndex.TryGetValue(key, out int idx)) return idx;
                 idx = vertices.Count;
                 vertices.Add(Core.Sphere.SpherePos(cx, cy, sea));
+                colors.Add(Color.black);
                 cornerIndex[key] = idx;
                 return idx;
             }
@@ -132,29 +143,42 @@ namespace WorldSphereMod.Water
                 WorldTile t = tiles[i];
                 if (t == null) continue;
                 if (!WaterMaskBuffer.IsWater(t.data.tile_id)) continue;
-                depthSum += WaterMaskBuffer.DepthAt(t.data.tile_id);
-                depthCount++;
+                float depth = WaterMaskBuffer.DepthAt(t.data.tile_id);
 
                 int x = t.x;
                 int y = t.y;
 
-                int i0 = GetCorner(x,     y);
-                int i1 = GetCorner(x + 1, y);
-                int i2 = GetCorner(x + 1, y + 1);
-                int i3 = GetCorner(x,     y + 1);
+                int i0 = GetCorner(x,     y,     depth);
+                int i1 = GetCorner(x + 1, y,     depth);
+                int i2 = GetCorner(x + 1, y + 1, depth);
+                int i3 = GetCorner(x,     y + 1, depth);
 
                 triangles.Add(i0); triangles.Add(i1); triangles.Add(i2);
                 triangles.Add(i0); triangles.Add(i2); triangles.Add(i3);
             }
 
+            float safeMax = maxDepth > 0.001f ? maxDepth : 1f;
+            foreach (var kvp in cornerIndex)
+            {
+                long key = kvp.Key;
+                int idx = kvp.Value;
+                if (cornerDepth.TryGetValue(key, out var d))
+                {
+                    float avgDepth = d.depthSum / d.count;
+                    float depthFrac = Mathf.Clamp01(avgDepth / safeMax);
+                    colors[idx] = new Color(depthFrac, depthFrac, depthFrac, 1f);
+                }
+            }
+
             _mesh.SetVertices(vertices);
+            _mesh.SetColors(colors);
             _mesh.SetTriangles(triangles, 0);
             _mesh.RecalculateNormals();
             _mesh.RecalculateBounds();
             if (_instanceMaterial != null)
             {
-                float avgDepth = depthCount > 0 ? depthSum / depthCount : 0f;
-                _instanceMaterial.SetFloat("_WaterDepth", avgDepth);
+                _instanceMaterial.SetFloat("_WaterDepth", maxDepth);
+                _instanceMaterial.SetFloat("_MaxDepth", safeMax);
             }
         }
 
@@ -194,6 +218,10 @@ namespace WorldSphereMod.Water
             if (_instanceMaterial.HasProperty(WaveSpeedId))
             {
                 _instanceMaterial.SetVector(WaveSpeedId, BaseWaveSpeed * speedScale);
+            }
+            if (_instanceMaterial.HasProperty(WaveAmplitudeId))
+            {
+                _instanceMaterial.SetFloat(WaveAmplitudeId, 0.05f * ampScale);
             }
         }
 
