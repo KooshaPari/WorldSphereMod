@@ -1,18 +1,20 @@
 ManifestFileVersion: 0
-CRC: 1795352553
+CRC: 4098018666
 Hashes:
   AssetFileHash:
     serializedVersion: 2
-    Hash: b1e53721eec99236b654af29ae1b40cf
+    Hash: 3be68260981aa509463f4ddf07308200
   TypeTreeHash:
     serializedVersion: 2
-    Hash: 0df1dec30b5d061d422d3e6493d27647
+    Hash: 64e37ac0e41cec2efd7de4138972079e
   IncrementalBuildHash:
     serializedVersion: 2
-    Hash: b1e53721eec99236b654af29ae1b40cf
+    Hash: 3be68260981aa509463f4ddf07308200
 HashAppended: 0
 ClassTypes:
 - Class: 48
+  Script: {instanceID: 0}
+- Class: 200
   Script: {instanceID: 0}
 SerializeReferenceClassIdentifiers: []
 Assets:
@@ -20,6 +22,7 @@ Assets:
 - Assets/WSM3D/Shaders/OpaqueVertexColor.shader
 - Assets/WSM3D/Shaders/GerstnerWater.shader
 - Assets/WSM3D/Shaders/Impostor.shader
+- Assets/WSM3D/wsm3d-shader-variants.shadervariants
 - Assets/WSM3D/Shaders/ProceduralSky.shader
 - Assets/WSM3D/Shaders/BrpACES.shader
 - Assets/WSM3D/Shaders/ColorGradingLUT.shader
