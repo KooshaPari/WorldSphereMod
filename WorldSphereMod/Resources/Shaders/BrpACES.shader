@@ -13,12 +13,11 @@ Shader "Hidden/WSM3D/BrpACES"
         Pass
         {
             Name "ACES"
+            Tags { "LightMode" = "Always" }
 
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #pragma target 3.0
-            #pragma skip_variants FOG_LINEAR FOG_EXP FOG_EXP2
             #include "UnityCG.cginc"
 
             sampler2D _MainTex;
@@ -46,12 +45,8 @@ Shader "Hidden/WSM3D/BrpACES"
 
             float3 ApplyACES(float3 x)
             {
-                const float a = 2.51;
-                const float b = 0.03;
-                const float c = 2.43;
-                const float d = 0.59;
-                const float e = 0.14;
-                return saturate((x * (a * x + b)) / (x * (c * x + d) + e));
+                // Narkowicz fit — scalar literals only (no static const arrays).
+                return saturate((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14));
             }
 
             fixed4 frag(v2f i) : SV_Target
@@ -63,5 +58,5 @@ Shader "Hidden/WSM3D/BrpACES"
             ENDCG
         }
     }
-    Fallback Off
+    Fallback "Unlit/Color"
 }

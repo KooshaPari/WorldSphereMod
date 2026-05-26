@@ -11,11 +11,12 @@ Shader "Hidden/ScreenSpaceGI"
         Cull Off ZWrite Off ZTest Always
         Pass
         {
+            Name "SSGI"
+            Tags { "LightMode" = "Always" }
+
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #pragma target 3.0
-            #pragma skip_variants FOG_LINEAR FOG_EXP FOG_EXP2
 
             #include "UnityCG.cginc"
 
@@ -89,5 +90,5 @@ Shader "Hidden/ScreenSpaceGI"
             ENDCG
         }
     }
-    Fallback Off
+    Fallback "Unlit/Color"
 }

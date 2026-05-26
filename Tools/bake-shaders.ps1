@@ -1,6 +1,12 @@
 #!/usr/bin/env pwsh
 # WSM3D Shader AssetBundle Bake — fully automated, no UI clicks.
 # Requires Unity 2022.3 LTS (matches WorldBox runtime). Pass -UnityExe when auto-detect fails.
+#
+# Shader sources under WorldSphereMod/AssetBundles/Shaders/ and Resources/Shaders/
+# (BrpBloom, BrpACES, ScreenSpaceGI) must stay BRP-compatible for bundle bake:
+# use built-in Fallback shaders (Diffuse, Skybox, Unlit/Color), explicit vert/frag
+# instead of vert_img where depth/RT flip matters, and avoid static const arrays
+# in CGPROGRAM — corrupted compiles load with empty .name at runtime.
 
 param(
     [string]$UnityExe = ""

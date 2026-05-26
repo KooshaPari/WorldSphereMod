@@ -22,18 +22,29 @@ Shader "WSM3D/ScreenSpaceAO"
         Pass
         {
             Name "SSAOPass"
+            Tags { "LightMode" = "Always" }
 
             CGPROGRAM
-            #pragma vertex vert_img
+            #pragma vertex vert
             #pragma fragment frag
-            #pragma target 3.0
-            #pragma skip_variants FOG_LINEAR FOG_EXP FOG_EXP2
             #include "UnityCG.cginc"
 
             sampler2D _MainTex;
             sampler2D _CameraDepthTexture;
             float4 _MainTex_TexelSize;
             float _Radius, _Intensity, _Bias;
+
+            struct appdata
+            {
+                float4 vertex : POSITION;
+                float2 uv : TEXCOORD0;
+            };
+
+            struct v2f
+            {
+                float4 pos : SV_POSITION;
+                float2 uv : TEXCOORD0;
+            };
 
             float2 GetKernelSample(int idx)
             {
@@ -48,13 +59,25 @@ Shader "WSM3D/ScreenSpaceAO"
                 return float2( 0.354, -0.612);
             }
 
+            v2f vert(appdata v)
+            {
+                v2f o;
+                o.pos = UnityObjectToClipPos(v.vertex);
+                o.uv = v.uv;
+                #if UNITY_UV_STARTS_AT_TOP
+                if (_MainTex_TexelSize.y < 0)
+                    o.uv = 1.0 - o.uv;
+                #endif
+                return o;
+            }
+
             float SampleLinearDepth(float2 uv)
             {
                 float raw = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv);
                 return Linear01Depth(raw);
             }
 
-            fixed4 frag(v2f_img i) : SV_Target
+            fixed4 frag(v2f i) : SV_Target
             {
                 fixed4 col = tex2D(_MainTex, i.uv);
                 float centerDepth = SampleLinearDepth(i.uv);
@@ -76,5 +99,5 @@ Shader "WSM3D/ScreenSpaceAO"
         }
     }
 
-    Fallback Off
+    Fallback "Unlit/Color"
 }
