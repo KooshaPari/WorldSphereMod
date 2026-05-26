@@ -2,7 +2,7 @@
 
 Canonical "next session starts here" doc for WorldSphereMod3D.
 
-**Last updated:** 2026-05-25 (`dde7e7f` + do-all / bridge-recovery tooling)
+**Last updated:** 2026-05-26 (do-all / `Ensure-BridgeReady` / PlayCUA 13/13 with 3× run-all retries)
 
 ## TL;DR
 
@@ -22,7 +22,7 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 | Thing | Location |
 |---|---|
 | Active branch | `claude/research-ultraplan-fork-DdgI5` |
-| Open PR (#1) | https://github.com/KooshaPari/WorldSphereMod/pull/1 — **OPEN**, **MERGEABLE**; blocking CI green except Vercel rate limit |
+| Open PR (#7) | https://github.com/KooshaPari/WorldSphereMod/pull/7 — **OPEN** — automation + phase gates (`do-all`, bridge recovery, PlayCUA 13/13) |
 | Release tag (remote) | **`v2.0.0-beta.6`** — [release](https://github.com/KooshaPari/WorldSphereMod/releases/tag/v2.0.0-beta.6) |
 | Offline test matrix | **525 pass / 3 skip** (528 total) — Unit 154 (+ 3 skip), Integration 69, E2E 302 |
 | Cold-start orientation | `CLAUDE.md` |
@@ -272,20 +272,25 @@ pwsh Tools/do-all.ps1 -PlaycuaRetries 3      # default; relaunch + 30s settle be
 
 # Periodic audit (/loop, ~5m tick)
 pwsh Tools/wsm3d-audit-tick.ps1 -RelaunchIfBridgeDown
+pwsh Tools/wsm3d-audit-tick.ps1 -SkipLive -Quiet   # offline-only tick
 
 # Reports
 Get-Content Tools/.reports/do-all-latest.json | ConvertFrom-Json
 Get-Content Tools/.reports/audit-tick-latest.json | ConvertFrom-Json
 ```
 
-**`do-all.ps1` stages:** (1) offline `wsm-live-verify.ps1`, (2) optional relaunch + bridge wait (5m) + `bridge-save-load-smoke` bootstrap when `isWorld3D=false`, (3) journey mock, (4) PlayCUA `run-all -VisionBackend off` with up to **3** full attempts (relaunch + bridge/world settle between retries), (5) `sync-playcua-screenshots.ps1`, (6) `wsm-live-verify.ps1 -Live -SkipOffline`, (7) final offline verify, (8) quiet `wsm3d-audit-tick.ps1`. Writes `Tools/.reports/do-all-latest.json`.
+**`do-all.ps1` stages:** (1) offline `wsm-live-verify.ps1`, (2) optional relaunch + bridge wait (5m) + `bridge-save-load-smoke` bootstrap when `isWorld3D=false`, (3) journey mock, (4) PlayCUA `run-all -VisionBackend off` with up to **3** full attempts (relaunch + 30s settle + `isWorld3D` wait between retries), (5) `sync-playcua-screenshots.ps1`, (6) `wsm-live-verify.ps1 -Live -SkipOffline`, (7) final offline verify, (8) quiet `wsm3d-audit-tick.ps1`. Writes `Tools/.reports/do-all-latest.json`.
 
-**PlayCUA retry layers:** per-scenario 2× inside `wsm3d.ps1 playcua run-all` (with `Ensure-BridgeReady -RelaunchIfDown` on retry); full `run-all` 3× via `do-all.ps1` (`-PlaycuaRetries`, default 3); audit tick uses 2 run-all attempts.
+**`wsm3d-audit-tick.ps1` stages:** git/dirty check → `dotnet test` → `wsm3d doctor` → phase-*.png manifest gate → bridge `/health` (optional relaunch with **15m cooldown** via `-RelaunchIfBridgeDown`) → journey mock → PlayCUA `run-all` (**2** attempts, relaunch between) → screenshot sync. Writes `Tools/.reports/audit-tick-latest.json`; lists human blockers (screenshots, vision backend, shader log) without failing exit on those alone.
+
+**`Ensure-BridgeReady`** (`Tools/wsm3d.ps1`): polls `http://127.0.0.1:8766/health` every 5s (default **90s**); with `-RelaunchIfDown` runs `wsm3d relaunch -NoBuild` then polls up to **5 minutes**. Called before each PlayCUA scenario and again on per-scenario retry.
+
+**PlayCUA retry layers:** per-scenario **2×** inside `wsm3d.ps1 playcua run-all` (with `Ensure-BridgeReady -RelaunchIfDown` on retry); full `run-all` **3×** via `do-all.ps1` (`-PlaycuaRetries`, default 3); audit tick uses **2** run-all attempts.
 
 ## Dev tooling
 
 - **Do all (one shot):** `pwsh Tools/do-all.ps1` — see [Automation (desktop)](#automation-desktop) above; report `Tools/.reports/do-all-latest.json`.
-- **Audit loop (5m):** `pwsh Tools/wsm3d-audit-tick.ps1 -RelaunchIfBridgeDown` — offline tests, doctor, bridge, journey mock, PlayCUA `run-all` (2 attempts + relaunch), screenshot sync; report `Tools/.reports/audit-tick-latest.json`.
+- **Audit loop (5m):** `pwsh Tools/wsm3d-audit-tick.ps1 -RelaunchIfBridgeDown` — git/dirty, offline tests, doctor, screenshot manifest, bridge (15m relaunch cooldown), journey mock, PlayCUA `run-all` (2 attempts + relaunch), screenshot sync; report `Tools/.reports/audit-tick-latest.json`.
 - **Bridge recovery:** `Ensure-BridgeReady` in `Tools/wsm3d.ps1` — health poll, optional relaunch; used by `playcua run-all` and indirectly by `do-all.ps1` relaunch/wait helpers.
 - **PlayCUA flakes:** per-scenario 2× in `wsm3d.ps1 playcua run-all`; full `run-all` 3× in `do-all.ps1`; audit tick 2×.
 - **CLI:** `pwsh Tools/wsm3d.ps1 help` — 13 subcommands (build, install, launch, relaunch, log, toggle, journey capture, etc.).
@@ -301,14 +306,13 @@ When you need a release or handoff bundle, use the canonical checklist in [`docs
 ## Recent commits (7 most recent)
 
 ```
-3bf2ad9 docs: add canonical live proof bundle checklist
-1bf9540 docs: HANDOFF release tag v2.0.0-beta.6
-9aaa2dd docs: point handoff docs at v2.0.0-beta.6 release
-c73f85b chore(release): bump to v2.0.0-beta.6
-05961b6 test(e2e): building style procgen opt-in invariants
-32bd8bd test(e2e): terrain biome blending invariants
-4ddddec test(e2e): voxel frame driver postfx reconciler invariants
-57ab9a7 test(e2e): phase 3b tile overlay and wall patch invariants
+c954af6 test: skip NML compat test (regex needs rewrite — 23k false positives)
+756342d fix(shaders): BRP fallbacks for bundle bake
+8c9e6d7 docs: HANDOFF do-all automation + PR hygiene
+b0b822e fix: null guard BeginCoroutine lambdas (SphereTiles array race)
+dde7e7f feat: Become3D on save load + NML compat test + codex work
+d1bbd81 chore: remove dead code in ShadowCascadeConfig
+f5546ff test(e2e): 5 new coverage tests — VoxelMeshCache, BuildingMeshGen, Tools, Batcher, TileMap
 ```
 
 ## Important caveats / non-obvious gotchas
@@ -363,7 +367,7 @@ c73f85b chore(release): bump to v2.0.0-beta.6
 
 - Push to `claude/research-ultraplan-fork-DdgI5`, not `main`.
 - Use `git push --no-recurse-submodules origin HEAD` (submodule pinned at `73a7b77`).
-- **PR #1** is OPEN and MERGEABLE; CI status here reflects repo automation, not in-game visual proof.
+- **PR #7** is OPEN — https://github.com/KooshaPari/WorldSphereMod/pull/7; CI status here reflects repo automation, not in-game visual proof.
 - Pre-merge checklist: [`docs/MERGE_CHECKLIST.md`](MERGE_CHECKLIST.md).
 - One PR per phase; commits within a phase can be incremental.
 - After a phase is proven in actual WorldBox gameplay: flip its `SavedSettings` flag default,
