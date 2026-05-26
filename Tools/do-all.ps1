@@ -4,7 +4,7 @@
 param(
     [switch]$SkipRelaunch,
     [switch]$SkipLive,
-    [int]$PlaycuaRetries = 2
+    [int]$PlaycuaRetries = 3
 )
 
 $ErrorActionPreference = 'Stop'

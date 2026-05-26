@@ -169,6 +169,22 @@ public class VoxelPipelineRegressionTests
     }
 
     // ---------------------------------------------------------------
+    // 5b. VoxelRender.Reset must call MeshInstanceBatcher.Reset
+    // ---------------------------------------------------------------
+    // Regression: the world-unload path reset VoxelRender but missed the
+    // batcher reset, leaving stale mesh-instance state alive across reloads.
+    [Fact]
+    public void VoxelRender_Reset_calls_MeshInstanceBatcher_Reset()
+    {
+        var source = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
+        var resetBody = ExtractMethodBody(source, "public static void Reset()");
+
+        resetBody.Should().Contain("MeshInstanceBatcher.Reset()",
+            "VoxelRender.Reset must reset MeshInstanceBatcher so stale batch state " +
+            "does not survive world unload/reload");
+    }
+
+    // ---------------------------------------------------------------
     // 6. Shader load list includes OpaqueVertexColor
     // ---------------------------------------------------------------
     // Regression: if OpaqueVertexColor is not in the shader load list,

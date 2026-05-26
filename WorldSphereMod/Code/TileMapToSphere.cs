@@ -540,7 +540,7 @@ namespace WorldSphereMod.TileMapToSphere
             {
                 return;
             }
-            if (Layer == null || World.world == null || World.world.tiles_list == null || I < 0 || I >= World.world.tiles_list.Count)
+            if (Layer == null || World.world == null || World.world.tiles_list == null || I < 0)
             {
                 return;
             }

@@ -246,6 +246,30 @@ function Test-BridgeHealthy {
     }
 }
 
+function Ensure-BridgeReady {
+    param(
+        [int]$WaitSeconds = 90,
+        [switch]$RelaunchIfDown
+    )
+
+    $deadline = (Get-Date).AddSeconds($WaitSeconds)
+    while ((Get-Date) -lt $deadline) {
+        if (Test-BridgeHealthy) { return $true }
+        Start-Sleep -Seconds 5
+    }
+
+    if (-not $RelaunchIfDown) { return $false }
+
+    Write-Warn "Bridge down — relaunching WorldBox (NoBuild)..."
+    Invoke-Relaunch -NoBuild
+    $deadline = (Get-Date).AddMinutes(5)
+    while ((Get-Date) -lt $deadline) {
+        if (Test-BridgeHealthy) { return $true }
+        Start-Sleep -Seconds 6
+    }
+    return $false
+}
+
 function Test-FireworksReachable {
     param(
         [string]$BaseUrl = $(if ($env:FIREWORKS_BASE_URL) { $env:FIREWORKS_BASE_URL.TrimEnd('/') } else { "https://api.fireworks.ai/inference/v1" }),
@@ -1844,6 +1868,10 @@ function Invoke-PlaycuaScenarios {
     Push-Location $RepoRoot
     try {
         foreach ($scenario in $Scenarios) {
+            if (-not (Ensure-BridgeReady -WaitSeconds 20)) {
+                $null = Ensure-BridgeReady -RelaunchIfDown
+            }
+
             $scenarioReport = Join-Path $artifactRoot ("playcua-" + $scenario.BaseName + ".json")
             $pyArgs = @(
                 $playcuaMain,
@@ -1860,6 +1888,9 @@ function Invoke-PlaycuaScenarios {
             for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
                 if ($attempt -gt 1) {
                     Write-Info "playcua retry $($scenario.Name) (attempt $attempt/$maxAttempts) ..."
+                    if (-not (Ensure-BridgeReady -WaitSeconds 30 -RelaunchIfDown)) {
+                        Write-Warn "Bridge still down before retry of $($scenario.Name)"
+                    }
                     Start-Sleep -Seconds 3
                 }
                 & $python @pyArgs
