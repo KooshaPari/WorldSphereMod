@@ -157,6 +157,20 @@ namespace WorldSphereMod
                 }
             });
             DoSomeOtherStuff();
+            if (savedSettings != null && savedSettings.Is3D)
+            {
+                InitProfiler.Measure("ScheduleBecome3D", () =>
+                {
+                    SmoothLoader.add(delegate
+                    {
+                        if (!IsWorld3D && World.world != null)
+                        {
+                            Generated = true;
+                            Become3D();
+                        }
+                    }, "Becoming 3D!");
+                });
+            }
         }
 
         public static void ApplyPhaseToggle(string flagName, bool newValue)

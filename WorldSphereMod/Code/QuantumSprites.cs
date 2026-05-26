@@ -639,6 +639,16 @@ namespace WorldSphereMod.QuantumSprites
                     }
                 }
             });
+            // Prefix returns false which skips all Postfixes. Invoke VoxelEntities
+            // emit directly so voxel actors render in 3D mode.
+            if (Core.savedSettings.VoxelEntities)
+            {
+                try { WorldSphereMod.Voxel.VoxelRender.ActorVoxelEmit.EmitVoxels(__instance); }
+                catch (System.Exception ex) { UnityEngine.Debug.LogError($"[WSM3D] ActorVoxelEmit.EmitVoxels from Prefix failed: {ex}"); }
+            }
+            // Bridge survival backup postfix also skipped — invoke it too.
+            try { WorldSphereMod.Bridge.BridgeSurvivalBackup.Postfix(); }
+            catch { }
             return false;
         }
         //i only need to change 2 LINES OF CODE. I WOULD USE A TRANSPILER, BUT THIS FUCKASS FUNCTION USES A DELEGATE, WHICH I CANNOT FUCKING TRANSPILE
@@ -707,6 +717,18 @@ namespace WorldSphereMod.QuantumSprites
                 }
             });
             __instance._need_normal_check = tNeedNormalCheck;
+            // Prefix returns false which skips all Postfixes. Invoke VoxelEntities
+            // and ProcGen building emit directly so 3D buildings render.
+            if (Core.savedSettings.VoxelEntities)
+            {
+                try { WorldSphereMod.Voxel.VoxelRender.BuildingVoxelEmit.EmitVoxels(__instance); }
+                catch (System.Exception ex) { UnityEngine.Debug.LogError($"[WSM3D] BuildingVoxelEmit.EmitVoxels from Prefix failed: {ex}"); }
+            }
+            if (Core.savedSettings.ProceduralBuildings)
+            {
+                try { WorldSphereMod.ProcGen.BuildingProcRender.ProcMeshEmit.EmitMeshes(__instance); }
+                catch (System.Exception ex) { UnityEngine.Debug.LogError($"[WSM3D] ProcMeshEmit.EmitMeshes from Prefix failed: {ex}"); }
+            }
             return false;
         }
     }

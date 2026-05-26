@@ -349,6 +349,11 @@ namespace WorldSphereMod.TileMapToSphere
         static bool Prefix()
         {
           render3DStuff();
+          // Prefix returns false which skips all Postfixes on MapBox.renderStuff.
+          // BridgePerFrameTick.Postfix drives VoxelFrameDriver.TickPerFrame —
+          // invoke it directly so the voxel pipeline ticks every frame.
+          try { WorldSphereMod.Bridge.BridgeSurvival.Run(runVoxelFrame: true); }
+          catch (System.Exception ex) { UnityEngine.Debug.LogError($"[WSM3D] BridgeSurvival.Run from renderStuff Prefix failed: {ex}"); }
           return false;
         }
     }
