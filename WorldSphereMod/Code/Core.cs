@@ -582,22 +582,12 @@ namespace WorldSphereMod
                 Debug.Log($"[WSM3D][PERF] Sphere.Begin.PreCreateManager={sw.Elapsed.TotalMilliseconds:F3}ms");
                 sw.Restart();
                 // Use async path to spread heavy tile+buffer init across frames.
-                // Manager is assigned in onCreated (fires after tiles built,
-                // before buffer fill). FinishBecome3D runs the camera/lighting
-                // setup that needs Manager. DrawTiles is gated on IsReady so
-                // rendering waits until all buffers are uploaded.
-                Mod.Object.GetComponent<MonoBehaviour>().StartCoroutine(
-                    SphereManager.Creator.CreateSphereManagerAsync(width, height, SphereManagerConfig,
-                        mgr =>
-                        {
-                            Manager = mgr;
-                            Debug.Log($"[WSM3D][PERF] Sphere.Begin.ManagerCreated={sw.Elapsed.TotalMilliseconds:F3}ms");
-                            Debug.Log($"[WSM3D] Sphere.Begin: shape={savedSettings.CurrentShape} " +
-                                $"({(CurrentShape.IsWrapped ? "cylindrical" : "flat")}) " +
-                                $"width={width} height={height} radius={mgr.Radius:F3}");
-                            FinishBecome3D();
-                        },
-                        chunkSize: 4096));
+                Manager = SphereManager.Creator.CreateSphereManager(width, height, SphereManagerConfig);
+                Debug.Log($"[WSM3D][PERF] Sphere.Begin.ManagerCreated={sw.Elapsed.TotalMilliseconds:F3}ms");
+                Debug.Log($"[WSM3D] Sphere.Begin: shape={savedSettings.CurrentShape} " +
+                    $"({(CurrentShape.IsWrapped ? "cylindrical" : "flat")}) " +
+                    $"width={width} height={height} radius={Manager.Radius:F3}");
+                FinishBecome3D();
             }
             static Color32 GetBaseColor(int index)
             {
