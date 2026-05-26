@@ -220,12 +220,12 @@ Short form:
 
 ## What's blocked
 
-- **Phase 2 procedural buildings in-game smoke** — PlayCUA capture + telemetry passed for `ProceduralBuildings` with `Tools/wsm3d-playcua/sample-scenarios/phase-2-procedural-buildings.yaml`, but `docs/issue-triage.md` says the current visual evidence is unreliable and no phase has been visually verified in WorldBox. Treat the artifact path as untrusted until the window-targeting bug is fixed.
-- **Cloud crossed-quad in-game smoke** — PlayCUA capture + telemetry passed for `CloudCrossedQuadRender` with `Tools/wsm3d-playcua/sample-scenarios/phase-3b-cloud-crossed-quad.yaml`, but `docs/issue-triage.md` says the screenshot tooling is capturing the wrong window. Treat the artifact path as untrusted until verified in-game.
+- **Phase 2 procedural buildings in-game smoke** — PlayCUA capture + telemetry passed for `ProceduralBuildings` with `Tools/wsm3d-playcua/sample-scenarios/phase-2-procedural-buildings.yaml`, but `docs/issue-triage.md` says the current visual evidence is unreliable and no phase has been visually verified in WorldBox. Re-run PlayCUA + `sync-playcua-screenshots.ps1` after the Win32Capture `worldbox_window` fix; treat pre-fix artifact paths as untrusted until refreshed.
+- **Cloud crossed-quad in-game smoke** — PlayCUA capture + telemetry passed for `CloudCrossedQuadRender` with `Tools/wsm3d-playcua/sample-scenarios/phase-3b-cloud-crossed-quad.yaml`, but `docs/issue-triage.md` says historical screenshots captured the wrong window. Re-run capture + sync; confirm step details show `capture_target: worldbox_window`.
 - **Unity 2022.3 install** — required to bake `VoxelLit.shader`, `WaterGerstner.shader`, `ProceduralSky.shader` into AssetBundles for Phases 4, 5, 8.
 - **Live verification (agentic tier)** — `.github/workflows/live-verify-gate.yml` runs offline programmatic stages (`dotnet test` + journey mock via `Tools/wsm-live-verify.ps1`, report `Tools/.reports/live-verify-latest.json`). **Nightly** (`.github/workflows/nightly.yml`) calls the same reusable workflow for offline stages before lint/stats extras. Full agentic tier on a Windows desktop requires **WorldBox running + bridge on `127.0.0.1:8766` + OmniRoute** for vision: `pwsh Tools/wsm-live-verify.ps1 -Live -Vision`. See `docs/live-verification.md`.
 - Visual/vision approval and strict journey capture remain separate proof from PlayCUA capture + telemetry. phase SSIM still need inference/OmniRoute vision backend (Fireworks `fpk_*` keys return HTTP 403).
-- Current live status: `docs/issue-triage.md` says the runtime is still broken: Harmony patches are not applying, the screenshot pipeline is capturing the wrong window, and no phase has been visually verified in actual WorldBox gameplay. Until those blockers are fixed, treat PlayCUA pass counts and artifact PNGs as automation claims, not proof of shipped visuals. `BridgeLoadSaveHooks` must patch `loadWorld(string, bool)` explicitly or `Core.Init` fails (loading screen stall). `wsm3d-shaders` bundle remains only partially usable: runtime loads **3/9** shaders (`OpaqueVertexColor`, `GerstnerWater`, `ColorGradingLUT`), while the other 6 report empty names or otherwise fail in the current bake.
+- Current live status: `docs/issue-triage.md` says the runtime is still broken: Harmony patches are not applying, historical screenshot PNGs captured the wrong window (tooling fixed 2026-05-26 — `Win32Capture` now sets `capture_target: worldbox_window`), and no phase has been visually verified in actual WorldBox gameplay with post-fix captures. Until Harmony + refreshed screenshots are fixed, treat PlayCUA pass counts and stale artifact PNGs as automation claims, not proof of shipped visuals. `BridgeLoadSaveHooks` must patch `loadWorld(string, bool)` explicitly or `Core.Init` fails (loading screen stall). `wsm3d-shaders` bundle remains only partially usable: runtime loads **3/9** shaders (`OpaqueVertexColor`, `GerstnerWater`, `ColorGradingLUT`), while the other 6 report empty names or otherwise fail in the current bake.
 - **PlayCUA sample scenarios (live runs)** — 13 YAML files in `Tools/wsm3d-playcua/sample-scenarios/` (see list below). E2E guards in `PlaycuaSampleScenarioInvariantsTests.cs`; OmniRoute vision steps need a running game + bridge (`127.0.0.1:8766`).
 - **OmniRoute API key** (optional) — for PlayCUA screenshot vision via `OMNROUTE_API_KEY` + `OMNROUTE_VISION_COMBO` (or `ANTHROPIC_API_KEY` fallback). Journey mock and offline live-verify gate work without either.
 
@@ -286,6 +286,28 @@ Get-Content Tools/.reports/audit-tick-latest.json | ConvertFrom-Json
 **`Ensure-BridgeReady`** (`Tools/wsm3d.ps1`): polls `http://127.0.0.1:8766/health` every 5s (default **90s**); with `-RelaunchIfDown` runs `wsm3d relaunch -NoBuild` then polls up to **5 minutes**. Called before each PlayCUA scenario and again on per-scenario retry.
 
 **PlayCUA retry layers:** per-scenario **2×** inside `wsm3d.ps1 playcua run-all` (with `Ensure-BridgeReady -RelaunchIfDown` on retry); full `run-all` **3×** via `do-all.ps1` (`-PlaycuaRetries`, default 3); audit tick uses **2** run-all attempts.
+
+## Screenshot sync workflow
+
+`docs/screenshots/` is gitignored (`**/screenshots/` in `.gitignore`); there is no tracked `docs/screenshots/README.md`. PlayCUA writes PNGs under artifact trees; sync copies phase captures into the local gate folder for manifest/doctor checks.
+
+```powershell
+# After do-all, PlayCUA run-all, or manual live runs:
+pwsh Tools/sync-playcua-screenshots.ps1
+```
+
+**Source directories** (script scans each for `*.png` under `phase-*` folders):
+
+| Path | Notes |
+|---|---|
+| `artifacts/` | Legacy PlayCUA output |
+| `Tools/wsm3d-playcua/artifacts/` | Default scenario artifacts |
+| `Tools/wsm3d-playcua/.reports/run-all-artifacts/artifacts/` | `run-all` batch output |
+| `Tools/wsm3d-playcua/.reports/live-verify-artifacts/artifacts/` | Live-verify gate captures |
+
+**Destination naming:** `docs/screenshots/phase-{N}-{slug}.png` — `{N}` from the first `phase-*` directory segment; `{slug}` from the source filename (e.g. `phase-1-voxel-actors/actors.png` → `phase-1-actors.png`).
+
+**Window targeting:** `Win32Capture` in `Tools/wsm3d-playcua/main.py` enumerates WorldBox by process name and window title, captures the client area, and sets `capture_target: worldbox_window` in PlayCUA step details (desktop fallback only when no hwnd). Confirm this field in scenario JSON before trusting PNGs; pre-2026-05-26 captures may show the wrong foreground window.
 
 ## Dev tooling
 
@@ -367,7 +389,7 @@ f5546ff test(e2e): 5 new coverage tests — VoxelMeshCache, BuildingMeshGen, Too
 
 - Push to `claude/research-ultraplan-fork-DdgI5`, not `main`.
 - Use `git push --no-recurse-submodules origin HEAD` (submodule pinned at `73a7b77`).
-- **PR #7** is OPEN — https://github.com/KooshaPari/WorldSphereMod/pull/7; CI status here reflects repo automation, not in-game visual proof.
+- **PR #7** is OPEN, **MERGEABLE** (`aa98a0c`) — https://github.com/KooshaPari/WorldSphereMod/pull/7; repo CI gates green; **SonarCloud** fails externally (not blocking). CI ≠ in-game visual proof — desktop: `pwsh Tools/do-all.ps1`.
 - Pre-merge checklist: [`docs/MERGE_CHECKLIST.md`](MERGE_CHECKLIST.md).
 - One PR per phase; commits within a phase can be incremental.
 - After a phase is proven in actual WorldBox gameplay: flip its `SavedSettings` flag default,

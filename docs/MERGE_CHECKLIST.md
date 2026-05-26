@@ -1,8 +1,8 @@
-# Merge checklist — PR #1 → `main`
+# Merge checklist — PR #7 → `main`
 
-**PR:** [WorldSphereMod3D beta stabilization](https://github.com/KooshaPari/WorldSphereMod/pull/1) (`claude/research-ultraplan-fork-DdgI5`)
+**PR:** [WorldSphereMod3D: automation + phase gates](https://github.com/KooshaPari/WorldSphereMod/pull/7) (`claude/research-ultraplan-fork-DdgI5`)
 
-Use this before merging [PR #1](https://github.com/KooshaPari/WorldSphereMod/pull/1) into `main`.
+Use this before merging [PR #7](https://github.com/KooshaPari/WorldSphereMod/pull/7) into `main`.
 
 ## CI gates (must be green on the PR)
 
@@ -18,17 +18,17 @@ Use this before merging [PR #1](https://github.com/KooshaPari/WorldSphereMod/pul
 
 **Nightly** ([`nightly.yml`](../.github/workflows/nightly.yml)) reuses `live-verify-gate` offline, then lint/stats extras — confirm on `main` after merge if the PR branch did not run it.
 
-**CI summary (all checks on this PR):** https://github.com/KooshaPari/WorldSphereMod/pull/1/checks
+**CI summary (all checks on this PR):** https://github.com/KooshaPari/WorldSphereMod/pull/7/checks
 
-### Current check status (2026-05-23, `b37a14c`)
+### Current check status (2026-05-26, `aa98a0c`)
 
-**PR #1:** OPEN, **MERGEABLE** — https://github.com/KooshaPari/WorldSphereMod/pull/1
+**PR #7:** OPEN, **MERGEABLE** — https://github.com/KooshaPari/WorldSphereMod/pull/7
 
 | Check | Blocking? | Status | Notes |
 |---|---|---|---|
 | `dotnet-build` | Yes | pass | [`build.yml`](../.github/workflows/build.yml) |
 | `dotnet format` | Yes | pass | [`lint-gate.yml`](../.github/workflows/lint-gate.yml) |
-| `dotnet-test / live verify (offline)` | Yes | pass | [`test-gate.yml`](../.github/workflows/test-gate.yml), [`live-verify-gate.yml`](../.github/workflows/live-verify-gate.yml) — **489 total / 486 passed / 0 failed** (Unit 151 + 3 skip, Integration 69, E2E 266) |
+| `dotnet-test / live verify (offline)` | Yes | pass | [`test-gate.yml`](../.github/workflows/test-gate.yml), [`live-verify-gate.yml`](../.github/workflows/live-verify-gate.yml) — **528 total / 525 passed / 3 skip** |
 | `journeys verify` | Yes | pass | [`journeys-gate.yml`](../.github/workflows/journeys-gate.yml) |
 | `VitePress build` | Yes | pass | [`docs-build-gate.yml`](../.github/workflows/docs-build-gate.yml) |
 | `docs npm audit` | Yes | pass | [`dependency-security-audit.yml`](../.github/workflows/dependency-security-audit.yml) |
@@ -36,21 +36,22 @@ Use this before merging [PR #1](https://github.com/KooshaPari/WorldSphereMod/pul
 | `journey-records cargo audit` | Yes | pass | same workflow |
 | `semgrep-cloud-platform/scan` | Advisory | pass | Semgrep Cloud |
 | Socket Security (PR + project) | Advisory | pass | socket.dev |
-| CodeRabbit | Advisory | pass | review skipped |
-| **Vercel** (GitHub status) | **No** | fail | [Free-tier deploy rate limit](https://vercel.com/koosha-paridehpours-projects?upgradeToPro=build-rate-limit) — retry ~24h or upgrade |
-| **Deploy Vercel Preview** | **No** | fail | Same quota (`api-deployments-free-per-day`); docs proof is **VitePress build** + GitHub Pages |
+| CodeRabbit | Advisory | pass | |
+| **Vercel** (GitHub status) | No | pass | Preview deploy green |
+| **Deploy Vercel Preview** | No | pass | |
+| **SonarCloud Code Analysis** | **No** | fail | External SonarCloud project — not a repo workflow gate |
+| Cursor Bugbot / Autofix | No | neutral / in progress | Advisory review bots |
 
-**Merge readiness:** all **blocking** repo gates green; Vercel preview/production failures are external quota only.
+**Merge readiness:** all **blocking** repo gates green; SonarCloud is external only. Desktop PlayCUA proof: `pwsh Tools/do-all.ps1` (not CI — see [`live-verify-gate.yml`](../.github/workflows/live-verify-gate.yml) header).
 
 ### Known / external check failures (not repo code)
 
 | Check | Status | Owner / action |
 |---|---|---|
-| **Vercel** (Preview + Production) | Failing | [Vercel build rate limit](https://vercel.com/koosha-paridehpours-projects?upgradeToPro=build-rate-limit) — retry after ~24h or upgrade plan. Docs deploy via GitHub Pages + `VitePress build` gate are green. |
-| **docs npm audit** | pass | Fixed in workflow: allow transitive moderate advisories when `via` is only allowlisted deps (`vite` → `vitepress`). |
-| **dotnet-test / live verify (offline)** | pass | Integration `skipped_no_fixture` + `verify-journeys.ps1` path fixes landed on branch. |
+| **SonarCloud Code Analysis** | Failing | [sonarcloud.io](https://sonarcloud.io) — third-party quality gate; triage in SonarCloud UI or ignore for merge if repo gates pass. |
+| **Cursor Bugbot Autofix** | In progress | Advisory; may complete after push. |
 
-Re-run failed workflows from the [PR Checks](https://github.com/KooshaPari/WorldSphereMod/pull/1/checks) tab after pushing fixes (Vercel only when quota resets).
+Re-run failed workflows from the [PR Checks](https://github.com/KooshaPari/WorldSphereMod/pull/7/checks) tab after pushing fixes.
 
 ## Live-verify offline (local, CI-equivalent)
 
