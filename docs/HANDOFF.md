@@ -2,7 +2,7 @@
 
 Canonical "next session starts here" doc for WorldSphereMod3D.
 
-**Last updated:** 2026-05-25 (`2e40b09` + local tooling commits)
+**Last updated:** 2026-05-25 (`dde7e7f` + do-all / bridge-recovery tooling)
 
 ## TL;DR
 
@@ -24,7 +24,7 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 | Active branch | `claude/research-ultraplan-fork-DdgI5` |
 | Open PR (#1) | https://github.com/KooshaPari/WorldSphereMod/pull/1 — **OPEN**, **MERGEABLE**; blocking CI green except Vercel rate limit |
 | Release tag (remote) | **`v2.0.0-beta.6`** — [release](https://github.com/KooshaPari/WorldSphereMod/releases/tag/v2.0.0-beta.6) |
-| Offline test matrix | **486 pass / 3 skip** (489 total) — Unit 151 (+ 3 skip), Integration 69, E2E 266 |
+| Offline test matrix | **525 pass / 3 skip** (528 total) — Unit 154 (+ 3 skip), Integration 69, E2E 302 |
 | Cold-start orientation | `CLAUDE.md` |
 | Full 10-phase plan | `docs/PLAN.md` |
 | Per-phase architectures | `docs/phase{2..10}-architecture.md` |
@@ -231,7 +231,7 @@ Short form:
 
 ## Recommended next steps
 
-1. **Visual verification with populated world** — automation passes (`pwsh Tools/do-all.ps1` → 13/13 after retry, journey mock 20/20, offline tests ~499). Sync captures: `pwsh Tools/sync-playcua-screenshots.ps1` (see `docs/screenshots/README.md`). Human still judges kingdom/actor visuals in-game.
+1. **Visual verification with populated world** — automation passes (`pwsh Tools/do-all.ps1` → 13/13 after retry, journey mock 20/20, offline tests 525 pass / 3 skip). Sync captures: `pwsh Tools/sync-playcua-screenshots.ps1` (see `docs/screenshots/README.md`). Human still judges kingdom/actor visuals in-game.
 2. Smoke-test Phase 2 procedural buildings the same way Phase 1 was proven: toggle `ProceduralBuildings`, capture screenshots, and diff against canonical output.
 3. Rebake `wsm3d-shaders` bundle — **rebaked 2026-05-25** via `pwsh Tools/bake-shaders.ps1` (Unity 2022.3.62f3); `Core.cs` loads all nine tagged shaders with empty-name/GPU guards. Confirm in-game `LoadedShaders[count=…]` after `install.ps1` + relaunch.
 4. Implement ADR-0006 (Phase 6 Step 9 DrawProceduralIndirect skinning) — 2–3 day estimate if we decide to replace the visible skinned-mesh path with GPU-resident batching later.
@@ -259,16 +259,40 @@ All paths under `Tools/wsm3d-playcua/sample-scenarios/`:
 
 (`smoke-test.sh` is a helper script, not counted in the 13.)
 
+## Automation (desktop)
+
+Requires WorldBox installed, mod enabled, and bridge on `127.0.0.1:8766`. `Ensure-BridgeReady` in `Tools/wsm3d.ps1` polls `/health` (default 90s); with `-RelaunchIfDown` it relaunches via `wsm3d relaunch -NoBuild` and waits up to 5 minutes. `playcua run-all` calls it before each scenario and again on per-scenario retry (2× max).
+
+```powershell
+# One-shot: offline gates → relaunch → bridge wait → journey mock → PlayCUA 13/13 (3 run-all attempts) → screenshot sync → live verify
+pwsh Tools/do-all.ps1
+pwsh Tools/do-all.ps1 -SkipRelaunch          # bridge already up
+pwsh Tools/do-all.ps1 -SkipLive              # offline gates only (no journey/PlayCUA)
+pwsh Tools/do-all.ps1 -PlaycuaRetries 3      # default; relaunch + 30s settle between run-all attempts
+
+# Periodic audit (/loop, ~5m tick)
+pwsh Tools/wsm3d-audit-tick.ps1 -RelaunchIfBridgeDown
+
+# Reports
+Get-Content Tools/.reports/do-all-latest.json | ConvertFrom-Json
+Get-Content Tools/.reports/audit-tick-latest.json | ConvertFrom-Json
+```
+
+**`do-all.ps1` stages:** (1) offline `wsm-live-verify.ps1`, (2) optional relaunch + bridge wait (5m) + `bridge-save-load-smoke` bootstrap when `isWorld3D=false`, (3) journey mock, (4) PlayCUA `run-all -VisionBackend off` with up to **3** full attempts (relaunch + bridge/world settle between retries), (5) `sync-playcua-screenshots.ps1`, (6) `wsm-live-verify.ps1 -Live -SkipOffline`, (7) final offline verify, (8) quiet `wsm3d-audit-tick.ps1`. Writes `Tools/.reports/do-all-latest.json`.
+
+**PlayCUA retry layers:** per-scenario 2× inside `wsm3d.ps1 playcua run-all` (with `Ensure-BridgeReady -RelaunchIfDown` on retry); full `run-all` 3× via `do-all.ps1` (`-PlaycuaRetries`, default 3); audit tick uses 2 run-all attempts.
+
 ## Dev tooling
 
-- **Do all (one shot):** `pwsh Tools/do-all.ps1` — offline verify, relaunch, journey mock, PlayCUA `run-all` with relaunch retries, screenshot sync, live-verify; report `Tools/.reports/do-all-latest.json`.
+- **Do all (one shot):** `pwsh Tools/do-all.ps1` — see [Automation (desktop)](#automation-desktop) above; report `Tools/.reports/do-all-latest.json`.
 - **Audit loop (5m):** `pwsh Tools/wsm3d-audit-tick.ps1 -RelaunchIfBridgeDown` — offline tests, doctor, bridge, journey mock, PlayCUA `run-all` (2 attempts + relaunch), screenshot sync; report `Tools/.reports/audit-tick-latest.json`.
-- **PlayCUA flakes:** `wsm3d.ps1 playcua run-all` retries each scenario up to 2×; full `run-all` retries via `do-all.ps1` / audit tick.
+- **Bridge recovery:** `Ensure-BridgeReady` in `Tools/wsm3d.ps1` — health poll, optional relaunch; used by `playcua run-all` and indirectly by `do-all.ps1` relaunch/wait helpers.
+- **PlayCUA flakes:** per-scenario 2× in `wsm3d.ps1 playcua run-all`; full `run-all` 3× in `do-all.ps1`; audit tick 2×.
 - **CLI:** `pwsh Tools/wsm3d.ps1 help` — 13 subcommands (build, install, launch, relaunch, log, toggle, journey capture, etc.).
 - **Slash commands:** `/wsm-status`, `/wsm-validate-all`, `/wsm-build`, `/wsm-install`, `/wsm-relaunch`, `/wsm-log`, `/wsm-toggle`, `/wsm-screenshot`, `/wsm-journey-run`, `/wsm-doctor`.
 - **MCP:** `Tools/wsm3d-mcp/` — Python FastMCP with 18 tools, auto-registered via `.claude/mcp-servers.json`.
 - **Journey gate:** `.github/workflows/journeys-gate.yml` — OCR-assertion DSL; verify with `phenotype-journey verify <manifest> --mock`. Live capture remains the final proof step; entry point: `docs/live-verification.md`.
-- **Live-verify gate (CI):** `.github/workflows/live-verify-gate.yml` — offline `dotnet test` + journey mock (stages 1–2 of `Tools/wsm-live-verify.ps1`; **486 pass / 3 skip**, 489 total locally). Reused by **nightly** (`nightly.yml` → `live-verify-offline` job). Full harness: `pwsh Tools/wsm-live-verify.ps1` (add `-Live -Vision` for PlayCUA + SSIM + OmniRoute vision on a desktop with WorldBox + bridge).
+- **Live-verify gate (CI):** `.github/workflows/live-verify-gate.yml` — offline `dotnet test` + journey mock (stages 1–2 of `Tools/wsm-live-verify.ps1`; **525 pass / 3 skip**, 528 total locally). Reused by **nightly** (`nightly.yml` → `live-verify-offline` job). Full harness: `pwsh Tools/wsm-live-verify.ps1` (add `-Live -Vision` for PlayCUA + SSIM + OmniRoute vision on a desktop with WorldBox + bridge). Desktop one-shot: `pwsh Tools/do-all.ps1`.
 - **ADR-0007 (conditional patch dispatch):** **Accepted in code, runtime still unproven** — `PhasePatchGate.ShouldApplyHarmonyPatch` is wired from `Core.Patch()`, but `docs/issue-triage.md` reports `0/4 Harmony types affected` for VoxelEntities. E2E: `ConditionalPatchDispatchInvariantsTests`.
 - **Live verify:** `docs/live-verification.md` — programmatic (`dotnet test`, journey mock, optional SSIM ≥ 0.95) vs agentic (`wsm3d-playcua` sample scenarios, OmniRoute combo, bridge save/load checklist).
 
