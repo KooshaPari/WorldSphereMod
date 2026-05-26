@@ -30,9 +30,7 @@ public class SavedSettings
 
         // --- v2 (WorldSphereMod3D fork) additions ---
         // Phase 1: Voxel actor/item/projectile rendering. When false, falls back
-        // to the upstream camera-billboard sprite path. Default ON per ADR-0018
-        // beta cascade (README / HANDOFF / PRD); smoke-test with false for the
-        // regression gate, then verify true in-game.
+        // to the upstream camera-billboard sprite path.
         public bool VoxelEntities = true;
         // Optional Unity 2022.3 BatchRendererGroup path for batching.
         public bool UseBRG = false;
@@ -156,6 +154,36 @@ public class SavedSettings
             s.ParticleEffects = false;
             s.WeatherRain = false;
             s.DebugSanityCube = false;
+            s.ProfilerDump = false;
+        }
+
+        public static void ApplyPhaseDefaults(SavedSettings s)
+        {
+            if (s == null) throw new ArgumentNullException(nameof(s));
+
+            s.VoxelEntities = true;
+            s.ProceduralBuildings = false;
+            s.CrossedQuadFoliage = false;
+            s.MeshWater = false;
+            s.WorldspaceHealth3D = false;
+            s.MountainSlopeSmoothing = false;
+            s.HighShadows = false;
+            s.HdrSkybox = false;
+            s.ColorGradingLut = false;
+            s.SkeletalAnimation = false;
+            s.GpuProceduralSkinning = false;
+            s.WorldspaceUI = false;
+            s.WorldspaceLabel3D = false;
+            s.DayNightCycle = false;
+            s.ForwardPlusRenderer = false;
+            s.PostFX = false;
+            s.SSAOEnabled = false;
+            s.SSGIEnabled = false;
+            s.BloomEnabled = false;
+            s.ParticleEffects = false;
+            s.WeatherRain = false;
+            s.WeatherSnow = false;
+            s.WeatherLightning = false;
             s.ProfilerDump = false;
         }
 

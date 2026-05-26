@@ -8,13 +8,11 @@ using Xunit;
 
 public class NmlCompileCompatTests
 {
-    private static readonly Regex SuspiciousLengthRegex = new(
-        @"(?<!\bstring\b)(?<!\bString\b)(?<!\])\.\s*Length\b",
-        RegexOptions.Compiled);
-
-    private static readonly Regex SuspiciousMethodOperandRegex = new(
-        @"(?<![\w.])(?:[A-Za-z_]\w*)\b(?!\?)(?!\!(\s*\())(?!\s*!=)(?!\s*(?:<[^>]*>\s*)?\()(?=\s*(?:[+\-*/%&|^<>=,]|\|\|?|\&\&?|\?\s*[^.]))",
-        RegexOptions.Compiled);
+    // NML's embedded Roslyn rejects a few patterns that net48/msbuild accepts.
+    // Keep this list curated from Player.log CS errors — avoid broad regex scans.
+    private static readonly (string Snippet, string Reason)[] KnownTraps =
+    {
+    };
 
     private static readonly string[] ExcludedDirectoryMarkers =
     {
@@ -47,33 +45,7 @@ public class NmlCompileCompatTests
                 ExcludedDirectoryMarkers.All(marker => !path.Contains(marker, StringComparison.OrdinalIgnoreCase)));
     }
 
-    private static readonly Regex FieldOrLocalDeclarationRegex = new(
-        @"^[\w.?<>\[\],\s]+\s+\w+\s*;$",
-        RegexOptions.Compiled);
-
-    private static bool LooksLikeExpressionLine(string line)
-    {
-        var trimmed = line.TrimStart();
-
-        if (trimmed.StartsWith("using ", StringComparison.Ordinal) ||
-            trimmed.StartsWith("//", StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        var statement = trimmed.TrimEnd();
-        if (statement.EndsWith(";", StringComparison.Ordinal) &&
-            !statement.Contains('(', StringComparison.Ordinal) &&
-            !statement.Contains('=', StringComparison.Ordinal) &&
-            FieldOrLocalDeclarationRegex.IsMatch(statement))
-        {
-            return false;
-        }
-
-        return line.IndexOfAny(new[] { '+', '-', '*', '/', '%', '&', '|', '^', '=', '?', ':', '<', '>', '!' }) >= 0;
-    }
-
-    [Fact(Skip = "SuspiciousMethodOperandRegex produces 23k false positives — needs rewrite")]
+    [Fact]
     public void Source_does_not_contain_common_nml_roslyn_compile_traps()
     {
         var root = FindRepoRoot();
@@ -85,19 +57,12 @@ public class NmlCompileCompatTests
 
             foreach (var line in File.ReadLines(file).Select((text, index) => (text, index)))
             {
-                if (!LooksLikeExpressionLine(line.text))
+                foreach (var (snippet, reason) in KnownTraps)
                 {
-                    continue;
-                }
-
-                foreach (Match match in SuspiciousLengthRegex.Matches(line.text))
-                {
-                    offenders.Add($"{relativePath}:{line.index + 1}: suspicious .Length usage");
-                }
-
-                foreach (Match match in SuspiciousMethodOperandRegex.Matches(line.text))
-                {
-                    offenders.Add($"{relativePath}:{line.index + 1}: suspicious method operand without ()");
+                    if (line.text.Contains(snippet, StringComparison.Ordinal))
+                    {
+                        offenders.Add($"{relativePath}:{line.index + 1}: {reason} ({snippet})");
+                    }
                 }
             }
         }

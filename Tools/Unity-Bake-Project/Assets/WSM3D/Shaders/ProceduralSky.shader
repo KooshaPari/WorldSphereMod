@@ -73,5 +73,5 @@ Shader "WSM3D/ProceduralSky"
             ENDCG
         }
     }
-    Fallback "Skybox"
+    Fallback "Skybox/Procedural"
 }

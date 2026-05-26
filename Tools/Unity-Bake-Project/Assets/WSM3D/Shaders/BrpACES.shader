@@ -21,6 +21,7 @@ Shader "Hidden/WSM3D/BrpACES"
             #include "UnityCG.cginc"
 
             sampler2D _MainTex;
+            float4 _MainTex_TexelSize;
             float _Exposure;
 
             struct appdata
@@ -40,6 +41,10 @@ Shader "Hidden/WSM3D/BrpACES"
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
+                #if UNITY_UV_STARTS_AT_TOP
+                if (_MainTex_TexelSize.y < 0)
+                    o.uv = 1.0 - o.uv;
+                #endif
                 return o;
             }
 

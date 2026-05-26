@@ -26,7 +26,7 @@ namespace WorldSphereMod.General
             }
         }
         [HarmonyPatch(typeof(MapBox), nameof(MapBox.addClearWorld))]
-        [HarmonyPrefix]
+        [HarmonyPostfix]
         static void DestroySphere()
         {
             if (_clearing) return;

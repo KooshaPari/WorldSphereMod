@@ -51,7 +51,7 @@ namespace WorldSphereMod
             catch
             {
                 IsFirstInstall = true;
-                savedSettings.VoxelEntities = true;
+                SavedSettings.ApplyPhaseDefaults(savedSettings);
                 SaveSettings();
                 return false;
             }
@@ -76,29 +76,7 @@ namespace WorldSphereMod
 
         static void ApplySchemaVersionMigration(SavedSettings loadedData)
         {
-            var currentDefaults = new SavedSettings();
-            var phaseFlags = typeof(PhaseAttribute).Assembly
-                .GetTypes()
-                .Select(type => type.GetCustomAttribute<PhaseAttribute>())
-                .Where(phaseAttr => phaseAttr != null)
-                .Select(phaseAttr => phaseAttr!.SettingsFlagName)
-                .Distinct();
-
-            foreach (var phaseFlag in phaseFlags)
-            {
-                if (string.IsNullOrWhiteSpace(phaseFlag))
-                {
-                    continue;
-                }
-
-                var field = typeof(SavedSettings).GetField(phaseFlag);
-                if (field == null || field.FieldType != typeof(bool))
-                {
-                    continue;
-                }
-
-                field.SetValue(loadedData, field.GetValue(currentDefaults));
-            }
+            SavedSettings.ApplyPhaseDefaults(loadedData);
 
             // v2.3 swapped the Shapes list order: index 0 changed from
             // cylindrical to flat. Reset CurrentShape to the new default

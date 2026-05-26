@@ -95,5 +95,5 @@ Shader "WSM3D/GerstnerWater"
         }
     }
 
-    Fallback "Transparent/Diffuse"
+    Fallback "Diffuse"
 }
