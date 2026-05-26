@@ -1159,7 +1159,7 @@ namespace WorldSphereMod.Voxel
 
             // Flush runs in LateUpdate after all emit postfixes for this frame.
 
-            WorldSphereMod.Voxel.VoxelMeshCache.PumpQueuedBuilds(1);
+            WorldSphereMod.Voxel.VoxelMeshCache.PumpQueuedBuilds(8);
             WorldSphereMod.Voxel.VoxelMeshCache.DrainCompletedBuilds(8);
 
             if (Core.savedSettings.DebugSanityCube)

@@ -21,7 +21,7 @@ namespace WorldSphereMod.Voxel
     public static class VoxelMeshCache
     {
         public const int SampleLimit = 100;
-        public const int MAX_ENTRIES = 512;
+        public const int MAX_ENTRIES = 1024;
         public static int Capacity => MAX_ENTRIES;
 
         public sealed class MeshBoundsSnapshot
@@ -557,9 +557,10 @@ namespace WorldSphereMod.Voxel
                 1, 2, 6, 1, 6, 5,
             };
             Color32[] colors = new Color32[vertices.Length];
+            Color32 placeholderGray = new Color32(180, 160, 140, 255);
             for (int i = 0; i < colors.Length; i++)
             {
-                colors[i] = Color.magenta;
+                colors[i] = placeholderGray;
             }
 
             mesh.vertices = vertices;

@@ -211,7 +211,6 @@ namespace WorldSphereMod.Water
             int smoothnessId = Shader.PropertyToID("_Smoothness");
             int metallicId = Shader.PropertyToID("_Metallic");
             int emissionId = Shader.PropertyToID("_EmissionColor");
-            bool isLit = false;
 
             Shader? s = null;
             // MeshWater should only resolve through the bundled GerstnerWater
