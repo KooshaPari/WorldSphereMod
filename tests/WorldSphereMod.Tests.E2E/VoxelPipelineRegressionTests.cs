@@ -169,6 +169,32 @@ public class VoxelPipelineRegressionTests
     }
 
     // ---------------------------------------------------------------
+    // 5a. ActorVoxelEmit Harmony wiring is present
+    // ---------------------------------------------------------------
+    // Regression: if the Harmony patch attributes are moved, renamed, or
+    // removed, the voxel actor pipeline silently stops emitting voxels even
+    // though the rest of the render code still compiles.
+    [Fact]
+    public void ActorVoxelEmit_has_harmony_postfix_and_phase_gate()
+    {
+        var source = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
+
+        source.Should().Contain("[Phase(nameof(SavedSettings.VoxelEntities))]",
+            "ActorVoxelEmit must remain gated by VoxelEntities so the phase can be " +
+            "enabled/disabled through SavedSettings");
+
+        source.Should().Contain("[HarmonyPatch(typeof(ActorManager), nameof(ActorManager.precalculateRenderDataParallel))]",
+            "ActorVoxelEmit must remain patched against ActorManager.precalculateRenderDataParallel");
+
+        source.Should().Contain("[HarmonyPostfix]",
+            "EmitVoxels must remain a Harmony postfix so it runs after the game's render-data pass");
+
+        var actorVoxelEmitBody = ExtractTypeBody(source, "public static class ActorVoxelEmit");
+        actorVoxelEmitBody.Should().Contain("EmitVoxels(ActorManager __instance)",
+            "ActorVoxelEmit must still expose the EmitVoxels postfix entry point");
+    }
+
+    // ---------------------------------------------------------------
     // 5b. VoxelRender.Reset must call MeshInstanceBatcher.Reset
     // ---------------------------------------------------------------
     // Regression: the world-unload path reset VoxelRender but missed the
@@ -327,6 +353,39 @@ public class VoxelPipelineRegressionTests
         }
 
         throw new InvalidOperationException("Unbalanced braces while extracting method body");
+    }
+
+    static string ExtractTypeBody(string source, string signature)
+    {
+        int headerIndex = source.IndexOf(signature, StringComparison.Ordinal);
+        headerIndex.Should().BeGreaterThanOrEqualTo(0, $"type signature should exist: {signature}");
+
+        int openBrace = source.IndexOf('{', headerIndex);
+        openBrace.Should().BeGreaterThanOrEqualTo(0, "type must open with a '{'");
+
+        int depth = 0;
+        for (int i = openBrace; i < source.Length; i++)
+        {
+            char c = source[i];
+            if (c == '{')
+            {
+                depth++;
+                continue;
+            }
+
+            if (c != '}')
+            {
+                continue;
+            }
+
+            depth--;
+            if (depth == 0)
+            {
+                return source.Substring(openBrace + 1, i - openBrace - 1);
+            }
+        }
+
+        throw new InvalidOperationException("Unbalanced braces while extracting type body");
     }
 
     static int CountOccurrences(string text, string pattern)

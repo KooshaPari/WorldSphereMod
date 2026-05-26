@@ -57,6 +57,7 @@ try {
     }
 
     Import-DoAllVisionEnv
+    $omnirouteProbeOk = $true
 
     Write-Host '=== do-all: audit-tick (offline + live) ===' -ForegroundColor Cyan
     # Offline tests first (no game required)
@@ -127,7 +128,13 @@ try {
             Write-Host "=== do-all: omniroute probe ($($env:OMNROUTE_BASE_URL)) ===" -ForegroundColor Cyan
             try {
                 $base = $env:OMNROUTE_BASE_URL.TrimEnd('/')
-                $models = Invoke-RestMethod -Uri "$base/models" -Headers @{ Authorization = "Bearer $env:OMNROUTE_API_KEY" } -TimeoutSec 120
+                $modelCount = $null
+                try {
+                    $models = Invoke-RestMethod -Uri "$base/models" -Headers @{ Authorization = "Bearer $env:OMNROUTE_API_KEY" } -TimeoutSec 45
+                    $modelCount = @($models.data).Count
+                } catch {
+                    Write-Host "omniroute /models slow or unavailable (continuing with chat probe): $($_.Exception.Message)" -ForegroundColor DarkYellow
+                }
                 $modelId = if ($env:OMNROUTE_VISION_MODEL) { $env:OMNROUTE_VISION_MODEL } else { 'gemini/gemini-2.5-flash' }
                 $body = @{
                     model       = $modelId
@@ -140,11 +147,13 @@ try {
                     'Content-Type' = 'application/json'
                 } -Body $body -TimeoutSec 300
                 $txt = $chat.choices[0].message.content
-                Add-DoAllStage 'omniroute-probe' 'passed' @{ models = @($models.data).Count; model = $modelId; reply = $txt }
+                Add-DoAllStage 'omniroute-probe' 'passed' @{ models = $modelCount; model = $modelId; reply = $txt }
                 Write-Host "omniroute vision probe OK ($modelId): $txt" -ForegroundColor Green
             } catch {
+                $omnirouteProbeOk = $false
                 Add-DoAllStage 'omniroute-probe' 'failed' @{ error = $_.Exception.Message }
                 Write-Host "omniroute probe failed: $($_.Exception.Message)" -ForegroundColor Yellow
+                Write-Host 'playcua will run with vision off until laptop OmniRoute responds (restart OmniRoute on kooshas-laptop).' -ForegroundColor DarkYellow
             }
         }
 
@@ -165,16 +174,22 @@ try {
                 Start-Sleep -Seconds 30
                 $null = Wait-World3D -MaxSeconds 120
             }
-            $vb = if ($Vision) { $VisionBackend } else { 'off' }
+            $vb = if ($Vision) {
+                if ($omnirouteProbeOk) { $VisionBackend } else { 'off' }
+            } else { 'off' }
             Write-Host "playcua run-all VisionBackend=$vb" -ForegroundColor Gray
             pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') playcua run-all -VisionBackend $vb 2>&1 | Out-Host
             if ($LASTEXITCODE -eq 0) { $runOk = $true }
         }
         if ($runOk) {
-            Add-DoAllStage 'playcua-run-all' 'passed' @{ attempts = $attempt; visionBackend = $(if ($Vision) { $VisionBackend } else { 'off' }) }
+            Add-DoAllStage 'playcua-run-all' 'passed' @{
+                attempts       = $attempt
+                visionBackend  = $vb
+                visionDegraded = [bool]($Vision -and -not $omnirouteProbeOk)
+            }
             pwsh (Join-Path $RepoRoot 'Tools/sync-playcua-screenshots.ps1') | Out-Host
             $liveArgs = @('-Live', '-SkipOffline')
-            if ($Vision) { $liveArgs += '-Vision' }
+            if ($Vision -and $omnirouteProbeOk) { $liveArgs += '-Vision' }
             pwsh (Join-Path $RepoRoot 'Tools/wsm-live-verify.ps1') @liveArgs 2>&1 | Out-Host
             if ($LASTEXITCODE -ne 0) {
                 Add-DoAllStage 'live-verify-live' 'failed' @{ exitCode = $LASTEXITCODE }

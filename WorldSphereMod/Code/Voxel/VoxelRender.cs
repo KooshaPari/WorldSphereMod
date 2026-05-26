@@ -62,6 +62,7 @@ namespace WorldSphereMod.Voxel
             _actorImpostorDiagnosticLogged = false;
             _actorSkeletalDiagnosticLogged = false;
             _actorVoxelSubmitTranslations.Clear();
+            _flushDiagLogged = false;
         }
 
         /// <summary>
@@ -405,9 +406,17 @@ namespace WorldSphereMod.Voxel
             return EnsureMaterial() ? _material : null;
         }
 
+        static bool _flushDiagLogged;
+
         /// <summary>Issue all batched draw calls. Call once per frame after submissions.</summary>
         public static void Flush()
         {
+            // TEMPORARY DIAGNOSTIC: one-shot log to track Flush calls
+            if (!_flushDiagLogged)
+            {
+                _flushDiagLogged = true;
+                Debug.Log($"[WSM3D][DIAG-FLUSH] VoxelRender.Flush CALLED materialNull={_material == null} hasPending={MeshInstanceBatcher.HasPendingSubmissions} bucketCount={MeshInstanceBatcher.FrameBucketCount} instances={MeshInstanceBatcher.FrameInstances} drawCalls={MeshInstanceBatcher.FrameDrawCalls}");
+            }
             if (_material == null) return;
             Camera flushCamera = ResolveFlushCamera();
             LogActorVoxelSubmitDiagnostics(flushCamera);
@@ -487,16 +496,61 @@ namespace WorldSphereMod.Voxel
         [HarmonyPatch(typeof(ActorManager), nameof(ActorManager.precalculateRenderDataParallel))]
         public static class ActorVoxelEmit
         {
+            public static bool EmitVoxelsCalled;
+            public static int LastVisibleUnitsCount;
+            public static int LastFrustumCullerPassCount;
+            public static int LastBatcherSubmitCount;
+            static bool _emitDiagLogged;
+
             [HarmonyPostfix]
             public static void EmitVoxels(ActorManager __instance)
             {
+                EmitVoxelsCalled = true;
                 Tools.ClearTileHeightSmoothCache();
+                // TEMPORARY DIAGNOSTIC: one-shot log to verify the Harmony postfix fires
+                if (!_emitDiagLogged)
+                {
+                    _emitDiagLogged = true;
+                    bool matOk = EnsureMaterial();
+                    int visCount = __instance.visible_units != null ? __instance.visible_units.count : -1;
+                    int frustumPass = 0;
+                    int frustumFail = 0;
+                    int nullActor = 0;
+                    int perpSkipped = 0;
+                    int meshNull = 0;
+                    int meshOk = 0;
+                    if (visCount > 0 && __instance.render_data != null)
+                    {
+                        var diagArr = __instance.visible_units.array;
+                        var diagRd = __instance.render_data;
+                        for (int di = 0; di < visCount; di++)
+                        {
+                            Actor da = diagArr[di];
+                            if (da == null || da.asset == null) { nullActor++; continue; }
+                            if (Constants.PerpActors.ContainsKey(da.asset.id)) { perpSkipped++; continue; }
+                            Vector3 dCullPos = diagRd.positions[di];
+                            if (dCullPos.z < Constants.ZDisplacement * 0.5f)
+                                dCullPos = dCullPos.To3DTileHeight(false);
+                            if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(dCullPos, 2f))
+                            { frustumFail++; continue; }
+                            frustumPass++;
+                            Sprite dSp = diagRd.main_sprites[di];
+                            if (dSp == null) { meshNull++; continue; }
+                            Mesh dm = VoxelMeshCache.Get(dSp, -1, true);
+                            if (dm == null || dm.vertexCount == 0) meshNull++; else meshOk++;
+                        }
+                    }
+                    Debug.Log($"[WSM3D][DIAG-EMIT] ActorVoxelEmit.EmitVoxels CALLED isWorld3D={Core.IsWorld3D} VoxelEntities={Core.savedSettings.VoxelEntities} materialOk={matOk} visible_units.count={visCount} nullActor={nullActor} perpSkipped={perpSkipped} frustumPass={frustumPass} frustumFail={frustumFail} meshOk={meshOk} meshNull={meshNull} cacheSize={VoxelMeshCache.Count}");
+                }
                 if (!Core.IsWorld3D || !Core.savedSettings.VoxelEntities) return;
                 if (!EnsureMaterial()) return;
 
                 var rd = __instance.render_data;
                 var arr = __instance.visible_units.array;
                 int n = __instance.visible_units.count;
+                LastVisibleUnitsCount = n;
+                LastFrustumCullerPassCount = 0;
+                LastBatcherSubmitCount = 0;
                 for (int i = 0; i < n; i++)
                 {
                     Actor a = arr[i];
@@ -522,6 +576,7 @@ namespace WorldSphereMod.Voxel
                     {
                         continue;
                     }
+                    LastFrustumCullerPassCount++;
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, a.GetHashCode());
 
                     if (Core.savedSettings.SkeletalAnimation && tier != WorldSphereMod.LOD.LodTier.Impostor)
@@ -576,6 +631,7 @@ namespace WorldSphereMod.Voxel
                         Quaternion br = WorldSphereMod.LOD.ImpostorBillboard.GetFacingRotation(imPos);
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
                         MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
+                        LastBatcherSubmitCount++;
                         submitted = true;
                         if (submitted)
                         {
@@ -616,6 +672,7 @@ namespace WorldSphereMod.Voxel
                     // Hide the sprite quad for this actor — we drew the 3D mesh instead.
                     if (Submit(m, trs, rd.colors[i]))
                     {
+                        LastBatcherSubmitCount++;
                         rd.has_normal_render[i] = false;
                         TraceActorColorSample("voxel", i, rd.colors[i], a, sp, posBeforeLift, pos, rot, scl);
                     }
@@ -680,10 +737,18 @@ namespace WorldSphereMod.Voxel
         public static class BuildingVoxelEmit
         {
             static bool _buildingVoxelEmitSubmitLogged;
+            static bool _buildingEmitDiagLogged;
 
             [HarmonyPostfix]
             public static void EmitVoxels(BuildingManager __instance)
             {
+                if (!_buildingEmitDiagLogged)
+                {
+                    _buildingEmitDiagLogged = true;
+                    int bldgCount = __instance._visible_buildings_count;
+                    bool procBld = Core.savedSettings.ProceduralBuildings;
+                    Debug.Log($"[WSM3D][DIAG-EMIT] BuildingVoxelEmit.EmitVoxels CALLED isWorld3D={Core.IsWorld3D} VoxelEntities={Core.savedSettings.VoxelEntities} ProceduralBuildings={procBld} visible_buildings_count={bldgCount}");
+                }
                 if (!Core.IsWorld3D || !Core.savedSettings.VoxelEntities) return;
                 if (Core.savedSettings.ProceduralBuildings) return;
                 if (!EnsureMaterial()) return;
@@ -1081,9 +1146,40 @@ namespace WorldSphereMod.Voxel
         static float _telemetryLastTime;
         static int _instancingTelemetryFrame;
 
+        static bool _tickDiagLogged;
+
         /// <summary>Per-frame voxel/FX driver; invoked from MapBox.renderStuff Harmony hook so it survives scene transitions.</summary>
         public static void TickPerFrame()
         {
+            // TEMPORARY DIAGNOSTIC: one-shot log to verify TickPerFrame fires and check Harmony state
+            if (!_tickDiagLogged)
+            {
+                _tickDiagLogged = true;
+                bool hasPatcher = Core.Patcher != null;
+                string patchedMethods = "N/A";
+                if (hasPatcher)
+                {
+                    try
+                    {
+                        var patches = Core.Patcher.GetPatchedMethods();
+                        int count = 0;
+                        bool foundActorPrecalc = false;
+                        bool foundBuildingPrecalc = false;
+                        foreach (var m in patches)
+                        {
+                            count++;
+                            if (m.Name == "precalculateRenderDataParallel")
+                            {
+                                if (m.DeclaringType?.Name == "ActorManager") foundActorPrecalc = true;
+                                if (m.DeclaringType?.Name == "BuildingManager") foundBuildingPrecalc = true;
+                            }
+                        }
+                        patchedMethods = $"total={count} ActorManager.precalcRDP={foundActorPrecalc} BuildingManager.precalcRDP={foundBuildingPrecalc}";
+                    }
+                    catch (System.Exception ex) { patchedMethods = $"ERROR: {ex.Message}"; }
+                }
+                Debug.Log($"[WSM3D][DIAG-TICK] VoxelFrameDriver.TickPerFrame FIRST CALL hasPatcher={hasPatcher} harmonyPatches=[{patchedMethods}] VoxelEntities={Core.savedSettings?.VoxelEntities} isWorld3D={Core.IsWorld3D} cacheSize={VoxelMeshCache.Count} pendingBuilds={VoxelMeshCache.PendingBuilds} queuedBuildsTotal={VoxelMeshCache.TotalBuilds}");
+            }
             if (Core.ClearVoxelMeshCacheOnFirstFrame)
             {
                 Core.ClearVoxelMeshCacheOnFirstFrame = false;

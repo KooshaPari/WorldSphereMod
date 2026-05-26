@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+import socket
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -194,7 +195,7 @@ class OpenAICompatibleVisionValidator:
                     continue
                 detail = exc.read().decode("utf-8", errors="replace")[:240]
                 raise VisionValidationError(f"{self.provider} HTTP {exc.code}: {detail}") from exc
-            except urllib.error.URLError as exc:
+            except (urllib.error.URLError, TimeoutError, socket.timeout) as exc:
                 if attempt == 0:
                     continue
                 raise VisionValidationError(f"{self.provider} request failed: {exc}") from exc

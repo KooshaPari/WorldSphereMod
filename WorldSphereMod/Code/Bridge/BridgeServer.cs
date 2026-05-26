@@ -409,6 +409,11 @@ namespace WorldSphereMod.Bridge
                     WriteJson(context.Response, InvokeOnMainThread(ForceDiagDumpNow));
                     return;
                 }
+                else if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/diag/emit_status", StringComparison.OrdinalIgnoreCase))
+                {
+                    WriteJson(context.Response, InvokeOnMainThread(BuildEmitStatusPayload));
+                    return;
+                }
                 else if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/diag/render_stats", StringComparison.OrdinalIgnoreCase))
                 {
                     WriteJson(context.Response, InvokeOnMainThread(BuildRenderStatsPayload));
@@ -518,6 +523,15 @@ namespace WorldSphereMod.Bridge
                 hits = WorldSphereMod.Voxel.VoxelMeshCache.HitCount,
                 misses = WorldSphereMod.Voxel.VoxelMeshCache.MissCount
             }
+        };
+
+        object BuildEmitStatusPayload() => new
+        {
+            ok = true,
+            emitVoxelsCalled = WorldSphereMod.Voxel.VoxelRender.ActorVoxelEmit.EmitVoxelsCalled,
+            visibleUnitsCount = WorldSphereMod.Voxel.VoxelRender.ActorVoxelEmit.LastVisibleUnitsCount,
+            frustumCullerPassCount = WorldSphereMod.Voxel.VoxelRender.ActorVoxelEmit.LastFrustumCullerPassCount,
+            batcherSubmitCount = WorldSphereMod.Voxel.VoxelRender.ActorVoxelEmit.LastBatcherSubmitCount,
         };
 
 

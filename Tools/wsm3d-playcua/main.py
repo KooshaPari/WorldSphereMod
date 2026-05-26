@@ -851,7 +851,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--omniroute-timeout",
         type=float,
-        default=120.0,
+        default=300.0,
         help="HTTP timeout seconds for OmniRoute vision requests",
     )
     parser.add_argument(
