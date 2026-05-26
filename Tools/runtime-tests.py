@@ -444,8 +444,8 @@ def format_junit(results: list[TestResult], suite_name: str = "wsm3d-runtime") -
     # Write to string
     import io
     buf = io.BytesIO()
-    tree.write(buf, encoding="unicode", xml_declaration=True)
-    return buf.getvalue() if isinstance(buf.getvalue(), str) else buf.getvalue().decode("utf-8")
+    xml_str = tree.write(buf, encoding="unicode", xml_declaration=True)
+    return xml_str
 
 
 # ---------------------------------------------------------------------------
