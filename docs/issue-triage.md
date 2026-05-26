@@ -14,9 +14,14 @@ actually being applied (`0/4 Harmony types affected`). The screenshot
 WorldBox. There are 10 crash reports, 61 NullReferenceExceptions, and
 78 "isReadable is false" mesh access errors in the current Player.log.
 The automation tooling (PlayCUA, do-all.ps1) reports "13/13 pass" but
-is taking screenshots of whatever window is in the foreground, which
-happened to be the Steam store page. No phase has been visually verified
-by a human in the actual game.
+**historical** screenshot artifacts captured the foreground window (Steam
+store page for "Diplomacy is Not an Option"), not WorldBox. **Screenshot
+window-targeting is now fixed** in `Tools/wsm3d-playcua/main.py`
+(`Win32Capture` enumerates WorldBox process/window, sets
+`capture_target: worldbox_window` in step details; desktop fallback only
+when no hwnd). Re-run PlayCUA + `sync-playcua-screenshots.ps1` to refresh
+`docs/screenshots/`. No phase has been visually verified by a human in the
+actual game with post-fix captures.
 
 ---
 
@@ -47,16 +52,24 @@ by a human in the actual game.
 
 ## Systemic Problems Identified
 
-### 1. The screenshot automation is capturing the WRONG WINDOW
+### 1. ~~The screenshot automation is capturing the WRONG WINDOW~~ **FIXED (2026-05-26)**
 
-Every PNG in `artifacts/` and `docs/screenshots/` shows "Diplomacy is
-Not an Option" Steam store page. The PlayCUA tooling reports "13/13
-scenarios pass" because it takes a screenshot of the foreground window
-(which was the Steam client, not WorldBox) and the vision backend either
-isn't running or isn't checking whether the screenshot is actually
-WorldBox. This means ALL "visual verification" claims in HANDOFF.md,
-phase-visual-audit.md, and the PlayCUA artifacts are based on screenshots
-of the wrong application.
+**Status: FIXED in tooling.** `Win32Capture` in `Tools/wsm3d-playcua/main.py`
+now targets the WorldBox game window by process name (`worldbox.exe`) and
+window title, captures the client area via `_capture_window_client`, and
+records `capture_target: worldbox_window` in PlayCUA step details (falls
+back to `desktop` only when no matching hwnd). A prior bug used bare
+`ctypes.wintypes` references that failed on some Python builds; fixed by
+importing `from ctypes import wintypes as _wintypes` on Win32 and using
+that alias in `PROCESSENTRY32W` / `EnumWindows` callbacks.
+
+**Historical artifacts remain invalid:** every PNG captured *before* this
+fix in `artifacts/` and `docs/screenshots/` still shows "Diplomacy is Not
+an Option" Steam store page. PlayCUA may still report "13/13 pass" with
+vision backend off without checking screenshot content. Re-run
+`pwsh Tools/do-all.ps1` (or PlayCUA `run-all`) + `sync-playcua-screenshots.ps1`
+and confirm step details show `capture_target: worldbox_window` before
+trusting any visual verification claims in HANDOFF.md or phase-visual-audit.md.
 
 ### 2. Harmony patches are silently failing to apply
 
@@ -118,10 +131,10 @@ meshes can't be read, and per-frame exceptions fire continuously.
    valid assets for all 9, most phases will fall back to Standard
    shader which doesn't support GPU instancing.
 
-4. **Fix the screenshot tooling** -- PlayCUA is capturing the wrong
-   window. This makes all automated visual verification worthless.
-   The tool needs to target the WorldBox window specifically, not
-   the foreground window.
+4. ~~**Fix the screenshot tooling**~~ **DONE (2026-05-26)** -- `Win32Capture`
+   targets WorldBox hwnd (`capture_target: worldbox_window`); ctypes.wintypes
+   import fixed. **Next:** re-run PlayCUA + screenshot sync and replace stale
+   `docs/screenshots/` PNGs; then re-audit visual claims.
 
 5. **Fix mesh isReadable** -- 78 "isReadable is false" errors. The
    voxel meshes need `mesh.MarkDynamic()` or the read-back path needs
@@ -139,9 +152,12 @@ meshes can't be read, and per-frame exceptions fire continuously.
 | Category | Count |
 |----------|-------|
 | PROVEN FIXED | 0 |
+| TOOLING FIXED (runtime unverified) | 1 (screenshot window-targeting) |
 | CODE CHANGED UNVERIFIED | 8 (#9, #10, #11, #12, #13, #14, #15, #18) |
 | PARTIALLY FIXED | 2 (#16, #17) |
 | UNFIXED | 8 (#1, #2, #3, #4, #5, #6, #7, #8) |
 | **Total issues** | **18** |
 
-Zero issues have been proven fixed from the user's perspective.
+Zero in-game issues have been proven fixed from the user's perspective.
+Screenshot window-targeting is fixed in PlayCUA but stale PNGs must be
+refreshed before visual evidence counts.
