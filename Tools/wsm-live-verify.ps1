@@ -614,7 +614,7 @@ if (-not $Live) {
 
         if (-not $Vision -and $Phase -le 0) {
             $liveDetails.ssimSkipped = "Pass -Vision (and load the matching phase in-game) to run phase-preview SSIM."
-        } elseif (($liveDetails['phaseScenariosSkipped'] -gt 0 -or $liveDetails.isWorld3D -eq $false) -and $Phase -le 0) {
+        } elseif (($liveDetails['phaseScenariosSkipped'] -gt 0 -or ($liveDetails.ContainsKey('isWorld3D') -and $liveDetails.isWorld3D -eq $false)) -and $Phase -le 0) {
             $liveDetails.ssimSkipped = "Phase PlayCUA skipped (isWorld3D=false); phase-preview SSIM requires in-game 3D."
         } else {
         $captureRoot = Join-Path $artifactRoot "ssim-captures"
