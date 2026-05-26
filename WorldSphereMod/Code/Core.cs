@@ -83,7 +83,7 @@ namespace WorldSphereMod
             // so users upgrading from v2.2 don't silently land in the wrong
             // shape mode (root cause of invisible terrain when the old
             // cylindrical index 0 maps to the new flat entry).
-            loadedData.CurrentShape = currentDefaults.CurrentShape;
+            loadedData.CurrentShape = new SavedSettings().CurrentShape;
         }
 
         static void LogPhaseFlagDefaults(SavedSettings loadedData)
