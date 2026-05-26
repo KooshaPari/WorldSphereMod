@@ -114,6 +114,10 @@ try {
         $health = Wait-BridgeReady -MaxMinutes 8
         if (-not $health -or -not $health.bridgeAlive) {
             Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge not up after relaunch (8m)' }
+            $report.durationMs = [math]::Round(((Get-Date) - $started).TotalMilliseconds, 0)
+            $report.finishedAt = (Get-Date).ToUniversalTime().ToString('o')
+            $report.summaryLine = Get-DoAllSummaryLine -Report $report
+            $report | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $ReportPath -Encoding utf8
             throw 'Bridge did not become reachable after relaunch (waited 8m)'
         }
         Add-DoAllStage 'bridge-wait' 'passed' @{ isWorld3D = [bool]$health.isWorld3D }
@@ -135,8 +139,20 @@ try {
             }
         }
     } else {
-        Write-Host '=== do-all: SkipLive — skipping relaunch/bridge/live stages ===' -ForegroundColor Cyan
-        Add-DoAllStage 'bridge-wait' 'skipped' @{ reason = 'SkipLive' }
+        $health = Wait-BridgeReady -MaxMinutes 2
+        if (-not $health -or -not $health.bridgeAlive) {
+            Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge down' }
+            $report.durationMs = [math]::Round(((Get-Date) - $started).TotalMilliseconds, 0)
+            $report.finishedAt = (Get-Date).ToUniversalTime().ToString('o')
+            $report.summaryLine = Get-DoAllSummaryLine -Report $report
+            $report | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $ReportPath -Encoding utf8
+            throw 'Bridge not reachable (use relaunch or start WorldBox)'
+        }
+        if (-not $health.isWorld3D) {
+            $bootstrap = Join-Path $RepoRoot 'Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml'
+            python (Join-Path $RepoRoot 'Tools/wsm3d-playcua/main.py') $bootstrap --vision-backend off 2>&1 | Out-Null
+            $health = Wait-World3D -MaxSeconds 180
+        }
     }
 
     $offlineVerifyDone = $false
