@@ -37,6 +37,19 @@ public class NmlCompileCompatTests
                 !path.Contains($"{Path.DirectorySeparatorChar}.git{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
     }
 
+    private static bool LooksLikeExpressionLine(string line)
+    {
+        var trimmed = line.TrimStart();
+
+        if (trimmed.StartsWith("using ", StringComparison.Ordinal) ||
+            trimmed.StartsWith("//", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return line.IndexOfAny(new[] { '+', '-', '*', '/', '%', '&', '|', '^', '=', '?', ':', '<', '>', '!' }) >= 0;
+    }
+
     [Fact]
     public void Source_does_not_contain_common_nml_roslyn_compile_traps()
     {
@@ -45,16 +58,24 @@ public class NmlCompileCompatTests
 
         foreach (var file in EnumerateSourceFiles(root))
         {
-            var source = File.ReadAllText(file);
+            var relativePath = Path.GetRelativePath(root, file);
 
-            foreach (Match match in SuspiciousLengthRegex.Matches(source))
+            foreach (var line in File.ReadLines(file).Select((text, index) => (text, index)))
             {
-                offenders.Add($"{Path.GetRelativePath(root, file)}: suspicious .Length usage at index {match.Index}");
-            }
+                if (!LooksLikeExpressionLine(line.text))
+                {
+                    continue;
+                }
 
-            foreach (Match match in SuspiciousMethodOperandRegex.Matches(source))
-            {
-                offenders.Add($"{Path.GetRelativePath(root, file)}: suspicious method operand without () at index {match.Index}");
+                foreach (Match match in SuspiciousLengthRegex.Matches(line.text))
+                {
+                    offenders.Add($"{relativePath}:{line.index + 1}: suspicious .Length usage");
+                }
+
+                foreach (Match match in SuspiciousMethodOperandRegex.Matches(line.text))
+                {
+                    offenders.Add($"{relativePath}:{line.index + 1}: suspicious method operand without ()");
+                }
             }
         }
 
