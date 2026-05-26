@@ -156,8 +156,30 @@ class Win32ScreenshotError(RuntimeError):
     pass
 
 
+def is_worldbox_process_name(process_name: str) -> bool:
+    """Return True for WorldBox process names (worldbox.exe / WorldBox)."""
+    normalized = process_name.strip().lower()
+    if normalized.endswith(".exe"):
+        normalized = normalized[:-4]
+    return normalized == "worldbox"
+
+
+def is_worldbox_window_title(title: str) -> bool:
+    return "worldbox" in title.strip().lower()
+
+
+def matches_worldbox_window(title: str, process_name: str) -> bool:
+    return is_worldbox_window_title(title) or is_worldbox_process_name(process_name)
+
+
 class Win32Capture:
-    """Capture full-screen screenshots using native Win32 GDI APIs."""
+    """Capture screenshots using native Win32 GDI APIs."""
+
+    SRCCOPY = 0x00CC0020
+    DIB_RGB_COLORS = 0
+    GW_OWNER = 4
+    PW_CLIENTONLY = 0x00000001
+    TH32CS_SNAPPROCESS = 0x00000002
 
     def __init__(self) -> None:
         try:
@@ -165,8 +187,28 @@ class Win32Capture:
             self.ctypes = ctypes
         except Exception as exc:
             raise Win32ScreenshotError("ctypes not available in this Python runtime") from exc
+        self.last_capture_target = "desktop"
 
     def capture(self, out_path: Path) -> Path:
+        if sys.platform == "win32":
+            hwnd = self._find_worldbox_hwnd()
+            if hwnd:
+                try:
+                    self.last_capture_target = "worldbox_window"
+                    return self._capture_window_client(hwnd, out_path)
+                except Win32ScreenshotError:
+                    pass
+        self.last_capture_target = "desktop"
+        return self._capture_desktop(out_path)
+
+    def _load_dlls(self) -> Tuple[Any, Any]:
+        c = self.ctypes
+        return (
+            c.WinDLL("user32", use_last_error=True),
+            c.WinDLL("gdi32", use_last_error=True),
+        )
+
+    def _bitmap_structures(self) -> Tuple[Any, Any, Any]:
         c = self.ctypes
 
         class BITMAPINFOHEADER(c.Structure):
@@ -185,18 +227,233 @@ class Win32Capture:
             ]
 
         class RGBQUAD(c.Structure):
-            _fields_ = [("rgbBlue", c.c_ubyte), ("rgbGreen", c.c_ubyte), ("rgbRed", c.c_ubyte), ("rgbReserved", c.c_ubyte)]
+            _fields_ = [
+                ("rgbBlue", c.c_ubyte),
+                ("rgbGreen", c.c_ubyte),
+                ("rgbRed", c.c_ubyte),
+                ("rgbReserved", c.c_ubyte),
+            ]
 
         class BITMAPINFO(c.Structure):
             _fields_ = [("bmiHeader", BITMAPINFOHEADER), ("bmiColors", RGBQUAD * 1)]
 
-        user32 = c.WinDLL("user32", use_last_error=True)
-        gdi32 = c.WinDLL("gdi32", use_last_error=True)
+        return BITMAPINFOHEADER, RGBQUAD, BITMAPINFO
+
+    def _find_worldbox_process_ids(self, kernel32: Any) -> set[int]:
+        c = self.ctypes
+        wintypes = c.wintypes
+
+        class PROCESSENTRY32W(c.Structure):
+            _fields_ = [
+                ("dwSize", wintypes.DWORD),
+                ("cntUsage", wintypes.DWORD),
+                ("th32ProcessID", wintypes.DWORD),
+                ("th32DefaultHeapID", c.c_size_t),
+                ("th32ModuleID", wintypes.DWORD),
+                ("cntThreads", wintypes.DWORD),
+                ("th32ParentProcessID", wintypes.DWORD),
+                ("pcPriClassBase", wintypes.LONG),
+                ("dwFlags", wintypes.DWORD),
+                ("szExeFile", wintypes.WCHAR * 260),
+            ]
+
+        snapshot = kernel32.CreateToolhelp32Snapshot(self.TH32CS_SNAPPROCESS, 0)
+        if snapshot in (-1, 0xFFFFFFFF):
+            return set()
+
+        entry = PROCESSENTRY32W()
+        entry.dwSize = c.sizeof(PROCESSENTRY32W)
+        pids: set[int] = set()
+        try:
+            if not kernel32.Process32FirstW(snapshot, c.byref(entry)):
+                return pids
+            while True:
+                if is_worldbox_process_name(entry.szExeFile):
+                    pids.add(int(entry.th32ProcessID))
+                if not kernel32.Process32NextW(snapshot, c.byref(entry)):
+                    break
+        finally:
+            kernel32.CloseHandle(snapshot)
+        return pids
+
+    def _find_worldbox_hwnd(self) -> int | None:
+        c = self.ctypes
+        wintypes = c.wintypes
+        user32, _ = self._load_dlls()
+        kernel32 = c.WinDLL("kernel32", use_last_error=True)
+
+        class RECT(c.Structure):
+            _fields_ = [
+                ("left", c.c_long),
+                ("top", c.c_long),
+                ("right", c.c_long),
+                ("bottom", c.c_long),
+            ]
+
+        worldbox_pids = self._find_worldbox_process_ids(kernel32)
+        best_hwnd: int | None = None
+        best_area = 0
+
+        def _read_window_title(hwnd: int) -> str:
+            length = user32.GetWindowTextLengthW(hwnd)
+            if length <= 0:
+                return ""
+            buf = c.create_unicode_buffer(length + 1)
+            user32.GetWindowTextW(hwnd, buf, length + 1)
+            return buf.value
+
+        @c.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        def enum_proc(hwnd: int, _lparam: int) -> bool:
+            nonlocal best_hwnd, best_area
+            if not user32.IsWindow(hwnd):
+                return True
+            if user32.GetWindow(hwnd, self.GW_OWNER):
+                return True
+            if user32.IsIconic(hwnd):
+                return True
+
+            pid = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, c.byref(pid))
+            title = _read_window_title(hwnd)
+            is_worldbox_pid = pid.value in worldbox_pids
+            if not is_worldbox_pid and not is_worldbox_window_title(title):
+                return True
+
+            rect = RECT()
+            if not user32.GetWindowRect(hwnd, c.byref(rect)):
+                return True
+            width = max(0, rect.right - rect.left)
+            height = max(0, rect.bottom - rect.top)
+            area = width * height
+            if area <= 0:
+                return True
+            if area > best_area:
+                best_area = area
+                best_hwnd = int(hwnd)
+            return True
+
+        user32.EnumWindows(enum_proc, 0)
+        return best_hwnd
+
+    def _write_png(self, width: int, height: int, pixel_buf: Any, out_path: Path) -> Path:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            from PIL import Image
+        except Exception as exc:
+            raise Win32ScreenshotError(
+                "Pillow is required for PNG encoding; install with `pip install pillow`."
+            ) from exc
+
+        image = Image.frombuffer("RGBA", (width, height), pixel_buf, "raw", "BGRA", 0, 1)
+        image.save(out_path, format="PNG")
+        return out_path
+
+    def _read_bitmap_bits(
+        self,
+        gdi32: Any,
+        memdc: Any,
+        hbmp: Any,
+        width: int,
+        height: int,
+        BITMAPINFOHEADER: Any,
+        BITMAPINFO: Any,
+    ) -> Any:
+        c = self.ctypes
+        header = BITMAPINFOHEADER(
+            biSize=c.sizeof(BITMAPINFOHEADER),
+            biWidth=width,
+            biHeight=-height,
+            biPlanes=1,
+            biBitCount=32,
+            biCompression=0,
+            biSizeImage=width * height * 4,
+            biXPelsPerMeter=0,
+            biYPelsPerMeter=0,
+            biClrUsed=0,
+            biClrImportant=0,
+        )
+        bmi = BITMAPINFO(bmiHeader=header)
+        pixel_buf = c.create_string_buffer(width * height * 4)
+        got = gdi32.GetDIBits(
+            memdc,
+            hbmp,
+            0,
+            height,
+            c.byref(pixel_buf),
+            c.byref(bmi),
+            self.DIB_RGB_COLORS,
+        )
+        if got != height:
+            raise Win32ScreenshotError("GetDIBits returned unexpected row count")
+        return pixel_buf
+
+    def _capture_window_client(self, hwnd: int, out_path: Path) -> Path:
+        c = self.ctypes
+        user32, gdi32 = self._load_dlls()
+        BITMAPINFOHEADER, _, BITMAPINFO = self._bitmap_structures()
+
+        class RECT(c.Structure):
+            _fields_ = [
+                ("left", c.c_long),
+                ("top", c.c_long),
+                ("right", c.c_long),
+                ("bottom", c.c_long),
+            ]
+
+        client_rect = RECT()
+        if not user32.GetClientRect(hwnd, c.byref(client_rect)):
+            raise Win32ScreenshotError("failed to get WorldBox client rect")
+        width = client_rect.right - client_rect.left
+        height = client_rect.bottom - client_rect.top
+        if width <= 0 or height <= 0:
+            raise Win32ScreenshotError("WorldBox client bounds were empty")
+
+        hdc_window = user32.GetWindowDC(hwnd)
+        if not hdc_window:
+            raise Win32ScreenshotError("failed to get WorldBox window DC")
+
+        memdc = gdi32.CreateCompatibleDC(hdc_window)
+        if not memdc:
+            user32.ReleaseDC(hwnd, hdc_window)
+            raise Win32ScreenshotError("failed to create memory DC")
+
+        hbmp = gdi32.CreateCompatibleBitmap(hdc_window, width, height)
+        if not hbmp:
+            gdi32.DeleteDC(memdc)
+            user32.ReleaseDC(hwnd, hdc_window)
+            raise Win32ScreenshotError("failed to create compatible bitmap")
+
+        old_obj = gdi32.SelectObject(memdc, hbmp)
+        copied = bool(user32.PrintWindow(hwnd, memdc, self.PW_CLIENTONLY))
+        if not copied:
+            copied = bool(
+                gdi32.BitBlt(memdc, 0, 0, width, height, hdc_window, 0, 0, self.SRCCOPY)
+            )
+        if not copied:
+            gdi32.SelectObject(memdc, old_obj)
+            gdi32.DeleteObject(hbmp)
+            gdi32.DeleteDC(memdc)
+            user32.ReleaseDC(hwnd, hdc_window)
+            raise Win32ScreenshotError("failed to copy WorldBox window pixels")
+
+        try:
+            pixel_buf = self._read_bitmap_bits(
+                gdi32, memdc, hbmp, width, height, BITMAPINFOHEADER, BITMAPINFO
+            )
+            return self._write_png(width, height, pixel_buf, out_path)
+        finally:
+            gdi32.SelectObject(memdc, old_obj)
+            gdi32.DeleteObject(hbmp)
+            gdi32.DeleteDC(memdc)
+            user32.ReleaseDC(hwnd, hdc_window)
+
+    def _capture_desktop(self, out_path: Path) -> Path:
+        c = self.ctypes
+        user32, gdi32 = self._load_dlls()
+        BITMAPINFOHEADER, _, BITMAPINFO = self._bitmap_structures()
 
         SM_CXSCREEN = 0
         SM_CYSCREEN = 1
-        SRCCOPY = 0x00CC0020
-        DIB_RGB_COLORS = 0
 
         width = user32.GetSystemMetrics(SM_CXSCREEN)
         height = user32.GetSystemMetrics(SM_CYSCREEN)
@@ -220,68 +477,23 @@ class Win32Capture:
             raise Win32ScreenshotError("failed to create compatible bitmap")
 
         old_obj = gdi32.SelectObject(memdc, hbmp)
-        if not gdi32.BitBlt(memdc, 0, 0, width, height, hdc, 0, 0, SRCCOPY):
+        if not gdi32.BitBlt(memdc, 0, 0, width, height, hdc, 0, 0, self.SRCCOPY):
             gdi32.SelectObject(memdc, old_obj)
             gdi32.DeleteObject(hbmp)
             gdi32.DeleteDC(memdc)
             user32.ReleaseDC(hwnd, hdc)
             raise Win32ScreenshotError("BitBlt failed while copying screen")
 
-        header = BITMAPINFOHEADER(
-            biSize=c.sizeof(BITMAPINFOHEADER),
-            biWidth=width,
-            biHeight=-height,
-            biPlanes=1,
-            biBitCount=32,
-            biCompression=0,
-            biSizeImage=width * height * 4,
-            biXPelsPerMeter=0,
-            biYPelsPerMeter=0,
-            biClrUsed=0,
-            biClrImportant=0,
-        )
-        bmi = BITMAPINFO(bmiHeader=header)
-
-        buf_size = width * height * 4
-        pixel_buf = c.create_string_buffer(buf_size)
-        got = gdi32.GetDIBits(
-            memdc,
-            hbmp,
-            0,
-            height,
-            c.byref(pixel_buf),
-            c.byref(bmi),
-            DIB_RGB_COLORS,
-        )
-        if got != height:
-            gdi32.SelectObject(memdc, old_obj)
-            gdi32.DeleteObject(hbmp)
-            gdi32.DeleteDC(memdc)
-            user32.ReleaseDC(hwnd, hdc)
-            raise Win32ScreenshotError("GetDIBits returned unexpected row count")
-
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Pillow is used to encode PNG while keeping capture path via Win32.
         try:
-            from PIL import Image
-        except Exception as exc:
+            pixel_buf = self._read_bitmap_bits(
+                gdi32, memdc, hbmp, width, height, BITMAPINFOHEADER, BITMAPINFO
+            )
+            return self._write_png(width, height, pixel_buf, out_path)
+        finally:
             gdi32.SelectObject(memdc, old_obj)
             gdi32.DeleteObject(hbmp)
             gdi32.DeleteDC(memdc)
             user32.ReleaseDC(hwnd, hdc)
-            raise Win32ScreenshotError(
-                "Pillow is required for PNG encoding; install with `pip install pillow`."
-            ) from exc
-
-        image = Image.frombuffer("RGBA", (width, height), pixel_buf, "raw", "BGRA", 0, 1)
-        image.save(out_path, format="PNG")
-
-        gdi32.SelectObject(memdc, old_obj)
-        gdi32.DeleteObject(hbmp)
-        gdi32.DeleteDC(memdc)
-        user32.ReleaseDC(hwnd, hdc)
-        return out_path
 
 
 def _telemetry_value(payload: Dict[str, Any], name: str) -> Any:
@@ -455,7 +667,10 @@ def _execute_scenario(
                 screenshot_path = artifact_root / screenshot_path
             img_path = screenshot.capture(screenshot_path)
             ok = True
-            details = {"path": str(img_path)}
+            details = {
+                "path": str(img_path),
+                "capture_target": screenshot.last_capture_target,
+            }
 
             vision = raw_step.get("vision") or {}
             if vision:

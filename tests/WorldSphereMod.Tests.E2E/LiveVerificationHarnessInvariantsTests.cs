@@ -72,6 +72,22 @@ public class LiveVerificationHarnessInvariantsTests
     }
 
     [Fact]
+    public void Playcua_main_targets_worldbox_window_for_screenshots_with_desktop_fallback()
+    {
+        var main = ReadRepoFile(PlaycuaMainRelative);
+
+        main.Should().Contain("is_worldbox_process_name");
+        main.Should().Contain("is_worldbox_window_title");
+        main.Should().Contain("_find_worldbox_hwnd");
+        main.Should().Contain("PrintWindow");
+        main.Should().Contain("_capture_desktop");
+        main.Should().Contain("GetDesktopWindow");
+        main.Should().Contain("last_capture_target = \"worldbox_window\"");
+        main.Should().Contain("last_capture_target = \"desktop\"");
+        main.Should().Contain("\"capture_target\": screenshot.last_capture_target");
+    }
+
+    [Fact]
     public void Live_verification_doc_documents_programmatic_and_agentic_gates()
     {
         var doc = ReadRepoFile(LiveVerificationDocRelative);
