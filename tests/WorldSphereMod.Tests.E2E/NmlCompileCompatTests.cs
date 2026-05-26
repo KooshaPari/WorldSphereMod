@@ -13,7 +13,7 @@ public class NmlCompileCompatTests
         RegexOptions.Compiled);
 
     private static readonly Regex SuspiciousMethodOperandRegex = new(
-        @"\.\s*[A-Za-z_]\w*\b(?!\s*\()(?=\s*(?:[+\-*/%&|^!<>=?,):;]|\|\|?|\&\&?))",
+        @"(?<![\w.])(?:[A-Za-z_]\w*)\b(?!\s*(?:<[^>]*>\s*)?\()(?=\s*(?:[+\-*/%&|^!<>=?,):;]|\|\|?|\&\&?))",
         RegexOptions.Compiled);
 
     private static string FindRepoRoot()
