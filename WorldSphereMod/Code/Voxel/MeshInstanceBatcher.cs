@@ -136,6 +136,9 @@ namespace WorldSphereMod.Voxel
                 return;
             }
 
+            // Unity overloads == to return true for destroyed objects, but C#
+            // null checks (and ?.) use ReferenceEquals which misses destroyed
+            // UnityEngine.Objects. Always use the == operator here.
             if (mesh == null || mat == null) return;
 
             // Empty-mesh guard ONLY: drop meshes with zero vertices (e.g. cache
@@ -218,6 +221,18 @@ namespace WorldSphereMod.Voxel
                 Material material = key.Material;
                 int total = bucket.Matrices.Count;
                 FrameInstances += total;
+
+                // Skip buckets whose mesh or material was destroyed by Unity
+                // (e.g. VoxelMeshCache.Clear while submissions are in-flight).
+                // Unity == null returns true for destroyed objects; C# ?. does not.
+                if (mesh == null || material == null)
+                {
+                    bucket.Matrices.Clear();
+                    bucket.Colors.Clear();
+                    FrameBucketCount++;
+                    continue;
+                }
+
                 if (_useFallbackPath)
                 {
                     DrawFallbackPath(key, bucket, total, resolvedLayer, renderCamera, shadows, receive);
@@ -269,7 +284,7 @@ namespace WorldSphereMod.Voxel
                         if (verboseDrawLogging)
                         {
                             Vector4 p = bucket.MatScratch[0].GetColumn(3);
-                            Debug.Log($"[WSM3D][DIAG] DrawMeshInstanced mesh={mesh?.name ?? "<null>"} material={material?.name ?? "<null>"} shader={material?.shader?.name ?? "<null>"} enableInstancing={(material != null && material.enableInstancing)} count={n} offset={offset} layer={resolvedLayer} shadows={shadows} receiveShadows={receive} firstPos=({p.x:F3}, {p.y:F3}, {p.z:F3}) fallback={_useFallbackPath}");
+                            Debug.Log($"[WSM3D][DIAG] DrawMeshInstanced mesh={SafeName(mesh)} material={SafeName(material)} shader={(material != null ? SafeName(material.shader) : "<null>")} enableInstancing={(material != null && material.enableInstancing)} count={n} offset={offset} layer={resolvedLayer} shadows={shadows} receiveShadows={receive} firstPos=({p.x:F3}, {p.y:F3}, {p.z:F3}) fallback={_useFallbackPath}");
                         }
 
                         Graphics.DrawMeshInstanced(
@@ -284,7 +299,7 @@ namespace WorldSphereMod.Voxel
                         if (!_instancingErrorLogged)
                         {
                             _instancingErrorLogged = true;
-                            string matName = material != null ? material.shader.name : "<null>";
+                            string matName = material != null ? SafeName(material) : "<null>";
                             Debug.LogError($"[WSM3D] DrawMeshInstanced rejected material; falling back to per-instance Graphics.DrawMesh. Voxel render perf is degraded but visible. material={matName}");
                         }
 
@@ -297,7 +312,7 @@ namespace WorldSphereMod.Voxel
                         if (!_instancingErrorLogged)
                         {
                             _instancingErrorLogged = true;
-                            string matName = material != null ? material.shader?.name : "<null>";
+                            string matName = material != null ? SafeName(material) : "<null>";
                             Debug.LogError($"[WSM3D] DrawMeshInstanced threw {ex.GetType().Name}; falling back to per-instance Graphics.DrawMesh. Voxel render perf is degraded but visible. material={matName}");
                         }
 
@@ -323,14 +338,27 @@ namespace WorldSphereMod.Voxel
         }
 
         static int _fallbackDrawDiagFrames = 0;
+        /// <summary>Safe name accessor that handles destroyed Unity objects
+        /// (where ReferenceEquals is non-null but == null returns true).</summary>
+        static string SafeName(Object obj)
+        {
+            if (obj == null) return "<null>";
+            try { return obj.name; }
+            catch { return "<destroyed>"; }
+        }
+
         static void DrawFallbackPath(Key key, Bucket bucket, int total, int layer, Camera renderCamera, ShadowCastingMode shadows, bool receive, int start = 0)
         {
+            // Guard against destroyed Unity objects that passed through Submit
+            // before the mesh/material was destroyed (e.g. VoxelMeshCache.Clear).
+            if (key.Mesh == null || key.Material == null) return;
+
             int end = Mathf.Min(bucket.Matrices.Count, start + total);
             if (_fallbackDrawDiagFrames < 5)
             {
                 _fallbackDrawDiagFrames++;
                 Vector4 firstPos = bucket.Matrices.Count > start ? bucket.Matrices[start].GetColumn(3) : new Vector4(0,0,0,0);
-                Debug.Log($"[WSM3D][DIAG-FB] DrawFallbackPath entry frame={_fallbackDrawDiagFrames} mesh={key.Mesh?.name ?? "<null>"} material={key.Material?.name ?? "<null>"} bucket.Matrices.Count={bucket.Matrices.Count} start={start} total={total} end={end} firstPos=({firstPos.x:F2},{firstPos.y:F2},{firstPos.z:F2}) layer={layer}");
+                Debug.Log($"[WSM3D][DIAG-FB] DrawFallbackPath entry frame={_fallbackDrawDiagFrames} mesh={SafeName(key.Mesh)} material={SafeName(key.Material)} bucket.Matrices.Count={bucket.Matrices.Count} start={start} total={total} end={end} firstPos=({firstPos.x:F2},{firstPos.y:F2},{firstPos.z:F2}) layer={layer}");
             }
             for (int i = start; i < end; i++)
             {

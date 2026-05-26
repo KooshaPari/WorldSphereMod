@@ -73,22 +73,22 @@ instead of carrying the underlying implementation inline.
    substrate with depth extrusion, instancing, and shape registry upstreamed
    from WSM3D.
 
-## What's shipped (per phase)
+## What's landed in code (runtime unverified)
 
 | Phase | State | Notes |
 |---|---|---|
-| 0  Fork plumbing                       | ✅ | Build portability, GUID `worldsphere3d.fork`, settings v2, API v2, task/journey gates, capability discovery, opt-in profiler overlay, journey capture tooling; ADR-0007 conditional patch dispatch **Accepted** (`PhasePatchGate` + E2E invariants; phase 1/2 PlayCUA smoke) |
-| 1  Voxel actors + buildings            | ✅ | Current code default: `VoxelEntities = true`. Smoke-test verification is documented elsewhere and should not be inferred from the default alone. |
-| 2  Procedural building meshes          | ✅ | Current code default: `ProceduralBuildings = false`. |
-| 3a Crossed-quad foliage                | ✅ | Current code default: `CrossedQuadFoliage = false`. |
-| 3b Surface overlays + walls            | ✅ | `WorldTilemap.renderTile` Prefix + `drawWallType` Prefix wired |
-| 4  Mesh water                          | ✅ | Current code default: `MeshWater = false`. |
-| 5  Sun + cascaded shadows              | ✅ | Current code defaults: `HighShadows = false`, `HdrSkybox = false`, `ColorGradingLut = false`. |
-| 6  Skeletal animation                  | ✅ | Current code default: `SkeletalAnimation = false`. |
-| 7  Worldspace UI                       | ✅ | Current code defaults: `WorldspaceUI = false`, `WorldspaceLabel3D = false`. |
-| 8  Day/night + sky + fog               | ✅ | Current code default: `DayNightCycle = false`; `FogDensity = 0.05f`. |
-| 9  Particles + decals + PostFX         | ✅ | Current code defaults: `ParticleEffects = false`, `PostFX = false`, `SSAOEnabled = false`, `SSGIEnabled = false`. |
-| 10 LOD + impostor fallback             | ✅ | Current code defaults: `LODScale = 0.5f`, `WaterDetail = 1.0f`, `FoliageDensity = 1.0f`. |
+| 0  Fork plumbing                       | code landed | Build portability, GUID `worldsphere3d.fork`, settings v2, API v2, task/journey gates, capability discovery, opt-in profiler overlay, journey capture tooling; ADR-0007 conditional patch dispatch **Accepted** (`PhasePatchGate` + E2E invariants; phase 1/2 PlayCUA smoke). |
+| 1  Voxel actors + buildings            | code present, runtime unverified | Current code default: `VoxelEntities = true`. Triage says Harmony patches are still not applying in-game, so do not treat the default as proof. |
+| 2  Procedural building meshes          | code present, runtime unverified | Current code default: `ProceduralBuildings = false`. |
+| 3a Crossed-quad foliage                | code present, runtime unverified | Current code default: `CrossedQuadFoliage = false`. |
+| 3b Surface overlays + walls            | code present, runtime unverified | `WorldTilemap.renderTile` Prefix + `drawWallType` Prefix wired. |
+| 4  Mesh water                          | code present, runtime unverified | Current code default: `MeshWater = false`. |
+| 5  Sun + cascaded shadows              | code present, runtime unverified | Current code defaults: `HighShadows = false`, `HdrSkybox = false`, `ColorGradingLut = false`. |
+| 6  Skeletal animation                  | code present, runtime unverified | Current code default: `SkeletalAnimation = false`. |
+| 7  Worldspace UI                       | code present, runtime unverified | Current code defaults: `WorldspaceUI = false`, `WorldspaceLabel3D = false`. |
+| 8  Day/night + sky + fog               | code present, runtime unverified | Current code default: `DayNightCycle = false`; `FogDensity = 0.05f`. |
+| 9  Particles + decals + PostFX         | code present, runtime unverified | Current code defaults: `ParticleEffects = false`, `PostFX = false`, `SSAOEnabled = false`, `SSGIEnabled = false`. |
+| 10 LOD + impostor fallback             | code present, runtime unverified | Current code defaults: `LODScale = 0.5f`, `WaterDetail = 1.0f`, `FoliageDensity = 1.0f`. |
 
 ## Current defaults matrix
 
@@ -220,11 +220,11 @@ Short form:
 
 ## What's blocked
 
-- **Phase 2 procedural buildings in-game smoke** — PlayCUA capture + telemetry passed for `ProceduralBuildings` with `Tools/wsm3d-playcua/sample-scenarios/phase-2-procedural-buildings.yaml`; generated proof: `artifacts/phase-2-procedural-buildings/buildings.png`. Visual/vision approval and strict journey capture remain separate proof.
-- **Cloud crossed-quad in-game smoke** — PlayCUA capture + telemetry passed for `CloudCrossedQuadRender` with `Tools/wsm3d-playcua/sample-scenarios/phase-3b-cloud-crossed-quad.yaml`; generated proof: `artifacts/phase-3b-cloud-crossed-quad/foliage.png` and `artifacts/phase-3b-cloud-crossed-quad/clouds.png`. Visual/vision approval and strict journey capture remain separate proof.
+- **Phase 2 procedural buildings in-game smoke** — PlayCUA capture + telemetry claim exists for `ProceduralBuildings` with `Tools/wsm3d-playcua/sample-scenarios/phase-2-procedural-buildings.yaml`, but `docs/issue-triage.md` says the current visual evidence is unreliable and no phase has been visually verified in WorldBox. Treat the artifact path as untrusted until the window-targeting bug is fixed.
+- **Cloud crossed-quad in-game smoke** — PlayCUA capture + telemetry claim exists for `CloudCrossedQuadRender` with `Tools/wsm3d-playcua/sample-scenarios/phase-3b-cloud-crossed-quad.yaml`, but `docs/issue-triage.md` says the screenshot tooling is capturing the wrong window. Treat the artifact path as untrusted until verified in-game.
 - **Unity 2022.3 install** — required to bake `VoxelLit.shader`, `WaterGerstner.shader`, `ProceduralSky.shader` into AssetBundles for Phases 4, 5, 8.
 - **Live verification (agentic tier)** — `.github/workflows/live-verify-gate.yml` runs offline programmatic stages (`dotnet test` + journey mock via `Tools/wsm-live-verify.ps1`, report `Tools/.reports/live-verify-latest.json`). **Nightly** (`.github/workflows/nightly.yml`) calls the same reusable workflow for offline stages before lint/stats extras. Full agentic tier on a Windows desktop requires **WorldBox running + bridge on `127.0.0.1:8766` + OmniRoute** for vision: `pwsh Tools/wsm-live-verify.ps1 -Live -Vision`. See `docs/live-verification.md`.
-- Current live status: with WorldBox in 3D (`isWorld3D=true`), `pwsh Tools/wsm-live-verify.ps1 -Live -SkipOffline` passes bridge PlayCUA gates; **`pwsh Tools/wsm3d.ps1 playcua run-all -VisionBackend off` passes all 13 scenarios** (2026-05-25, `frameMs` gates at 8000ms; phases 1–10 + 3b + bridge smokes, telemetry + screenshots). `-Vision` defaults to **fireworks** when `FIREWORKS_API_KEY` is set (`Tools/fireworks-vision.env.example`, model `kimi-k2p5`). Inference API keys required (`fpk_*` Fire Pass keys return 403); fallback: `PLAYCUA_VISION_BACKEND=omniroute` + `Tools/omniroute-vision.env`. Full `-Live -Vision` + phase SSIM still need inference/OmniRoute vision backend. `BridgeLoadSaveHooks` must patch `loadWorld(string, bool)` explicitly or `Core.Init` fails (loading screen stall). `wsm3d-shaders` bundle **re-enabled** (2022.3.62f3 rebake); runtime loads **3/9** shaders (`OpaqueVertexColor`, `GerstnerWater`, `ColorGradingLUT`). Loading all nine still crashes or yields empty `.name` on ProceduralSky/Impostor/ScreenSpaceAO/GI/BrpBloom/BrpACES — fix those assets in bake project before widening whitelist.
+- Current live status: `docs/issue-triage.md` says the runtime is still broken: Harmony patches are not applying, the screenshot pipeline is capturing the wrong window, and no phase has been visually verified in actual WorldBox gameplay. Until those blockers are fixed, treat PlayCUA pass counts and artifact PNGs as automation claims, not proof of shipped visuals. `BridgeLoadSaveHooks` must patch `loadWorld(string, bool)` explicitly or `Core.Init` fails (loading screen stall). `wsm3d-shaders` bundle remains only partially usable: runtime loads **3/9** shaders (`OpaqueVertexColor`, `GerstnerWater`, `ColorGradingLUT`), while the other 6 report empty names or otherwise fail in the current bake.
 - **PlayCUA sample scenarios (live runs)** — 13 YAML files in `Tools/wsm3d-playcua/sample-scenarios/` (see list below). E2E guards in `PlaycuaSampleScenarioInvariantsTests.cs`; OmniRoute vision steps need a running game + bridge (`127.0.0.1:8766`).
 - **OmniRoute API key** (optional) — for PlayCUA screenshot vision via `OMNROUTE_API_KEY` + `OMNROUTE_VISION_COMBO` (or `ANTHROPIC_API_KEY` fallback). Journey mock and offline live-verify gate work without either.
 
@@ -268,7 +268,7 @@ All paths under `Tools/wsm3d-playcua/sample-scenarios/`:
 - **MCP:** `Tools/wsm3d-mcp/` — Python FastMCP with 18 tools, auto-registered via `.claude/mcp-servers.json`.
 - **Journey gate:** `.github/workflows/journeys-gate.yml` — OCR-assertion DSL; verify with `phenotype-journey verify <manifest> --mock`. Live capture remains the final proof step; entry point: `docs/live-verification.md`.
 - **Live-verify gate (CI):** `.github/workflows/live-verify-gate.yml` — offline `dotnet test` + journey mock (stages 1–2 of `Tools/wsm-live-verify.ps1`; **486 pass / 3 skip**, 489 total locally). Reused by **nightly** (`nightly.yml` → `live-verify-offline` job). Full harness: `pwsh Tools/wsm-live-verify.ps1` (add `-Live -Vision` for PlayCUA + SSIM + OmniRoute vision on a desktop with WorldBox + bridge).
-- **ADR-0007 (conditional patch dispatch):** **Accepted** — `PhasePatchGate.ShouldApplyHarmonyPatch` wired from `Core.Patch()`; phase 1/2 PlayCUA smoke passed. E2E: `ConditionalPatchDispatchInvariantsTests`.
+- **ADR-0007 (conditional patch dispatch):** **Accepted in code, runtime still unproven** — `PhasePatchGate.ShouldApplyHarmonyPatch` is wired from `Core.Patch()`, but `docs/issue-triage.md` reports `0/4 Harmony types affected` for VoxelEntities. E2E: `ConditionalPatchDispatchInvariantsTests`.
 - **Live verify:** `docs/live-verification.md` — programmatic (`dotnet test`, journey mock, optional SSIM ≥ 0.95) vs agentic (`wsm3d-playcua` sample scenarios, OmniRoute combo, bridge save/load checklist).
 
 When you need a release or handoff bundle, use the canonical checklist in [`docs/live-verification.md`](live-verification.md#canonical-live-proof-bundle). It is the single place that names the required live verifier command, `Tools/.reports/live-verify-latest.json`, PlayCUA artifacts, phase-preview SSIM fixtures, and the explicit skip/offline note when `live-playcua-ssim` does not run.
@@ -338,8 +338,8 @@ c73f85b chore(release): bump to v2.0.0-beta.6
 
 - Push to `claude/research-ultraplan-fork-DdgI5`, not `main`.
 - Use `git push --no-recurse-submodules origin HEAD` (submodule pinned at `73a7b77`).
-- **PR #1** is OPEN and MERGEABLE; all blocking CI gates green except Vercel deploy rate limit (non-blocking).
+- **PR #1** is OPEN and MERGEABLE; CI status here reflects repo automation, not in-game visual proof.
 - Pre-merge checklist: [`docs/MERGE_CHECKLIST.md`](MERGE_CHECKLIST.md).
 - One PR per phase; commits within a phase can be incremental.
-- After a phase smoke-tests clean: flip its `SavedSettings` flag default,
-  update the README phase table, update this doc's "What's shipped" row.
+- After a phase is proven in actual WorldBox gameplay: flip its `SavedSettings` flag default,
+  update the README phase table, update this doc's landed/runtime status row.

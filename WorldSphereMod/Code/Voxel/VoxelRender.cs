@@ -45,6 +45,11 @@ namespace WorldSphereMod.Voxel
         /// </summary>
         public static void Reset()
         {
+            // Drain the batcher BEFORE destroying the material — pending
+            // submissions hold references to meshes/materials that become
+            // destroyed-Unity-null after this method runs, causing NRE in
+            // DrawFallbackPath when Flush iterates stale bucket keys.
+            MeshInstanceBatcher.Reset();
             if (_material != null) Object.Destroy(_material);
             _material = null;
             _materialAttempted = false;

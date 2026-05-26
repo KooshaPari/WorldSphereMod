@@ -39,6 +39,7 @@ namespace WorldSphereMod
 
             int harmonyCount = phaseTypes.Count(t => t.GetCustomAttribute<HarmonyPatch>() != null);
             int affected = 0;
+            int alreadyPatched = 0;
 
             if (newValue)
             {
@@ -63,6 +64,10 @@ namespace WorldSphereMod
                             Debug.LogWarning($"[WSM3D] PhasePatchManager: Patch() failed for {type.FullName}: {ex.Message}");
                         }
                     }
+                    else
+                    {
+                        alreadyPatched++;
+                    }
                 }
             }
             else
@@ -77,7 +82,8 @@ namespace WorldSphereMod
                 }
             }
 
-            Debug.Log($"[WSM3D] PhasePatchManager: {flagName} -> {newValue} ({affected}/{harmonyCount} Harmony types affected, {phaseTypes.Count - harmonyCount} non-Harmony types skipped)");
+            string alreadyNote = alreadyPatched > 0 ? $", {alreadyPatched} already active from init" : "";
+            Debug.Log($"[WSM3D] PhasePatchManager: {flagName} -> {newValue} ({affected}/{harmonyCount} Harmony types affected, {phaseTypes.Count - harmonyCount} non-Harmony types skipped{alreadyNote})");
         }
 
         private static void UnpatchClass(Type type)
