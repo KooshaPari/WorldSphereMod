@@ -16,19 +16,19 @@ This fork lands a real 3D pipeline on top of that foundation:
 
 | Phase | Status | What changes |
 |---|---|---|
-| 0  | landed       | Fork metadata, build portability (`WORLDBOX_PATH`), CI, settings/API v2 |
-| 1  | **landed (default ON)** | Voxelized actors + buildings. Current code default: `VoxelEntities = true`. Live smoke-test verification is documented separately; do not infer it from the default alone. |
-| 2  | **landed (default OFF)** | Procedural building meshes. Current code default: `ProceduralBuildings = false`. |
-| 3  | code-complete (default OFF) | 3a trees/bushes/rocks crossed-quads + 3b surface overlays + walls as 3D prisms. Current code default: `CrossedQuadFoliage = false`. |
-| 4  | code-complete (default OFF) | Mesh water — WaterGerstner shader source landed; AssetBundle bake deferred to Phase 5b. Current code default: `MeshWater = false`. |
-| 5  | code-complete (default OFF) | Sun driver + shadow cascade config + procedural sky landed. Current code defaults: `HighShadows = false`, `HdrSkybox = false`, `ColorGradingLut = false`. |
-| 6  | **landed (default OFF)** | Skeletal pipeline. Current code default: `SkeletalAnimation = false`. |
-| 7  | code-complete (default OFF) | Worldspace UI: nameplate, HP bar, damage popups, selection ring all landed; SelectionHooks wired via `SelectedUnit`. Current code defaults: `WorldspaceUI = false`, `WorldspaceLabel3D = false`. |
-| 8  | code-complete (default OFF) | TimeOfDay autonomous driver + SunRig color gradient; ProceduralSky landed. Current code default: `DayNightCycle = false`; `FogDensity = 0.05f`. |
-| 9  | partial / default OFF | Particle bursts on 5 effect IDs + URP PostFX volume. Current code defaults: `ParticleEffects = false`, `PostFX = false`, `SSAOEnabled = false`, `SSGIEnabled = false`. |
-| 10 | code-complete (no proxy) | FrustumCuller + LodSelector + ImpostorBillboard + softened hardware gate; Proxy tier still routes to Voxel. |
+| 0  | code landed | Fork metadata, build portability (`WORLDBOX_PATH`), CI, settings/API v2 |
+| 1  | code present, runtime unverified | Voxelized actors + buildings. Current code default: `VoxelEntities = true`, but `docs/issue-triage.md` says the Harmony patches are still not applying in-game. |
+| 2  | code present, runtime unverified | Procedural building meshes. Current code default: `ProceduralBuildings = false`. |
+| 3  | code present, runtime unverified | 3a trees/bushes/rocks crossed-quads + 3b surface overlays + walls as 3D prisms. Current code default: `CrossedQuadFoliage = false`. |
+| 4  | code present, runtime unverified | Mesh water — WaterGerstner shader source landed; AssetBundle bake deferred to Phase 5b. Current code default: `MeshWater = false`. |
+| 5  | code present, runtime unverified | Sun driver + shadow cascade config + procedural sky landed. Current code defaults: `HighShadows = false`, `HdrSkybox = false`, `ColorGradingLut = false`. |
+| 6  | code present, runtime unverified | Skeletal pipeline. Current code default: `SkeletalAnimation = false`. |
+| 7  | code present, runtime unverified | Worldspace UI: nameplate, HP bar, damage popups, selection ring all landed; SelectionHooks wired via `SelectedUnit`. Current code defaults: `WorldspaceUI = false`, `WorldspaceLabel3D = false`. |
+| 8  | code present, runtime unverified | TimeOfDay autonomous driver + SunRig color gradient; ProceduralSky landed. Current code default: `DayNightCycle = false`; `FogDensity = 0.05f`. |
+| 9  | code present, runtime unverified | Particle bursts on 5 effect IDs + URP PostFX volume. Current code defaults: `ParticleEffects = false`, `PostFX = false`, `SSAOEnabled = false`, `SSGIEnabled = false`. |
+| 10 | code present, runtime unverified | FrustumCuller + LodSelector + ImpostorBillboard + softened hardware gate; Proxy tier still routes to Voxel. |
 
-`v2.0.0-beta.0` marks the start of beta: all 10 phases are code-complete, default-on behavior is active, and visible 3D rendering is now fully in place.
+`v2.0.0-beta.0` marks the start of beta in the project history, but it should not be read as proof that all 10 phases are visually working in the current runtime. `docs/issue-triage.md` says the live system is still broken, with no phase visually verified in actual WorldBox gameplay.
 
 The full plan, including file-by-file changes and verification steps, lives
 at `docs/PLAN.md`.

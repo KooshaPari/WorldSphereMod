@@ -354,7 +354,7 @@ namespace WorldSphereMod.TileMapToSphere
     }
     public static class AddLayers
     {
-        static MethodInfo GetPixel => AccessTools.Method(typeof(Dictionary<MapLayer, PixelArray>), "get_Item");
+        static MethodInfo GetPixel => AccessTools.Method(typeof(AddLayers), nameof(GetPixelArray));
         static MethodInfo SetPixel => AccessTools.Method(typeof(PixelArray), "set_Item");
         static FieldInfo Pixels => AccessTools.Field(typeof(Core.Sphere), nameof(Core.Sphere.CachedColors));
         static CodeMatch FindPixels => new CodeMatch((CodeInstruction instruction) => instruction.opcode == OpCodes.Ldfld && instruction.operand is FieldInfo field && field.Name == "pixels");
@@ -402,6 +402,28 @@ namespace WorldSphereMod.TileMapToSphere
                 }
                 return Matcher.Instructions();
             } catch (System.Exception ex) { global::UnityEngine.Debug.LogWarning("[WSM3D] MapLayerTranspiler failed: " + ex.GetType().Name + " — returning original"); return instructions; }
+        }
+
+        public static PixelArray GetPixelArray(Dictionary<MapLayer, PixelArray> pixels, MapLayer layer)
+        {
+            if (pixels == null)
+            {
+                throw new ArgumentNullException(nameof(pixels));
+            }
+
+            if (layer == null)
+            {
+                throw new ArgumentNullException(nameof(layer));
+            }
+
+            if (pixels.TryGetValue(layer, out PixelArray cached) && cached != null)
+            {
+                return cached;
+            }
+
+            cached = new PixelArray(layer);
+            pixels[layer] = cached;
+            return cached;
         }
         //why maxim
         public static IEnumerable<CodeInstruction> ZoneLayerTranspiler(IEnumerable<CodeInstruction> instructions)
@@ -518,12 +540,23 @@ namespace WorldSphereMod.TileMapToSphere
             {
                 return;
             }
+            if (Layer == null || World.world == null || World.world.tiles_list == null || I < 0 || I >= World.world.tiles_list.Count)
+            {
+                return;
+            }
             if (Layer.IsBase())
             {
                 AddToColorQueue(World.world.tiles_list[I]);
                 return;
             }
-            Core.Sphere.UpdateLayer(World.world.tiles_list[I].WorldToSphere());
+            try
+            {
+                Core.Sphere.UpdateLayer(World.world.tiles_list[I].WorldToSphere());
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[WSM3D] PixelArray.AddLayer failed for {Layer?.name ?? "<null>"}[{I}]: {ex.Message}");
+            }
         }
         MapLayer Layer;
         public PixelArray(MapLayer Layer)
@@ -532,6 +565,10 @@ namespace WorldSphereMod.TileMapToSphere
         }
         void Set(int I, Color32 Color)
         {
+            if (Layer == null || Layer.pixels == null || I < 0 || I >= Layer.pixels.Length)
+            {
+                return;
+            }
             //somehow more laggy then updating tiles which havent changed
            // if (!Layer.pixels[I].EqualsColor(Color))
             {
