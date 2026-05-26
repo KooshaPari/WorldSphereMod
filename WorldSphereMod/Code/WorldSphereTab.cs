@@ -133,7 +133,7 @@ namespace WorldSphereMod.UI
             textRect.position = new Vector3(0, 0, 0);
             textRect.localPosition = pos + new Vector3(0, -50, 0);
             textRect.sizeDelta = new Vector2(100, 100) + addSize;
-            textGo.AddComponent<GraphicRaycaster>();
+            textComp.raycastTarget = false;
             textComp.text = textString;
 
             return textComp;

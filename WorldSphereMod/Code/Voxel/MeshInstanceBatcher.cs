@@ -66,6 +66,10 @@ namespace WorldSphereMod.Voxel
         static readonly int _colorPropUnlit = Shader.PropertyToID("_Color");
         static readonly int _emissionProp = Shader.PropertyToID("_EmissionColor");
         static readonly UnityEngine.Color _bakeEmission = new UnityEngine.Color(0.15f, 0.15f, 0.15f, 1f);
+    // Scratch array for per-instance _EmissionColor so UNITY_ACCESS_INSTANCED_PROP
+    // reads the value correctly (SetColor alone writes a shared value that the
+    // instanced cbuffer ignores — falling back to the material default (0,0,0)).
+    static Vector4[] _emissionScratch = new Vector4[kBatch];
         const int kBatch = 1023;
         const float kDebugCubeSize = 0.5f;
         static bool UseBrg => Core.savedSettings != null && Core.savedSettings.UseBRG;
@@ -249,7 +253,17 @@ namespace WorldSphereMod.Voxel
                     bucket.Block.Clear();
                     bucket.Block.SetVectorArray(_colorProp, bucket.ColScratch);
                     bucket.Block.SetVectorArray(_colorPropUnlit, bucket.ColScratch);
-                    bucket.Block.SetColor(_emissionProp, _bakeEmission);
+                    // Fill emission scratch array so UNITY_ACCESS_INSTANCED_PROP
+                    // reads the correct value. SetColor alone writes a shared
+                    // value that the per-instance cbuffer ignores, causing
+                    // _EmissionColor to fall back to the material default (0,0,0)
+                    // — which makes voxels invisible against dark backgrounds.
+                    if (_emissionScratch.Length < n)
+                        _emissionScratch = new Vector4[n];
+                    Vector4 emV = _bakeEmission;
+                    for (int ei = 0; ei < n; ei++)
+                        _emissionScratch[ei] = emV;
+                    bucket.Block.SetVectorArray(_emissionProp, _emissionScratch);
                     try
                     {
                         if (verboseDrawLogging)

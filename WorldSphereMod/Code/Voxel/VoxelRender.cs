@@ -249,6 +249,23 @@ namespace WorldSphereMod.Voxel
                 if (existing != null)
                 {
                     Material inlineMaterial = new Material(existing) { name = "WSM3D.Voxel.OpaqueVertexColor", enableInstancing = true };
+                    // Geometry+1 (queue 2001) so voxel meshes render just AFTER
+                    // terrain (queue 2000). Without this, voxels at Geometry share
+                    // the same render queue as terrain and z-fight — losing to
+                    // terrain fragments at the same depth, producing invisible output.
+                    inlineMaterial.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Geometry + 1;
+                    // Belt+suspenders: set _MainTex to white and _EmissionColor to
+                    // the same boost the Standard fallback uses. The shader defaults
+                    // _MainTex to "white" {} but some Unity runtimes leave it null
+                    // until explicitly set; _EmissionColor defaults to black in the
+                    // Properties block which is too dim in unlit WorldBox scenes.
+                    inlineMaterial.SetTexture("_MainTex", UnityEngine.Texture2D.whiteTexture);
+                    inlineMaterial.SetColor("_Color", UnityEngine.Color.white);
+                    inlineMaterial.SetColor("_EmissionColor", new UnityEngine.Color(0.15f, 0.15f, 0.15f, 1f));
+                    if (MeshInstanceBatcher.UseFallbackPath)
+                    {
+                        inlineMaterial.enableInstancing = false;
+                    }
                     ConfigureVoxelMaterial(inlineMaterial, "WSM3D/OpaqueVertexColor");
                     ConfigureVertexColorShaderMode(inlineMaterial, "WSM3D/OpaqueVertexColor");
                     McPackLoader.ApplyToMaterial(inlineMaterial);

@@ -978,11 +978,10 @@ namespace WorldSphereMod
                 {
                     try
                     {
-                        // All 8 shaders fixed in commit 92de3a8 (static const arrays → functions,
-                        // pow(0) guard, #pragma target 3.0). Library/ cache purged so Unity 2022.3
-                        // regenerates from clean state — eliminates the ManagedStream crash that
-                        // was caused by a stale Unity 6000.3 ArtifactDB in the bake project.
-                        foreach (var shaderName in new[] { "OpaqueVertexColor", "GerstnerWater", "ColorGradingLUT", "StratumVoxelPBR", "ProceduralSky", "Impostor", "ScreenSpaceAO", "ScreenSpaceGI", "BrpBloom", "BrpACES" })
+                        // DO NOT ADD MORE SHADERS to SafeShaders — see ADR-0013.
+                        // The other 7 shaders in this bundle produce ManagedStream
+                        // errors that trigger Unity's native crash reporter.
+                        foreach (var shaderName in SafeShaders)
                         {
                             UnityEngine.Shader sh = null;
                             try
@@ -1146,6 +1145,22 @@ namespace WorldSphereMod
                     LibraryMaterials.instance._night_affected_colors.Add(CompoundSphereMaterial);
                 }
             }
+
+            // ----------------------------------------------------------------
+            // DO NOT ADD MORE SHADERS — the other 7 in wsm3d-shaders
+            // (StratumVoxelPBR, ProceduralSky, Impostor, ScreenSpaceAO,
+            // ScreenSpaceGI, BrpBloom, BrpACES) produce ManagedStream
+            // errors on load, which trigger Unity's native crash reporter
+            // ("Uploading Crash Report") and can freeze or kill the game.
+            // Even though we catch exceptions in C#, the crash fires in
+            // Unity's native layer before our catch runs. See ADR-0013.
+            // ----------------------------------------------------------------
+            public static readonly string[] SafeShaders = new[]
+            {
+                "OpaqueVertexColor",
+                "GerstnerWater",
+                "ColorGradingLUT",
+            };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look
             // here BEFORE Shader.Find — AssetBundle shaders aren't auto-

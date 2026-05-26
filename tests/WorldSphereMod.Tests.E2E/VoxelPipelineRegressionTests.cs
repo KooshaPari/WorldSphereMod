@@ -180,20 +180,60 @@ public class VoxelPipelineRegressionTests
     {
         var source = ReadSourceFile("WorldSphereMod/Code/Core.cs");
 
-        // The shader load loop iterates over a string array of shader names.
-        // OpaqueVertexColor must be in that array.
-        var match = Regex.Match(source,
-            @"new\[\]\s*\{[^}]*""OpaqueVertexColor""[^}]*\}",
-            RegexOptions.Singleline);
-
-        match.Success.Should().BeTrue(
-            "Core.cs LoadAssets must include \"OpaqueVertexColor\" in the shader " +
-            "name array so it gets loaded from the wsm3d-shaders bundle into " +
-            "LoadedShaders cache");
+        // SafeShaders constant must contain OpaqueVertexColor.
+        source.Should().Contain("\"OpaqueVertexColor\"",
+            "Core.cs SafeShaders must include \"OpaqueVertexColor\" so it gets " +
+            "loaded from the wsm3d-shaders bundle into LoadedShaders cache");
 
         // Also verify it gets stored into LoadedShaders
         source.Should().Contain("LoadedShaders[shaderName] = sh",
             "loaded shaders must be stored in the LoadedShaders dictionary");
+    }
+
+    // ---------------------------------------------------------------
+    // 6b. Shader load list matches SafeShaders EXACTLY
+    // ---------------------------------------------------------------
+    // ADR-0013: loading corrupted shaders from wsm3d-shaders triggers
+    // Unity's native crash reporter ("Uploading Crash Report") which
+    // freezes the game. Only 3 of 10 bundle shaders load without
+    // ManagedStream errors. The foreach loop MUST use SafeShaders and
+    // SafeShaders MUST contain exactly these 3 names, no more.
+    [Fact]
+    public void Core_shader_load_list_matches_SafeShaders_exactly()
+    {
+        var source = ReadSourceFile("WorldSphereMod/Code/Core.cs");
+
+        // SafeShaders must be a named constant (not inline)
+        source.Should().Contain("public static readonly string[] SafeShaders",
+            "SafeShaders must be a public static readonly string[] constant");
+
+        // The foreach must iterate over SafeShaders, not an inline array
+        source.Should().Contain("foreach (var shaderName in SafeShaders)",
+            "the shader load loop must iterate over the SafeShaders constant, " +
+            "not an inline array — prevents agents from silently expanding the list");
+
+        // Extract the SafeShaders array initializer and verify exact contents.
+        var arrayMatch = Regex.Match(source,
+            @"SafeShaders\s*=\s*new\s*\[\]\s*\{(?<body>[^}]*)\}",
+            RegexOptions.Singleline);
+        arrayMatch.Success.Should().BeTrue("SafeShaders array initializer must exist");
+
+        var entries = Regex.Matches(arrayMatch.Groups["body"].Value, @"""(?<name>[^""]+)""");
+        var shaderNames = new string[entries.Count];
+        for (int i = 0; i < entries.Count; i++)
+            shaderNames[i] = entries[i].Groups["name"].Value;
+
+        var expected = new[] { "OpaqueVertexColor", "GerstnerWater", "ColorGradingLUT" };
+        shaderNames.Should().BeEquivalentTo(expected,
+            "SafeShaders must contain EXACTLY these 3 shaders — the other 7 in " +
+            "wsm3d-shaders (StratumVoxelPBR, ProceduralSky, Impostor, ScreenSpaceAO, " +
+            "ScreenSpaceGI, BrpBloom, BrpACES) produce ManagedStream errors that " +
+            "trigger Unity's native crash reporter. See ADR-0013.");
+
+        // The ADR-0013 reference must be present as a guard against uninformed edits
+        source.Should().Contain("ADR-0013",
+            "the SafeShaders constant or its comment must reference ADR-0013 " +
+            "so future editors know WHY the list is restricted");
     }
 
     // ---------------------------------------------------------------

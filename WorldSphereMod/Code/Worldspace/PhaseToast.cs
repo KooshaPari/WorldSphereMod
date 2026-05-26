@@ -222,6 +222,7 @@ namespace WorldSphereMod.Worldspace
 
             var bg = go.AddComponent<Image>();
             bg.color = new Color(0.15f, 0.15f, 0.15f, 0.85f);
+            bg.raycastTarget = false;
 
             var textGO = new GameObject("text");
             textGO.transform.SetParent(go.transform, worldPositionStays: false);
