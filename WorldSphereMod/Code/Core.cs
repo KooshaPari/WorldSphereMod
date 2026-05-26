@@ -349,6 +349,7 @@ namespace WorldSphereMod
 
                 Patcher.PatchAll(typeof(WorldSphereMod.Bridge.BridgePerFrameTick));
                 Patcher.PatchAll(typeof(WorldSphereMod.Bridge.BridgeSurvivalBackup));
+                Patcher.PatchAll(typeof(WorldSphereMod.Bridge.BridgeLoadSaveHooks));
                 Patcher.PatchAll(typeof(SphereControl));
                 Patcher.PatchAll(typeof(Dist3D));
                 Patcher.PatchAll(typeof(EffectPatches));
