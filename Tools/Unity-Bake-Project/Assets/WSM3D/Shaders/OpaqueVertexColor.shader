@@ -27,7 +27,7 @@ Shader "WSM3D/OpaqueVertexColor"
 
     SubShader
     {
-        Tags { "RenderType"="Opaque" "Queue"="Geometry" "DisableBatching"="False" "IgnoreProjector"="True" }
+        Tags { "RenderType"="Opaque" "Queue"="Geometry+1" "DisableBatching"="False" "IgnoreProjector"="True" }
         LOD 100
         Cull Off
         ZWrite On

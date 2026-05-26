@@ -1207,7 +1207,7 @@ namespace WorldSphereMod.Bridge
             try
             {
                 BuildingManager buildings = World.world != null ? World.world.buildings : null;
-                if (buildings != null) visibleBuildings = buildings.visible_buildings.count;
+                if (buildings != null) visibleBuildings = buildings._visible_buildings_count;
             }
             catch { }
 
@@ -1385,6 +1385,11 @@ namespace WorldSphereMod.Bridge
         static long SafeLong(Func<long> read)
         {
             try { return read(); } catch { return 0L; }
+        }
+
+        static int SafeCount(Func<int> read)
+        {
+            try { return read(); } catch { return 0; }
         }
 
         static float SafeHitRate(Func<long> hits, Func<long> misses)
