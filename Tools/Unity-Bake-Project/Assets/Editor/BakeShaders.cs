@@ -68,6 +68,10 @@ public static class BakeShaders
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
+        // Belt-and-suspenders: add every shader to GraphicsSettings.alwaysIncludedShaders
+        // so the stripping pipeline cannot remove them regardless of SVC state.
+        PinShadersInGraphicsSettings(assetsShaderDir);
+
         // Build (or update) the ShaderVariantCollection so Unity 2022.3 variant
         // stripping cannot remove any of our 10 shaders from the bundle.
         // Without an SVC that references them, Unity treats shader variants as
@@ -161,6 +165,66 @@ public static class BakeShaders
         }
 
         Debug.Log($"[WSM3D-Bake] ShaderVariantCollection ready — {added} shaders pinned.");
+    }
+
+    // Adds every shader in assetsShaderDir to GraphicsSettings.alwaysIncludedShaders
+    // at editor-time, mirroring what the ProjectSettings/GraphicsSettings.asset YAML
+    // already encodes.  Running this at bake time ensures the list stays current
+    // even if Unity reimports and resets the asset file.
+    static void PinShadersInGraphicsSettings(string assetsShaderDir)
+    {
+        // Load via the undocumented but stable SerializedObject path for ProjectSettings assets.
+        var gsAssets = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/GraphicsSettings.asset");
+        if (gsAssets == null || gsAssets.Length == 0)
+        {
+            Debug.LogWarning("[WSM3D-Bake] Could not load GraphicsSettings.asset for SerializedObject edit; skipping runtime pin.");
+            return;
+        }
+        var gsSo = new SerializedObject(gsAssets[0]);
+        var alwaysProp = gsSo.FindProperty("m_AlwaysIncludedShaders");
+        if (alwaysProp == null)
+        {
+            Debug.LogWarning("[WSM3D-Bake] m_AlwaysIncludedShaders property not found; skipping runtime pin.");
+            return;
+        }
+
+        int pinned = 0;
+        foreach (var path in Directory.GetFiles(assetsShaderDir, "*.shader"))
+        {
+            string rel = "Assets/" + Path.GetRelativePath(Application.dataPath, path).Replace('\\', '/');
+            var shader = AssetDatabase.LoadAssetAtPath<Shader>(rel);
+            if (shader == null)
+            {
+                Debug.LogWarning("[WSM3D-Bake] PinShaders: shader not found at " + rel);
+                continue;
+            }
+
+            // Check if already present to avoid duplicates.
+            bool found = false;
+            for (int i = 0; i < alwaysProp.arraySize; i++)
+            {
+                var elem = alwaysProp.GetArrayElementAtIndex(i);
+                if (elem.objectReferenceValue == shader) { found = true; break; }
+            }
+            if (!found)
+            {
+                alwaysProp.arraySize++;
+                var newElem = alwaysProp.GetArrayElementAtIndex(alwaysProp.arraySize - 1);
+                newElem.objectReferenceValue = shader;
+                pinned++;
+                Debug.Log("[WSM3D-Bake] PinShaders: added to AlwaysIncluded: " + shader.name);
+            }
+        }
+
+        if (pinned > 0)
+        {
+            gsSo.ApplyModifiedPropertiesWithoutUndo();
+            Debug.Log($"[WSM3D-Bake] PinShaders: {pinned} shaders added to GraphicsSettings.alwaysIncludedShaders.");
+        }
+        else
+        {
+            Debug.Log("[WSM3D-Bake] PinShaders: all shaders already present in alwaysIncludedShaders.");
+        }
     }
 
     [MenuItem("WSM3D/Bake wsm3d-shaders AssetBundles")]
