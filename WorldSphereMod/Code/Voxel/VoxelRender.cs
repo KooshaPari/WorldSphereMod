@@ -1068,6 +1068,17 @@ namespace WorldSphereMod.Voxel
                 try { VoxelMeshCache.Clear(); } catch (System.Exception ex) { Debug.LogWarning("[WSM3D] First-frame VoxelMeshCache.Clear failed: " + ex.Message); }
             }
 
+            // Deferred world-state init: NML sometimes skips PostInit when a
+            // save loads before the post-init phase runs. PrepareAssets was
+            // already called in Init, but PrepareWorld needs World.world which
+            // may not have existed then. Catch it here on the first frame
+            // where the world is ready.
+            if (!Core.Sphere.WorldPrepared)
+            {
+                try { Core.Sphere.PrepareWorld(); }
+                catch (System.Exception ex) { Debug.LogError($"[WSM3D] Deferred Sphere.PrepareWorld FAILED: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}"); }
+            }
+
             float deltaTime = Time.deltaTime;
             _perfFrameCounter++;
             _perfDeltaTimeSum += deltaTime;

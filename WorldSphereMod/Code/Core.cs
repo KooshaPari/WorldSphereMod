@@ -145,6 +145,15 @@ namespace WorldSphereMod
             InitProfiler.Measure("WorldSphereTab.Begin", () => WorldSphereTab.Begin());
             InitProfiler.Measure("DimensionConverter.Prepare", () => DimensionConverter.Prepare());
             InitProfiler.Measure("Patch", () => Patch());
+            // Load AssetBundle/shaders/mesh/material eagerly during Init so
+            // they are available even when NML skips PostInit (save loaded
+            // before post-init phase). World-dependent parts of Prepare run
+            // later in PostInit or on the first VoxelFrameDriver tick.
+            InitProfiler.Measure("Sphere.PrepareAssets", () =>
+            {
+                try { Sphere.PrepareAssets(); }
+                catch (System.Exception ex) { Debug.LogError($"[WSM3D] Sphere.PrepareAssets FAILED: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}"); }
+            });
             try { WorldSphereMod.Voxel.VoxelMeshCache.Clear(); } catch { }
             // Gated: McPack bundle competes with worldsphere main bundle (NML's
             // AssetBundleUtils throws NRE on duplicate file IDs). Opt-in only.
@@ -866,21 +875,59 @@ namespace WorldSphereMod
             {
                 return Manager.SphereTilePosition(X, Y, Height);
             }
-            public static void Prepare()
+            /// <summary>Whether <see cref="PrepareAssets"/> has already run.</summary>
+            public static bool AssetsPrepared { get; private set; }
+            /// <summary>Whether <see cref="PrepareWorld"/> has already run.</summary>
+            public static bool WorldPrepared { get; private set; }
+
+            /// <summary>
+            /// Load the AssetBundle, shaders, mesh, and material. Has NO dependency
+            /// on <c>World.world</c> so it is safe to call during <c>Init()</c>.
+            /// Idempotent — subsequent calls are no-ops.
+            /// </summary>
+            public static void PrepareAssets()
             {
+                if (AssetsPrepared) return;
+                AssetsPrepared = true;
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 LoadAssets();
-                Debug.Log($"[WSM3D][PERF] Sphere.Prepare.LoadAssets={sw.Elapsed.TotalMilliseconds:F3}ms");
-                sw.Restart();
+                Debug.Log($"[WSM3D][PERF] Sphere.PrepareAssets.LoadAssets={sw.Elapsed.TotalMilliseconds:F3}ms");
+            }
+
+            /// <summary>
+            /// Build tile textures and cache map-layer colours. Requires
+            /// <c>World.world</c> to be initialized. Idempotent.
+            /// </summary>
+            public static void PrepareWorld()
+            {
+                if (WorldPrepared) return;
+                if (World.world == null || World.world._map_layers == null)
+                {
+                    Debug.LogWarning("[WSM3D] Sphere.PrepareWorld skipped — World.world not ready yet.");
+                    return;
+                }
+                WorldPrepared = true;
+                var sw = System.Diagnostics.Stopwatch.StartNew();
                 CreateTextures();
-                Debug.Log($"[WSM3D][PERF] Sphere.Prepare.CreateTextures={sw.Elapsed.TotalMilliseconds:F3}ms");
+                Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.CreateTextures={sw.Elapsed.TotalMilliseconds:F3}ms");
                 sw.Restart();
                 BaseLayers = new List<MapLayer>(World.world._map_layers);
                 BaseLayers.Remove(FlashLayer);
-                Debug.Log($"[WSM3D][PERF] Sphere.Prepare.BaseLayersCopy={sw.Elapsed.TotalMilliseconds:F3}ms");
+                Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.BaseLayersCopy={sw.Elapsed.TotalMilliseconds:F3}ms");
                 sw.Restart();
                 CreateCachedColors();
-                Debug.Log($"[WSM3D][PERF] Sphere.Prepare.CreateCachedColors={sw.Elapsed.TotalMilliseconds:F3}ms");
+                Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.CreateCachedColors={sw.Elapsed.TotalMilliseconds:F3}ms");
+            }
+
+            /// <summary>
+            /// Original entry point kept for backward compatibility. Calls both
+            /// <see cref="PrepareAssets"/> and <see cref="PrepareWorld"/>. Safe to
+            /// call even if PrepareAssets was already called from Init().
+            /// </summary>
+            public static void Prepare()
+            {
+                PrepareAssets();
+                PrepareWorld();
             }
             public static int WorldTileTexture(WorldTile Tile)
             {

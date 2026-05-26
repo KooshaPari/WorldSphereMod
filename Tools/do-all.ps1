@@ -29,16 +29,63 @@ try {
     # Offline tests first (no game required)
     pwsh (Join-Path $RepoRoot 'Tools/wsm-live-verify.ps1') 2>&1 | Out-Null
 
-    if (-not $SkipRelaunch) {
-        Write-Host '=== do-all: relaunch ===' -ForegroundColor Cyan
-        pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') relaunch -NoBuild | Out-Host
-        $deadline = (Get-Date).AddMinutes(3)
+    function Wait-BridgeReady {
+        param([int]$MaxMinutes = 5)
+        $deadline = (Get-Date).AddMinutes($MaxMinutes)
+        $health = $null
+        while ((Get-Date) -lt $deadline) {
+            try {
+                $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8766/health' -TimeoutSec 4
+                if ($health.bridgeAlive) { return $health }
+            } catch {}
+            Start-Sleep -Seconds 6
+        }
+        return $health
+    }
+
+    function Wait-World3D {
+        param([int]$MaxSeconds = 180)
+        $deadline = (Get-Date).AddSeconds($MaxSeconds)
         while ((Get-Date) -lt $deadline) {
             try {
                 $h = Invoke-RestMethod -Uri 'http://127.0.0.1:8766/health' -TimeoutSec 4
-                if ($h.bridgeAlive -and $h.isWorld3D) { break }
+                if ($h.isWorld3D) { return $h }
             } catch {}
-            Start-Sleep -Seconds 6
+            Start-Sleep -Seconds 5
+        }
+        try { return Invoke-RestMethod -Uri 'http://127.0.0.1:8766/health' -TimeoutSec 4 } catch { return $null }
+    }
+
+    if (-not $SkipRelaunch) {
+        Write-Host '=== do-all: relaunch ===' -ForegroundColor Cyan
+        pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') relaunch -NoBuild | Out-Host
+        Write-Host '=== do-all: wait bridge (up to 5m) ===' -ForegroundColor Cyan
+        $health = Wait-BridgeReady -MaxMinutes 5
+        if (-not $health -or -not $health.bridgeAlive) {
+            Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge not up after relaunch' }
+            throw 'Bridge did not become reachable after relaunch'
+        }
+        Add-DoAllStage 'bridge-wait' 'passed' @{ isWorld3D = [bool]$health.isWorld3D }
+
+        if (-not $health.isWorld3D) {
+            Write-Host '=== do-all: bootstrap save2 (bridge-save-load-smoke) ===' -ForegroundColor Cyan
+            $bootstrap = Join-Path $RepoRoot 'Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml'
+            python (Join-Path $RepoRoot 'Tools/wsm3d-playcua/main.py') $bootstrap --vision-backend off 2>&1 | Out-Host
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host 'bootstrap failed — continuing after wait' -ForegroundColor Yellow
+            }
+            $health = Wait-World3D -MaxSeconds 180
+        }
+    } else {
+        $health = Wait-BridgeReady -MaxMinutes 2
+        if (-not $health -or -not $health.bridgeAlive) {
+            Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge down' }
+            throw 'Bridge not reachable (use relaunch or start WorldBox)'
+        }
+        if (-not $health.isWorld3D) {
+            $bootstrap = Join-Path $RepoRoot 'Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml'
+            python (Join-Path $RepoRoot 'Tools/wsm3d-playcua/main.py') $bootstrap --vision-backend off 2>&1 | Out-Null
+            $health = Wait-World3D -MaxSeconds 180
         }
     }
 
@@ -56,7 +103,9 @@ try {
             if ($attempt -gt 1) {
                 Write-Host "playcua retry $attempt/$PlaycuaRetries — relaunch between attempts" -ForegroundColor Yellow
                 pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') relaunch -NoBuild | Out-Null
-                Start-Sleep -Seconds 75
+                $null = Wait-BridgeReady -MaxMinutes 5
+                Start-Sleep -Seconds 30
+                $null = Wait-World3D -MaxSeconds 120
             }
             pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') playcua run-all -VisionBackend off 2>&1 | Out-Host
             if ($LASTEXITCODE -eq 0) { $runOk = $true }
