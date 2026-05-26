@@ -4,6 +4,11 @@ Canonical "next session starts here" doc for WorldSphereMod3D.
 
 **Last updated:** 2026-05-26 (do-all / `Ensure-BridgeReady` / PlayCUA 13/13 with 3× run-all retries)
 
+Recent validation:
+
+- Bevy standalone black screen is fixed; `OrbitCamera` now targets the scene correctly.
+- Shader bake pipeline is functional via `Tools/bake-shaders.ps1`.
+
 ## TL;DR
 
 Hard fork of `MelvinShwuaner/WorldSphereMod` that finishes the 3D conversion
@@ -24,7 +29,7 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 | Active branch | `claude/research-ultraplan-fork-DdgI5` |
 | Open PR (#7) | https://github.com/KooshaPari/WorldSphereMod/pull/7 — **OPEN** — automation + phase gates (`do-all`, bridge recovery, PlayCUA 13/13) |
 | Release tag (remote) | **`v2.0.0-beta.6`** — [release](https://github.com/KooshaPari/WorldSphereMod/releases/tag/v2.0.0-beta.6) |
-| Offline test matrix | **525 pass / 3 skip** (528 total) — Unit 154 (+ 3 skip), Integration 69, E2E 302 |
+| Offline test matrix | **525 pass / 3 skip** (528 total) — Unit 154 (+ 3 skip), Integration 69, E2E 301 pass / 1 skip (302 total, NML compat) |
 | Cold-start orientation | `CLAUDE.md` |
 | Full 10-phase plan | `docs/PLAN.md` |
 | Per-phase architectures | `docs/phase{2..10}-architecture.md` |
@@ -225,7 +230,7 @@ Short form:
 - **Unity 2022.3 install** — required to bake `VoxelLit.shader`, `WaterGerstner.shader`, `ProceduralSky.shader` into AssetBundles for Phases 4, 5, 8.
 - **Live verification (agentic tier)** — `.github/workflows/live-verify-gate.yml` runs offline programmatic stages (`dotnet test` + journey mock via `Tools/wsm-live-verify.ps1`, report `Tools/.reports/live-verify-latest.json`). **Nightly** (`.github/workflows/nightly.yml`) calls the same reusable workflow for offline stages before lint/stats extras. Full agentic tier on a Windows desktop requires **WorldBox running + bridge on `127.0.0.1:8766` + OmniRoute** for vision: `pwsh Tools/wsm-live-verify.ps1 -Live -Vision`. See `docs/live-verification.md`.
 - Visual/vision approval and strict journey capture remain separate proof from PlayCUA capture + telemetry. phase SSIM still need inference/OmniRoute vision backend (Fireworks `fpk_*` keys return HTTP 403).
-- Current live status: `docs/issue-triage.md` says the runtime is still broken: Harmony patches are not applying, historical screenshot PNGs captured the wrong window (tooling fixed 2026-05-26 — `Win32Capture` now sets `capture_target: worldbox_window`), and no phase has been visually verified in actual WorldBox gameplay with post-fix captures. Until Harmony + refreshed screenshots are fixed, treat PlayCUA pass counts and stale artifact PNGs as automation claims, not proof of shipped visuals. `BridgeLoadSaveHooks` must patch `loadWorld(string, bool)` explicitly or `Core.Init` fails (loading screen stall). `wsm3d-shaders` bundle remains only partially usable: runtime loads **3/9** shaders (`OpaqueVertexColor`, `GerstnerWater`, `ColorGradingLUT`), while the other 6 report empty names or otherwise fail in the current bake.
+- Current live status: `docs/issue-triage.md` says the runtime is still broken: Harmony patches are not applying, historical screenshot PNGs captured the wrong window (tooling fixed 2026-05-26 — `Win32Capture` now sets `capture_target: worldbox_window`), and no phase has been visually verified in actual WorldBox gameplay with post-fix captures. Until Harmony + refreshed screenshots are fixed, treat PlayCUA pass counts and stale artifact PNGs as automation claims, not proof of shipped visuals. `BridgeLoadSaveHooks` must patch `loadWorld(string, bool)` explicitly or `Core.Init` fails (loading screen stall). Shader bake output is now functional through `Tools/bake-shaders.ps1`.
 - **PlayCUA sample scenarios (live runs)** — 13 YAML files in `Tools/wsm3d-playcua/sample-scenarios/` (see list below). E2E guards in `PlaycuaSampleScenarioInvariantsTests.cs`; OmniRoute vision steps need a running game + bridge (`127.0.0.1:8766`).
 - **OmniRoute API key** (optional) — for PlayCUA screenshot vision via `OMNROUTE_API_KEY` + `OMNROUTE_VISION_COMBO` (or `ANTHROPIC_API_KEY` fallback). Journey mock and offline live-verify gate work without either.
 
