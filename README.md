@@ -17,14 +17,14 @@ This fork lands a real 3D pipeline on top of that foundation:
 | Phase | Status | What changes |
 |---|---|---|
 | 0  | code landed | Fork metadata, build portability (`WORLDBOX_PATH`), CI, settings/API v2 |
-| 1  | code present, runtime unverified | Voxelized actors + buildings. Current code default: `VoxelEntities = true`, but `docs/issue-triage.md` says the Harmony patches are still not applying in-game. |
-| 2  | code present, runtime unverified | Procedural building meshes. Current code default: `ProceduralBuildings = false`. |
+| 1  | code present, runtime unverified | Voxelized actors + buildings. **default ON** — `VoxelEntities = true` (Harmony patches may still not apply in-game per `docs/issue-triage.md`). |
+| 2  | code present, runtime unverified | Procedural building meshes. **default OFF** — `ProceduralBuildings = false`. |
 | 3  | code present, runtime unverified | 3a trees/bushes/rocks crossed-quads + 3b surface overlays + walls as 3D prisms. Current code default: `CrossedQuadFoliage = false`. |
-| 4  | code present, runtime unverified | Mesh water — WaterGerstner shader source landed; AssetBundle bake deferred to Phase 5b. Current code default: `MeshWater = false`. |
+| 4  | code present, runtime unverified | Mesh water — WaterGerstner shader source landed; AssetBundle bake deferred to Phase 5b. **default OFF** — `MeshWater = false`. |
 | 5  | code present, runtime unverified | Sun driver + shadow cascade config + procedural sky landed. Current code defaults: `HighShadows = false`, `HdrSkybox = false`, `ColorGradingLut = false`. |
 | 6  | code present, runtime unverified | Skeletal pipeline. Current code default: `SkeletalAnimation = false`. |
 | 7  | code present, runtime unverified | Worldspace UI: nameplate, HP bar, damage popups, selection ring all landed; SelectionHooks wired via `SelectedUnit`. Current code defaults: `WorldspaceUI = false`, `WorldspaceLabel3D = false`. |
-| 8  | code present, runtime unverified | TimeOfDay autonomous driver + SunRig color gradient; ProceduralSky landed. Current code default: `DayNightCycle = false`; `FogDensity = 0.05f`. |
+| 8  | code present, runtime unverified | TimeOfDay autonomous driver + SunRig color gradient; ProceduralSky landed. **default OFF** — `DayNightCycle = false`; `FogDensity = 0.05f`. |
 | 9  | code present, runtime unverified | Particle bursts on 5 effect IDs + URP PostFX volume. Current code defaults: `ParticleEffects = false`, `PostFX = false`, `SSAOEnabled = false`, `SSGIEnabled = false`. |
 | 10 | code present, runtime unverified | FrustumCuller + LodSelector + ImpostorBillboard + softened hardware gate; Proxy tier still routes to Voxel. |
 
