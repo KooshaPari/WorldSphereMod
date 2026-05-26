@@ -1,9 +1,13 @@
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 public static class BakeShaders
 {
+    const string SvcAssetPath = "Assets/WSM3D/wsm3d-shader-variants.shadervariants";
+
     public static void BakeAll()
     {
         string repoRoot = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", ".."));
@@ -64,6 +68,12 @@ public static class BakeShaders
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
+        // Build (or update) the ShaderVariantCollection so Unity 2022.3 variant
+        // stripping cannot remove any of our 10 shaders from the bundle.
+        // Without an SVC that references them, Unity treats shader variants as
+        // unreachable and silently strips them during AssetBundle compilation.
+        EnsureShaderVariantCollection(assetsShaderDir);
+
         // Build only the shader bundle for win/linux/osx.
         string outBase = Path.Combine(repoRoot, "WorldSphereMod", "AssetBundles");
         var targets = new (BuildTarget t, string folder)[]
@@ -89,6 +99,68 @@ public static class BakeShaders
             Debug.Log($"[WSM3D-Bake] built wsm3d-shaders bundle for {target} -> {platformDir}");
         }
         Debug.Log("[WSM3D-Bake] All platforms done (shader-only bundle).");
+    }
+
+    // Creates or refreshes the ShaderVariantCollection at SvcAssetPath, adds
+    // one no-keyword Normal-pass entry for every shader in assetsShaderDir,
+    // tags the SVC asset to the wsm3d-shaders bundle, and registers it in
+    // PlayerSettings.preloadedAssets so the loader materialises it on startup.
+    static void EnsureShaderVariantCollection(string assetsShaderDir)
+    {
+        var svc = AssetDatabase.LoadAssetAtPath<ShaderVariantCollection>(SvcAssetPath);
+        if (svc == null)
+        {
+            svc = new ShaderVariantCollection();
+            AssetDatabase.CreateAsset(svc, SvcAssetPath);
+            Debug.Log("[WSM3D-Bake] created ShaderVariantCollection: " + SvcAssetPath);
+        }
+        else
+        {
+            svc.Clear();
+        }
+
+        int added = 0;
+        foreach (var path in Directory.GetFiles(assetsShaderDir, "*.shader"))
+        {
+            string rel = "Assets/" + Path.GetRelativePath(Application.dataPath, path).Replace('\\', '/');
+            var shader = AssetDatabase.LoadAssetAtPath<Shader>(rel);
+            if (shader == null)
+            {
+                Debug.LogError("[WSM3D-Bake] SVC: shader not found at " + rel);
+                continue;
+            }
+            // One no-keyword entry for the default forward pass (passType=Normal=0).
+            // This is the minimum needed to tell the stripping pipeline "keep this shader."
+            var variant = new ShaderVariantCollection.ShaderVariant(shader, PassType.Normal);
+            if (!svc.Contains(variant))
+                svc.Add(variant);
+            added++;
+            Debug.Log("[WSM3D-Bake] SVC +variant: " + shader.name);
+        }
+
+        EditorUtility.SetDirty(svc);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        // Tag the SVC itself to the same bundle so it travels with the shaders.
+        var svcImporter = AssetImporter.GetAtPath(SvcAssetPath);
+        if (svcImporter != null)
+        {
+            svcImporter.assetBundleName = "wsm3d-shaders";
+            svcImporter.SaveAndReimport();
+        }
+
+        // Register as a preloaded asset so Unity initialises the SVC before any
+        // scene loads — this is the second stripping guard beyond the bundle tag.
+        var preloaded = PlayerSettings.GetPreloadedAssets().ToList();
+        if (!preloaded.Contains(svc))
+        {
+            preloaded.Add(svc);
+            PlayerSettings.SetPreloadedAssets(preloaded.ToArray());
+            Debug.Log("[WSM3D-Bake] registered SVC in PlayerSettings.preloadedAssets");
+        }
+
+        Debug.Log($"[WSM3D-Bake] ShaderVariantCollection ready — {added} shaders pinned.");
     }
 
     [MenuItem("WSM3D/Bake wsm3d-shaders AssetBundles")]
