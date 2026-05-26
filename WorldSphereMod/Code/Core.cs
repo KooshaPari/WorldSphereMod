@@ -89,14 +89,7 @@ namespace WorldSphereMod
         static void LogPhaseFlagDefaults(SavedSettings loadedData)
         {
             var currentDefaults = new SavedSettings();
-            var phaseFlags = typeof(PhaseAttribute).Assembly
-                .GetTypes()
-                .Select(type => type.GetCustomAttribute<PhaseAttribute>())
-                .Where(phaseAttr => phaseAttr != null)
-                .Select(phaseAttr => phaseAttr!.SettingsFlagName)
-                .Distinct();
-
-            foreach (var phaseFlag in phaseFlags)
+            foreach (var phaseFlag in SavedSettingsPhaseFlags())
             {
                 if (string.IsNullOrWhiteSpace(phaseFlag))
                 {
@@ -113,6 +106,16 @@ namespace WorldSphereMod
                 bool defaults = (bool)field.GetValue(currentDefaults)!;
                 Debug.Log($"[WSM3D] Settings sanity: {phaseFlag} loaded={loaded} default={defaults}");
             }
+        }
+
+        static IEnumerable<string> SavedSettingsPhaseFlags()
+        {
+            return typeof(PhaseAttribute).Assembly
+                .GetTypes()
+                .Select(type => type.GetCustomAttribute<PhaseAttribute>())
+                .Where(phaseAttr => phaseAttr != null)
+                .Select(phaseAttr => phaseAttr!.SettingsFlagName)
+                .Distinct();
         }
 
         // go go gadget un-box my worldbox
