@@ -16,12 +16,15 @@ Shader "Hidden/WSM3D/BrpBloom"
         Pass
         {
             Name "THRESHOLD"
+            Tags { "LightMode" = "Always" }
+
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
             #include "UnityCG.cginc"
 
             sampler2D _MainTex;
+            float4 _MainTex_TexelSize;
             float _Threshold;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
@@ -32,6 +35,10 @@ Shader "Hidden/WSM3D/BrpBloom"
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
+                #if UNITY_UV_STARTS_AT_TOP
+                if (_MainTex_TexelSize.y < 0)
+                    o.uv = 1.0 - o.uv;
+                #endif
                 return o;
             }
 
@@ -49,6 +56,8 @@ Shader "Hidden/WSM3D/BrpBloom"
         Pass
         {
             Name "BLUR_H"
+            Tags { "LightMode" = "Always" }
+
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -60,7 +69,17 @@ Shader "Hidden/WSM3D/BrpBloom"
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; };
 
-            v2f vert(appdata v) { v2f o; o.pos = UnityObjectToClipPos(v.vertex); o.uv = v.uv; return o; }
+            v2f vert(appdata v)
+            {
+                v2f o;
+                o.pos = UnityObjectToClipPos(v.vertex);
+                o.uv = v.uv;
+                #if UNITY_UV_STARTS_AT_TOP
+                if (_MainTex_TexelSize.y < 0)
+                    o.uv = 1.0 - o.uv;
+                #endif
+                return o;
+            }
 
             float GetBlurWeight(int idx)
             {
@@ -90,6 +109,8 @@ Shader "Hidden/WSM3D/BrpBloom"
         Pass
         {
             Name "BLUR_V"
+            Tags { "LightMode" = "Always" }
+
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -101,7 +122,17 @@ Shader "Hidden/WSM3D/BrpBloom"
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; };
 
-            v2f vert(appdata v) { v2f o; o.pos = UnityObjectToClipPos(v.vertex); o.uv = v.uv; return o; }
+            v2f vert(appdata v)
+            {
+                v2f o;
+                o.pos = UnityObjectToClipPos(v.vertex);
+                o.uv = v.uv;
+                #if UNITY_UV_STARTS_AT_TOP
+                if (_MainTex_TexelSize.y < 0)
+                    o.uv = 1.0 - o.uv;
+                #endif
+                return o;
+            }
 
             float GetBlurWeight(int idx)
             {
@@ -131,6 +162,8 @@ Shader "Hidden/WSM3D/BrpBloom"
         Pass
         {
             Name "COMPOSITE"
+            Tags { "LightMode" = "Always" }
+
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -138,12 +171,23 @@ Shader "Hidden/WSM3D/BrpBloom"
 
             sampler2D _MainTex;
             sampler2D _BloomTex;
+            float4 _MainTex_TexelSize;
             float _Intensity;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; };
 
-            v2f vert(appdata v) { v2f o; o.pos = UnityObjectToClipPos(v.vertex); o.uv = v.uv; return o; }
+            v2f vert(appdata v)
+            {
+                v2f o;
+                o.pos = UnityObjectToClipPos(v.vertex);
+                o.uv = v.uv;
+                #if UNITY_UV_STARTS_AT_TOP
+                if (_MainTex_TexelSize.y < 0)
+                    o.uv = 1.0 - o.uv;
+                #endif
+                return o;
+            }
 
             fixed4 frag(v2f i) : SV_Target
             {
