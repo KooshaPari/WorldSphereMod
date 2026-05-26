@@ -22,6 +22,8 @@ if (-not (Test-Path -LiteralPath $ReportDir)) {
     New-Item -ItemType Directory -Force -Path $ReportDir | Out-Null
 }
 
+. (Join-Path $RepoRoot 'Tools/wsm3d.ps1')
+
 function Write-TickLog([string]$Message, [string]$Level = 'INFO') {
     if ($Quiet) { return }
     $color = switch ($Level) {
@@ -238,24 +240,31 @@ if (-not $SkipLive -and $health) {
 
             $runOk = $false
             $runTail = ''
+            $playcuaPassCount = $null
             foreach ($attempt in 1..2) {
                 if ($attempt -gt 1) {
-                    Write-TickLog 'playcua run-all retry — relaunch' 'WARN'
-                    pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') relaunch -NoBuild 2>&1 | Out-Null
-                    Start-Sleep -Seconds 75
+                    Write-TickLog 'playcua run-all retry — Ensure-BridgeReady' 'WARN'
+                    if (-not (Ensure-BridgeReady -WaitSeconds 30 -RelaunchIfDown)) {
+                        Write-TickLog 'bridge not ready after Ensure-BridgeReady' 'WARN'
+                    }
+                    Start-Sleep -Seconds 15
                     $health = Get-BridgeHealth
                 }
                 $runAll = pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') playcua run-all -VisionBackend off 2>&1 | Out-String
                 $runTail = ($runAll -split "`n" | Select-Object -Last 20) -join "`n"
+                if ($runAll -match 'playcua passed (\d+) scenario') {
+                    $playcuaPassCount = [int]$Matches[1]
+                }
                 if ($LASTEXITCODE -eq 0 -and $runAll -match 'playcua passed') {
                     $runOk = $true
                     break
                 }
             }
             if ($runOk) {
-                Add-Stage $report 'playcua-run-all' 'passed' @{}
+                Add-Stage $report 'playcua-run-all' 'passed' @{ passCount = $playcuaPassCount; attempts = $attempt }
+                if ($null -ne $playcuaPassCount) { $report['playcuaPassCount'] = $playcuaPassCount }
                 [void]$report.completed.Add('playcua-run-all')
-                Write-TickLog 'playcua run-all 13/13' 'OK'
+                Write-TickLog "playcua run-all $($playcuaPassCount)/$($playcuaPassCount)" 'OK'
                 try {
                     pwsh (Join-Path $RepoRoot 'Tools/sync-playcua-screenshots.ps1') 2>&1 | Out-Null
                     $synced = @(Get-ChildItem -LiteralPath $ScreenshotsDir -Filter 'phase-*.png' -File -ErrorAction SilentlyContinue).Count

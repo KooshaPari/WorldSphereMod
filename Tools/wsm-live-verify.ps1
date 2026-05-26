@@ -520,6 +520,11 @@ if (-not $Live) {
 
     try {
         if (-not (Test-BridgeHealthy)) {
+            Write-Host ""
+            Write-Host "Bridge health check failed at $bridgeUrl (port $bridgePort not reachable)." -ForegroundColor Red
+            Write-Host "Relaunch WorldBox with the mod bridge, then re-run -Live:" -ForegroundColor Yellow
+            Write-Host "  pwsh Tools/wsm3d.ps1 relaunch -NoBuild" -ForegroundColor Cyan
+            Write-Host ""
             throw "Bridge health check failed at $bridgeUrl (start MCP/bridge on port $bridgePort)."
         }
         $liveDetails.bridgeHealthy = $true

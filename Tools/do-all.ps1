@@ -25,6 +25,20 @@ try {
         if ($Status -eq 'failed') { $report.overallOk = $false }
     }
 
+    function Get-DoAllSummaryLine {
+        param($Report)
+        $mins = if ($Report.durationMs) { [math]::Round($Report.durationMs / 60000, 1) } else { $null }
+        $playcua = $Report.stages | Where-Object { $_.id -eq 'playcua-run-all' } | Select-Object -First 1
+        $playcuaBit = if ($playcua) {
+            $attempts = $playcua.details.attempts
+            if ($attempts) { "playcua=$($playcua.status)@${attempts}x" } else { "playcua=$($playcua.status)" }
+        } else { 'playcua=skipped' }
+        $failed = @($Report.stages | Where-Object { $_.status -eq 'failed' } | ForEach-Object { $_.id })
+        $failedBit = if ($failed.Count -gt 0) { "failed=$($failed -join ',')" } else { 'failed=none' }
+        $durationBit = if ($null -ne $mins) { "durationMin=$mins" } else { '' }
+        @("do-all overallOk=$($Report.overallOk)", $playcuaBit, $failedBit, $durationBit) -join ' | '
+    }
+
     Write-Host '=== do-all: audit-tick (offline + live) ===' -ForegroundColor Cyan
     # Offline tests first (no game required)
     pwsh (Join-Path $RepoRoot 'Tools/wsm-live-verify.ps1') 2>&1 | Out-Null
@@ -121,6 +135,11 @@ try {
             }
         } else {
             Add-DoAllStage 'playcua-run-all' 'failed' @{ attempts = $attempt }
+            Write-Host '=== do-all: playcua failed — wsm3d doctor (tail) ===' -ForegroundColor Red
+            pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') doctor 2>&1 |
+                ForEach-Object { "$_" } |
+                Select-Object -Last 20 |
+                Out-Host
         }
     }
 
@@ -133,11 +152,15 @@ try {
 
     $report.durationMs = [math]::Round(((Get-Date) - $started).TotalMilliseconds, 0)
     $report.finishedAt = (Get-Date).ToUniversalTime().ToString('o')
+    $report.summaryLine = Get-DoAllSummaryLine -Report $report
     $report | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $ReportPath -Encoding utf8
 
     Write-Host ''
     Write-Host "do-all report: $ReportPath" -ForegroundColor Gray
     Write-Host "overallOk=$($report.overallOk)" -ForegroundColor $(if ($report.overallOk) { 'Green' } else { 'Yellow' })
+    if ($report.overallOk) {
+        Write-Host $report.summaryLine -ForegroundColor Green
+    }
     if (-not $report.overallOk) { exit 1 }
 } finally {
     Pop-Location
