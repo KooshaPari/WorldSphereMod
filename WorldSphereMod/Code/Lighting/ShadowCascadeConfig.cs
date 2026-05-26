@@ -12,7 +12,6 @@ namespace WorldSphereMod.Lighting
     {
         static bool _hasOriginals;
         static bool _hasQualityOriginals;
-        static bool _active;
         static int _origCount;
         static float _origDistance;
         static int _origQualityCascades;
@@ -99,14 +98,12 @@ namespace WorldSphereMod.Lighting
             if (urpType == null)
             {
                 Debug.LogWarning("[WSM3D] ShadowCascadeConfig: URP not in use (UniversalRenderPipelineAsset type not found).");
-                _active = true;
                 return;
             }
             UnityEngine.Object? urp = GetActiveUrpAsset(urpType);
             if (urp == null)
             {
                 Debug.LogWarning("[WSM3D] ShadowCascadeConfig: URP not in use (no active UniversalRenderPipelineAsset).");
-                _active = true;
                 return;
             }
 
@@ -129,7 +126,6 @@ namespace WorldSphereMod.Lighting
             WriteProp(urp, urpType, "shadowDistance", kShadowDistance);
             WriteProp(urp, urpType, "shadowDepthBias", 1.0f);
             WriteProp(urp, urpType, "shadowNormalBias", 1.0f);
-            _active = true;
         }
 
         public static void Reset()
@@ -144,14 +140,13 @@ namespace WorldSphereMod.Lighting
 
             if (!_hasOriginals)
             {
-                _active = false;
                 return;
             }
 
             Type? urpType = GetUrpAssetType();
-            if (urpType == null) { _active = false; return; }
+            if (urpType == null) { return; }
             UnityEngine.Object? urp = GetActiveUrpAsset(urpType);
-            if (urp == null) { _active = false; return; }
+            if (urp == null) { return; }
 
             WriteProp(urp, urpType, "shadowCascadeCount", _origCount);
             WriteProp(urp, urpType, "shadowDistance", _origDistance);
@@ -159,7 +154,6 @@ namespace WorldSphereMod.Lighting
             WriteProp(urp, urpType, "cascade2Split", _origCascade2);
             WriteProp(urp, urpType, "shadowDepthBias", _origDepthBias);
             WriteProp(urp, urpType, "shadowNormalBias", _origNormalBias);
-            _active = false;
         }
     }
 }
