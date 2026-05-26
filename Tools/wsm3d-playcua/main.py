@@ -29,6 +29,11 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+if sys.platform == "win32":
+    from ctypes import wintypes as _wintypes
+else:
+    _wintypes = None  # type: ignore[assignment]
+
 def _load_env_file(filename: str) -> None:
     env_file = Path(__file__).resolve().parent.parent / filename
     if not env_file.is_file():
@@ -241,7 +246,7 @@ class Win32Capture:
 
     def _find_worldbox_process_ids(self, kernel32: Any) -> set[int]:
         c = self.ctypes
-        wintypes = c.wintypes
+        wintypes = _wintypes
 
         class PROCESSENTRY32W(c.Structure):
             _fields_ = [
@@ -278,7 +283,7 @@ class Win32Capture:
 
     def _find_worldbox_hwnd(self) -> int | None:
         c = self.ctypes
-        wintypes = c.wintypes
+        wintypes = _wintypes
         user32, _ = self._load_dlls()
         kernel32 = c.WinDLL("kernel32", use_last_error=True)
 

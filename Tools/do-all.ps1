@@ -73,11 +73,11 @@ try {
     if (-not $SkipRelaunch) {
         Write-Host '=== do-all: relaunch ===' -ForegroundColor Cyan
         pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') relaunch -NoBuild | Out-Host
-        Write-Host '=== do-all: wait bridge (up to 5m) ===' -ForegroundColor Cyan
-        $health = Wait-BridgeReady -MaxMinutes 5
+        Write-Host '=== do-all: wait bridge (up to 8m) ===' -ForegroundColor Cyan
+        $health = Wait-BridgeReady -MaxMinutes 8
         if (-not $health -or -not $health.bridgeAlive) {
-            Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge not up after relaunch' }
-            throw 'Bridge did not become reachable after relaunch'
+            Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge not up after relaunch (8m)' }
+            throw 'Bridge did not become reachable after relaunch (waited 8m)'
         }
         Add-DoAllStage 'bridge-wait' 'passed' @{ isWorld3D = [bool]$health.isWorld3D }
 
