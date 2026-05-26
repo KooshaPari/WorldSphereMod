@@ -12,6 +12,8 @@ namespace WorldSphereMod.Bridge
     [HarmonyPatch(typeof(SaveManager), nameof(SaveManager.loadWorld), typeof(string), typeof(bool))]
     public static class BridgeLoadSaveHooks
     {
+        static bool _become3DQueued;
+
         [HarmonyPostfix]
         public static void Postfix()
         {
@@ -24,10 +26,11 @@ namespace WorldSphereMod.Bridge
                 {
                     BridgeServer.LiveTelemetryProbeEnabled = true;
                 }
-                if (Core.savedSettings != null && Core.savedSettings.Is3D && !Core.IsWorld3D)
+                if (Core.savedSettings != null && Core.savedSettings.Is3D && !Core.IsWorld3D && !_become3DQueued)
                 {
+                    _become3DQueued = true;
                     Core.Generated = true;
-                    SmoothLoader.add(delegate { Core.Become3D(); }, "Becoming 3D!");
+                    SmoothLoader.add(delegate { _become3DQueued = false; Core.Become3D(); }, "Becoming 3D!");
                 }
             }
             catch (Exception ex)
