@@ -24,6 +24,11 @@ namespace WorldSphereMod.Bridge
                 {
                     BridgeServer.LiveTelemetryProbeEnabled = true;
                 }
+                if (Core.savedSettings != null && Core.savedSettings.Is3D && !Core.IsWorld3D)
+                {
+                    Core.Generated = true;
+                    SmoothLoader.add(delegate { Core.Become3D(); }, "Becoming 3D!");
+                }
             }
             catch (Exception ex)
             {
