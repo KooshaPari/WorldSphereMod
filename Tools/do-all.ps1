@@ -177,15 +177,21 @@ try {
         }
         Add-DoAllStage 'journey-mock' 'passed' @{}
 
-        Write-Host '=== do-all: playcua run-all (retries=$PlaycuaRetries) ===' -ForegroundColor Cyan
+        Write-Host "=== do-all: playcua run-all (retries=$PlaycuaRetries) ===" -ForegroundColor Cyan
         $attempt = 0
         $runOk = $false
         while ($attempt -lt $PlaycuaRetries -and -not $runOk) {
             $attempt++
             if ($attempt -gt 1) {
-                Write-Host "playcua retry $attempt/$PlaycuaRetries — relaunch + bootstrap between attempts" -ForegroundColor Yellow
-                $bootstrapVision = if ($Vision -and $omnirouteProbeOk) { $VisionBackend } else { 'off' }
-                $null = Invoke-BridgeRelaunchAndBootstrap3D -BootstrapVisionBackend $bootstrapVision -SettleSeconds 30 -BridgeWaitMinutes 5 -World3DWaitSeconds 120
+                Write-Host "playcua retry $attempt/$PlaycuaRetries — relaunch between attempts" -ForegroundColor Yellow
+                pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') relaunch -NoBuild | Out-Null
+                $retryHealth = Wait-BridgeReady -MaxMinutes 5
+                if ($retryHealth -and -not $retryHealth.isWorld3D) {
+                    $bootstrap = Join-Path $RepoRoot 'Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml'
+                    python (Join-Path $RepoRoot 'Tools/wsm3d-playcua/main.py') $bootstrap --vision-backend off 2>&1 | Out-Null
+                }
+                Start-Sleep -Seconds 30
+                $null = Wait-World3D -MaxSeconds 120
             }
             $visionReady = $false
             if ($Vision) {
