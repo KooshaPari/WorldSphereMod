@@ -41,7 +41,12 @@ try {
 
     Write-Host '=== do-all: audit-tick (offline + live) ===' -ForegroundColor Cyan
     # Offline tests first (no game required)
-    pwsh (Join-Path $RepoRoot 'Tools/wsm-live-verify.ps1') 2>&1 | Out-Null
+    pwsh (Join-Path $RepoRoot 'Tools/wsm-live-verify.ps1') | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        Add-DoAllStage 'initial-offline-verify' 'failed' @{ exitCode = $LASTEXITCODE }
+        throw 'Initial offline verify failed'
+    }
+    Add-DoAllStage 'initial-offline-verify' 'passed' @{}
 
     function Wait-BridgeReady {
         param([int]$MaxMinutes = 5)
