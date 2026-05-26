@@ -4,6 +4,9 @@
 param(
     [switch]$SkipRelaunch,
     [switch]$SkipLive,
+    [switch]$Vision,
+    [ValidateSet('fireworks', 'omniroute', 'anthropic', 'off')]
+    [string]$VisionBackend = 'omniroute',
     [int]$PlaycuaRetries = 3
 )
 
@@ -38,6 +41,22 @@ try {
         $durationBit = if ($null -ne $mins) { "durationMin=$mins" } else { '' }
         @("do-all overallOk=$($Report.overallOk)", $playcuaBit, $failedBit, $durationBit) -join ' | '
     }
+
+    function Import-DoAllVisionEnv {
+        $envFile = Join-Path $RepoRoot 'Tools/omniroute-vision.env'
+        if (Test-Path -LiteralPath $envFile) {
+            Get-Content -LiteralPath $envFile | ForEach-Object {
+                if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
+                    Set-Item -Path "env:$($matches[1].Trim())" -Value $matches[2].Trim()
+                }
+            }
+        }
+        if ($Vision) {
+            $env:PLAYCUA_VISION_BACKEND = $VisionBackend
+        }
+    }
+
+    Import-DoAllVisionEnv
 
     Write-Host '=== do-all: audit-tick (offline + live) ===' -ForegroundColor Cyan
     # Offline tests first (no game required)
@@ -104,6 +123,31 @@ try {
     }
 
     if (-not $SkipLive) {
+        if ($Vision -and $env:OMNROUTE_BASE_URL -and $env:OMNROUTE_API_KEY) {
+            Write-Host "=== do-all: omniroute probe ($($env:OMNROUTE_BASE_URL)) ===" -ForegroundColor Cyan
+            try {
+                $base = $env:OMNROUTE_BASE_URL.TrimEnd('/')
+                $models = Invoke-RestMethod -Uri "$base/models" -Headers @{ Authorization = "Bearer $env:OMNROUTE_API_KEY" } -TimeoutSec 30
+                $modelId = if ($env:OMNROUTE_VISION_MODEL) { $env:OMNROUTE_VISION_MODEL } else { 'gemini/gemini-2.5-flash' }
+                $body = @{
+                    model       = $modelId
+                    max_tokens  = 24
+                    temperature = 0
+                    messages    = @(@{ role = 'user'; content = 'Reply with exactly: vision-ok' })
+                } | ConvertTo-Json -Depth 5
+                $chat = Invoke-RestMethod -Uri "$base/chat/completions" -Method Post -Headers @{
+                    Authorization  = "Bearer $env:OMNROUTE_API_KEY"
+                    'Content-Type' = 'application/json'
+                } -Body $body -TimeoutSec 120
+                $txt = $chat.choices[0].message.content
+                Add-DoAllStage 'omniroute-probe' 'passed' @{ models = @($models.data).Count; model = $modelId; reply = $txt }
+                Write-Host "omniroute vision probe OK ($modelId): $txt" -ForegroundColor Green
+            } catch {
+                Add-DoAllStage 'omniroute-probe' 'failed' @{ error = $_.Exception.Message }
+                Write-Host "omniroute probe failed: $($_.Exception.Message)" -ForegroundColor Yellow
+            }
+        }
+
         Write-Host '=== do-all: journey mock ===' -ForegroundColor Cyan
         pwsh (Join-Path $RepoRoot 'Tools/verify-journeys.ps1') | Out-Host
         if ($LASTEXITCODE -ne 0) { Add-DoAllStage 'journey-mock' 'failed' @{ exitCode = $LASTEXITCODE } }
@@ -121,13 +165,17 @@ try {
                 Start-Sleep -Seconds 30
                 $null = Wait-World3D -MaxSeconds 120
             }
-            pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') playcua run-all -VisionBackend off 2>&1 | Out-Host
+            $vb = if ($Vision) { $VisionBackend } else { 'off' }
+            Write-Host "playcua run-all VisionBackend=$vb" -ForegroundColor Gray
+            pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') playcua run-all -VisionBackend $vb 2>&1 | Out-Host
             if ($LASTEXITCODE -eq 0) { $runOk = $true }
         }
         if ($runOk) {
-            Add-DoAllStage 'playcua-run-all' 'passed' @{ attempts = $attempt }
+            Add-DoAllStage 'playcua-run-all' 'passed' @{ attempts = $attempt; visionBackend = $(if ($Vision) { $VisionBackend } else { 'off' }) }
             pwsh (Join-Path $RepoRoot 'Tools/sync-playcua-screenshots.ps1') | Out-Host
-            pwsh (Join-Path $RepoRoot 'Tools/wsm-live-verify.ps1') -Live -SkipOffline | Out-Host
+            $liveArgs = @('-Live', '-SkipOffline')
+            if ($Vision) { $liveArgs += '-Vision' }
+            pwsh (Join-Path $RepoRoot 'Tools/wsm-live-verify.ps1') @liveArgs 2>&1 | Out-Host
             if ($LASTEXITCODE -ne 0) {
                 Add-DoAllStage 'live-verify-live' 'failed' @{ exitCode = $LASTEXITCODE }
             } else {
