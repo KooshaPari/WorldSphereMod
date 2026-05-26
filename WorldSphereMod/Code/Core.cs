@@ -179,11 +179,12 @@ namespace WorldSphereMod
             }
             catch (System.Exception ex)
             {
+                // Log but do NOT return — MonoBehaviour drivers (SunDriver,
+                // TimeOfDay, PostFxController, WeatherDriver) are toggled by the
+                // specific handlers below, not by Harmony. Returning here would
+                // block those drivers from enabling/disabling.
                 string reason = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
-                string msg = $"{flagName} could not be {(newValue ? "enabled" : "disabled")}: Harmony patch failed — {reason}";
-                Debug.LogError($"[WSM3D] {msg}\n{ex}");
-                WorldSphereMod.Worldspace.PhaseToast.ShowError(msg);
-                return;
+                Debug.LogWarning($"[WSM3D] PhasePatchManager failed for {flagName}: {reason}\n{ex}");
             }
 
             // Invalidate voxel cache + material when render-affecting flags change.

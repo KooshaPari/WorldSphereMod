@@ -1192,6 +1192,9 @@ namespace WorldSphereMod.Voxel
         // postfixes, so LateUpdate remains the end-of-frame sink.
         void LateUpdate()
         {
+            // Re-create bridge every frame so it survives scene transitions
+            // even when the Harmony postfix on MapBox.renderStuff doesn't fire.
+            Bridge.BridgeServer.EnsureCreated();
             Bridge.BridgeServer.DrainStaticQueue();
 
             if (MeshInstanceBatcher.HasPendingSubmissions)

@@ -12,6 +12,12 @@ namespace WorldSphereMod
     {
         private static readonly HashSet<Type> PatchedTypes = new();
 
+        /// <summary>
+        /// Apply or remove Harmony patches for the given phase flag.
+        /// Returns normally even when 0 Harmony-patchable types exist for the flag
+        /// (MonoBehaviour drivers like SunDriver, TimeOfDay, PostFxController are
+        /// handled by Core.ApplyPhaseToggle's specific handlers, not here).
+        /// </summary>
         public static void ApplyPhaseToggle(string flagName, bool newValue)
         {
             if (Core.Patcher == null)
@@ -20,7 +26,18 @@ namespace WorldSphereMod
                 return;
             }
 
-            var phaseTypes = GetPhaseTypes(flagName).ToList();
+            List<Type> phaseTypes;
+            try
+            {
+                phaseTypes = GetPhaseTypes(flagName).ToList();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[WSM3D] PhasePatchManager: GetPhaseTypes failed for {flagName}: {ex.Message}");
+                return;
+            }
+
+            int harmonyCount = phaseTypes.Count(t => t.GetCustomAttribute<HarmonyPatch>() != null);
             int affected = 0;
 
             if (newValue)
@@ -60,7 +77,7 @@ namespace WorldSphereMod
                 }
             }
 
-            Debug.Log($"[WSM3D] PhasePatchManager: {flagName} -> {newValue} ({affected} types affected)");
+            Debug.Log($"[WSM3D] PhasePatchManager: {flagName} -> {newValue} ({affected}/{harmonyCount} Harmony types affected, {phaseTypes.Count - harmonyCount} non-Harmony types skipped)");
         }
 
         private static void UnpatchClass(Type type)
