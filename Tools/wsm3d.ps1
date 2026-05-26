@@ -1880,6 +1880,9 @@ function Invoke-PlaycuaScenarios {
             )
             if ($PSBoundParameters.ContainsKey("VisionBackend")) {
                 $pyArgs += @("--vision-backend", $(if ($VisionBackend) { $VisionBackend } else { "off" }))
+                if ($VisionBackend -eq 'omniroute') {
+                    $pyArgs += @('--omniroute-timeout', '300')
+                }
             }
 
             Write-Info "playcua: $($scenario.Name) ..."

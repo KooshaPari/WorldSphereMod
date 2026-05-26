@@ -26,8 +26,8 @@ namespace WorldSphereMod.Terrain
         Mesh? _mesh;
         bool _dirty = true;
 
-        // Subdivision level per tile edge for the smooth mesh (2 = 4 sub-quads per tile).
-        const int SubDiv = 2;
+        // Subdivision level per tile edge for the smooth mesh (4 = 16 sub-quads per tile).
+        const int SubDiv = 4;
 
         struct CliffQuad
         {
@@ -294,7 +294,7 @@ namespace WorldSphereMod.Terrain
 
             // Small height offset so the smooth overlay sits just above the flat terrain
             // and avoids z-fighting.
-            const float HeightBias = 0.02f;
+            const float HeightBias = 0.05f;
 
             foreach (long key in smoothTileSet)
             {

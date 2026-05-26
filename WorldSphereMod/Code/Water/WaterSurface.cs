@@ -214,8 +214,8 @@ namespace WorldSphereMod.Water
             bool isLit = false;
 
             Shader? s = null;
-            // The bundled GerstnerWater shader now compiles in the built-in
-            // render pipeline, so prefer it over the Standard fallback.
+            // MeshWater should only resolve through the bundled GerstnerWater
+            // shader now that the bundle fallback is fixed to Diffuse.
             const bool kGerstnerKnownBroken = false;
             if (!kGerstnerKnownBroken)
             {
@@ -230,50 +230,23 @@ namespace WorldSphereMod.Water
                     if (s != null) Debug.Log("[WSM3D] Water material resolved via Shader.Find('WSM3D/GerstnerWater').");
                 }
             }
-            if (s == null) s = Resources.Load<Shader>("Shaders/ContinuumWaterGerstner");
-            if (s == null) s = Resources.Load<Shader>("Shaders/WaterGerstner");
-            if (s != null)
-            {
-                Material m = new Material(s) { name = "WSM3D.Water" };
-                m.enableInstancing = true;
-                if (m.enableInstancing)
-                {
-                    ConfigureWaterMaterial(m, waterTint, baseColorId, colorId, smoothnessId, metallicId, surfaceTypeId, alphaClipId, emissionId);
-                    _material = m;
-                    Debug.Log($"[WSM3D] Water material resolved via '{s.name}' (transparent blue)");
-                    return true;
-                }
-                Object.Destroy(m);
-            }
 
-            string[] candidates =
+            if (s == null)
             {
-                "Standard",
-                "Universal Render Pipeline/Lit",
-                "Universal Render Pipeline/Unlit",
-            };
-            foreach (var name in candidates)
-            {
-                s = Shader.Find(name);
-                if (s == null) continue;
-                Material m = new Material(s) { name = "WSM3D.Water" };
-                m.enableInstancing = true;
-                if (!m.enableInstancing)
-                {
-                    Object.Destroy(m);
-                    continue;
-                }
-                isLit = name == "Universal Render Pipeline/Lit";
-                ConfigureWaterMaterial(m, waterTint, baseColorId, colorId, smoothnessId, metallicId, surfaceTypeId, alphaClipId, emissionId, isLit, name);
-                _material = m;
-                Debug.Log($"[WSM3D] Water material resolved via '{name}' (transparent blue)");
-                return true;
-            }
-            if (_material == null)
-            {
-                Debug.LogWarning("[WSM3D] No water shader found; water disabled.");
+                Debug.LogWarning("[WSM3D] No bundled GerstnerWater shader found; water disabled.");
                 return false;
             }
+
+            Material m = new Material(s) { name = "WSM3D.Water" };
+            m.enableInstancing = true;
+            if (m.enableInstancing)
+            {
+                ConfigureWaterMaterial(m, waterTint, baseColorId, colorId, smoothnessId, metallicId, surfaceTypeId, alphaClipId, emissionId);
+                _material = m;
+                Debug.Log($"[WSM3D] Water material resolved via '{s.name}' (bundled transparent blue)");
+                return true;
+            }
+            Object.Destroy(m);
             return true;
         }
 

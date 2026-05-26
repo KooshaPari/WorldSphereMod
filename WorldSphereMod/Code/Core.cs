@@ -51,6 +51,7 @@ namespace WorldSphereMod
             catch
             {
                 IsFirstInstall = true;
+                savedSettings.VoxelEntities = true;
                 SavedSettings.ApplyPhaseDefaults(savedSettings);
                 SaveSettings();
                 return false;
@@ -78,12 +79,10 @@ namespace WorldSphereMod
         {
             SavedSettings.ApplyPhaseDefaults(loadedData);
 
-            // v2.3 swapped the Shapes list order: index 0 changed from
-            // cylindrical to flat. Reset CurrentShape to the new default
-            // so users upgrading from v2.2 don't silently land in the wrong
-            // shape mode (root cause of invisible terrain when the old
-            // cylindrical index 0 maps to the new flat entry).
-            loadedData.CurrentShape = new SavedSettings().CurrentShape;
+            // Preserve the user's CurrentShape across version bumps.
+            // Only phase boolean flags are reset — numeric/scale/shape
+            // settings are intentionally kept so the user's chosen mode
+            // persists through upgrades.
         }
 
         static void LogPhaseFlagDefaults(SavedSettings loadedData)
