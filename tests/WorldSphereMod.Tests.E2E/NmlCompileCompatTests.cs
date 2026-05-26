@@ -13,7 +13,7 @@ public class NmlCompileCompatTests
         RegexOptions.Compiled);
 
     private static readonly Regex SuspiciousMethodOperandRegex = new(
-        @"(?<![\w.])(?:[A-Za-z_]\w*)\b(?!\s*(?:<[^>]*>\s*)?\()(?=\s*(?:[+\-*/%&|^!<>=?,):;]|\|\|?|\&\&?))",
+        @"(?<![\w.])(?:[A-Za-z_]\w*)\b(?!\?)(?!\s*(?:<[^>]*>\s*)?\()(?=\s*(?:[+\-*/%&|^!<>=?,):;]|\|\|?|\&\&?))",
         RegexOptions.Compiled);
 
     private static string FindRepoRoot()
@@ -37,12 +37,25 @@ public class NmlCompileCompatTests
                 !path.Contains($"{Path.DirectorySeparatorChar}.git{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
     }
 
+    private static readonly Regex FieldOrLocalDeclarationRegex = new(
+        @"^[\w.?<>\[\],\s]+\s+\w+\s*;$",
+        RegexOptions.Compiled);
+
     private static bool LooksLikeExpressionLine(string line)
     {
         var trimmed = line.TrimStart();
 
         if (trimmed.StartsWith("using ", StringComparison.Ordinal) ||
             trimmed.StartsWith("//", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var statement = trimmed.TrimEnd();
+        if (statement.EndsWith(";", StringComparison.Ordinal) &&
+            !statement.Contains('(', StringComparison.Ordinal) &&
+            !statement.Contains('=', StringComparison.Ordinal) &&
+            FieldOrLocalDeclarationRegex.IsMatch(statement))
         {
             return false;
         }
