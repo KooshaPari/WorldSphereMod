@@ -409,6 +409,11 @@ namespace WorldSphereMod.Bridge
                     WriteJson(context.Response, InvokeOnMainThread(ForceDiagDumpNow));
                     return;
                 }
+                else if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/diag/render_stats", StringComparison.OrdinalIgnoreCase))
+                {
+                    WriteJson(context.Response, InvokeOnMainThread(BuildRenderStatsPayload));
+                    return;
+                }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/texturepack/import", StringComparison.OrdinalIgnoreCase))
                 {
                     string packPath = context.Request.QueryString["path"] ?? string.Empty;
@@ -1181,6 +1186,97 @@ namespace WorldSphereMod.Bridge
         {
             WorldSphereMod.Voxel.MeshInstanceBatcher.ArmFallbackDiagOnce();
             return new { ok = true, status = "armed" };
+        }
+
+        object BuildRenderStatsPayload()
+        {
+            long drawCalls = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameDrawCalls;
+            long instances = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameInstances;
+            long buckets = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameBucketCount;
+            bool fallbackPath = WorldSphereMod.Voxel.MeshInstanceBatcher.UseFallbackPath;
+            bool instancingBroken = WorldSphereMod.Voxel.MeshInstanceBatcher.InstancingBroken;
+
+            int visibleUnits = 0;
+            int visibleBuildings = 0;
+            try
+            {
+                ActorManager units = World.world != null ? World.world.units : null;
+                if (units != null) visibleUnits = units.visible_units.count;
+            }
+            catch { }
+            try
+            {
+                BuildingManager buildings = World.world != null ? World.world.buildings : null;
+                if (buildings != null) visibleBuildings = buildings.visible_buildings.count;
+            }
+            catch { }
+
+            int voxelCacheSize = SafeCount(() => WorldSphereMod.Voxel.VoxelMeshCache.Count);
+            int procgenCacheSize = SafeCount(() => WorldSphereMod.ProcGen.ProcGenCache.Count);
+            int foliageCount = SafeCount(() => WorldSphereMod.Foliage.CrossedQuadMeshCache.Count);
+            int impostorCount = SafeCount(() => WorldSphereMod.LOD.ImpostorBillboard.Count);
+
+            bool emitVoxelsFired = drawCalls > 0 || _cachedLastNonZeroDrawCalls > 0;
+
+            object cameraInfo = null;
+            try
+            {
+                Camera cam = Camera.main;
+                if (cam != null)
+                {
+                    Vector3 pos = cam.transform.position;
+                    float dist = pos.magnitude;
+                    cameraInfo = new
+                    {
+                        position = new { x = pos.x, y = pos.y, z = pos.z },
+                        distanceFromOrigin = dist,
+                        fieldOfView = cam.fieldOfView,
+                        orthographic = cam.orthographic,
+                        orthographicSize = cam.orthographicSize,
+                        nearClip = cam.nearClipPlane,
+                        farClip = cam.farClipPlane
+                    };
+                }
+            }
+            catch { }
+
+            string materialShaderName = null;
+            try
+            {
+                var matField = typeof(WorldSphereMod.Voxel.VoxelRender).GetField("_material",
+                    System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+                if (matField != null)
+                {
+                    Material mat = matField.GetValue(null) as Material;
+                    if (mat != null && mat.shader != null)
+                        materialShaderName = mat.shader.name;
+                }
+            }
+            catch { }
+
+            return new
+            {
+                ok = true,
+                drawCalls,
+                instances,
+                buckets,
+                fallbackPath,
+                instancingBroken,
+                emitVoxelsFired,
+                lastNonZeroDrawCalls = _cachedLastNonZeroDrawCalls,
+                visibleUnits,
+                visibleBuildings,
+                voxelCacheSize,
+                procgenCacheSize,
+                foliageCount,
+                impostorCount,
+                materialShaderName,
+                camera = cameraInfo,
+                isWorld3D = _cachedIsWorld3D,
+                voxelEntitiesEnabled = Core.savedSettings != null && Core.savedSettings.VoxelEntities,
+                frameMs = Time.unscaledDeltaTime * 1000f,
+                frameCount = Time.frameCount
+            };
         }
 
         static string FindSavePath(int slot)

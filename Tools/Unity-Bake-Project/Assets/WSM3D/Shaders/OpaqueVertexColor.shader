@@ -22,7 +22,7 @@ Shader "WSM3D/OpaqueVertexColor"
     {
         _Color ("Tint", Color) = (1,1,1,1)
         _MainTex ("Main Tex (sampled white if unset)", 2D) = "white" {}
-        _EmissionColor ("Emission", Color) = (0,0,0,1)
+        _EmissionColor ("Emission", Color) = (0.15,0.15,0.15,1)
     }
 
     SubShader
