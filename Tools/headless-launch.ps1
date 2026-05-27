@@ -177,8 +177,8 @@ function Invoke-LaunchSteamCmd {
 
     # SteamCMD: login anonymous won't work for a paid game.
     # Use cached credentials (requires prior manual login).
-    Start-Process -FilePath $cmd -ArgumentList "+login", "anonymous", "+app_run", "1206560", "+quit" -NoNewWindow
-    return $true
+    Write-Warn "Anonymous login cannot run paid app 1206560. Cached credentials required."
+    return $false
 }
 
 # ── Main ─────────────────────────────────────────────────────────────────
