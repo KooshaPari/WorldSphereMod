@@ -160,28 +160,16 @@ public class SourceContentInvariantsTests
     }
 
     [Fact]
-    public void QuantumSprites_calculateactordata3D_keeps_transform_updates_but_skips_sprite_work_when_ignore_generic_render()
+    public void QuantumSprites_calculateactordata3D_keeps_parallel_transform_bookkeeping_only()
     {
         var quantumSprites = ReadSourceFile("WorldSphereMod/Code/QuantumSprites.cs");
-        var body = ExtractMethodBody(quantumSprites, "public static bool calculateactordata3D(ActorManager __instance)");
+        var body = ExtractMethodBody(quantumSprites, "public static void calculateactordata3D(ActorManager __instance)");
 
-        int updatePosIdx = body.IndexOf("updatePos()", StringComparison.Ordinal);
-        int getRotIdx = body.IndexOf("Get3DRot()", StringComparison.Ordinal);
-        int ignoreRenderIdx = body.IndexOf("ignore_generic_render", StringComparison.Ordinal);
-        int checkItemIdx = body.IndexOf("checkHasRenderedItem()", StringComparison.Ordinal);
-        int frameDataIdx = body.IndexOf("getAnimationFrameData()", StringComparison.Ordinal);
-
-        updatePosIdx.Should().BeGreaterThanOrEqualTo(0);
-        getRotIdx.Should().BeGreaterThan(updatePosIdx, "rotation must follow position update");
-        ignoreRenderIdx.Should().BeGreaterThan(getRotIdx, "renderability gate must come after transform bookkeeping");
-        checkItemIdx.Should().BeGreaterThan(ignoreRenderIdx, "item checks must be behind ignore_generic_render gate");
-
-        body.Should().Contain("bool tNeedFrameData = (tShouldRenderUnitShadows && tActor.show_shadow)",
-            "animation frame data should be lazy — only when shadows or held items need it");
-        body.Should().Contain("tNeedFrameData ? tActor.getAnimationFrameData() : null",
-            "getAnimationFrameData must not run unconditionally every actor");
-        frameDataIdx.Should().BeGreaterThan(checkItemIdx,
-            "lazy frame-data guard must appear after item gating is established");
+        body.Should().Contain("Parallel.For");
+        body.Should().Contain("updatePos()");
+        body.Should().Contain("Get3DRot()");
+        body.Should().NotContain("calculateMainSprite");
+        body.Should().NotContain("ignore_generic_render");
     }
 
     [Fact]

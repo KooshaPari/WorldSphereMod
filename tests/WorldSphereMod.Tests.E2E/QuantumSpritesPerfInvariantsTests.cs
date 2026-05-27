@@ -1,12 +1,11 @@
 using System;
 using System.IO;
-using System.Text.RegularExpressions;
 using FluentAssertions;
 using Xunit;
 
 /// <summary>
-/// Perf invariants for QuantumSprites calculateactordata3D: keep transform bookkeeping
-/// unconditional while skipping expensive sprite/item work when ignore_generic_render is set.
+/// Invariants for QuantumSprites calculateactordata3D: parallel transform bookkeeping only
+/// (sprite/item work lives elsewhere after perf refactor).
 /// </summary>
 public sealed class QuantumSpritesPerfInvariantsTests
 {
@@ -59,62 +58,27 @@ public sealed class QuantumSpritesPerfInvariantsTests
     }
 
     [Fact]
-    public void calculateactordata3D_hoists_ignore_generic_render_gate_without_skipping_transform_updates()
+    public void calculateactordata3D_writes_parallel_transform_positions_and_rotations()
     {
         var source = ReadSource(QuantumSpritesRelativePath);
-        var body = ExtractMethodBody(source, "public static bool calculateactordata3D(ActorManager __instance)");
+        var body = ExtractMethodBody(source, "public static void calculateactordata3D(ActorManager __instance)");
 
-        Regex.IsMatch(body, @"bool\s+tHasNormalRender\s*=\s*!tActor\.asset\.ignore_generic_render\s*;")
-            .Should().BeTrue("renderability flag must be derived from ignore_generic_render");
-
-        body.Should().Contain(
-            "Transform updates must stay unconditional (shadow_position, cur_transform_position).",
-            "perf hoist must document why updatePos/Get3DRot cannot be skipped");
-
-        var updatePosIdx = body.IndexOf("updatePos()", StringComparison.Ordinal);
-        var getRotIdx = body.IndexOf("Get3DRot()", StringComparison.Ordinal);
-        var ignoreRenderIdx = body.IndexOf("ignore_generic_render", StringComparison.Ordinal);
-
-        updatePosIdx.Should().BeGreaterThanOrEqualTo(0);
-        getRotIdx.Should().BeGreaterThan(updatePosIdx, "rotation must follow position update");
-        ignoreRenderIdx.Should().BeGreaterThan(getRotIdx,
-            "ignore_generic_render gate must not skip transform bookkeeping");
+        body.Should().Contain("Parallel.For", "visible actors must be processed in parallel batches");
+        body.Should().Contain("tActor.updatePos()", "each actor position must be updated");
+        body.Should().Contain("tActor.Get3DRot()", "each actor rotation must be updated");
+        body.Should().Contain("render_data.positions[tIndex]", "positions must be written to render_data");
+        body.Should().Contain("render_data.rotations[tIndex]", "rotations must be written to render_data");
+        body.Should().Contain("Core.IsWorld3D", "patch must no-op when world is not 3D");
     }
 
     [Fact]
-    public void calculateactordata3D_skips_expensive_sprite_and_item_work_when_ignore_generic_render()
+    public void calculateactordata3D_does_not_call_expensive_sprite_paths_in_postfix()
     {
         var source = ReadSource(QuantumSpritesRelativePath);
-        var body = ExtractMethodBody(source, "public static bool calculateactordata3D(ActorManager __instance)");
+        var body = ExtractMethodBody(source, "public static void calculateactordata3D(ActorManager __instance)");
 
-        Regex.IsMatch(body,
-                @"if\s*\(\s*tHasNormalRender\s*\)\s*\{[\s\S]*?checkHasRenderedItem\s*\(\s*\)")
-            .Should().BeTrue("held-item probe must be behind tHasNormalRender gate");
-
-        Regex.IsMatch(body,
-                @"if\s*\(\s*tHasNormalRender\s*\)\s*\{[\s\S]*?DynamicSprites\.getCachedAtlasItemSprite")
-            .Should().BeTrue("atlas item sprite cache must be behind tHasNormalRender gate");
-
-        Regex.IsMatch(body,
-                @"if\s*\(\s*tHasNormalRender\s*\)\s*\{[\s\S]*?calculateMainSprite\s*\(\s*\)")
-            .Should().BeTrue("main sprite calculation must be behind tHasNormalRender gate");
-
-        Regex.IsMatch(body, @"render_data\.has_normal_render\s*\[\s*tIndex\s*\]\s*=\s*tHasNormalRender")
-            .Should().BeTrue("downstream voxel path must read hoisted has_normal_render flag");
-    }
-
-    [Fact]
-    public void calculateactordata3D_lazily_fetches_animation_frame_data_only_when_needed()
-    {
-        var source = ReadSource(QuantumSpritesRelativePath);
-        var body = ExtractMethodBody(source, "public static bool calculateactordata3D(ActorManager __instance)");
-
-        Regex.IsMatch(body,
-                @"bool\s+tNeedFrameData\s*=\s*\(\s*tShouldRenderUnitShadows\s*&&\s*tActor\.show_shadow\s*\)")
-            .Should().BeTrue("frame data need must combine shadow and held-item requirements");
-
-        Regex.IsMatch(body,
-                @"AnimationFrameData\s+tFrameData\s*=\s*tNeedFrameData\s*\?\s*tActor\.getAnimationFrameData\s*\(\s*\)\s*:\s*null")
-            .Should().BeTrue("getAnimationFrameData must not run unconditionally for every actor");
+        body.Should().NotContain("calculateMainSprite", "sprite work must not run in precalculate postfix");
+        body.Should().NotContain("getCachedAtlasItemSprite", "atlas cache must not run in precalculate postfix");
+        body.Should().NotContain("checkHasRenderedItem", "held-item probe must not run in precalculate postfix");
     }
 }
