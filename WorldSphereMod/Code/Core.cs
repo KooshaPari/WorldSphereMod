@@ -165,7 +165,7 @@ namespace WorldSphereMod
                     become3DAction = delegate
                     {
                         if (IsWorld3D) return;
-                        if (World.world == null)
+                        if (World.world == null || MapBox.width <= 0 || MapBox.height <= 0)
                         {
                             SmoothLoader.add(become3DAction, "Becoming 3D!");
                             return;
