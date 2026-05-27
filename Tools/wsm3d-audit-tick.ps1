@@ -222,10 +222,7 @@ if (-not $SkipLive -and $health) {
 
         if (-not $health.isWorld3D) {
             Write-TickLog 'bootstrap: bridge-save-load-smoke' 'INFO'
-            $bootstrap = Join-Path $RepoRoot 'Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml'
-            python (Join-Path $RepoRoot 'Tools/wsm3d-playcua/main.py') $bootstrap --vision-backend off 2>&1 | Out-Null
-            Start-Sleep -Seconds 20
-            $health = Get-BridgeHealth
+            $health = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend off
         }
 
         if ($health -and $health.isWorld3D) {
@@ -243,12 +240,11 @@ if (-not $SkipLive -and $health) {
             $playcuaPassCount = $null
             foreach ($attempt in 1..2) {
                 if ($attempt -gt 1) {
-                    Write-TickLog 'playcua run-all retry — Ensure-BridgeReady' 'WARN'
-                    if (-not (Ensure-BridgeReady -WaitSeconds 30 -RelaunchIfDown)) {
-                        Write-TickLog 'bridge not ready after Ensure-BridgeReady' 'WARN'
+                    Write-TickLog 'playcua run-all retry — relaunch + bootstrap' 'WARN'
+                    $health = Invoke-BridgeRelaunchAndBootstrap3D -BootstrapVisionBackend off -SettleSeconds 30 -BridgeWaitMinutes 5 -World3DWaitSeconds 120
+                    if (-not $health -or -not $health.isWorld3D) {
+                        Write-TickLog 'bridge not in 3D after relaunch/bootstrap retry' 'WARN'
                     }
-                    Start-Sleep -Seconds 15
-                    $health = Get-BridgeHealth
                 }
                 $runAll = pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') playcua run-all -VisionBackend off 2>&1 | Out-String
                 $runTail = ($runAll -split "`n" | Select-Object -Last 20) -join "`n"

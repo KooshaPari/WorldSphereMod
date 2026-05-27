@@ -294,6 +294,51 @@ function Wait-BridgeWorld3D {
     return Get-BridgeHealth
 }
 
+function Invoke-BridgeRelaunchAndBootstrap3D {
+    param(
+        [ValidateSet("fireworks", "omniroute", "anthropic", "off")]
+        [string]$BootstrapVisionBackend = "off",
+        [int]$SettleSeconds = 30,
+        [int]$BridgeWaitMinutes = 5,
+        [int]$World3DWaitSeconds = 180
+    )
+
+    Write-Info "Relaunch + bootstrap 3D (save2 smoke if isWorld3D=false) ..."
+    Invoke-Relaunch -NoBuild
+    $deadline = (Get-Date).AddMinutes($BridgeWaitMinutes)
+    while ((Get-Date) -lt $deadline) {
+        if (Test-BridgeHealthy) { break }
+        Start-Sleep -Seconds 6
+    }
+    if (-not (Test-BridgeHealthy)) {
+        return Get-BridgeHealth
+    }
+
+    Start-Sleep -Seconds $SettleSeconds
+    $health = Get-BridgeHealth
+    if ($health -and -not [bool]$health.isWorld3D) {
+        $null = Invoke-PlaycuaBootstrapSaveLoad -VisionBackend $BootstrapVisionBackend
+        $health = Wait-BridgeWorld3D -WaitSeconds $World3DWaitSeconds
+    }
+    return $health
+}
+
+function Ensure-BridgeWorld3DBootstrapped {
+    param(
+        [ValidateSet("fireworks", "omniroute", "anthropic", "off")]
+        [string]$BootstrapVisionBackend = "off",
+        [int]$World3DWaitSeconds = 180
+    )
+
+    $health = Get-BridgeHealth
+    if ($health -and [bool]$health.isWorld3D) {
+        return $health
+    }
+
+    $null = Invoke-PlaycuaBootstrapSaveLoad -VisionBackend $BootstrapVisionBackend
+    return Wait-BridgeWorld3D -WaitSeconds $World3DWaitSeconds
+}
+
 function Ensure-BridgeReady {
     param(
         [int]$WaitSeconds = 90,
@@ -342,8 +387,41 @@ function Test-FireworksReachable {
     }
 }
 
+function Test-KooshasLaptopOnline {
+    param([string]$Hostname = "kooshas-laptop")
+
+    try {
+        $tsStatus = & tailscale status 2>&1 | Out-String
+        $escaped = [regex]::Escape($Hostname)
+        if ($tsStatus -match "(?m)^[^\r\n]*\b$escaped\b[^\r\n]*\boffline\b") {
+            return $false
+        }
+        if ($tsStatus -match "(?m)^[^\r\n]*\b$escaped\b") {
+            return $true
+        }
+        return $null
+    } catch {
+        return $null
+    }
+}
+
+function Test-OmniRoutePeerReachable {
+    param([string]$BaseUrl = $script:OmniRouteBaseUrl)
+
+    $laptopOnline = Test-KooshasLaptopOnline
+    if ($laptopOnline -eq $false) {
+        throw "kooshas-laptop offline on Tailscale — start laptop + OmniRoute before vision probes"
+    }
+}
+
 function Test-OmniRouteReachable {
     param([string]$BaseUrl = $script:OmniRouteBaseUrl)
+
+    try {
+        Test-OmniRoutePeerReachable -BaseUrl $BaseUrl
+    } catch {
+        return $false
+    }
 
     $modelsUrl = if ($BaseUrl -match "/v1/?$") {
         ($BaseUrl.TrimEnd("/")) + "/models"
@@ -1954,6 +2032,8 @@ function Invoke-PlaycuaScenarios {
                     if (-not (Ensure-BridgeReady -WaitSeconds 30 -RelaunchIfDown)) {
                         Write-Warn "Bridge still down before retry of $($scenario.Name)"
                     }
+                    $bootstrapVision = if ($PSBoundParameters.ContainsKey("VisionBackend")) { $VisionBackend } else { "off" }
+                    $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend $bootstrapVision
                     Start-Sleep -Seconds 3
                 }
                 & $python @pyArgs

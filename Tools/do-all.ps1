@@ -14,6 +14,8 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $ReportPath = Join-Path $RepoRoot 'Tools/.reports/do-all-latest.json'
 
+. (Join-Path $RepoRoot 'Tools/wsm3d.ps1')
+
 Push-Location $RepoRoot
 try {
     $started = Get-Date
@@ -103,12 +105,8 @@ try {
 
         if (-not $health.isWorld3D) {
             Write-Host '=== do-all: bootstrap save2 (bridge-save-load-smoke) ===' -ForegroundColor Cyan
-            $bootstrap = Join-Path $RepoRoot 'Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml'
-            python (Join-Path $RepoRoot 'Tools/wsm3d-playcua/main.py') $bootstrap --vision-backend off 2>&1 | Out-Host
-            if ($LASTEXITCODE -ne 0) {
-                Write-Host 'bootstrap failed — continuing after wait' -ForegroundColor Yellow
-            }
-            $health = Wait-World3D -MaxSeconds 180
+            $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend off
+            $health = Get-BridgeHealth
         }
     } else {
         $health = Wait-BridgeReady -MaxMinutes 2
@@ -117,9 +115,8 @@ try {
             throw 'Bridge not reachable (use relaunch or start WorldBox)'
         }
         if (-not $health.isWorld3D) {
-            $bootstrap = Join-Path $RepoRoot 'Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml'
-            python (Join-Path $RepoRoot 'Tools/wsm3d-playcua/main.py') $bootstrap --vision-backend off 2>&1 | Out-Null
-            $health = Wait-World3D -MaxSeconds 180
+            $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend off
+            $health = Get-BridgeHealth
         }
     }
 
@@ -127,10 +124,7 @@ try {
         if ($Vision -and $env:OMNROUTE_BASE_URL -and $env:OMNROUTE_API_KEY) {
             Write-Host "=== do-all: omniroute probe ($($env:OMNROUTE_BASE_URL)) ===" -ForegroundColor Cyan
             try {
-                $tsStatus = & tailscale status 2>&1 | Out-String
-                if ($tsStatus -match 'kooshas-laptop[^\r\n]*offline') {
-                    throw 'kooshas-laptop offline on Tailscale — start laptop + OmniRoute before vision probes'
-                }
+                Test-OmniRoutePeerReachable -BaseUrl $env:OMNROUTE_BASE_URL.TrimEnd('/')
                 $base = $env:OMNROUTE_BASE_URL.TrimEnd('/')
                 $modelCount = $null
                 try {
@@ -173,11 +167,9 @@ try {
         while ($attempt -lt $PlaycuaRetries -and -not $runOk) {
             $attempt++
             if ($attempt -gt 1) {
-                Write-Host "playcua retry $attempt/$PlaycuaRetries — relaunch between attempts" -ForegroundColor Yellow
-                pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') relaunch -NoBuild | Out-Null
-                $null = Wait-BridgeReady -MaxMinutes 5
-                Start-Sleep -Seconds 30
-                $null = Wait-World3D -MaxSeconds 120
+                Write-Host "playcua retry $attempt/$PlaycuaRetries — relaunch + bootstrap between attempts" -ForegroundColor Yellow
+                $bootstrapVision = if ($Vision -and $omnirouteProbeOk) { $VisionBackend } else { 'off' }
+                $null = Invoke-BridgeRelaunchAndBootstrap3D -BootstrapVisionBackend $bootstrapVision -SettleSeconds 30 -BridgeWaitMinutes 5 -World3DWaitSeconds 120
             }
             $vb = if ($Vision) {
                 if ($omnirouteProbeOk) { $VisionBackend } else { 'off' }
