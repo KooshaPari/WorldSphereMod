@@ -68,6 +68,7 @@ function Get-DefaultPlaycuaVisionBackend {
 }
 
 Import-VisionEnv
+. (Join-Path $repoRoot "Tools/wsm3d.ps1")
 $reportDir = Join-Path $repoRoot "Tools/.reports"
 $reportPath = Join-Path $reportDir "live-verify-latest.json"
 $ssimThreshold = 0.95
@@ -574,6 +575,18 @@ if (-not $Live) {
             }
         }
 
+        $visionBackend = $null
+        if ($Vision) {
+            $visionBackend = Get-DefaultPlaycuaVisionBackend
+            if ($visionBackend -eq "off") {
+                throw "Vision requested but no backend configured (set FIREWORKS_API_KEY or OMNROUTE_API_KEY)."
+            }
+            if ($visionBackend -eq "omniroute") {
+                Test-OmniRoutePeerReachable
+            }
+            $liveDetails.visionBackend = $visionBackend
+        }
+
         $artifactRoot = Join-Path $repoRoot "Tools/wsm3d-playcua/.reports/live-verify-artifacts"
         if (-not (Test-Path -LiteralPath $artifactRoot)) {
             New-Item -ItemType Directory -Force -Path $artifactRoot | Out-Null
@@ -588,11 +601,10 @@ if (-not $Live) {
                 "--report", $scenarioReport
             )
             if ($Vision) {
-                $visionBackend = Get-DefaultPlaycuaVisionBackend
-                if ($visionBackend -eq "off") {
-                    throw "Vision requested but no backend configured (set FIREWORKS_API_KEY or OMNROUTE_API_KEY)."
-                }
                 $args += @("--vision-backend", $visionBackend)
+                if ($visionBackend -eq 'omniroute') {
+                    $args += @('--omniroute-timeout', '300')
+                }
             }
 
             Write-Host ("playcua " + $scenario.Name + " ...")
