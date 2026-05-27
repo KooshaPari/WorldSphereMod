@@ -166,6 +166,10 @@ still does *something* useful on incompatible GPUs.
 
 ## Dev tooling
 
+Parallel topic work uses git worktrees under `%USERPROFILE%\.cursor\worktrees\WorldSphereMod` (`wt/<topic>` branches, one subagent each).
+Merge to `claude/research-ultraplan-fork-DdgI5` before a single `pwsh Tools/do-all.ps1 -Vision` from the main repo (OmniRoute vision degrades to off when the laptop probe fails).
+Full workflow: [`docs/HANDOFF.md`](docs/HANDOFF.md#parallel-development-worktrees).
+
 | Component | Purpose | Invocation |
 |---|---|---|
 | **wsm3d.ps1** | 540-LOC CLI: build, install, reload, toggle phases, screenshot, profiler, startup profile parse | `./Tools/wsm3d.ps1 build` / `install` / `reload-nml` / `toggle-phase` / `profile` / etc. (14 subcommands) |
