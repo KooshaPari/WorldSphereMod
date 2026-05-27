@@ -728,18 +728,23 @@ namespace WorldSphereMod
             {
                 Manager.UpdateTexture(Tile.X, Tile.Y);
             }
+            private static bool _scalesDone = true;
+            private static bool _texDone = true;
+            private static bool _addedDone = true;
+            private static bool _colorsDone = true;
+
             public static void RefreshSphere()
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-                Manager.RefreshScales();
+                _scalesDone = Manager.RefreshScales();
                 long scaleMs = sw.ElapsedMilliseconds;
 
                 sw.Restart();
-                Manager.RefreshTextures();
+                _texDone = Manager.RefreshTextures();
                 long texMs = sw.ElapsedMilliseconds;
 
                 sw.Restart();
-                Manager.RefreshCustom("AddedColors");
+                _addedDone = Manager.RefreshCustom("AddedColors");
                 long addedMs = sw.ElapsedMilliseconds;
 
                 sw.Restart();
@@ -755,13 +760,19 @@ namespace WorldSphereMod
                 }
                 LogDiagnostics("[WSM3D] RefreshSphere");
             }
+
+            public static bool HasPendingUpdates()
+            {
+                return !_scalesDone || !_texDone || !_addedDone || !_colorsDone;
+            }
             public static void RefreshColors()
             {
                 if (Manager == null)
                 {
+                    _colorsDone = true;
                     return;
                 }
-                Manager.RefreshColors();
+                _colorsDone = Manager.RefreshColors();
             }
             public static void UpdateLayer(SphereTile Tile)
             {

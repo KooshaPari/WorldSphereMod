@@ -352,6 +352,15 @@ namespace WorldSphereMod.TileMapToSphere
 
             frameSw.Restart();
             long refreshMs = 0;
+
+            // Drain any leftover partial updates from previous frames first.
+            if (Core.IsWorld3D && Core.Sphere.HasPendingUpdates())
+            {
+                var pendingSw = System.Diagnostics.Stopwatch.StartNew();
+                Core.Sphere.RefreshSphere();
+                refreshMs = pendingSw.ElapsedMilliseconds;
+            }
+
             if (World.world._redraw_timer > 0f)
             {
                 World.world._redraw_timer -= Time.deltaTime;
@@ -370,7 +379,7 @@ namespace WorldSphereMod.TileMapToSphere
                 {
                     var refreshSw = System.Diagnostics.Stopwatch.StartNew();
                     Core.Sphere.RefreshSphere();
-                    refreshMs = refreshSw.ElapsedMilliseconds;
+                    refreshMs += refreshSw.ElapsedMilliseconds;
                 }
                 Bench.benchEnd("Refresh Sphere", "game_total");
             }
