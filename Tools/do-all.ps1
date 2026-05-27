@@ -39,7 +39,9 @@ try {
             if ($attempts) { "playcua=$($playcua.status)@${attempts}x" } else { "playcua=$($playcua.status)" }
         } else { 'playcua=skipped' }
         $failed = @($Report.stages | Where-Object { $_.status -eq 'failed' } | ForEach-Object { $_.id })
+        $degraded = @($Report.stages | Where-Object { $_.status -eq 'degraded' } | ForEach-Object { $_.id })
         $failedBit = if ($failed.Count -gt 0) { "failed=$($failed -join ',')" } else { 'failed=none' }
+        if ($degraded.Count -gt 0) { $failedBit += "; degraded=$($degraded -join ',')" }
         $durationBit = if ($null -ne $mins) { "durationMin=$mins" } else { '' }
         @("do-all overallOk=$($Report.overallOk)", $playcuaBit, $failedBit, $durationBit) -join ' | '
     }
@@ -150,7 +152,7 @@ try {
                 Write-Host "omniroute vision probe OK ($modelId): $txt" -ForegroundColor Green
             } catch {
                 $omnirouteProbeOk = $false
-                Add-DoAllStage 'omniroute-probe' 'failed' @{ error = $_.Exception.Message }
+                Add-DoAllStage 'omniroute-probe' 'degraded' @{ error = $_.Exception.Message }
                 Write-Host "omniroute probe failed: $($_.Exception.Message)" -ForegroundColor Yellow
                 Write-Host 'playcua will run with vision off until laptop OmniRoute responds (restart OmniRoute on kooshas-laptop).' -ForegroundColor DarkYellow
             }
