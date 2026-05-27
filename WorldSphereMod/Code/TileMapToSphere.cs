@@ -331,6 +331,27 @@ namespace WorldSphereMod.TileMapToSphere
             QuantumSpriteManager.update();
             long spriteMs = frameSw.ElapsedMilliseconds;
 
+            // The Prefix returns false which skips the original renderStuff body.
+            // The original calls precalculateRenderDataParallel on both managers
+            // which populates visible_units / _array_visible_buildings AND triggers
+            // all Harmony Postfixes (calculateactordata3D, calculatebuildindata3D,
+            // ActorVoxelEmit.EmitVoxels, BuildingVoxelEmit.EmitVoxels, etc.).
+            // Without these calls, actors/buildings spawned after world load are
+            // invisible because visible_units is never refreshed.
+            frameSw.Restart();
+            try
+            {
+                if (World.world != null && World.world.units != null)
+                    World.world.units.precalculateRenderDataParallel();
+                if (World.world != null && World.world.buildings != null)
+                    World.world.buildings.precalculateRenderDataParallel();
+            }
+            catch (System.Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[WSM3D] precalculateRenderDataParallel failed: {ex}");
+            }
+            long precalcMs = frameSw.ElapsedMilliseconds;
+
             frameSw.Restart();
             Bench.bench("redraw_tiles", "game_total", false);
             if (Core.IsWorld3D)
@@ -385,20 +406,22 @@ namespace WorldSphereMod.TileMapToSphere
             }
             long timerMs = frameSw.ElapsedMilliseconds;
 
-            long totalFrame = spriteMs + redrawMs + debugMs + timerMs;
+            long totalFrame = spriteMs + precalcMs + redrawMs + debugMs + timerMs;
             if (totalFrame > 16)
             {
                 UnityEngine.Debug.LogWarning($"[WSM3D][PERF] render3DStuff SLOW: {totalFrame}ms " +
-                    $"(sprite={spriteMs}ms redraw={redrawMs}ms debug={debugMs}ms " +
+                    $"(sprite={spriteMs}ms precalc={precalcMs}ms redraw={redrawMs}ms debug={debugMs}ms " +
                     $"timer={timerMs}ms refresh={refreshMs}ms)");
             }
         }
         static bool Prefix()
         {
           render3DStuff();
-          // Prefix returns false which skips all Postfixes on MapBox.renderStuff.
-          // BridgePerFrameTick.Postfix drives VoxelFrameDriver.TickPerFrame —
-          // invoke it directly so the voxel pipeline ticks every frame.
+          // Prefix returns false which skips the original renderStuff AND all
+          // Postfixes on MapBox.renderStuff (Harmony 2.x behaviour).
+          // render3DStuff() now calls precalculateRenderDataParallel directly,
+          // which fires all Postfixes on those methods (voxel emit, 3D transforms).
+          // BridgeSurvival.Run is called explicitly for the voxel frame driver.
           try { WorldSphereMod.Bridge.BridgeSurvival.Run(runVoxelFrame: true); }
           catch (System.Exception ex) { UnityEngine.Debug.LogError($"[WSM3D] BridgeSurvival.Run from renderStuff Prefix failed: {ex}"); }
           return false;

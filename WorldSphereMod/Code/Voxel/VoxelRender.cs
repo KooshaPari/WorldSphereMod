@@ -511,6 +511,8 @@ namespace WorldSphereMod.Voxel
             public static int LastFrustumCullerPassCount;
             public static int LastBatcherSubmitCount;
             static bool _emitDiagLogged;
+            static int _emitDiagFrameCounter;
+            static bool _emitDiagSawNonZero;
 
             [HarmonyPostfix]
             public static void EmitVoxels(ActorManager __instance)
@@ -550,7 +552,8 @@ namespace WorldSphereMod.Voxel
                             if (dm == null || dm.vertexCount == 0) meshNull++; else meshOk++;
                         }
                     }
-                    Debug.Log($"[WSM3D][DIAG-EMIT] ActorVoxelEmit.EmitVoxels CALLED isWorld3D={Core.IsWorld3D} VoxelEntities={Core.savedSettings.VoxelEntities} materialOk={matOk} visible_units.count={visCount} nullActor={nullActor} perpSkipped={perpSkipped} frustumPass={frustumPass} frustumFail={frustumFail} meshOk={meshOk} meshNull={meshNull} cacheSize={VoxelMeshCache.Count}");
+                    Debug.Log($"[WSM3D][DIAG-EMIT] ActorVoxelEmit.EmitVoxels CALLED isWorld3D={Core.IsWorld3D} VoxelEntities={Core.savedSettings.VoxelEntities} materialOk={matOk} visible_units.count={visCount} nullActor={nullActor} perpSkipped={perpSkipped} frustumPass={frustumPass} frustumFail={frustumFail} meshOk={meshOk} meshNull={meshNull} cacheSize={VoxelMeshCache.Count} frame={_emitDiagFrameCounter}");
+                    if (visCount > 0) _emitDiagSawNonZero = true;
                 }
                 if (!Core.IsWorld3D || !Core.savedSettings.VoxelEntities) return;
                 if (!EnsureMaterial()) return;
