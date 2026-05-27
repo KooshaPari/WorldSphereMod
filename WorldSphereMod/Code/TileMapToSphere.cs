@@ -521,7 +521,17 @@ namespace WorldSphereMod.TileMapToSphere
             if (!Core.Sphere.CachedColors.TryGetValue(__instance, out PixelArray cached) || cached == null)
             {
                 PixelArray.AddLayer(__instance, 0);
-                cached = Core.Sphere.CachedColors[__instance];
+                if (!Core.Sphere.CachedColors.TryGetValue(__instance, out cached) || cached == null)
+                {
+                    // AddLayer bailed (e.g. IsWorld3D still false during init).
+                    // Fill vanilla pixels and let the original path handle it.
+                    for (int i = 0; i < num; i++)
+                    {
+                        __instance.pixels[i] = color;
+                    }
+                    __instance.updatePixels();
+                    return false;
+                }
             }
             for (int i = 0; i < num; i++)
             {
