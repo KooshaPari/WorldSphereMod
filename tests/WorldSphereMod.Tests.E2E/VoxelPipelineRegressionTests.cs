@@ -388,6 +388,55 @@ public class VoxelPipelineRegressionTests
         throw new InvalidOperationException("Unbalanced braces while extracting type body");
     }
 
+    // ---------------------------------------------------------------
+    // 8. Become3D must guard on MaxTilesFor3D
+    // ---------------------------------------------------------------
+    // Regression: large maps (e.g. 576x576 = 331K tiles) cause GPU hangs
+    // during SphereManager creation. Become3D must read MaxTilesFor3D
+    // from savedSettings and early-return when totalTiles exceeds it.
+    [Fact]
+    public void Become3D_guards_on_MaxTilesFor3D()
+    {
+        var source = ReadSourceFile("WorldSphereMod/Code/Core.cs");
+        var become3DBody = ExtractMethodBody(source, "public static void Become3D()");
+
+        become3DBody.Should().Contain("savedSettings.MaxTilesFor3D",
+            "Become3D must read the MaxTilesFor3D threshold from savedSettings " +
+            "to gate 3D mode on large maps that would cause GPU hangs");
+
+        become3DBody.Should().Contain("MapBox.width * MapBox.height",
+            "Become3D must compute total tile count from MapBox dimensions " +
+            "to compare against MaxTilesFor3D");
+
+        become3DBody.Should().Contain("totalTiles > maxTiles",
+            "Become3D must compare the computed tile count against the max " +
+            "and early-return when the map is too large for 3D mode");
+    }
+
+    // ---------------------------------------------------------------
+    // 9. SavedSettings.MaxTilesFor3D default >= 65536
+    // ---------------------------------------------------------------
+    // The default must be high enough to support all standard map sizes
+    // (up to ~256x256 = 65536 tiles) while still gating truly large maps
+    // that would hang the GPU.
+    [Fact]
+    public void SavedSettings_MaxTilesFor3D_default_is_at_least_65536()
+    {
+        var source = ReadSourceFile("WorldSphereMod/Code/SavedSettings.cs");
+
+        var match = Regex.Match(source,
+            @"public\s+int\s+MaxTilesFor3D\s*=\s*(?<val>\d+)");
+
+        match.Success.Should().BeTrue(
+            "MaxTilesFor3D field must exist in SavedSettings.cs with an explicit int default");
+
+        int value = int.Parse(match.Groups["val"].Value);
+
+        value.Should().BeGreaterThanOrEqualTo(65536,
+            "MaxTilesFor3D default must be >= 65536 so all standard map sizes " +
+            "(up to ~256x256) work in 3D mode; current value is " + value);
+    }
+
     static int CountOccurrences(string text, string pattern)
     {
         int count = 0;
