@@ -379,6 +379,16 @@ namespace WorldSphereMod.Bridge
                         WriteJson(context.Response, InvokeOnMainThread(() => BuildPhasePayload(phaseName)));
                         return;
                     }
+                    if (string.Equals(path, "/diag/emit_status", StringComparison.OrdinalIgnoreCase))
+                    {
+                        WriteJson(context.Response, InvokeOnMainThread(BuildEmitStatusPayload));
+                        return;
+                    }
+                    if (string.Equals(path, "/diag/render_stats", StringComparison.OrdinalIgnoreCase))
+                    {
+                        WriteJson(context.Response, InvokeOnMainThread(BuildRenderStatsPayload));
+                        return;
+                    }
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && path.StartsWith("/settings/", StringComparison.OrdinalIgnoreCase))
                 {
@@ -407,16 +417,6 @@ namespace WorldSphereMod.Bridge
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/diag/dump_now", StringComparison.OrdinalIgnoreCase))
                 {
                     WriteJson(context.Response, InvokeOnMainThread(ForceDiagDumpNow));
-                    return;
-                }
-                else if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/diag/emit_status", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, InvokeOnMainThread(BuildEmitStatusPayload));
-                    return;
-                }
-                else if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/diag/render_stats", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, InvokeOnMainThread(BuildRenderStatsPayload));
                     return;
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/texturepack/import", StringComparison.OrdinalIgnoreCase))
@@ -1255,18 +1255,11 @@ namespace WorldSphereMod.Bridge
             catch { }
 
             string materialShaderName = null;
-            try
             {
-                var matField = typeof(WorldSphereMod.Voxel.VoxelRender).GetField("_material",
-                    System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
-                if (matField != null)
-                {
-                    Material mat = matField.GetValue(null) as Material;
-                    if (mat != null && mat.shader != null)
-                        materialShaderName = mat.shader.name;
-                }
+                Material mat = WorldSphereMod.Voxel.VoxelRender._material;
+                if (mat != null && mat.shader != null)
+                    materialShaderName = mat.shader.name;
             }
-            catch { }
 
             return new
             {

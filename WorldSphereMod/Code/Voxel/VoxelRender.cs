@@ -26,7 +26,7 @@ namespace WorldSphereMod.Voxel
     public static class VoxelRender
     {
         const float BuildingMaxScale = 3.0f;
-        static Material? _material;
+        internal static Material? _material;
         static bool _materialAttempted;
         static bool _materialProbeLogged;
         static bool _materialDebugLogged;

@@ -544,7 +544,7 @@ namespace WorldSphereMod
             #region Fancy stuff
             static SphereManager Manager;
             static Mesh CompoundSphereMesh;
-            static Material CompoundSphereMaterial;
+            internal static Material CompoundSphereMaterial;
             static Texture2DArray Textures;
             static SphereManagerSettings SphereManagerConfig;
             static Dictionary<Tile, int> TileIDS;

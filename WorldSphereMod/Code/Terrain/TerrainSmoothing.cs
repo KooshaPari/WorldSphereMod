@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
 
@@ -555,10 +554,8 @@ namespace WorldSphereMod.Terrain
 
         static Material? GetUnderlyingTerrainMaterial()
         {
-            FieldInfo? terrainField = typeof(Core.Sphere).GetField(
-                "CompoundSphereMaterial",
-                BindingFlags.Static | BindingFlags.NonPublic);
-            if (terrainField != null && terrainField.GetValue(null) is Material terrainMaterial && terrainMaterial != null)
+            Material terrainMaterial = Core.Sphere.CompoundSphereMaterial;
+            if (terrainMaterial != null)
             {
                 return terrainMaterial;
             }
