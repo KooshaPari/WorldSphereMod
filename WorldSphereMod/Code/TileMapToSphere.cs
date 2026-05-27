@@ -254,16 +254,33 @@ namespace WorldSphereMod.TileMapToSphere
             {
                 return;
             }
-            for (int iZone = 0; iZone < World.world.zone_camera._visible_zones.Count; iZone++)
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            int texQ = TextureQueue.Count;
+            int scaleQ = ScaleQueue.Count;
+            int colorQ = ColorQueue.Count;
+            int zoneCount = World.world.zone_camera._visible_zones.Count;
+            for (int iZone = 0; iZone < zoneCount; iZone++)
             {
                 TileZone tZone2 = World.world.zone_camera._visible_zones[iZone];
                 checkZoneToRender(tZone2);
             }
+            long zonesMs = sw.ElapsedMilliseconds;
+            sw.Restart();
             Finish();
+            long finishMs = sw.ElapsedMilliseconds;
+            sw.Restart();
             if (_biomeBlendDirty && Core.savedSettings.BiomeBlending)
             {
                 _biomeBlendDirty = false;
                 Core.Sphere.RefreshColors();
+            }
+            long blendMs = sw.ElapsedMilliseconds;
+            long total = zonesMs + finishMs + blendMs;
+            if (total > 16)
+            {
+                UnityEngine.Debug.LogWarning($"[WSM3D][PERF] Redraw3DTiles SLOW: {total}ms " +
+                    $"(zones={zonesMs}ms/{zoneCount}zones tex={texQ} scale={scaleQ} color={colorQ} " +
+                    $"finish={finishMs}ms blend={blendMs}ms)");
             }
         }
         static void Finish()
@@ -310,7 +327,11 @@ namespace WorldSphereMod.TileMapToSphere
     {
         static void render3DStuff()
         {
+            var frameSw = System.Diagnostics.Stopwatch.StartNew();
             QuantumSpriteManager.update();
+            long spriteMs = frameSw.ElapsedMilliseconds;
+
+            frameSw.Restart();
             Bench.bench("redraw_tiles", "game_total", false);
             if (Core.IsWorld3D)
             {
@@ -321,9 +342,16 @@ namespace WorldSphereMod.TileMapToSphere
                 World.world.tilemap.redrawTiles();
             }
             Bench.benchEnd("redraw_tiles", "game_total", false, 0L, false);
+            long redrawMs = frameSw.ElapsedMilliseconds;
+
+            frameSw.Restart();
             Bench.bench("update_debug_texts", "game_total", false);
             World.world.updateDebugGroupSystem();
             Bench.benchEnd("update_debug_texts", "game_total", false, 0L, false);
+            long debugMs = frameSw.ElapsedMilliseconds;
+
+            frameSw.Restart();
+            long refreshMs = 0;
             if (World.world._redraw_timer > 0f)
             {
                 World.world._redraw_timer -= Time.deltaTime;
@@ -340,10 +368,20 @@ namespace WorldSphereMod.TileMapToSphere
                 Bench.bench("Refresh Sphere", "game_total");
                 if (Core.IsWorld3D)
                 {
-                    // Upstream terrain mesh source: SphereManager.Refresh* / Sphere.RefreshSphere().
+                    var refreshSw = System.Diagnostics.Stopwatch.StartNew();
                     Core.Sphere.RefreshSphere();
+                    refreshMs = refreshSw.ElapsedMilliseconds;
                 }
                 Bench.benchEnd("Refresh Sphere", "game_total");
+            }
+            long timerMs = frameSw.ElapsedMilliseconds;
+
+            long totalFrame = spriteMs + redrawMs + debugMs + timerMs;
+            if (totalFrame > 16)
+            {
+                UnityEngine.Debug.LogWarning($"[WSM3D][PERF] render3DStuff SLOW: {totalFrame}ms " +
+                    $"(sprite={spriteMs}ms redraw={redrawMs}ms debug={debugMs}ms " +
+                    $"timer={timerMs}ms refresh={refreshMs}ms)");
             }
         }
         static bool Prefix()

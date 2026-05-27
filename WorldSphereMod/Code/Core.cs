@@ -730,10 +730,29 @@ namespace WorldSphereMod
             }
             public static void RefreshSphere()
             {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
                 Manager.RefreshScales();
+                long scaleMs = sw.ElapsedMilliseconds;
+
+                sw.Restart();
                 Manager.RefreshTextures();
+                long texMs = sw.ElapsedMilliseconds;
+
+                sw.Restart();
                 Manager.RefreshCustom("AddedColors");
+                long addedMs = sw.ElapsedMilliseconds;
+
+                sw.Restart();
                 RefreshColors();
+                long colorMs = sw.ElapsedMilliseconds;
+
+                long total = scaleMs + texMs + addedMs + colorMs;
+                if (total > 16)
+                {
+                    UnityEngine.Debug.LogWarning($"[WSM3D][PERF] RefreshSphere SLOW: {total}ms " +
+                        $"(scales={scaleMs}ms tex={texMs}ms " +
+                        $"added={addedMs}ms colors={colorMs}ms)");
+                }
                 LogDiagnostics("[WSM3D] RefreshSphere");
             }
             public static void RefreshColors()
