@@ -112,6 +112,6 @@ public class Alpha8To9CoverageTests
 
         source.Should().Contain("static readonly int _colorPropUnlit = Shader.PropertyToID(\"_Color\");");
         methodBody.Should().Contain("Vector4 tint = bucket.Colors[i];");
-        methodBody.Should().Contain("bucket.Block.SetColor(_colorPropUnlit, tint);");
+        methodBody.Should().Contain("_fallbackBlock.SetColor(_colorPropUnlit, tint);");
     }
 }

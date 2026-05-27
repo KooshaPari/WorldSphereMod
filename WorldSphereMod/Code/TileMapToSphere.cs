@@ -374,17 +374,17 @@ namespace WorldSphereMod.TileMapToSphere
             frameSw.Restart();
             long refreshMs = 0;
 
-            // Drain any leftover partial updates from previous frames first.
-            if (Core.IsWorld3D && Core.Sphere.HasPendingUpdates())
-            {
-                var pendingSw = System.Diagnostics.Stopwatch.StartNew();
-                Core.Sphere.RefreshSphere();
-                refreshMs = pendingSw.ElapsedMilliseconds;
-            }
-
             if (World.world._redraw_timer > 0f)
             {
                 World.world._redraw_timer -= Time.deltaTime;
+                // Drain leftover partial updates only when the timer is NOT about
+                // to fire, avoiding double RefreshSphere in the same frame.
+                if (Core.IsWorld3D && Core.Sphere.HasPendingUpdates())
+                {
+                    var pendingSw = System.Diagnostics.Stopwatch.StartNew();
+                    Core.Sphere.RefreshSphere();
+                    refreshMs = pendingSw.ElapsedMilliseconds;
+                }
             }
             else
             {
@@ -413,6 +413,11 @@ namespace WorldSphereMod.TileMapToSphere
                     $"(sprite={spriteMs}ms precalc={precalcMs}ms redraw={redrawMs}ms debug={debugMs}ms " +
                     $"timer={timerMs}ms refresh={refreshMs}ms)");
             }
+
+            // Drain bridge main-thread queue AFTER all tile work so
+            // VoxelFrameDriver ticks and telemetry updates every frame.
+            try { WorldSphereMod.Bridge.BridgeSurvival.Run(runVoxelFrame: true); }
+            catch (System.Exception ex) { UnityEngine.Debug.LogError($"[WSM3D] BridgeSurvival.Run in render3DStuff failed: {ex}"); }
         }
         static bool Prefix()
         {
@@ -421,9 +426,8 @@ namespace WorldSphereMod.TileMapToSphere
           // Postfixes on MapBox.renderStuff (Harmony 2.x behaviour).
           // render3DStuff() now calls precalculateRenderDataParallel directly,
           // which fires all Postfixes on those methods (voxel emit, 3D transforms).
-          // BridgeSurvival.Run is called explicitly for the voxel frame driver.
-          try { WorldSphereMod.Bridge.BridgeSurvival.Run(runVoxelFrame: true); }
-          catch (System.Exception ex) { UnityEngine.Debug.LogError($"[WSM3D] BridgeSurvival.Run from renderStuff Prefix failed: {ex}"); }
+          // BridgeSurvival.Run is called at the end of render3DStuff() so the
+          // bridge queue drains after all tile work completes.
           return false;
         }
     }

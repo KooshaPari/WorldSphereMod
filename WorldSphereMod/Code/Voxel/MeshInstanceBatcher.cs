@@ -542,7 +542,6 @@ namespace WorldSphereMod.Voxel
             _useFallbackPath = false;
             _instancingErrorLogged = false;
             _standardInstancingAttempted = false;
-            _standardInstancingWorks = false;
             _verboseDrawLoggingArmed = false;
             _verboseDrawLoggingConsumed = false;
             _renderTargetLogged = false;
@@ -554,7 +553,6 @@ namespace WorldSphereMod.Voxel
         }
 
         static bool _standardInstancingAttempted;
-        static bool _standardInstancingWorks;
 
         static bool CanUseInstancedDraw(Material material, out string reason)
         {

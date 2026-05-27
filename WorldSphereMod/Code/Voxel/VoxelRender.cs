@@ -150,6 +150,10 @@ namespace WorldSphereMod.Voxel
                 if (s == null) continue;
                 Material m = new Material(s) { name = "WSM3D.Voxel.Placeholder" };
                 m.enableInstancing = true;
+                // Enable INSTANCING_ON keyword so Standard shader's instanced
+                // variant actually compiles. Without this keyword, Unity skips
+                // the instanced code path even when enableInstancing=true.
+                m.EnableKeyword("INSTANCING_ON");
                 if (MeshInstanceBatcher.UseFallbackPath)
                 {
                     m.enableInstancing = false;
@@ -1291,7 +1295,7 @@ namespace WorldSphereMod.Voxel
                     });
                 }
 
-                tPumpQueuedBuilds = Measure(() => WorldSphereMod.Voxel.VoxelMeshCache.PumpQueuedBuilds(32));
+                tPumpQueuedBuilds = Measure(() => WorldSphereMod.Voxel.VoxelMeshCache.PumpQueuedBuilds(8));
                 tDrainCompletedBuilds = Measure(() => WorldSphereMod.Voxel.VoxelMeshCache.DrainCompletedBuilds(8));
 
                 if (Core.savedSettings.DebugSanityCube)
@@ -1454,8 +1458,15 @@ namespace WorldSphereMod.Voxel
 
             // Flush runs in LateUpdate after all emit postfixes for this frame.
 
-            WorldSphereMod.Voxel.VoxelMeshCache.PumpQueuedBuilds(32);
-            WorldSphereMod.Voxel.VoxelMeshCache.DrainCompletedBuilds(8);
+            // Frame-time budget: when the previous frame was slow, reduce
+            // background work to keep the render loop responsive. Adapt the
+            // pump budget based on how much headroom we have.
+            float lastFrameMs = Time.unscaledDeltaTime * 1000f;
+            bool frameBudgetTight = lastFrameMs > 20f;
+            int pumpBudget = frameBudgetTight ? 2 : 8;
+
+            WorldSphereMod.Voxel.VoxelMeshCache.PumpQueuedBuilds(pumpBudget);
+            WorldSphereMod.Voxel.VoxelMeshCache.DrainCompletedBuilds(frameBudgetTight ? 4 : 8);
             WorldSphereMod.Voxel.VoxelDiskCache.TickFlush();
 
             if (Core.savedSettings.DebugSanityCube)
@@ -1488,7 +1499,11 @@ namespace WorldSphereMod.Voxel
 
             WorldSphereMod.Lighting.SunDriver.Update();
 
-            WorldSphereMod.Fx.DecalPool.Tick();
+            // Skip cosmetic FX ticks when frame budget is tight
+            if (!frameBudgetTight)
+            {
+                WorldSphereMod.Fx.DecalPool.Tick();
+            }
 
             WorldSphereMod.Fx.Environmental.Tick();
 
