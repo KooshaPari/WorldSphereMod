@@ -950,8 +950,9 @@ namespace WorldSphereMod
                 if (CompoundSphereMaterial == null)
                     Debug.LogError("[WSM3D] CompoundSphereMaterial missing from bundle.");
 
-                // wsm3d-shaders bundle rebaked with Unity 2022.3.62f3. All 8 shaders
-                // now compile. Load with try/catch in case bundle file is missing.
+                // wsm3d-shaders bundle ships 10 BRP shaders (+ SVC asset); runtime
+                // loads only SafeShaders (3) — see ADR-0013 / human gate before
+                // expanding the list. Load with try/catch if bundle file is missing.
                 WrappedAssetBundle shaderAb = null;
                 try { shaderAb = AssetBundleUtils.GetAssetBundle("wsm3d-shaders"); }
                 catch { shaderAb = null; }
