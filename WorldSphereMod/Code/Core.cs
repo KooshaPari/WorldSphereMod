@@ -161,7 +161,7 @@ namespace WorldSphereMod
             {
                 InitProfiler.Measure("ScheduleBecome3D", () =>
                 {
-                    System.Action become3DAction = null;
+                    MapLoaderAction become3DAction = null;
                     become3DAction = delegate
                     {
                         if (IsWorld3D) return;
