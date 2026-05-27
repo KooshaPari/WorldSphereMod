@@ -22,7 +22,7 @@ namespace WorldSphereMod.Water
             // keeps the mesh surface just below the terrain-water boundary.
             SeaLevel = Tools.TrueHeight(17) - 0.15f;
 
-            var tiles = World.world.tiles_list;
+            WorldTile[] tiles = World.world.tiles_list;
             int n = tiles.Length;
             float maxD = 0f;
             for (int i = 0; i < n; i++)

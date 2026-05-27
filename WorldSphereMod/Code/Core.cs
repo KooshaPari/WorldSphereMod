@@ -617,12 +617,13 @@ namespace WorldSphereMod
             }
             static Color32 BlendBiomeColor(int index, Color32 fallback)
             {
-                if (World.world == null || index < 0 || index >= World.world.tiles_list.Length)
+                WorldTile[] tilesList = World.world != null ? World.world.tiles_list : null;
+                if (tilesList == null || index < 0 || index >= tilesList.Length)
                 {
                     return fallback;
                 }
 
-                WorldTile center = World.world.tiles_list[index];
+                WorldTile center = tilesList[index];
                 if (center == null)
                 {
                     return fallback;

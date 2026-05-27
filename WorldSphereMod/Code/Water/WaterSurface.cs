@@ -100,7 +100,7 @@ namespace WorldSphereMod.Water
 
             if (WaterMaskBuffer.Depths == null) return;
 
-            var tiles = World.world.tiles_list;
+            WorldTile[] tiles = World.world.tiles_list;
             int tileCount = tiles.Length;
             int width = MapBox.width;
             int height = MapBox.height;

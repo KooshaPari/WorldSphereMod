@@ -12,6 +12,7 @@ public class NmlCompileCompatTests
     // Keep this list curated from Player.log CS errors — avoid broad regex scans.
     private static readonly (string Snippet, string Reason)[] KnownTraps =
     {
+        ("tiles_list.Length", "NML Roslyn treats tiles_list.Length as method group — assign to WorldTile[] local first"),
     };
 
     private static readonly string[] ExcludedDirectoryMarkers =
