@@ -161,14 +161,19 @@ namespace WorldSphereMod
             {
                 InitProfiler.Measure("ScheduleBecome3D", () =>
                 {
-                    SmoothLoader.add(delegate
+                    System.Action become3DAction = null;
+                    become3DAction = delegate
                     {
-                        if (!IsWorld3D && World.world != null)
+                        if (IsWorld3D) return;
+                        if (World.world == null)
                         {
-                            Generated = true;
-                            Become3D();
+                            SmoothLoader.add(become3DAction, "Becoming 3D!");
+                            return;
                         }
-                    }, "Becoming 3D!");
+                        Generated = true;
+                        Become3D();
+                    };
+                    SmoothLoader.add(become3DAction, "Becoming 3D!");
                 });
             }
         }
