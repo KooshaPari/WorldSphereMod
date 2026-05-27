@@ -216,9 +216,9 @@ try {
 
     Write-Host ""
     if ($testExitCode -eq 0) {
-        Write-Ok "ALL TESTS PASSED (${elapsed:N1}s elapsed)"
+        Write-Ok "ALL TESTS PASSED ($("{0:N1}" -f $elapsed)s elapsed)"
     } else {
-        Write-Err "SOME TESTS FAILED (exit=$testExitCode, ${elapsed:N1}s elapsed)"
+        Write-Err "SOME TESTS FAILED (exit=$testExitCode, $("{0:N1}" -f $elapsed)s elapsed)"
     }
 
 } finally {
