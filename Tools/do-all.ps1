@@ -210,9 +210,9 @@ try {
         pwsh (Join-Path $RepoRoot 'Tools/verify-journeys.ps1') | Out-Host
         if ($LASTEXITCODE -ne 0) {
             Add-DoAllStage 'journey-mock' 'failed' @{ exitCode = $LASTEXITCODE }
-            throw "journey mock failed (exit $LASTEXITCODE)"
+            throw "Journey mock verification failed (exit code $LASTEXITCODE)"
         }
-        Add-DoAllStage 'journey-mock' 'passed' @{}
+        else { Add-DoAllStage 'journey-mock' 'passed' @{} }
 
         Write-Host "=== do-all: playcua run-all (retries=$PlaycuaRetries) ===" -ForegroundColor Cyan
         $attempt = 0
