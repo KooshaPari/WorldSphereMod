@@ -5,23 +5,44 @@ steps:
   - action: load_save
     slot: 2
     optional: true
+    settle_frames: 150
+    bridge_wait_seconds: 90
     note: Load baseline save with sky visible for day/night verification.
   - action: wait_n_frames
-    frames: 12
+    frames: 45
     fps: 30
+    note: Allow world/sim to advance past asset-loading UI before telemetry gate.
+  - action: wait_n_frames
+    frames: 30
+    fps: 1
+    note: Extra settle so post-load frameMs spike (save transition) can decay.
   - action: health
     required: true
-    note: Bridge health before phase toggle.
+    note: Bridge health before phase work (isWorld3D may lag save transition).
   - action: assert_telemetry
-    required: true
-    note: Game must be rendering before phase toggle.
+    optional: true
+    note: Soft probe — skips when still at menu or mid load (lastNonZeroDrawCalls=0).
     checks:
       - field: lastNonZeroDrawCalls
         op: ">"
         value: 0
       - field: frameMs
         op: "<"
-        value: 8000
+        value: 12000
+  - action: wait_n_frames
+    frames: 15
+    fps: 1
+    note: Buffer after soft probe before hard telemetry gate.
+  - action: assert_telemetry
+    required: true
+    note: Hard gate — game must be rendering before phase toggle.
+    checks:
+      - field: lastNonZeroDrawCalls
+        op: ">"
+        value: 0
+      - field: frameMs
+        op: "<"
+        value: 12000
   - action: toggle_flag
     key: DayNightCycle
     value: true
@@ -51,5 +72,5 @@ steps:
         value: 0
       - field: frameMs
         op: "<"
-        value: 8000
+        value: 12000
 

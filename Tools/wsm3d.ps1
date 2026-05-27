@@ -246,6 +246,54 @@ function Test-BridgeHealthy {
     }
 }
 
+function Get-BridgeHealth {
+    param([string]$Url = $script:BridgeHealthUrl)
+
+    try {
+        return Invoke-RestMethod -Uri $Url -Method Get -TimeoutSec 8
+    } catch {
+        return $null
+    }
+}
+
+function Invoke-PlaycuaBootstrapSaveLoad {
+    param(
+        [ValidateSet("fireworks", "omniroute", "anthropic", "off")]
+        [string]$VisionBackend = "off"
+    )
+
+    $bootstrap = Join-Path $RepoRoot "Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml"
+    if (-not (Test-Path -LiteralPath $bootstrap)) {
+        Write-Warn "PlayCUA bootstrap scenario missing: $bootstrap"
+        return $false
+    }
+
+    $python = Resolve-PythonCommand
+    $playcuaMain = Join-Path $RepoRoot "Tools/wsm3d-playcua/main.py"
+    $reportDir = Join-Path $RepoRoot "Tools/wsm3d-playcua/.reports"
+    if (-not (Test-Path -LiteralPath $reportDir)) {
+        New-Item -ItemType Directory -Force -Path $reportDir | Out-Null
+    }
+    $report = Join-Path $reportDir "bootstrap-save-load.json"
+    $pyArgs = @($playcuaMain, $bootstrap, "--report", $report, "--vision-backend", $VisionBackend)
+
+    Write-Info "playcua bootstrap: bridge-save-load-smoke (isWorld3D=false) ..."
+    & $python @pyArgs
+    return ($LASTEXITCODE -eq 0)
+}
+
+function Wait-BridgeWorld3D {
+    param([int]$WaitSeconds = 180)
+
+    $deadline = (Get-Date).AddSeconds($WaitSeconds)
+    while ((Get-Date) -lt $deadline) {
+        $health = Get-BridgeHealth
+        if ($health -and [bool]$health.isWorld3D) { return $health }
+        Start-Sleep -Seconds 5
+    }
+    return Get-BridgeHealth
+}
+
 function Ensure-BridgeReady {
     param(
         [int]$WaitSeconds = 90,
@@ -1865,10 +1913,22 @@ function Invoke-PlaycuaScenarios {
     }
 
     $failed = @()
+    $playcuaBootstrapped = $false
     Push-Location $RepoRoot
     try {
         foreach ($scenario in $Scenarios) {
-            if (-not (Ensure-BridgeReady -WaitSeconds 20)) {
+            if (-not $playcuaBootstrapped) {
+                if (-not (Ensure-BridgeReady -WaitSeconds 20)) {
+                    $null = Ensure-BridgeReady -RelaunchIfDown
+                }
+                $health = Get-BridgeHealth
+                if ($health -and -not [bool]$health.isWorld3D) {
+                    $bootstrapVision = if ($PSBoundParameters.ContainsKey("VisionBackend")) { $VisionBackend } else { "off" }
+                    $null = Invoke-PlaycuaBootstrapSaveLoad -VisionBackend $bootstrapVision
+                    $null = Wait-BridgeWorld3D -WaitSeconds 180
+                }
+                $playcuaBootstrapped = $true
+            } elseif (-not (Ensure-BridgeReady -WaitSeconds 20)) {
                 $null = Ensure-BridgeReady -RelaunchIfDown
             }
 

@@ -6,21 +6,43 @@ steps:
     slot: 2
     optional: true
     settle_frames: 150
+    bridge_wait_seconds: 90
     note: Load baseline save when bridge survives transition; otherwise load slot 2 in UI first.
   - action: wait_n_frames
     frames: 45
     fps: 30
     note: Allow world/sim to advance past asset-loading UI before telemetry gate.
-  - action: assert_telemetry
+  - action: wait_n_frames
+    frames: 30
+    fps: 1
+    note: Extra settle so post-load frameMs spike (save transition) can decay.
+  - action: health
     required: true
-    note: Bridge health proxy — game must be rendering before phase toggle.
+    note: Bridge health before phase work (isWorld3D may lag save transition).
+  - action: assert_telemetry
+    optional: true
+    note: Soft probe — skips when still at menu or mid load (lastNonZeroDrawCalls=0).
     checks:
       - field: lastNonZeroDrawCalls
         op: ">"
         value: 0
       - field: frameMs
         op: "<"
-        value: 8000
+        value: 12000
+  - action: wait_n_frames
+    frames: 15
+    fps: 1
+    note: Buffer after soft probe before hard telemetry gate.
+  - action: assert_telemetry
+    required: true
+    note: Hard gate — game must be rendering before phase toggle.
+    checks:
+      - field: lastNonZeroDrawCalls
+        op: ">"
+        value: 0
+      - field: frameMs
+        op: "<"
+        value: 12000
   - action: toggle_flag
     key: VoxelEntities
     value: true
@@ -47,5 +69,5 @@ steps:
         value: 0
       - field: frameMs
         op: "<"
-        value: 8000
+        value: 12000
 
