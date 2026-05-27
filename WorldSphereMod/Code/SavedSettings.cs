@@ -26,7 +26,9 @@ public class SavedSettings
         public float RenderRange = 2;
         public float TileHeight = 1;
         public float BuildingSize = 0.5f;
-        public int CurrentShape = 1;
+        // Default to flat (0) — sphere/cylindrical (1) causes GPU hangs on
+        // large maps until sphere-mode performance is resolved.
+        public int CurrentShape = 0;
 
         // --- v2 (WorldSphereMod3D fork) additions ---
         // Phase 1: Voxel actor/item/projectile rendering. When false, falls back

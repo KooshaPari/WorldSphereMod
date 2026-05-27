@@ -29,8 +29,31 @@ namespace WorldSphereMod.Bridge
                 if (Core.savedSettings != null && Core.savedSettings.Is3D && !Core.IsWorld3D && !_become3DQueued)
                 {
                     _become3DQueued = true;
-                    Core.Generated = true;
-                    SmoothLoader.add(delegate { _become3DQueued = false; Core.Become3D(); }, "Becoming 3D!");
+                    int _retries = 0;
+                    MapLoaderAction become3DAction = null;
+                    become3DAction = delegate
+                    {
+                        if (Core.IsWorld3D) { _become3DQueued = false; return; }
+                        if (_retries > 200)
+                        {
+                            Debug.LogError("[WSM3D][Bridge] Become3D deferred: exhausted 200 retries.");
+                            _become3DQueued = false;
+                            return;
+                        }
+                        _retries++;
+                        if (World.world == null || World.world.tiles == null || World.world.tiles.Length == 0
+                            || MapBox.width <= 0 || MapBox.height <= 0
+                            || World.world._map_layers == null)
+                        {
+                            SmoothLoader.add(become3DAction, "Becoming 3D!");
+                            return;
+                        }
+                        _become3DQueued = false;
+                        Core.Sphere.PrepareWorld();
+                        Core.Generated = true;
+                        Core.Become3D();
+                    };
+                    SmoothLoader.add(become3DAction, "Becoming 3D!");
                 }
             }
             catch (Exception ex)

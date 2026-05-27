@@ -69,4 +69,68 @@ public class NmlCompileCompatTests
 
         offenders.Should().BeEmpty("NML Roslyn compilation must not hit known parse/semantic traps");
     }
+
+    /// <summary>
+    /// SmoothLoader.add() expects MapLoaderAction, not System.Action.
+    /// NML Roslyn rejects the implicit conversion. Catch any call site that
+    /// declares or casts a System.Action and passes it to SmoothLoader.add.
+    /// </summary>
+    [Fact]
+    public void SmoothLoader_add_must_not_receive_System_Action()
+    {
+        var root = FindRepoRoot();
+        var offenders = new List<string>();
+
+        // Patterns that indicate a System.Action being fed to SmoothLoader.add:
+        //  1. SmoothLoader.add( <identifier> ,  — where <identifier> was declared as Action / System.Action
+        //  2. Explicit cast: (Action) or (System.Action) inside SmoothLoader.add(...)
+        //  3. Variable typed as Action passed on a preceding line
+        var addCallRegex = new Regex(@"SmoothLoader\s*\.\s*add\s*\(", RegexOptions.Compiled);
+        var systemActionCast = new Regex(@"SmoothLoader\s*\.\s*add\s*\(\s*\(?\s*(System\s*\.\s*)?Action\s*[<>)\s]", RegexOptions.Compiled);
+        var actionVarDecl = new Regex(@"\b(System\s*\.\s*)?Action\b\s+(\w+)\s*[=;]", RegexOptions.Compiled);
+
+        foreach (var file in EnumerateSourceFiles(root))
+        {
+            var relativePath = Path.GetRelativePath(root, file);
+            var lines = File.ReadAllLines(file);
+            var declaredActionVars = new HashSet<string>(StringComparer.Ordinal);
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                var line = lines[i];
+
+                // Track any local declared as Action / System.Action
+                var declMatch = actionVarDecl.Match(line);
+                if (declMatch.Success)
+                {
+                    declaredActionVars.Add(declMatch.Groups[2].Value);
+                }
+
+                if (!addCallRegex.IsMatch(line))
+                    continue;
+
+                // Flag explicit (System.)Action cast inside the call
+                if (systemActionCast.IsMatch(line))
+                {
+                    offenders.Add(
+                        $"{relativePath}:{i + 1}: SmoothLoader.add receives a System.Action cast — use MapLoaderAction or delegate {{ }}");
+                    continue;
+                }
+
+                // Flag passing a variable previously declared as Action
+                foreach (var varName in declaredActionVars)
+                {
+                    if (Regex.IsMatch(line, $@"SmoothLoader\s*\.\s*add\s*\(\s*{Regex.Escape(varName)}\b"))
+                    {
+                        offenders.Add(
+                            $"{relativePath}:{i + 1}: SmoothLoader.add receives '{varName}' which was declared as System.Action — use MapLoaderAction");
+                    }
+                }
+            }
+        }
+
+        offenders.Should().BeEmpty(
+            "SmoothLoader.add expects MapLoaderAction, not System.Action — " +
+            "NML Roslyn cannot implicitly convert between delegate types");
+    }
 }

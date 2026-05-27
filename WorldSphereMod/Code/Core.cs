@@ -166,15 +166,25 @@ namespace WorldSphereMod
                     become3DAction = delegate
                     {
                         if (IsWorld3D) return;
-                        if (_retries > 200) return;
+                        if (_retries > 200)
+                        {
+                            Debug.LogError("[WSM3D] Become3D deferred: exhausted 200 retries — world never became ready.");
+                            return;
+                        }
                         _retries++;
                         try
                         {
-                            if (World.world == null || World.world.tiles == null || World.world.tiles.Length == 0)
+                            if (World.world == null || World.world.tiles == null || World.world.tiles.Length == 0
+                                || MapBox.width <= 0 || MapBox.height <= 0
+                                || World.world._map_layers == null)
                             {
+                                Debug.Log($"[WSM3D] Become3D deferred: world not ready (retry {_retries}), re-queuing. " +
+                                    $"world={World.world != null} tiles={World.world?.tiles?.Length ?? -1} " +
+                                    $"MapBox={MapBox.width}x{MapBox.height} layers={World.world?._map_layers != null}");
                                 SmoothLoader.add(become3DAction, "Becoming 3D!");
                                 return;
                             }
+                            Sphere.PrepareWorld();
                             Generated = true;
                             Become3D();
                         }
@@ -468,6 +478,13 @@ namespace WorldSphereMod
         } 
         public static void Become3D()
         {
+            // Guard: Sphere.Begin reads MapBox.width/height and will create a
+            // zero-sized SphereManager if they haven't been set yet.
+            if (MapBox.width <= 0 || MapBox.height <= 0)
+            {
+                UnityEngine.Debug.LogError($"[WSM3D] Become3D aborted: MapBox dimensions not ready ({MapBox.width}x{MapBox.height}). Caller should re-queue via SmoothLoader.");
+                return;
+            }
             // Sphere.Begin starts a coroutine that spreads tile+buffer init
             // across frames; the onCreated callback fires once the Manager
             // exists (before buffers finish) and triggers the remaining 3D
