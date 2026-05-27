@@ -415,9 +415,15 @@ namespace WorldSphereMod.Voxel
             _queuedBuilds.Enqueue(request);
         }
 
+        /// <summary>Max milliseconds PumpQueuedBuilds may spend per frame before yielding.</summary>
+        const float kPumpTimeBudgetMs = 4.0f;
+
         public static void PumpQueuedBuilds(int maxBuildsPerFrame = 1)
         {
             int processed = 0;
+            long startTicks = System.Diagnostics.Stopwatch.GetTimestamp();
+            double ticksPerMs = System.Diagnostics.Stopwatch.Frequency / 1000.0;
+
             while (processed < maxBuildsPerFrame && _queuedBuilds.TryDequeue(out BuildRequest request))
             {
                 bool shouldBuild = true;
@@ -450,6 +456,14 @@ namespace WorldSphereMod.Voxel
                 }
 
                 processed++;
+
+                // Time-budget guard: stop pumping if we've exceeded the budget,
+                // remaining builds will be processed in subsequent frames.
+                double elapsedMs = (System.Diagnostics.Stopwatch.GetTimestamp() - startTicks) / ticksPerMs;
+                if (elapsedMs >= kPumpTimeBudgetMs)
+                {
+                    break;
+                }
             }
 
             if (!_pumpDiagLogged && processed > 0)
@@ -457,7 +471,8 @@ namespace WorldSphereMod.Voxel
                 _pumpDiagLogged = true;
                 int queued;
                 lock (_lock) { queued = _pendingBuilds.Count; }
-                Debug.Log($"[WSM3D] VoxelMeshCache: {queued} pending builds, {processed} completed this frame");
+                double totalMs = (System.Diagnostics.Stopwatch.GetTimestamp() - startTicks) / ticksPerMs;
+                Debug.Log($"[WSM3D] VoxelMeshCache: {queued} pending builds, {processed} completed this frame ({totalMs:F1}ms)");
             }
         }
 
