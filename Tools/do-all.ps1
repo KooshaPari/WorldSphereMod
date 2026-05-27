@@ -46,21 +46,37 @@ try {
         @("do-all overallOk=$($Report.overallOk)", $playcuaBit, $failedBit, $durationBit) -join ' | '
     }
 
-    function Import-DoAllVisionEnv {
-        $envFile = Join-Path $RepoRoot 'Tools/omniroute-vision.env'
-        if (Test-Path -LiteralPath $envFile) {
-            Get-Content -LiteralPath $envFile | ForEach-Object {
-                if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
-                    Set-Item -Path "env:$($matches[1].Trim())" -Value $matches[2].Trim()
-                }
+    function Import-DoAllVisionEnvFile {
+        param([string]$FileName)
+        $envFile = Join-Path $RepoRoot "Tools/$FileName"
+        if (-not (Test-Path -LiteralPath $envFile)) { return }
+        Get-Content -LiteralPath $envFile | ForEach-Object {
+            if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
+                Set-Item -Path "env:$($matches[1].Trim())" -Value $matches[2].Trim()
             }
-        }
-        if ($Vision) {
-            $env:PLAYCUA_VISION_BACKEND = $VisionBackend
         }
     }
 
+    function Import-DoAllVisionEnv {
+        Import-DoAllVisionEnvFile "omniroute-vision.env"
+        Import-DoAllVisionEnvFile "fireworks-vision.env"
+        if (-not $env:FIREWORKS_API_KEY) {
+            $userFw = [Environment]::GetEnvironmentVariable("FIREWORKS_API_KEY", "User")
+            if ($userFw) { $env:FIREWORKS_API_KEY = $userFw }
+        }
+    }
+
+    function Get-DefaultPlaycuaVisionBackend {
+        $explicit = if ($env:PLAYCUA_VISION_BACKEND) { $env:PLAYCUA_VISION_BACKEND.Trim().ToLowerInvariant() } else { "" }
+        if ($explicit -in @("fireworks", "omniroute", "anthropic", "off")) { return $explicit }
+        if ($env:FIREWORKS_API_KEY) { return "fireworks" }
+        if ($env:OMNROUTE_API_KEY) { return "omniroute" }
+        if ($env:ANTHROPIC_API_KEY) { return "anthropic" }
+        return "off"
+    }
+
     Import-DoAllVisionEnv
+    $visionBackendResolved = if ($Vision) { Get-DefaultPlaycuaVisionBackend } else { 'off' }
     $omnirouteProbeOk = $true
 
     Write-Host '=== do-all: audit-tick (offline + live) ===' -ForegroundColor Cyan
@@ -120,7 +136,7 @@ try {
 
     $offlineVerifyDone = $false
     if (-not $SkipLive) {
-        if ($Vision -and $VisionBackend -eq 'omniroute' -and $env:OMNROUTE_BASE_URL -and $env:OMNROUTE_API_KEY) {
+        if ($visionBackendResolved -eq 'omniroute' -and $env:OMNROUTE_BASE_URL -and $env:OMNROUTE_API_KEY) {
             Write-Host "=== do-all: omniroute probe ($($env:OMNROUTE_BASE_URL)) ===" -ForegroundColor Cyan
             try {
                 Test-OmniRoutePeerReachable -BaseUrl $env:OMNROUTE_BASE_URL.TrimEnd('/')
@@ -193,9 +209,9 @@ try {
                 Start-Sleep -Seconds 30
                 $null = Wait-World3D -MaxSeconds 120
             }
-            $vb = if ($Vision) {
-                if ($VisionBackend -eq 'omniroute' -and -not $omnirouteProbeOk) { 'off' } else { $VisionBackend }
-            } else { 'off' }
+            $vb = if ($visionBackendResolved -eq 'omniroute') {
+                if ($omnirouteProbeOk) { 'omniroute' } else { 'off' }
+            } else { $visionBackendResolved }
             Write-Host "playcua run-all VisionBackend=$vb" -ForegroundColor Gray
             $playcuaExit = 0
             try {
@@ -211,11 +227,11 @@ try {
             Add-DoAllStage 'playcua-run-all' 'passed' @{
                 attempts       = $attempt
                 visionBackend  = $vb
-                visionDegraded = [bool]($Vision -and -not $omnirouteProbeOk)
+                visionDegraded = [bool]($Vision -and $vb -eq 'off')
             }
             pwsh (Join-Path $RepoRoot 'Tools/sync-playcua-screenshots.ps1') | Out-Host
             $liveArgs = @('-Live', '-SkipOffline')
-            if ($Vision -and ($VisionBackend -ne 'omniroute' -or $omnirouteProbeOk)) { $liveArgs += '-Vision' }
+            if ($vb -ne 'off') { $liveArgs += '-Vision' }
             pwsh (Join-Path $RepoRoot 'Tools/wsm-live-verify.ps1') @liveArgs 2>&1 | Out-Host
             if ($LASTEXITCODE -ne 0) {
                 Add-DoAllStage 'live-verify-live' 'failed' @{ exitCode = $LASTEXITCODE }
