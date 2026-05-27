@@ -2,12 +2,13 @@
 
 Canonical "next session starts here" doc for WorldSphereMod3D.
 
-**Last updated:** 2026-05-26 (do-all / `Ensure-BridgeReady` / PlayCUA 13/13 with 3× run-all retries)
+**Last updated:** 2026-05-26 (`wt/shaders-rebake` — 10-shader bundle, SafeShaders gate)
 
 Recent validation:
 
 - Bevy standalone black screen is fixed; `OrbitCamera` now targets the scene correctly.
-- Shader bake pipeline is functional via `Tools/bake-shaders.ps1`.
+- Shader bake pipeline is functional via headless `Tools/bake-shaders.ps1` (Unity `-batchmode -nographics`; **not** a `wsm3d.ps1` subcommand).
+- `wsm3d-shaders` bundle manifest lists **10 shaders** (rebaked 2026-05-26; GerstnerWater depth pass in `0fe30b1`). Runtime still loads **3** via `Core.Sphere.SafeShaders` only — expansion blocked until in-game proof (see [SafeShaders human gate](#safeshaders-human-gate)).
 
 ## TL;DR
 
@@ -230,7 +231,7 @@ Short form:
 - **Unity 2022.3 install** — required to bake `VoxelLit.shader`, `WaterGerstner.shader`, `ProceduralSky.shader` into AssetBundles for Phases 4, 5, 8.
 - **Live verification (agentic tier)** — `.github/workflows/live-verify-gate.yml` runs offline programmatic stages (`dotnet test` + journey mock via `Tools/wsm-live-verify.ps1`, report `Tools/.reports/live-verify-latest.json`). **Nightly** (`.github/workflows/nightly.yml`) calls the same reusable workflow for offline stages before lint/stats extras. Full agentic tier on a Windows desktop requires **WorldBox running + bridge on `127.0.0.1:8766` + OmniRoute** for vision: `pwsh Tools/wsm-live-verify.ps1 -Live -Vision`. See `docs/live-verification.md`.
 - Visual/vision approval and strict journey capture remain separate proof from PlayCUA capture + telemetry. phase SSIM still need inference/OmniRoute vision backend (Fireworks `fpk_*` keys return HTTP 403).
-- Current live status: `docs/issue-triage.md` says the runtime is still broken: Harmony patches are not applying, historical screenshot PNGs captured the wrong window (tooling fixed 2026-05-26 — `Win32Capture` now sets `capture_target: worldbox_window`), and no phase has been visually verified in actual WorldBox gameplay with post-fix captures. Until Harmony + refreshed screenshots are fixed, treat PlayCUA pass counts and stale artifact PNGs as automation claims, not proof of shipped visuals. `BridgeLoadSaveHooks` must patch `loadWorld(string, bool)` explicitly or `Core.Init` fails (loading screen stall). Shader bake output is now functional through `Tools/bake-shaders.ps1`.
+- Current live status: `docs/issue-triage.md` says the runtime is still broken: Harmony patches are not applying, historical screenshot PNGs captured the wrong window (tooling fixed 2026-05-26 — `Win32Capture` now sets `capture_target: worldbox_window`), and no phase has been visually verified in actual WorldBox gameplay with post-fix captures. Until Harmony + refreshed screenshots are fixed, treat PlayCUA pass counts and stale artifact PNGs as automation claims, not proof of shipped visuals. `BridgeLoadSaveHooks` must patch `loadWorld(string, bool)` explicitly or `Core.Init` fails (loading screen stall). Shader **rebake is done** (10 shaders in bundle); runtime still loads **3** via `SafeShaders` — see [SafeShaders human gate](#safeshaders-human-gate).
 - **PlayCUA sample scenarios (live runs)** — 13 YAML files in `Tools/wsm3d-playcua/sample-scenarios/` (see list below). E2E guards in `PlaycuaSampleScenarioInvariantsTests.cs`; OmniRoute vision steps need a running game + bridge (`127.0.0.1:8766`).
 - **OmniRoute API key** (optional) — for PlayCUA screenshot vision via `OMNROUTE_API_KEY` + `OMNROUTE_VISION_COMBO` (or `ANTHROPIC_API_KEY` fallback). Journey mock and offline live-verify gate work without either.
 
@@ -238,9 +239,27 @@ Short form:
 
 1. **Visual verification with populated world** — automation passes (`pwsh Tools/do-all.ps1` → 13/13 after retry, journey mock 20/20, offline tests 525 pass / 3 skip). Sync captures: `pwsh Tools/sync-playcua-screenshots.ps1` (see [Screenshot sync workflow](#screenshot-sync-workflow) below). Human still judges kingdom/actor visuals in-game.
 2. Smoke-test Phase 2 procedural buildings the same way Phase 1 was proven: toggle `ProceduralBuildings`, capture screenshots, and diff against canonical output.
-3. Rebake `wsm3d-shaders` bundle — **rebaked 2026-05-25** via `pwsh Tools/bake-shaders.ps1` (Unity 2022.3.62f3); `Core.cs` loads all nine tagged shaders with empty-name/GPU guards. Confirm in-game `LoadedShaders[count=…]` after `install.ps1` + relaunch.
+3. **Shader bundle rebake — DONE (2026-05-26).** Headless: `pwsh Tools/bake-shaders.ps1` (optional `-UnityExe` when Hub auto-detect fails). Log: `Tools/bake-shaders.log`. Manifest: 10 shaders in `WorldSphereMod/AssetBundles/win/wsm3d-shaders.manifest`. **Human gate:** confirm in-game `LoadedShaders[count=3]` and phase visuals before adding names to `SafeShaders` (see below).
 4. Implement ADR-0006 (Phase 6 Step 9 DrawProceduralIndirect skinning) — 2–3 day estimate if we decide to replace the visible skinned-mesh path with GPU-resident batching later.
 5. ~~Flip ADR-0007 status to **Accepted**~~ — **done** (`docs/adr/ADR-0007-conditional-patch-dispatch.md`). `PhaseToast` ships in-game phase feedback.
+
+## SafeShaders human gate
+
+`Core.Sphere.LoadAssets` iterates **`SafeShaders` only** (3 names). The other **7** shaders are present in the rebaked `wsm3d-shaders` bundle but **must not** be added to `SafeShaders` until each is proven safe in-game — loading them previously triggered Unity native **ManagedStream** errors / crash reporter uploads even when C# caught exceptions (`Core.cs` comments; E2E `Core_shader_load_list_matches_SafeShaders_exactly`).
+
+| Loaded at runtime (`SafeShaders`) | In bundle, load gated |
+|---|---|
+| `OpaqueVertexColor` | `StratumVoxelPBR` |
+| `GerstnerWater` | `ProceduralSky` |
+| `ColorGradingLUT` | `Impostor` |
+| | `ScreenSpaceAO` |
+| | `ScreenSpaceGI` |
+| | `BrpBloom` |
+| | `BrpACES` |
+
+**Before expanding `SafeShaders`:** (1) `./Tools/install.ps1` + relaunch WorldBox; (2) grep Player.log for `LoadedShaders[count=3]` and three `Loaded shader from wsm3d-shaders bundle` lines with non-empty resolved names; (3) smoke voxel + mesh water + PostFX toggles; (4) add **one** gated shader at a time, relaunch, watch for `Uploading Crash Report` / empty `.name` skips; (5) update E2E invariant if the permanent list changes.
+
+**Headless rebake (no Unity GUI):** `pwsh Tools/bake-shaders.ps1` — Unity `-batchmode -nographics -quit -executeMethod BakeShaders.BakeAll`. There is **no** `wsm3d.ps1 bake` subcommand; use the standalone script only when Unity 2022.3 is installed locally.
 
 ## PlayCUA sample scenarios (13 YAML)
 

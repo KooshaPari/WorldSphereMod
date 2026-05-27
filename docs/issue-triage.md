@@ -1,6 +1,6 @@
 # Issue Triage -- BRUTALLY HONEST
 
-**Date:** 2026-05-25
+**Date:** 2026-05-26 (shader rebake status refresh)
 **Assessed by:** Full Player.log analysis + screenshot audit + source doc review
 **Player.log:** `$USERPROFILE/AppData/LocalLow/mkarpenko/WorldBox/Player.log`
 
@@ -23,6 +23,10 @@ when no hwnd). Re-run PlayCUA + `sync-playcua-screenshots.ps1` to refresh
 `docs/screenshots/`. No phase has been visually verified by a human in the
 actual game with post-fix captures.
 
+**Shader bundle:** rebaked 2026-05-26 (10 shaders in manifest). Runtime
+intentionally loads **3** via `SafeShaders`; the other 7 remain gated until
+in-game proof — see HANDOFF § SafeShaders human gate.
+
 ---
 
 ## Issue-by-Issue Triage
@@ -38,10 +42,10 @@ actual game with post-fix captures.
 | 7 | **Native mods button opens F10 instead of native UI** | **UNFIXED** | No investigation evidence found. This is likely a NeoModLoader routing issue. | Click native mods button, see native options UI (not F10). |
 | 8 | **NO VISIBLE CHANGES IN GAME despite phases loaded** | **UNFIXED -- ROOT CAUSE IDENTIFIED** | **This is the #1 smoking gun.** Player.log line 1145: `PhasePatchManager: VoxelEntities -> True (0/4 Harmony types affected, 0 non-Harmony types skipped)`. The PhasePatchManager found 4 candidate patch types (ActorVoxelEmit, BuildingVoxelEmit, DropVoxelEmit, ProjectileVoxelEmit) but ZERO of them were actually applied as Harmony patches. The patches are not hooking into WorldBox's methods. Additionally: (a) `DrawMeshInstanced blocked: Standard shader does not support GPU instancing` (line 640); (b) Fallback to per-instance `Graphics.DrawMesh` then throws `ArgumentNullException` (line 1457); (c) Mesh access throws "isReadable is false" 78 times; (d) `NullReferenceException` in `TileMapToSphere.PixelArray.Set` fires every frame (61 occurrences). The telemetry at line 1455 says `drawCalls=1 instances=2 cacheSize=0` -- only the SanityTestCube is rendering, not actual game entities. | Voxel actors visible in-game. Player.log showing `N/4 Harmony types affected` where N > 0. Telemetry showing `instances > 100` and `cacheSize > 0`. |
 | 9 | **2.5D flat slab voxels (cardboard cutouts)** | **CODE CHANGED UNVERIFIED** | The VoxelScaleMultiplier=8.0 fix was applied per MEMORY.md (`project_wsm3d_phase1_visible.md`). But since Harmony patches are NOT applying (0/4 affected), the voxel render path never executes on real actors. The "fix" exists in code but cannot be observed because the pipeline is broken upstream of it. | Voxel actors rendering with visible depth, not flat slabs. Requires issue #8 fixed first. |
-| 10 | **Black/invisible actors and assets** | **UNFIXED** | Player.log shows: (a) 6 of 9 shaders from the `wsm3d-shaders` bundle loaded with EMPTY NAMES (corrupted bake) -- `StratumVoxelPBR`, `ProceduralSky`, `Impostor`, `ScreenSpaceAO`, `ScreenSpaceGI`, `BrpBloom`, `BrpACES` all skipped; (b) Only 3 shaders actually work: `OpaqueVertexColor`, `GerstnerWater`, `ColorGradingLUT`; (c) `DrawMeshInstanced blocked` because Standard shader fallback doesn't support GPU instancing; (d) Fallback DrawMesh path throws NullReferenceException. Net result: nothing renders. | Actors/buildings visible on screen with correct colors. Player.log showing 0 shader load failures and successful DrawMeshInstanced calls. |
+| 10 | **Black/invisible actors and assets** | **UNFIXED (shaders partially unblocked)** | **Shader rebake (2026-05-26):** `wsm3d-shaders.manifest` lists **10** BRP shaders + SVC. Runtime still loads **3** only via `Core.Sphere.SafeShaders` (`OpaqueVertexColor`, `GerstnerWater`, `ColorGradingLUT`) — the other 7 remain gated (historical ManagedStream / crash-reporter risk; see HANDOFF § SafeShaders human gate). Prior log (2026-05-25) showed 6/9 with empty `.name`; **rebake may fix compile** but **in-game `LoadedShaders[count=…]` not yet re-verified** on this branch. Separate blockers remain: Harmony 0/4, `DrawMeshInstanced blocked`, mesh `isReadable=false`. | Actors/buildings visible. Player.log: `LoadedShaders[count=3]` with three successful bundle loads; then per-shader expansion tests if adding PostFX/sky/LOD shaders to `SafeShaders`. |
 | 11 | **Billboard slopes instead of smooth terrain** | **CODE CHANGED UNVERIFIED** | `MountainSlopeSmoothing` code exists (Phase 5) but is default OFF in settings. Even if turned ON, the underlying Harmony patch application mechanism is suspect given VoxelEntities patches fail to apply. Settings sanity log (line 646) shows `MountainSlopeSmoothing loaded=False`. | Enable MountainSlopeSmoothing in-game, see smooth terrain transitions instead of billboard cliffs. Screenshot proof. |
 | 12 | **Black water layer** | **CODE CHANGED UNVERIFIED** | `GerstnerWater` shader IS in the bundle and loads successfully. But `MeshWater` is default OFF in settings (line 654: `loaded=True` suggesting user enabled it). The `KeyNotFoundException: 'WorldBox (WorldLayer)'` at line 1214 fires during world creation in `TileMapToSphere.AddLayers.TextureNew3D` -- this is a terrain layer dictionary miss that could cause black tiles/water. No screenshot from WorldBox exists to verify. | Enable MeshWater, see blue water surface with Gerstner waves. No black tiles. |
-| 13 | **PostFX causes black camera** | **CODE CHANGED UNVERIFIED** | `PostFX loaded=False` (line 652). The `ColorGradingLUT` shader loads OK. But `BrpBloom` and `BrpACES` shaders are CORRUPTED (empty name, skipped). If PostFX were enabled, bloom and ACES tonemapping would fail to load their shaders and could produce a black screen. `ACESTonemapping` defaults to `true` in code but the ACES shader is corrupted in the bundle. | Enable PostFX, see color grading / bloom / tonemapping without black screen. Requires shader rebake first. |
+| 13 | **PostFX causes black camera** | **CODE CHANGED UNVERIFIED** | `PostFX loaded=False` (line 652). `ColorGradingLUT` is in `SafeShaders` and should load. `BrpBloom` / `BrpACES` / SSAO / SSGI are **in the rebaked bundle** but **not** in `SafeShaders` — PostStack falls back via `Shader.Find` / skips passes. Rebake (2026-05-26) may have fixed empty-name bakes; **human must enable PostFX after confirming `LoadedShaders[count=3]`** and optionally trial one gated shader at a time. | Enable PostFX, no black screen; log shows LUT + (after gate) bloom/ACES materials resolved. |
 | 14 | **Magenta/neon actors** | **CODE CHANGED UNVERIFIED** | Magenta = missing shader in Unity. The log shows 6/9 bundle shaders are corrupted. When `OpaqueVertexColor` resolves (it does for the 3 working shaders), voxels should not be magenta. But since actors don't render at all (issue #8), this is moot. If issue #8 were fixed, the 3 working shaders might prevent magenta for basic voxels, but phases using `ProceduralSky`, `Impostor`, `ScreenSpaceAO`, etc. would still show magenta. | No magenta objects visible in-game. All shaders resolving to non-error materials. |
 | 15 | **Butterfly rig on all actors** | **CODE CHANGED UNVERIFIED** | `SkeletalAnimation` is default OFF (line 647: `loaded=True` suggesting user enabled it). The rig code (`HumanoidRig.Bones`) exists but has never been visually validated. Since base voxel rendering is broken (issue #8), skeletal animation cannot be verified. | Enable SkeletalAnimation, see humanoid actors with correct limb movement (not butterfly/splayed). |
 | 16 | **Phase toggles crash with Harmony errors** | **PARTIALLY FIXED / STILL BROKEN** | `PhasePatchManager` now exists and scans for phase patches. The ADR-0007 conditional patch dispatch is "Accepted." But the log proves it's not working: `VoxelEntities -> True (0/4 Harmony types affected)` means the toggle runs but patches don't actually apply. No Harmony errors logged (no stack traces from HarmonyX), but 0/4 applied means silent failure. The `AccessTools.Field: Could not find field for type System.Array and name Empty` warning at line 562 might be related. | Toggle a phase, see N/N patches applied (not 0/N), no Harmony errors in log, visual change in game. |
@@ -126,12 +130,9 @@ meshes can't be read, and per-frame exceptions fire continuously.
    plus the PixelArray NullRef. These fire every frame and generate
    crash reports.
 
-3. **Rebake the shader bundle** -- 6/9 shaders are corrupted (empty
-   name). Only 3 work. Until the Unity 2022.3 bake project produces
-   valid assets for all 9, most phases will fall back to Standard
-   shader which doesn't support GPU instancing.
+3. **Verify rebaked shader bundle in-game** — Rebake **done** (2026-05-26; `pwsh Tools/bake-shaders.ps1`, 10 shaders in `wsm3d-shaders.manifest`). Runtime still loads **3** via `SafeShaders`. Human must confirm `LoadedShaders[count=3]` in Player.log after `install.ps1`, then expand `SafeShaders` one shader at a time (HANDOFF § SafeShaders human gate). Headless rebake is **not** exposed as `wsm3d.ps1` subcommand.
 
-4. ~~**Fix the screenshot tooling**~~ **DONE (2026-05-26)** -- `Win32Capture`
+4. ~~**Fix the screenshot tooling**~~ **DONE (2026-05-26)** — `Win32Capture`
    targets WorldBox hwnd (`capture_target: worldbox_window`); ctypes.wintypes
    import fixed. **Next:** re-run PlayCUA + screenshot sync and replace stale
    `docs/screenshots/` PNGs; then re-audit visual claims.
