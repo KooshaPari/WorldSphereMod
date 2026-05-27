@@ -100,16 +100,9 @@ public sealed class MeshWaterInvariantsTests
         ensureBody.Should().Contain("LoadedShaders.TryGetValue(\"GerstnerWater\"",
             "bundled GerstnerWater must be preferred when AssetBundle cache is warm");
         ensureBody.Should().Contain("Shader.Find(\"WSM3D/GerstnerWater\")",
-            "runtime must probe the baked shader name before Resources fallback");
-        ensureBody.Should().Contain("Resources.Load<Shader>(\"Shaders/WaterGerstner\")",
-            "EnsureMaterial must load the shipped WaterGerstner.shader resource");
+            "runtime must probe the baked shader name when bundle cache is cold");
 
-        ensureBody.Should().Contain("string[] candidates =");
-        ensureBody.Should().Contain("\"Universal Render Pipeline/Lit\"");
-        ensureBody.Should().Contain("\"Standard\"");
-        ensureBody.Should().Contain("\"Universal Render Pipeline/Unlit\"");
-
-        ensureBody.Should().Contain("[WSM3D] No water shader found; water disabled.",
+        ensureBody.Should().Contain("[WSM3D] No bundled GerstnerWater shader found; water disabled.",
             "missing shader path must disable water instead of creating a broken surface");
     }
 
