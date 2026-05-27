@@ -8,12 +8,10 @@ using Xunit;
 
 public class NmlCompileCompatTests
 {
-    // NML's embedded Roslyn rejects a few patterns that net48/msbuild accepts.
-    // Keep this list curated from Player.log CS errors — avoid broad regex scans.
-    private static readonly (string Snippet, string Reason)[] KnownTraps =
-    {
-        ("tiles_list.Length", "NML Roslyn treats tiles_list.Length as method group — assign to WorldTile[] local first"),
-    };
+    // NML's embedded Roslyn rejects some source patterns that net48/msbuild accepts.
+    // Keep this narrow and evidence-backed from Player.log CS errors.
+    private static readonly Regex SuspiciousLengthRegex =
+        new(@"\btiles_list\s*\.\s*Length\b", RegexOptions.Compiled);
 
     private static readonly string[] ExcludedDirectoryMarkers =
     {
@@ -47,7 +45,7 @@ public class NmlCompileCompatTests
     }
 
     [Fact]
-    public void Source_does_not_contain_common_nml_roslyn_compile_traps()
+    public void Source_does_not_contain_suspicious_length_traps()
     {
         var root = FindRepoRoot();
         var offenders = new List<string>();
@@ -58,12 +56,10 @@ public class NmlCompileCompatTests
 
             foreach (var line in File.ReadLines(file).Select((text, index) => (text, index)))
             {
-                foreach (var (snippet, reason) in KnownTraps)
+                if (SuspiciousLengthRegex.IsMatch(line.text))
                 {
-                    if (line.text.Contains(snippet, StringComparison.Ordinal))
-                    {
-                        offenders.Add($"{relativePath}:{line.index + 1}: {reason} ({snippet})");
-                    }
+                    offenders.Add(
+                        $"{relativePath}:{line.index + 1}: NML Roslyn treats tiles_list.Length as a method group; assign tiles_list to a WorldTile[] local first");
                 }
             }
         }
