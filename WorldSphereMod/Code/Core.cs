@@ -162,16 +162,26 @@ namespace WorldSphereMod
                 InitProfiler.Measure("ScheduleBecome3D", () =>
                 {
                     MapLoaderAction become3DAction = null;
+                    int _retries = 0;
                     become3DAction = delegate
                     {
                         if (IsWorld3D) return;
-                        if (World.world == null || MapBox.width <= 0 || MapBox.height <= 0)
+                        if (_retries > 200) return;
+                        _retries++;
+                        try
                         {
-                            SmoothLoader.add(become3DAction, "Becoming 3D!");
-                            return;
+                            if (World.world == null || World.world.tiles == null || World.world.tiles.Length == 0)
+                            {
+                                SmoothLoader.add(become3DAction, "Becoming 3D!");
+                                return;
+                            }
+                            Generated = true;
+                            Become3D();
                         }
-                        Generated = true;
-                        Become3D();
+                        catch (System.Exception ex)
+                        {
+                            Debug.LogWarning("[WSM3D] Become3D deferred failed: " + ex.Message);
+                        }
                     };
                     SmoothLoader.add(become3DAction, "Becoming 3D!");
                 });
