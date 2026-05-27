@@ -150,7 +150,7 @@ try {
                 Write-Host "omniroute vision probe OK ($modelId): $txt" -ForegroundColor Green
             } catch {
                 $omnirouteProbeOk = $false
-                Add-DoAllStage 'omniroute-probe' 'failed' @{ error = $_.Exception.Message }
+                Add-DoAllStage 'omniroute-probe' 'degraded' @{ error = $_.Exception.Message }
                 Write-Host "omniroute probe failed: $($_.Exception.Message)" -ForegroundColor Yellow
                 Write-Host 'playcua will run with vision off until laptop OmniRoute responds (restart OmniRoute on kooshas-laptop).' -ForegroundColor DarkYellow
             }
