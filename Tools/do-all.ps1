@@ -138,9 +138,8 @@ try {
                 $modelId = if ($env:OMNROUTE_VISION_MODEL) { $env:OMNROUTE_VISION_MODEL } else { 'gemini/gemini-2.5-flash' }
                 $txt = $null
                 if ($null -ne $modelCount -and $modelCount -gt 0) {
-                    $omnirouteProbeOk = $true
                     try {
-                        $chatTimeoutSec = 60
+                        $chatTimeoutSec = 20
                         $body = @{
                             model       = $modelId
                             max_tokens  = 24
@@ -152,11 +151,23 @@ try {
                             'Content-Type' = 'application/json'
                         } -Body $body -TimeoutSec $chatTimeoutSec
                         $txt = $chat.choices[0].message.content
+                        $omnirouteProbeOk = $true
                     } catch {
-                        Write-Host "omniroute chat probe skipped (models OK): $($_.Exception.Message)" -ForegroundColor DarkYellow
+                        $omnirouteProbeOk = $false
+                        Write-Host "omniroute /models OK ($modelCount) but chat/completions failed from desk: $($_.Exception.Message)" -ForegroundColor Yellow
+                        Write-Host 'CC on the laptop uses localhost; expose chat over Tailscale (e.g. tailscale serve 20128) or run PlayCUA vision off.' -ForegroundColor DarkYellow
                     }
-                    Add-DoAllStage 'omniroute-probe' 'passed' @{ models = $modelCount; model = $modelId; reply = $txt; chatProbe = $(if ($txt) { 'ok' } else { 'skipped' }) }
-                    Write-Host "omniroute probe OK ($modelId, models=$modelCount)$(if ($txt) { ": $txt" })" -ForegroundColor Green
+                    if ($omnirouteProbeOk) {
+                        Add-DoAllStage 'omniroute-probe' 'passed' @{ models = $modelCount; model = $modelId; reply = $txt; chatProbe = 'ok' }
+                        Write-Host "omniroute probe OK ($modelId, models=$modelCount): $txt" -ForegroundColor Green
+                    } else {
+                        Add-DoAllStage 'omniroute-probe' 'degraded' @{
+                            models    = $modelCount
+                            model     = $modelId
+                            chatProbe = 'failed'
+                            error     = 'chat/completions unreachable from desk (models list only)'
+                        }
+                    }
                 } else {
                     $chatTimeoutSec = 25
                     $body = @{

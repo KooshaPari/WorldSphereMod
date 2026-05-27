@@ -363,6 +363,9 @@ namespace WorldSphereMod.Voxel
             catch { return "<destroyed>"; }
         }
 
+        // Reusable MPB for fallback path -- avoids per-instance allocation overhead.
+        static readonly MaterialPropertyBlock _fallbackBlock = new MaterialPropertyBlock();
+
         static void DrawFallbackPath(Key key, Bucket bucket, int total, int layer, Camera renderCamera, ShadowCastingMode shadows, bool receive, int start = 0)
         {
             // Guard against destroyed Unity objects that passed through Submit
@@ -376,14 +379,24 @@ namespace WorldSphereMod.Voxel
                 Vector4 firstPos = bucket.Matrices.Count > start ? bucket.Matrices[start].GetColumn(3) : new Vector4(0,0,0,0);
                 Debug.Log($"[WSM3D][DIAG-FB] DrawFallbackPath entry frame={_fallbackDrawDiagFrames} mesh={SafeName(key.Mesh)} material={SafeName(key.Material)} bucket.Matrices.Count={bucket.Matrices.Count} start={start} total={total} end={end} firstPos=({firstPos.x:F2},{firstPos.y:F2},{firstPos.z:F2}) layer={layer}");
             }
+
+            // Cache the last tint to avoid redundant MPB rebuilds when
+            // consecutive instances share the same color (common case).
+            Vector4 lastTint = new Vector4(-1f, -1f, -1f, -1f);
+            bool debugOutline = Core.savedSettings.DebugVoxelOutline;
+
             for (int i = start; i < end; i++)
             {
-                bucket.Block.Clear();
                 Vector4 tint = bucket.Colors[i];
-                bucket.Block.SetVector(_colorProp, tint);
-                bucket.Block.SetColor(_baseColorProp, tint);
-                bucket.Block.SetColor(_colorPropUnlit, tint);
-                bucket.Block.SetColor(_emissionProp, _bakeEmission);
+                if (tint != lastTint)
+                {
+                    _fallbackBlock.Clear();
+                    _fallbackBlock.SetVector(_colorProp, tint);
+                    _fallbackBlock.SetColor(_baseColorProp, tint);
+                    _fallbackBlock.SetColor(_colorPropUnlit, tint);
+                    _fallbackBlock.SetColor(_emissionProp, _bakeEmission);
+                    lastTint = tint;
+                }
                 Graphics.DrawMesh(
                     key.Mesh,
                     bucket.Matrices[i],
@@ -391,14 +404,14 @@ namespace WorldSphereMod.Voxel
                     layer,
                     null,
                     0,
-                    bucket.Block,
+                    _fallbackBlock,
                     shadows,
                     receive,
                     null,
                     LightProbeUsage.Off);
                 FrameDrawCalls++;
 
-                if (Core.savedSettings.DebugVoxelOutline)
+                if (debugOutline)
                 {
                     Vector4 p = bucket.Matrices[i].GetColumn(3);
                     Matrix4x4 debugTrs = Matrix4x4.TRS(
@@ -408,10 +421,10 @@ namespace WorldSphereMod.Voxel
                     Color debugTint = tint.w > 0f
                         ? new Color(tint.x, tint.y, tint.z, tint.w)
                         : new Color(1f, 0f, 1f, 1f);
-                    bucket.Block.Clear();
-                    bucket.Block.SetVector(_colorProp, debugTint);
-                    bucket.Block.SetColor(_baseColorProp, debugTint);
-                    bucket.Block.SetColor(_colorPropUnlit, debugTint);
+                    _fallbackBlock.Clear();
+                    _fallbackBlock.SetVector(_colorProp, debugTint);
+                    _fallbackBlock.SetColor(_baseColorProp, debugTint);
+                    _fallbackBlock.SetColor(_colorPropUnlit, debugTint);
                     Graphics.DrawMesh(
                         GetDebugCubeMesh(),
                         debugTrs,
@@ -419,12 +432,13 @@ namespace WorldSphereMod.Voxel
                         layer,
                         null,
                         0,
-                        bucket.Block,
+                        _fallbackBlock,
                         shadows,
                         receive,
                         null,
                         LightProbeUsage.Off);
                     FrameDrawCalls++;
+                    lastTint = new Vector4(-1f, -1f, -1f, -1f); // force MPB rebuild next iteration
                 }
             }
         }
@@ -527,6 +541,8 @@ namespace WorldSphereMod.Voxel
             _buckets.Clear();
             _useFallbackPath = false;
             _instancingErrorLogged = false;
+            _standardInstancingAttempted = false;
+            _standardInstancingWorks = false;
             _verboseDrawLoggingArmed = false;
             _verboseDrawLoggingConsumed = false;
             _renderTargetLogged = false;

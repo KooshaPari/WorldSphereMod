@@ -278,6 +278,19 @@ namespace WorldSphereMod.Voxel
             }
 
             System.Threading.Interlocked.Increment(ref _misses);
+
+            if (VoxelDiskCache.TryGetFromDisk(sprite, out Mesh diskMesh))
+            {
+                var diskSnapshot = CreateSnapshot(sprite, diskMesh, diskMesh.vertices, diskMesh.colors32, diskMesh.triangles);
+                lock (_lock)
+                {
+                    _cache[key] = new Entry { Mesh = diskMesh, Snapshot = diskSnapshot, LastFrame = _frame };
+                    if (!string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = key;
+                    if (_cache.Count > Capacity) Evict();
+                }
+                return diskMesh;
+            }
+
             EnqueueBuild(sprite, depth, key);
             return GetPlaceholderVoxelMesh(sprite);
         }
@@ -310,6 +323,19 @@ namespace WorldSphereMod.Voxel
             }
 
             System.Threading.Interlocked.Increment(ref _misses);
+
+            if (VoxelDiskCache.TryGetFromDisk(sprite, out Mesh diskMesh2))
+            {
+                var diskSnapshot2 = CreateSnapshot(sprite, diskMesh2, diskMesh2.vertices, diskMesh2.colors32, diskMesh2.triangles);
+                lock (_lock)
+                {
+                    _cache[key] = new Entry { Mesh = diskMesh2, Snapshot = diskSnapshot2, LastFrame = _frame };
+                    if (!string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = key;
+                    if (_cache.Count > Capacity) Evict();
+                }
+                return diskMesh2;
+            }
+
             EnqueueBuild(sprite, -1, key, shapeHint);
             return GetPlaceholderVoxelMesh(sprite);
         }
@@ -498,6 +524,18 @@ namespace WorldSphereMod.Voxel
 
                     _cache[completion.Key] = new Entry { Mesh = mesh, Snapshot = completion.Snapshot, LastFrame = _frame };
                     if (_cache.Count > Capacity) Evict();
+                }
+
+                if (completion.Sprite != null && !string.IsNullOrEmpty(completion.Sprite.name))
+                {
+                    int depth = Core.savedSettings != null ? Core.savedSettings.VoxelSpriteDepth : 8;
+                    string spriteHash = VoxelDiskCache.ComputeSpriteHash(completion.Sprite);
+                    VoxelDiskCache.EnqueueSave(
+                        completion.Sprite.name,
+                        mesh,
+                        depth,
+                        completion.InflationStyle ?? "pertexel",
+                        spriteHash);
                 }
 
                 drained++;

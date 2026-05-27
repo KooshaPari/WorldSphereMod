@@ -133,6 +133,11 @@ public class SavedSettings
         public float FoliageDensity = 1.0f;
         public bool ProfilerDump = false;
 
+        // Voxel disk cache: persist voxelized meshes to SQLite so subsequent
+        // launches skip the async voxelization queue entirely.
+        public bool VoxelDiskCache = true;
+        public int VoxelDiskCacheMaxSizeMB = 50;
+
         public static void ApplyLightweightPreset(SavedSettings s)
         {
             if (s == null) throw new ArgumentNullException(nameof(s));

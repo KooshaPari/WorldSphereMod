@@ -120,6 +120,9 @@
     <!-- 2026-05-23: revert to vendored DLL. External/Compound-Spheres source
          clone causes AssemblyInfo conflicts. Fix will be applied via Harmony
          patch on CompoundSpheres.SphereManager.Init instead. -->
+    <Reference Include="SQLite">
+      <HintPath>$(WorldBoxManaged)/SQLite.dll</HintPath>
+    </Reference>
     <Reference Include="CompoundSpheres">
       <HintPath>WorldSphereMod\Assemblies\CompoundSpheres.dll</HintPath>
     </Reference>
