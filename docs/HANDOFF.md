@@ -413,6 +413,22 @@ f5546ff test(e2e): 5 new coverage tests — VoxelMeshCache, BuildingMeshGen, Too
 | Voxelize a sprite | `VoxelMeshCache.Get(sprite)` |
 | Inherited-from-upstream files (tread carefully) | `Core.cs`, `QuantumSprites.cs`, `3DCamera.cs`, `Effects.cs`, `Tools.cs`, `DimensionConverter.cs`, `General.cs`, `TileMapToSphere.cs`, `CompoundSphereScripts.cs` |
 
+## Parallel development (worktrees)
+
+Worktree root: `%USERPROFILE%\.cursor\worktrees\WorldSphereMod`. One worktree + subagent per `wt/<topic>` branch; merge each topic into `claude/research-ultraplan-fork-DdgI5` before `do-all`. **Game-bound:** WorldBox allows one live instance — run a single `do-all` from the main repo after merges, not from every worktree.
+
+```powershell
+# Add (from main repo)
+git worktree add "$env:USERPROFILE\.cursor\worktrees\WorldSphereMod\wt-<topic>" -b wt/<topic>
+
+# Remove when merged
+git worktree remove "$env:USERPROFILE\.cursor\worktrees\WorldSphereMod\wt-<topic>"
+```
+
+**Merge order:** (1) merge each `wt/<topic>` → `claude/research-ultraplan-fork-DdgI5` and resolve conflicts; (2) checkout integration branch in main repo; (3) `pwsh Tools/do-all.ps1 -Vision`.
+
+**OmniRoute:** `-Vision` requires **kooshas-laptop** online on Tailscale (`http://100.112.14.98:20128/v1`). When the probe fails, PlayCUA runs with vision off and `Tools/.reports/do-all-latest.json` records `visionDegraded: true` (see [OmniRoute (kooshas-laptop)](#omniroute-kooshas-laptop)).
+
 ## Branch / PR hygiene
 
 - Push to `claude/research-ultraplan-fork-DdgI5`, not `main`.
