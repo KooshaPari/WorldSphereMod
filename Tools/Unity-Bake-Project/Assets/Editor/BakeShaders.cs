@@ -98,7 +98,8 @@ public static class BakeShaders
             BuildPipeline.BuildAssetBundles(
                 platformDir,
                 BuildAssetBundleOptions.UncompressedAssetBundle |
-                BuildAssetBundleOptions.ForceRebuildAssetBundle,
+                BuildAssetBundleOptions.ForceRebuildAssetBundle |
+                BuildAssetBundleOptions.StrictMode,
                 target);
             Debug.Log($"[WSM3D-Bake] built wsm3d-shaders bundle for {target} -> {platformDir}");
         }

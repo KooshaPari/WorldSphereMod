@@ -38,7 +38,7 @@ Shader "WSM3D/GerstnerWater"
         LOD 200
         Blend SrcAlpha OneMinusSrcAlpha
         Cull Back
-        ZWrite On
+        ZWrite Off
 
         Pass
         {
