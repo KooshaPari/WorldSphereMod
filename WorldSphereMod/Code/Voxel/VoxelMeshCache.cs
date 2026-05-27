@@ -278,7 +278,7 @@ namespace WorldSphereMod.Voxel
 
             System.Threading.Interlocked.Increment(ref _misses);
             EnqueueBuild(sprite, depth, key);
-            return GetPlaceholderVoxelMesh();
+            return GetPlaceholderVoxelMesh(sprite);
         }
 
         /// <summary>
@@ -310,7 +310,7 @@ namespace WorldSphereMod.Voxel
 
             System.Threading.Interlocked.Increment(ref _misses);
             EnqueueBuild(sprite, -1, key, shapeHint);
-            return GetPlaceholderVoxelMesh();
+            return GetPlaceholderVoxelMesh(sprite);
         }
 
         static Mesh BuildVoxelMeshSync(Sprite sprite, int key, int depth)
@@ -377,7 +377,7 @@ namespace WorldSphereMod.Voxel
                     return;
                 }
 
-                _cache[key] = new Entry { Mesh = GetPlaceholderVoxelMesh(), Snapshot = null, LastFrame = _frame };
+                _cache[key] = new Entry { Mesh = GetPlaceholderVoxelMesh(sprite), Snapshot = null, LastFrame = _frame };
                 if (sprite != null && !string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = key;
                 _pendingBuilds.Add(key);
                 Interlocked.Increment(ref _totalBuilds);
@@ -504,19 +504,23 @@ namespace WorldSphereMod.Voxel
             Interlocked.Exchange(ref _completedBuildsThisFrame, 0);
         }
 
-        static Mesh GetPlaceholderVoxelMesh()
+        static Mesh GetPlaceholderVoxelMesh(Sprite sprite)
         {
-            if (_placeholderMesh != null) return _placeholderMesh;
-
-            lock (_lock)
+            if (_placeholderMesh == null)
             {
-                if (_placeholderMesh != null) return _placeholderMesh;
-                _placeholderMesh = BuildPlaceholderMesh();
-                return _placeholderMesh;
+                lock (_lock)
+                {
+                    if (_placeholderMesh == null)
+                    {
+                        _placeholderMesh = BuildPlaceholderMesh();
+                    }
+                }
             }
+
+            return BuildPlaceholderMesh(sprite);
         }
 
-        static Mesh BuildPlaceholderMesh()
+        static Mesh BuildPlaceholderMesh(Sprite sprite = null)
         {
             const float h = 0.5f;
             var mesh = new Mesh { name = "WSM3D.Voxel.Placeholder" };
@@ -557,7 +561,7 @@ namespace WorldSphereMod.Voxel
                 1, 2, 6, 1, 6, 5,
             };
             Color32[] colors = new Color32[vertices.Length];
-            Color32 placeholderGray = new Color32(180, 160, 140, 255);
+            Color32 placeholderGray = GetDominantSpriteColor(sprite);
             for (int i = 0; i < colors.Length; i++)
             {
                 colors[i] = placeholderGray;
@@ -569,6 +573,78 @@ namespace WorldSphereMod.Voxel
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             return mesh;
+        }
+
+        static Color32 GetDominantSpriteColor(Sprite sprite)
+        {
+            if (sprite == null || sprite.texture == null)
+            {
+                return new Color32(180, 160, 140, 255);
+            }
+
+            try
+            {
+                Rect rect = sprite.textureRect;
+                int x0 = Mathf.Max(0, Mathf.FloorToInt(rect.x));
+                int y0 = Mathf.Max(0, Mathf.FloorToInt(rect.y));
+                int w = Mathf.Max(1, Mathf.FloorToInt(rect.width));
+                int h = Mathf.Max(1, Mathf.FloorToInt(rect.height));
+                Color32[] tex = SpriteVoxelizer.GetPixelsCached(sprite.texture);
+                int texW = sprite.texture.width;
+                var counts = new Dictionary<uint, int>();
+                uint bestKey = 0;
+                int bestCount = 0;
+
+                for (int y = 0; y < h; y++)
+                {
+                    int row = (y0 + y) * texW + x0;
+                    for (int x = 0; x < w; x++)
+                    {
+                        Color32 c = tex[row + x];
+                        if (c.a <= 16)
+                        {
+                            continue;
+                        }
+
+                        uint key = QuantizeColor(c);
+                        counts.TryGetValue(key, out int count);
+                        count++;
+                        counts[key] = count;
+                        if (count > bestCount)
+                        {
+                            bestCount = count;
+                            bestKey = key;
+                        }
+                    }
+                }
+
+                if (bestCount > 0)
+                {
+                    return DequantizeColor(bestKey);
+                }
+            }
+            catch
+            {
+                // Fall through to the neutral fallback below.
+            }
+
+            return new Color32(180, 160, 140, 255);
+        }
+
+        static uint QuantizeColor(Color32 color)
+        {
+            uint r = (uint)(color.r >> 3);
+            uint g = (uint)(color.g >> 3);
+            uint b = (uint)(color.b >> 3);
+            return (r << 10) | (g << 5) | b;
+        }
+
+        static Color32 DequantizeColor(uint packed)
+        {
+            byte r = (byte)(((packed >> 10) & 0x1F) << 3);
+            byte g = (byte)(((packed >> 5) & 0x1F) << 3);
+            byte b = (byte)((packed & 0x1F) << 3);
+            return new Color32((byte)(r | 0x07), (byte)(g | 0x07), (byte)(b | 0x07), 255);
         }
 
         /// <summary>

@@ -124,10 +124,8 @@ public sealed class MeshWaterInvariantsTests
             "built-in Standard fallback should use the shared transparent setup helper");
         configureBody.Should().Contain("EnableKeyword(\"_EMISSION\")",
             "Standard/URP Lit fallback must self-illuminate in zero-light scenes");
-        configureBody.Should().Contain("material.renderQueue = 2000",
-            "built-in opaque fallback must stay in the opaque queue to avoid black transparent water");
-        configureBody.Should().Contain("MeshWater creates blackworld",
-            "regression comment must stay attached to the opaque fallback branch");
+        configureBody.Should().Contain("material.renderQueue = 3000",
+            "GerstnerWater path must use transparent queue for depth-based alpha blending");
     }
 
     [Fact]

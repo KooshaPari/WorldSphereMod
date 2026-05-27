@@ -231,7 +231,7 @@ namespace WorldSphereMod.Water
             if (_materialAttempted) return false;
             _materialAttempted = true;
 
-            Color waterTint = new Color(0.15f, 0.40f, 0.55f, 0.55f);
+            Color waterTint = new Color(0.22f, 0.65f, 0.70f, 0.75f);
             int surfaceTypeId = Shader.PropertyToID("_Surface");
             int alphaClipId = Shader.PropertyToID("_AlphaClip");
             int baseColorId = Shader.PropertyToID("_BaseColor");
@@ -319,19 +319,17 @@ namespace WorldSphereMod.Water
             }
             else
             {
-                // Opaque fallback — same rationale as SetStandardTransparentMode:
-                // MeshWater creates blackworld with alpha-blended transparent queue.
-                material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
-                material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+                material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
                 material.SetInt("_ZWrite", 1);
-                material.renderQueue = 2000;
+                material.renderQueue = 3000;
             }
 
             // Keep the fallback readable even if the scene has almost no lighting.
             material.EnableKeyword("_EMISSION");
             if (material.HasProperty(emissionId))
             {
-                material.SetColor(emissionId, new Color(0.30f, 0.60f, 1.20f, 1f));
+                material.SetColor(emissionId, new Color(0.08f, 0.15f, 0.25f, 1f));
             }
 
             material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;

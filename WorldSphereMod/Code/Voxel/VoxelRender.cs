@@ -1157,6 +1157,7 @@ namespace WorldSphereMod.Voxel
         static int _instancingTelemetryFrame;
 
         static bool _tickDiagLogged;
+        static bool _tickPerfBreakdownLogged;
 
         /// <summary>Per-frame voxel/FX driver; invoked from MapBox.renderStuff Harmony hook so it survives scene transitions.</summary>
         public static void TickPerFrame()
@@ -1190,6 +1191,190 @@ namespace WorldSphereMod.Voxel
                 }
                 Debug.Log($"[WSM3D][DIAG-TICK] VoxelFrameDriver.TickPerFrame FIRST CALL hasPatcher={hasPatcher} harmonyPatches=[{patchedMethods}] VoxelEntities={Core.savedSettings?.VoxelEntities} isWorld3D={Core.IsWorld3D} cacheSize={VoxelMeshCache.Count} pendingBuilds={VoxelMeshCache.PendingBuilds} queuedBuildsTotal={VoxelMeshCache.TotalBuilds}");
             }
+
+            if (!_tickPerfBreakdownLogged)
+            {
+                _tickPerfBreakdownLogged = true;
+                var sw = Stopwatch.StartNew();
+                double tPrepareWorld = 0.0;
+                double tBeginFrame = 0.0;
+                double tImpostorTick = 0.0;
+                double tFrustumUpdate = 0.0;
+                double tRigTick = 0.0;
+                double tRigDrain = 0.0;
+                double tRigUpdate = 0.0;
+                double tRigClear = 0.0;
+                double tPumpQueuedBuilds = 0.0;
+                double tDrainCompletedBuilds = 0.0;
+                double tSanityDraw = 0.0;
+                double tProcGenDrain = 0.0;
+                double tFoliageDrain = 0.0;
+                double tWaterLifecycle = 0.0;
+                double tMountainSlope = 0.0;
+                double tSunBind = 0.0;
+                double tSunUpdate = 0.0;
+                double tDecalTick = 0.0;
+                double tEnvironmentalTick = 0.0;
+                double tPostFxApply = 0.0;
+                double tPostFxRefresh = 0.0;
+                double tTotal;
+
+                double Measure(System.Action action)
+                {
+                    long start = Stopwatch.GetTimestamp();
+                    action();
+                    return (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
+                }
+
+                if (!Core.Sphere.WorldPrepared)
+                {
+                    tPrepareWorld = Measure(() =>
+                    {
+                        try { Core.Sphere.PrepareWorld(); }
+                        catch (System.Exception ex) { Debug.LogError($"[WSM3D] Deferred Sphere.PrepareWorld FAILED: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}"); }
+                    });
+                }
+
+                float deltaTimePerf = Time.deltaTime;
+                tBeginFrame = Measure(() =>
+                {
+                    _perfFrameCounter++;
+                    _perfDeltaTimeSum += deltaTimePerf;
+                    if (_perfFrameCounter >= kPerfSampleWindowFrames)
+                    {
+                        float avgFrameTime = _perfDeltaTimeSum / kPerfSampleWindowFrames;
+                        float avgFps = avgFrameTime > 0f ? 1f / avgFrameTime : 0f;
+                        Debug.Log($"[WSM3D][Perf] frameDeltaMs={deltaTimePerf * 1000f:F2} avg60FrameDeltaMs={avgFrameTime * 1000f:F2} avg60Fps={avgFps:F1}");
+                        _perfFrameCounter = 0;
+                        _perfDeltaTimeSum = 0f;
+                    }
+                });
+
+                _instancingTelemetryFrame++;
+                if (_instancingTelemetryFrame >= 60)
+                {
+                    _instancingTelemetryFrame = 0;
+                    Debug.Log($"[WSM3D][Telemetry] InstancingEfficiency={MeshInstanceBatcher.InstancingEfficiency:F4} FrameBucketCount={MeshInstanceBatcher.FrameBucketCount} FrameInstances={MeshInstanceBatcher.FrameInstances}");
+                }
+
+                float nowPerf = Time.realtimeSinceStartup;
+                if (nowPerf - _telemetryLastTime > 10f)
+                {
+                    _telemetryLastTime = nowPerf;
+                    Debug.Log($"[WSM3D][Telemetry] frameMs={Time.unscaledDeltaTime*1000:F2} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} cacheSize={VoxelMeshCache.Count} cacheHits={VoxelMeshCache.HitCount} cacheMisses={VoxelMeshCache.MissCount} submits={VoxelRender._submitDiagCount} gcMB={(System.GC.GetTotalMemory(false) / 1048576f):F1}");
+                    VoxelRender._submitDiagCount = 0;
+                }
+
+                tImpostorTick = Measure(WorldSphereMod.LOD.ImpostorBillboard.Tick);
+                tFrustumUpdate = Measure(() =>
+                {
+                    if (Core.savedSettings.VoxelEntities || Core.savedSettings.ProceduralBuildings || Core.savedSettings.CrossedQuadFoliage)
+                    {
+                        WorldSphereMod.LOD.FrustumCuller.UpdatePlanes();
+                    }
+                });
+                tRigTick = Measure(WorldSphereMod.Rig.RigCache.Tick);
+                tRigDrain = Measure(WorldSphereMod.Rig.RigCache.DrainPendingDestroy);
+                if (Core.savedSettings.SkeletalAnimation)
+                {
+                    tRigUpdate = Measure(WorldSphereMod.Rig.RigDriver.Update);
+                }
+                else if (_lastSkeletalState)
+                {
+                    tRigClear = Measure(() =>
+                    {
+                        WorldSphereMod.Rig.RigDriver.Clear();
+                        _lastSkeletalState = false;
+                    });
+                }
+
+                tPumpQueuedBuilds = Measure(() => WorldSphereMod.Voxel.VoxelMeshCache.PumpQueuedBuilds(8));
+                tDrainCompletedBuilds = Measure(() => WorldSphereMod.Voxel.VoxelMeshCache.DrainCompletedBuilds(8));
+
+                if (Core.savedSettings.DebugSanityCube)
+                {
+                    tSanityDraw = Measure(SanityTestCube.Draw);
+                }
+
+                if (Core.savedSettings.ProceduralBuildings)
+                {
+                    tProcGenDrain = Measure(WorldSphereMod.ProcGen.ProcGenCache.DrainPendingDestroy);
+                }
+
+                if (Core.savedSettings.CrossedQuadFoliage)
+                {
+                    tFoliageDrain = Measure(WorldSphereMod.Foliage.CrossedQuadMeshCache.DrainPendingDestroy);
+                }
+
+                tWaterLifecycle = Measure(WorldSphereMod.Water.WaterRender.UpdateLifecycle);
+                tMountainSlope = Measure(WorldSphereMod.Terrain.MountainSlopeSurface.EnsureActive);
+
+                if (Time.time >= _nextCameraLookup)
+                {
+                    tSunBind = Measure(() =>
+                    {
+                        WorldSphereMod.Lighting.SunDriver.BindMainCamera(CameraManager.MainCamera);
+                        _nextCameraLookup = Time.time + kCameraLookupInterval;
+                    });
+                }
+
+                tSunUpdate = Measure(WorldSphereMod.Lighting.SunDriver.Update);
+                tDecalTick = Measure(WorldSphereMod.Fx.DecalPool.Tick);
+                tEnvironmentalTick = Measure(WorldSphereMod.Fx.Environmental.Tick);
+                tPostFxApply = Measure(() =>
+                {
+                    bool currentPostFX = Core.savedSettings.PostFX;
+                    if (currentPostFX != _lastAppliedPostFX)
+                    {
+                        _lastAppliedPostFX = currentPostFX;
+                        WorldSphereMod.PostFx.WSM3DPostStack.ApplySetting(currentPostFX);
+                    }
+                });
+                tPostFxRefresh = Measure(() =>
+                {
+                    bool currentSSAO = Core.savedSettings.SSAOEnabled;
+                    if (currentSSAO != _lastAppliedSSAOEnabled)
+                    {
+                        _lastAppliedSSAOEnabled = currentSSAO;
+                        WorldSphereMod.PostFx.WSM3DPostStack.RefreshMaterials();
+                    }
+
+                    bool currentSSGI = Core.savedSettings.SSGIEnabled;
+                    if (currentSSGI != _lastAppliedSSGIEnabled)
+                    {
+                        _lastAppliedSSGIEnabled = currentSSGI;
+                        WorldSphereMod.PostFx.WSM3DPostStack.RefreshMaterials();
+                    }
+                });
+
+                tTotal = sw.Elapsed.TotalMilliseconds;
+                Debug.Log(
+                    "[WSM3D][PerfBreakdown] " +
+                    $"total={tTotal:F2}ms " +
+                    $"PrepareWorld={tPrepareWorld:F2}ms " +
+                    $"BeginFrame={tBeginFrame:F2}ms " +
+                    $"ImpostorTick={tImpostorTick:F2}ms " +
+                    $"FrustumUpdate={tFrustumUpdate:F2}ms " +
+                    $"RigTick={tRigTick:F2}ms " +
+                    $"RigDrain={tRigDrain:F2}ms " +
+                    $"RigUpdate={tRigUpdate:F2}ms " +
+                    $"RigClear={tRigClear:F2}ms " +
+                    $"PumpQueuedBuilds={tPumpQueuedBuilds:F2}ms " +
+                    $"DrainCompletedBuilds={tDrainCompletedBuilds:F2}ms " +
+                    $"SanityDraw={tSanityDraw:F2}ms " +
+                    $"ProcGenDrain={tProcGenDrain:F2}ms " +
+                    $"FoliageDrain={tFoliageDrain:F2}ms " +
+                    $"WaterLifecycle={tWaterLifecycle:F2}ms " +
+                    $"MountainSlope={tMountainSlope:F2}ms " +
+                    $"SunBind={tSunBind:F2}ms " +
+                    $"SunUpdate={tSunUpdate:F2}ms " +
+                    $"DecalTick={tDecalTick:F2}ms " +
+                    $"EnvironmentalTick={tEnvironmentalTick:F2}ms " +
+                    $"PostFxApply={tPostFxApply:F2}ms " +
+                    $"PostFxRefresh={tPostFxRefresh:F2}ms");
+                return;
+            }
+
             if (Core.ClearVoxelMeshCacheOnFirstFrame)
             {
                 Core.ClearVoxelMeshCacheOnFirstFrame = false;
@@ -1266,7 +1451,7 @@ namespace WorldSphereMod.Voxel
 
             // Flush runs in LateUpdate after all emit postfixes for this frame.
 
-            WorldSphereMod.Voxel.VoxelMeshCache.PumpQueuedBuilds(8);
+            WorldSphereMod.Voxel.VoxelMeshCache.PumpQueuedBuilds(32);
             WorldSphereMod.Voxel.VoxelMeshCache.DrainCompletedBuilds(8);
 
             if (Core.savedSettings.DebugSanityCube)

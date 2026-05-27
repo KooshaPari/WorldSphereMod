@@ -19,21 +19,24 @@ Shader "WSM3D/GerstnerWater"
 {
     Properties
     {
-        _Color ("Water Tint", Color) = (0.15, 0.40, 0.55, 0.55)
-        _DeepColor ("Deep Color", Color) = (0.05, 0.20, 0.35, 1)
-        _Foam ("Foam Color", Color) = (1, 1, 1, 1)
+        _Color ("Shallow Color", Color) = (0.22, 0.65, 0.70, 0.75)
+        _DeepColor ("Deep Color", Color) = (0.04, 0.12, 0.30, 0.95)
+        _Foam ("Foam Color", Color) = (0.92, 0.95, 1.00, 1)
+        _WaterDepth ("Water Depth", Float) = 0
+        _MaxDepth ("Max Depth", Float) = 6
         _WaveTime ("Wave Time", Float) = 0
-        _WaveAmplitude ("Wave Amplitude", Range(0, 1)) = 0.15
-        _WaveSteepness ("Wave Steepness", Range(0, 1)) = 0.4
+        _WaveAmplitude ("Wave Amplitude", Range(0, 1)) = 0.05
+        _WaveSteepness ("Wave Steepness", Range(0, 1)) = 0.35
         _WaveDirX ("Wave Dir X", Float) = 0.7
         _WaveDirZ ("Wave Dir Z", Float) = 0.7
-        _WaveLength ("Wave Length", Range(1, 50)) = 8
+        _WaveLength ("Wave Length", Range(1, 50)) = 10
     }
 
     SubShader
     {
-        Tags { "RenderType"="Opaque" "Queue"="Geometry" "IgnoreProjector"="True" }
+        Tags { "RenderType"="Transparent" "Queue"="Transparent" "IgnoreProjector"="True" }
         LOD 200
+        Blend SrcAlpha OneMinusSrcAlpha
         Cull Back
         ZWrite On
 
@@ -47,10 +50,11 @@ Shader "WSM3D/GerstnerWater"
             #pragma fragment frag
             #include "UnityCG.cginc"
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; };
-            struct v2f { float4 pos : SV_POSITION; float3 worldPos : TEXCOORD0; float3 worldNormal : TEXCOORD1; float foam : TEXCOORD2; };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float4 color : COLOR; };
+            struct v2f { float4 pos : SV_POSITION; float3 worldPos : TEXCOORD0; float3 worldNormal : TEXCOORD1; float foam : TEXCOORD2; float depth : TEXCOORD3; };
 
             fixed4 _Color, _DeepColor, _Foam;
+            float _WaterDepth, _MaxDepth;
             float _WaveTime, _WaveAmplitude, _WaveSteepness, _WaveDirX, _WaveDirZ, _WaveLength;
 
             float3 GerstnerWave(float3 p, out float crestFactor)
@@ -80,20 +84,30 @@ Shader "WSM3D/GerstnerWater"
                 o.worldPos = worldPos;
                 o.worldNormal = mul((float3x3)unity_ObjectToWorld, v.normal);
                 o.foam = crest;
+                o.depth = v.color.r;
                 return o;
             }
 
             fixed4 frag(v2f i) : SV_Target
             {
                 float3 viewDir = normalize(_WorldSpaceCameraPos - i.worldPos);
-                float fresnel = pow(1 - saturate(dot(normalize(i.worldNormal), viewDir)), 3);
-                fixed3 baseTint = lerp(_DeepColor.rgb, _Color.rgb, fresnel);
-                fixed3 finalRgb = lerp(baseTint, _Foam.rgb, smoothstep(0.85, 0.99, i.foam));
-                return fixed4(finalRgb, 1.0);
+                float3 N = normalize(i.worldNormal);
+                float fresnel = pow(1 - saturate(dot(N, viewDir)), 3);
+
+                float depthFrac = saturate(i.depth);
+                fixed4 shallow = _Color;
+                fixed4 deep = _DeepColor;
+                fixed3 baseTint = lerp(shallow.rgb, deep.rgb, depthFrac);
+                float baseAlpha = lerp(shallow.a, deep.a, depthFrac);
+
+                fixed3 foamMixed = lerp(baseTint, _Foam.rgb, smoothstep(0.82, 0.98, i.foam));
+                fixed3 finalRgb = lerp(foamMixed, foamMixed * 1.15 + 0.08, fresnel * 0.4);
+
+                return fixed4(finalRgb, baseAlpha);
             }
             ENDCG
         }
     }
 
-    Fallback "Transparent/Diffuse"
+    Fallback "Diffuse"
 }
