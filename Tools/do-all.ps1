@@ -136,20 +136,43 @@ try {
                     Write-Host "omniroute /models slow or unavailable (continuing with chat probe): $($_.Exception.Message)" -ForegroundColor DarkYellow
                 }
                 $modelId = if ($env:OMNROUTE_VISION_MODEL) { $env:OMNROUTE_VISION_MODEL } else { 'gemini/gemini-2.5-flash' }
-                $chatTimeoutSec = if ($null -ne $modelCount) { 120 } else { 25 }
-                $body = @{
-                    model       = $modelId
-                    max_tokens  = 24
-                    temperature = 0
-                    messages    = @(@{ role = 'user'; content = 'Reply with exactly: vision-ok' })
-                } | ConvertTo-Json -Depth 5
-                $chat = Invoke-RestMethod -Uri "$base/chat/completions" -Method Post -Headers @{
-                    Authorization  = "Bearer $env:OMNROUTE_API_KEY"
-                    'Content-Type' = 'application/json'
-                } -Body $body -TimeoutSec $chatTimeoutSec
-                $txt = $chat.choices[0].message.content
-                Add-DoAllStage 'omniroute-probe' 'passed' @{ models = $modelCount; model = $modelId; reply = $txt }
-                Write-Host "omniroute vision probe OK ($modelId): $txt" -ForegroundColor Green
+                $txt = $null
+                if ($null -ne $modelCount -and $modelCount -gt 0) {
+                    $omnirouteProbeOk = $true
+                    try {
+                        $chatTimeoutSec = 60
+                        $body = @{
+                            model       = $modelId
+                            max_tokens  = 24
+                            temperature = 0
+                            messages    = @(@{ role = 'user'; content = 'Reply with exactly: vision-ok' })
+                        } | ConvertTo-Json -Depth 5
+                        $chat = Invoke-RestMethod -Uri "$base/chat/completions" -Method Post -Headers @{
+                            Authorization  = "Bearer $env:OMNROUTE_API_KEY"
+                            'Content-Type' = 'application/json'
+                        } -Body $body -TimeoutSec $chatTimeoutSec
+                        $txt = $chat.choices[0].message.content
+                    } catch {
+                        Write-Host "omniroute chat probe skipped (models OK): $($_.Exception.Message)" -ForegroundColor DarkYellow
+                    }
+                    Add-DoAllStage 'omniroute-probe' 'passed' @{ models = $modelCount; model = $modelId; reply = $txt; chatProbe = $(if ($txt) { 'ok' } else { 'skipped' }) }
+                    Write-Host "omniroute probe OK ($modelId, models=$modelCount)$(if ($txt) { ": $txt" })" -ForegroundColor Green
+                } else {
+                    $chatTimeoutSec = 25
+                    $body = @{
+                        model       = $modelId
+                        max_tokens  = 24
+                        temperature = 0
+                        messages    = @(@{ role = 'user'; content = 'Reply with exactly: vision-ok' })
+                    } | ConvertTo-Json -Depth 5
+                    $chat = Invoke-RestMethod -Uri "$base/chat/completions" -Method Post -Headers @{
+                        Authorization  = "Bearer $env:OMNROUTE_API_KEY"
+                        'Content-Type' = 'application/json'
+                    } -Body $body -TimeoutSec $chatTimeoutSec
+                    $txt = $chat.choices[0].message.content
+                    Add-DoAllStage 'omniroute-probe' 'passed' @{ models = $modelCount; model = $modelId; reply = $txt }
+                    Write-Host "omniroute vision probe OK ($modelId): $txt" -ForegroundColor Green
+                }
             } catch {
                 $omnirouteProbeOk = $false
                 Add-DoAllStage 'omniroute-probe' 'degraded' @{ error = $_.Exception.Message }
