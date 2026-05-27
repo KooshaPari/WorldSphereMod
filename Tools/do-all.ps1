@@ -46,13 +46,15 @@ try {
         @("do-all overallOk=$($Report.overallOk)", $playcuaBit, $failedBit, $durationBit) -join ' | '
     }
 
-    function Import-DoAllVisionEnvFile {
-        param([string]$FileName)
-        $envFile = Join-Path $RepoRoot "Tools/$FileName"
-        if (-not (Test-Path -LiteralPath $envFile)) { return }
-        Get-Content -LiteralPath $envFile | ForEach-Object {
-            if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
-                Set-Item -Path "env:$($matches[1].Trim())" -Value $matches[2].Trim()
+    function Import-DoAllVisionEnv {
+        foreach ($fileName in @('omniroute-vision.env', 'fireworks-vision.env')) {
+            $envFile = Join-Path $RepoRoot "Tools/$fileName"
+            if (Test-Path -LiteralPath $envFile) {
+                Get-Content -LiteralPath $envFile | ForEach-Object {
+                    if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
+                        Set-Item -Path "env:$($matches[1].Trim())" -Value $matches[2].Trim()
+                    }
+                }
             }
         }
     }

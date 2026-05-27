@@ -122,6 +122,6 @@ if [ "$all_found" = true ]; then
     pass "Pipeline verification PASSED -- all markers found"
     exit 0
 else
-    info "Pipeline verification PARTIAL -- some markers missing (may be expected depending on phase)"
-    exit 0
+    fail "Pipeline verification FAILED -- some markers missing"
+    exit 1
 fi
