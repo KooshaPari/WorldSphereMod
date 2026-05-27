@@ -292,6 +292,10 @@ Get-Content Tools/.reports/audit-tick-latest.json | ConvertFrom-Json
 
 **PlayCUA retry layers:** per-scenario **2×** inside `wsm3d.ps1 playcua run-all` (with `Ensure-BridgeReady -RelaunchIfDown` on retry); full `run-all` **3×** via `do-all.ps1` (`-PlaycuaRetries`, default 3); audit tick uses **2** run-all attempts.
 
+### OmniRoute (kooshas-laptop)
+
+`do-all.ps1 -Vision` requires **kooshas-laptop** awake on Tailscale with OmniRoute listening at **`http://100.112.14.98:20128/v1`** (set in `Tools/omniroute-vision.env`). The Tailscale funnel peer **`omniroute-a6e82363`** is a stale hostname when the laptop sleeps — use the Tailscale IP, not the funnel URL. When the laptop is offline, `do-all` checks `tailscale status` for `kooshas-laptop … offline`, caps `/models` at 30s, uses a 25s chat probe if models fail (else 120s), then runs PlayCUA with **vision off** and records `visionDegraded: true` in `Tools/.reports/do-all-latest.json`. PlayCUA OmniRoute calls use `--omniroute-timeout 300` (vision timeouts surface as skipped optional steps, not hard crashes).
+
 ## Screenshot sync workflow
 
 `docs/screenshots/` is gitignored (`**/screenshots/` in `.gitignore`); there is no tracked `docs/screenshots/README.md`. PlayCUA writes PNGs under artifact trees; sync copies phase captures into the local gate folder for manifest/doctor checks.
