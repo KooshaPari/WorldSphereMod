@@ -451,6 +451,15 @@ namespace WorldSphereMod
                 UnityEngine.Debug.LogError($"[WSM3D] Become3D aborted: MapBox dimensions not ready ({MapBox.width}x{MapBox.height}). Caller should re-queue via SmoothLoader.");
                 return;
             }
+            // Guard: large maps (e.g. 576x576 = 331K tiles) cause GPU hangs
+            // during SphereManager creation. Skip 3D mode until we optimize.
+            int totalTiles = MapBox.width * MapBox.height;
+            int maxTiles = savedSettings.MaxTilesFor3D;
+            if (totalTiles > maxTiles)
+            {
+                UnityEngine.Debug.LogWarning($"[WSM3D] Become3D skipped: map too large for 3D mode ({MapBox.width}x{MapBox.height} = {totalTiles} tiles, max {maxTiles}). Use a smaller map or flat mode.");
+                return;
+            }
             // Ensure world-dependent assets (textures, map layers) are prepared.
             // PrepareWorld is idempotent — it no-ops if already called from PostInit.
             try { Sphere.PrepareWorld(); }

@@ -123,6 +123,10 @@ public class SavedSettings
         // First-run experience: set true after the welcome dialog has been shown once.
         public bool HasSeenWelcome = false;
 
+        // Safety: maximum tile count (width*height) for 3D mode. Maps larger
+        // than this skip Become3D to prevent GPU hangs. ~316x316 = 100K default.
+        public int MaxTilesFor3D = 100000;
+
         // Phase 10: LOD ladder + impostor fallback.
         public float LODScale = 0.5f;
         public float WaterDetail = 1.0f;
