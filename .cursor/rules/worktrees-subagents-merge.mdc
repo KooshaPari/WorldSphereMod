@@ -1,0 +1,54 @@
+---
+description: Parallel work via git worktrees + subagents; merge into integration branch by end of task
+alwaysApply: true
+---
+
+# Worktrees, subagents, merge-by-end
+
+For non-trivial or multi-area tasks in this repo, **always** use isolated git worktrees and parallel subagents, then **merge all worktree branches into the integration branch before finishing**.
+
+## Worktree layout
+
+- Root: `%USERPROFILE%\.cursor\worktrees\WorldSphereMod\`
+- Naming: `wt-<short-topic>` (e.g. `wt-playcua-flake`, `wt-do-all-vision`)
+- Branch naming: `wt/<topic>` off `claude/research-ultraplan-fork-DdgI5` (or current integration branch)
+- Main repo `C:\Users\koosh\Dev\WorldSphereMod` stays the integration checkout; do **not** do heavy parallel edits there.
+
+```powershell
+$wtRoot = "$env:USERPROFILE\.cursor\worktrees\WorldSphereMod"
+git worktree add "$wtRoot\wt-<topic>" -b wt/<topic> <base-branch>
+```
+
+## Subagent split
+
+Launch one subagent per worktree with a **narrow scope** (one concern per branch):
+
+| Track | Typical scope |
+|-------|----------------|
+| PlayCUA / scenarios | `Tools/wsm3d-playcua/`, sample YAMLs |
+| Automation | `Tools/do-all.ps1`, `Tools/wsm3d.ps1`, `Tools/wsm-live-verify.ps1` |
+| Mod / shaders | `WorldSphereMod/Code/`, `AssetBundles/` |
+| Docs | `docs/HANDOFF.md`, `README.md` |
+| Tests (offline) | `dotnet test`, journey mocks — no game required |
+
+**Game-bound steps** (`do-all`, relaunch, PlayCUA against live bridge) run **once** on the main repo after merges, not in parallel worktrees.
+
+## Merge-by-end (required)
+
+Before reporting done:
+
+1. Poll each `wt/*` branch for commits ahead of base.
+2. In main repo: merge in dependency order (docs/tools → playcua → mod), `--no-edit`, resolve conflicts.
+3. Run `dotnet test` on `WorldSphereMod.Tests.Unit` (and E2E project if tools changed).
+4. Push integration branch when user expects remote updates.
+5. Optionally remove worktrees: `git worktree remove ...` and `git branch -d wt/...`.
+
+## Full pipeline ("do all")
+
+After merges on main:
+
+```powershell
+pwsh Tools/do-all.ps1 -Vision
+```
+
+OmniRoute vision needs `kooshas-laptop` online on Tailscale; probe fails fast and degrades PlayCUA to `vision off` when offline.
