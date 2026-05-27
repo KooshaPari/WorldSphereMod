@@ -157,45 +157,11 @@ namespace WorldSphereMod
                 }
             });
             DoSomeOtherStuff();
-            if (savedSettings != null && savedSettings.Is3D)
-            {
-                InitProfiler.Measure("ScheduleBecome3D", () =>
-                {
-                    MapLoaderAction become3DAction = null;
-                    int _retries = 0;
-                    become3DAction = delegate
-                    {
-                        if (IsWorld3D) return;
-                        if (_retries > 200)
-                        {
-                            Debug.LogError("[WSM3D] Become3D deferred: exhausted 200 retries — world never became ready.");
-                            return;
-                        }
-                        _retries++;
-                        try
-                        {
-                            if (World.world == null || World.world.tiles == null || World.world.tiles.Length == 0
-                                || MapBox.width <= 0 || MapBox.height <= 0
-                                || World.world._map_layers == null)
-                            {
-                                Debug.Log($"[WSM3D] Become3D deferred: world not ready (retry {_retries}), re-queuing. " +
-                                    $"world={World.world != null} tiles={World.world?.tiles?.Length ?? -1} " +
-                                    $"MapBox={MapBox.width}x{MapBox.height} layers={World.world?._map_layers != null}");
-                                SmoothLoader.add(become3DAction, "Becoming 3D!");
-                                return;
-                            }
-                            Sphere.PrepareWorld();
-                            Generated = true;
-                            Become3D();
-                        }
-                        catch (System.Exception ex)
-                        {
-                            Debug.LogWarning("[WSM3D] Become3D deferred failed: " + ex.Message);
-                        }
-                    };
-                    SmoothLoader.add(become3DAction, "Becoming 3D!");
-                });
-            }
+            // ScheduleBecome3D retry loop REMOVED — it fired at the wrong time
+            // during save loads, causing "Cols And Rows must be above 0" errors
+            // or infinite re-queuing. The reliable path is General.cs
+            // SphereControl.CreateSphere (Postfix on MapBox.finishMakingWorld),
+            // which fires for both new-world generation and save loads.
         }
 
         public static void ApplyPhaseToggle(string flagName, bool newValue)
@@ -485,6 +451,10 @@ namespace WorldSphereMod
                 UnityEngine.Debug.LogError($"[WSM3D] Become3D aborted: MapBox dimensions not ready ({MapBox.width}x{MapBox.height}). Caller should re-queue via SmoothLoader.");
                 return;
             }
+            // Ensure world-dependent assets (textures, map layers) are prepared.
+            // PrepareWorld is idempotent — it no-ops if already called from PostInit.
+            try { Sphere.PrepareWorld(); }
+            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] Become3D: PrepareWorld failed: " + ex.Message); }
             // Sphere.Begin starts a coroutine that spreads tile+buffer init
             // across frames; the onCreated callback fires once the Manager
             // exists (before buffers finish) and triggers the remaining 3D
