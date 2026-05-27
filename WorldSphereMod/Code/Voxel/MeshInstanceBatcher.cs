@@ -537,6 +537,9 @@ namespace WorldSphereMod.Voxel
             FrameBucketCount = 0;
         }
 
+        static bool _standardInstancingAttempted;
+        static bool _standardInstancingWorks;
+
         static bool CanUseInstancedDraw(Material material, out string reason)
         {
             reason = null;
@@ -558,11 +561,21 @@ namespace WorldSphereMod.Voxel
                 return false;
             }
 
+            // Standard shader CAN support GPU instancing when enableInstancing is true
+            // and the runtime has INSTANCING_ON. The previous unconditional block was
+            // forcing every draw through per-instance Graphics.DrawMesh fallback,
+            // causing 700ms+ frames. Now we let it through -- if DrawMeshInstanced
+            // actually throws, the catch block in Flush sets _useFallbackPath.
             if (material.shader != null &&
                 material.shader.name.StartsWith("Standard", System.StringComparison.Ordinal))
             {
-                reason = $"[WSM3D] DrawMeshInstanced blocked: Standard shader does not support GPU instancing in this runtime.";
-                return false;
+                if (!_standardInstancingAttempted)
+                {
+                    _standardInstancingAttempted = true;
+                    // Enable the INSTANCING_ON keyword that Standard shader needs
+                    material.EnableKeyword("INSTANCING_ON");
+                    Debug.Log($"[WSM3D][PERF] Allowing Standard shader instancing (enableInstancing={material.enableInstancing})");
+                }
             }
 
             return true;
