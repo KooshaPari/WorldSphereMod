@@ -1288,7 +1288,7 @@ namespace WorldSphereMod.Voxel
                     });
                 }
 
-                tPumpQueuedBuilds = Measure(() => WorldSphereMod.Voxel.VoxelMeshCache.PumpQueuedBuilds(8));
+                tPumpQueuedBuilds = Measure(() => WorldSphereMod.Voxel.VoxelMeshCache.PumpQueuedBuilds(32));
                 tDrainCompletedBuilds = Measure(() => WorldSphereMod.Voxel.VoxelMeshCache.DrainCompletedBuilds(8));
 
                 if (Core.savedSettings.DebugSanityCube)

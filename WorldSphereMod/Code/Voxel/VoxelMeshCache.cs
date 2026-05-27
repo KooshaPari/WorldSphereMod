@@ -94,6 +94,7 @@ namespace WorldSphereMod.Voxel
         static long _misses;
         static long _totalBuilds;
         static int _completedBuildsThisFrame;
+        static bool _pumpDiagLogged;
 
         /// <summary>Cumulative cache-hit count since process start (or last Clear).</summary>
         public static long HitCount => System.Threading.Interlocked.Read(ref _hits);
@@ -423,6 +424,14 @@ namespace WorldSphereMod.Voxel
                 }
 
                 processed++;
+            }
+
+            if (!_pumpDiagLogged && processed > 0)
+            {
+                _pumpDiagLogged = true;
+                int queued;
+                lock (_lock) { queued = _pendingBuilds.Count; }
+                Debug.Log($"[WSM3D] VoxelMeshCache: {queued} pending builds, {processed} completed this frame");
             }
         }
 
@@ -754,6 +763,7 @@ namespace WorldSphereMod.Voxel
             System.Threading.Interlocked.Exchange(ref _misses, 0);
             System.Threading.Interlocked.Exchange(ref _totalBuilds, 0);
             Interlocked.Exchange(ref _completedBuildsThisFrame, 0);
+            _pumpDiagLogged = false;
         }
 
         /// <summary>Advance the frame counter; call once per render frame.</summary>
