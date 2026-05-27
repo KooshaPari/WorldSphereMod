@@ -1456,6 +1456,7 @@ namespace WorldSphereMod.Voxel
 
             WorldSphereMod.Voxel.VoxelMeshCache.PumpQueuedBuilds(32);
             WorldSphereMod.Voxel.VoxelMeshCache.DrainCompletedBuilds(8);
+            WorldSphereMod.Voxel.VoxelDiskCache.TickFlush();
 
             if (Core.savedSettings.DebugSanityCube)
             {

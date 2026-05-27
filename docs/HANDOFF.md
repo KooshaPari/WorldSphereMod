@@ -313,7 +313,15 @@ Get-Content Tools/.reports/audit-tick-latest.json | ConvertFrom-Json
 
 ### OmniRoute (kooshas-laptop)
 
-`do-all.ps1 -Vision` requires **kooshas-laptop** awake on Tailscale with OmniRoute listening at **`http://100.112.14.98:20128/v1`** (set in `Tools/omniroute-vision.env`). The Tailscale funnel peer **`omniroute-a6e82363`** is a stale hostname when the laptop sleeps — use the Tailscale IP, not the funnel URL. When the laptop is offline, `do-all` checks `tailscale status` for `kooshas-laptop … offline`, caps `/models` at 30s, uses a 25s chat probe if models fail (else 120s), then runs PlayCUA with **vision off** and records `visionDegraded: true` in `Tools/.reports/do-all-latest.json`. PlayCUA OmniRoute calls use `--omniroute-timeout 300` (vision timeouts surface as skipped optional steps, not hard crashes).
+`do-all.ps1 -Vision` requires **kooshas-laptop** awake on Tailscale with OmniRoute at **`http://100.112.14.98:20128/v1`** (`Tools/omniroute-vision.env`). **Cursor on the laptop** can use `localhost:20128`; the **desk** must reach **`/chat/completions`**, not only `/models` (2214 models over Tailscale does *not* imply vision works). If desk gets **502** or timeout on chat while CC works locally, expose the API on the tailnet, e.g. on the laptop:
+
+```bash
+# OmniRoute bound to 127.0.0.1 only — forward over Tailscale:
+tailscale serve --bg http://127.0.0.1:20128
+# or configure OmniRoute to listen on 0.0.0.0:20128 (check OmniRoute docs)
+```
+
+Then point `OMNROUTE_BASE_URL` at the serve URL or keep `100.112.14.98:20128` after confirming `Invoke-RestMethod …/chat/completions` succeeds from the desk. When chat probe fails, `do-all` runs PlayCUA with **vision off** (`visionDegraded: true`). Stale funnel peer **`omniroute-a6e82363`** — use Tailscale IP, not that hostname.
 
 ## Screenshot sync workflow
 
