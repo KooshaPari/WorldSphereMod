@@ -480,16 +480,16 @@ namespace WorldSphereMod.QuantumSprites
     public static class SourcePatches
     {
         [HarmonyPatch(typeof(ActorManager), nameof(ActorManager.precalculateRenderDataParallel))]
-        [HarmonyPrefix]
-        public static bool calculateactordata3D(ActorManager __instance)
+        [HarmonyPostfix]
+        [HarmonyPriority(Priority.High)]
+        public static void calculateactordata3D(ActorManager __instance)
         {
             if (!Core.IsWorld3D)
             {
-                return true;
+                return;
             }
-            int tDebugItemScale = (DebugConfig.isOn(DebugOption.RenderBigItems) ? 10 : 1);
-            bool tShouldRenderUnitShadows = World.world.quality_changer.shouldRenderUnitShadows();
             int tTotalVisibleObjects = __instance.visible_units.count;
+            if (tTotalVisibleObjects == 0) return;
             Actor[] tArray = __instance.visible_units.array;
             int tDynamicBatchSize = 256;
             int tTotalBatches = ParallelHelper.calcTotalBatches(tTotalVisibleObjects, tDynamicBatchSize);
@@ -500,182 +500,31 @@ namespace WorldSphereMod.QuantumSprites
                 for (int tIndex = num; tIndex < tIndexEnd; tIndex++)
                 {
                     Actor tActor = tArray[tIndex];
-                    Vector3 tActorScale = tActor.current_scale;
                     Vector3 v = tActor.updatePos();
                     Vector3 tCurrentActorPos = Tools.To3DTileHeight(v, v.z + 0.1f);
                     Vector3 tActorRotation = tActor.Get3DRot();
-                    // Transform updates must stay unconditional (shadow_position, cur_transform_position).
-                    // Only skip expensive sprite/item work when generic render is off.
-                    bool tHasNormalRender = !tActor.asset.ignore_generic_render;
-                    bool tHasRenderedItem = false;
-                    Sprite tItemSpriteFinal = null;
-                    if (tHasNormalRender)
-                    {
-                        tHasRenderedItem = tActor.checkHasRenderedItem();
-                        if (tHasRenderedItem)
-                        {
-                            Sprite tItemSpriteMain = tActor.getRenderedItemSprite();
-                            IHandRenderer cachedHandRendererAsset = tActor.getCachedHandRendererAsset();
-                            int tColorAssetID = -900000;
-                            if (cachedHandRendererAsset.is_colored)
-                            {
-                                tColorAssetID = tActor.kingdom.kingdomColor.GetHashCode();
-                            }
-                            tItemSpriteFinal = DynamicSprites.getCachedAtlasItemSprite(DynamicSprites.getItemSpriteID(tItemSpriteMain, tColorAssetID), tItemSpriteMain);
-                        }
-                    }
                     __instance.render_data.positions[tIndex] = tCurrentActorPos;
-                    __instance.render_data.scales[tIndex] = tActorScale;
                     __instance.render_data.rotations[tIndex] = tActorRotation;
-                    __instance.render_data.flip_x_states[tIndex] = tActor.flip;
-                    __instance.render_data.colors[tIndex] = tActor.color;
-                    __instance.render_data.has_normal_render[tIndex] = tHasNormalRender;
-                    __instance.render_data.shadows[tIndex] = tActor.show_shadow;
-                    __instance.render_data.has_item[tIndex] = tHasRenderedItem;
-                    __instance.render_data.item_sprites[tIndex] = tItemSpriteFinal;
-                    bool tNeedFrameData = (tShouldRenderUnitShadows && tActor.show_shadow)
-                        || (tHasNormalRender && tHasRenderedItem);
-                    AnimationFrameData tFrameData = tNeedFrameData ? tActor.getAnimationFrameData() : null;
-                    bool tHaveShadow = false;
-                    if (tShouldRenderUnitShadows && tActor.show_shadow)
-                    {
-                        ActorTextureSubAsset tSubAsset;
-                        if (tActor.hasSubspecies() && tActor.subspecies.has_mutation_reskin)
-                        {
-                            tSubAsset = tActor.subspecies.mutation_skin_asset.texture_asset;
-                        }
-                        else
-                        {
-                            tSubAsset = tActor.asset.texture_asset;
-                        }
-                        tHaveShadow = tSubAsset.shadow;
-                        if (tSubAsset.shadow)
-                        {
-                            Vector2 tSizeShadow;
-                            if (tActor.isEgg())
-                            {
-                                __instance.render_data.shadow_sprites[tIndex] = tSubAsset.shadow_sprite_egg;
-                                tSizeShadow = tSubAsset.shadow_size_egg;
-                            }
-                            else if (tActor.isBaby())
-                            {
-                                __instance.render_data.shadow_sprites[tIndex] = tSubAsset.shadow_sprite_baby;
-                                tSizeShadow = tSubAsset.shadow_size_baby;
-                            }
-                            else
-                            {
-                                __instance.render_data.shadow_sprites[tIndex] = tSubAsset.shadow_sprite;
-                                tSizeShadow = tSubAsset.shadow_size;
-                            }
-                            tSizeShadow *= tActorScale;
-                            int tFlip = (tActor.flip ? 1 : (-1));
-                            float tOffsetX = tSizeShadow.x / 2f;
-                            float tOffsetY = tSizeShadow.y * 0.6f;
-                            float tAbsAngle = Mathf.Abs(tActorRotation.z);
-                            Vector2 tShadowPosition = tActor.current_shadow_position;
-                            tShadowPosition.x += tOffsetX * (tActorRotation.z * (float)tFlip) / 90f;
-                            tShadowPosition.y -= tOffsetY * tAbsAngle / 90f;
-                            __instance.render_data.shadow_position[tIndex] = tShadowPosition;
-                            if (tFrameData != null && tFrameData.size_unit != default(Vector2))
-                            {
-                                float tScaleWidthLay = (tFrameData.size_unit * tActorScale).y / tSizeShadow.x * tActorScale.x;
-                                float tScaleX = Mathf.Lerp(tActorScale.x, tScaleWidthLay, tAbsAngle / 90f);
-                                __instance.render_data.shadow_scales[tIndex] = new Vector2(tScaleX, tActorScale.y);
-                            }
-                            else
-                            {
-                                __instance.render_data.shadow_scales[tIndex] = tActorScale;
-                            }
-                        }
-                    }
-                    __instance.render_data.shadows[tIndex] = tHaveShadow;
-                    if (tHasNormalRender)
-                    {
-                        if (tActor.canParallelSetColoredSprite())
-                        {
-                            Sprite tMainSprite = tActor.calculateMainSprite();
-                            __instance.render_data.main_sprites[tIndex] = tMainSprite;
-                            if (tActor.hasColoredSprite())
-                            {
-                                if (!tActor.isColoredSpriteNeedsCheck(tMainSprite))
-                                {
-                                    __instance.render_data.main_sprite_colored[tIndex] = tActor.getLastColoredSprite();
-                                }
-                                else
-                                {
-                                    __instance.render_data.main_sprite_colored[tIndex] = null;
-                                }
-                            }
-                            else
-                            {
-                                __instance.render_data.main_sprite_colored[tIndex] = tMainSprite;
-                            }
-                        }
-                        else
-                        {
-                            __instance.render_data.main_sprites[tIndex] = null;
-                            __instance.render_data.main_sprite_colored[tIndex] = null;
-                        }
-                        if (tHasRenderedItem)
-                        {
-                            __instance.render_data.item_scale[tIndex] = tActorScale * (float)tDebugItemScale;
-                            float tFrameDataPosX = 0f;
-                            float tFrameDataPosY = 0f;
-                            if (tFrameData != null)
-                            {
-                                tFrameDataPosX = tFrameData.pos_item.x;
-                                tFrameDataPosY = tFrameData.pos_item.y;
-                            }
-                            float tX = tFrameDataPosX * tActorScale.x;
-                            float tY = tFrameDataPosY * tActorScale.y;
-                            Vector3 tItemPosition = new Vector3(tX, tY);
-                            Vector3 tAngle = tActorRotation;
-                            if (tAngle.y != 0f || tAngle.z != 0f)
-                            {
-                                tItemPosition = Tools.RotateLocalPointAroundPivot(ref tItemPosition, ref tCurrentActorPos, ref tAngle);
-                            }
-                            __instance.render_data.item_pos[tIndex] = tItemPosition;
-                        }
-                    }
                 }
             });
-            // Prefix returns false which skips all Postfixes. Invoke VoxelEntities
-            // emit directly so voxel actors render in 3D mode.
-            if (Core.savedSettings.VoxelEntities)
-            {
-                try { WorldSphereMod.Voxel.VoxelRender.ActorVoxelEmit.EmitVoxels(__instance); }
-                catch (System.Exception ex) { UnityEngine.Debug.LogError($"[WSM3D] ActorVoxelEmit.EmitVoxels from Prefix failed: {ex}"); }
-            }
-            // Bridge survival backup postfix also skipped — invoke it too.
-            try { WorldSphereMod.Bridge.BridgeSurvivalBackup.Postfix(); }
-            catch { }
-            return false;
         }
         //i only need to change 2 LINES OF CODE. I WOULD USE A TRANSPILER, BUT THIS FUCKASS FUNCTION USES A DELEGATE, WHICH I CANNOT FUCKING TRANSPILE
         [HarmonyPatch(typeof(BuildingManager), nameof(BuildingManager.precalculateRenderDataParallel))]
-        [HarmonyPrefix]
-        public static bool calculatebuildindata3D(BuildingManager __instance)
+        [HarmonyPostfix]
+        [HarmonyPriority(Priority.High)]
+        public static void calculatebuildindata3D(BuildingManager __instance)
         {
             if (!Core.IsWorld3D)
             {
-                return true;
+                return;
             }
-            Building[] tArrayVisibleBuildings = __instance._array_visible_buildings;
-            bool tNeedShadows = World.world.quality_changer.shouldRenderBuildingShadows();
             int tTotalVisibleObjects = __instance._visible_buildings_count;
-            Vector3[] tRenderScales = __instance.render_data.scales;
+            if (tTotalVisibleObjects == 0) return;
+            Building[] tArrayVisibleBuildings = __instance._array_visible_buildings;
             Vector3[] tRenderPositions = __instance.render_data.positions;
             Vector3[] tRenderRotations = __instance.render_data.rotations;
-            Material[] tRenderMaterials = __instance.render_data.materials;
-            bool[] tRenderFlipXStates = __instance.render_data.flip_x_states;
-            Color[] tRenderColors = __instance.render_data.colors;
-            Sprite[] tRenderMainSprites = __instance.render_data.main_sprites;
-            Sprite[] tRenderColoredSprites = __instance.render_data.colored_sprites;
-            bool[] tRenderShadows = __instance.render_data.shadows;
-            Sprite[] tRenderShadowSprites = __instance.render_data.shadow_sprites;
             int tDynamicBatchSize = 256;
             int tTotalBatches = ParallelHelper.calcTotalBatches(tTotalVisibleObjects, tDynamicBatchSize);
-            bool tNeedNormalCheck = false;
             Parallel.For(0, tTotalBatches, World.world.parallel_options, delegate (int pBatchIndex)
             {
                 int num = ParallelHelper.calculateBatchBeg(pBatchIndex, tDynamicBatchSize);
@@ -683,53 +532,11 @@ namespace WorldSphereMod.QuantumSprites
                 for (int tIndex = num; tIndex < tIndexEnd; tIndex++)
                 {
                     Building tBuilding = tArrayVisibleBuildings[tIndex];
-                    BuildingAsset tAsset = tBuilding.asset;
-                    tRenderScales[tIndex] = tBuilding.getCurrentScale() * Core.savedSettings.BuildingSize;
                     tRenderPositions[tIndex] = tBuilding.cur_transform_position;
                     tRenderRotations[tIndex] = tBuilding.Get3DRot();
-                    tRenderMaterials[tIndex] = tBuilding.material;
-                    tRenderFlipXStates[tIndex] = tBuilding.flip_x;
-                    tRenderColors[tIndex] = tBuilding.kingdom.asset.color_building;
-                    Sprite tMainSprite = tBuilding.calculateMainSprite();
-                    tRenderMainSprites[tIndex] = tMainSprite;
-                    if (tBuilding.isColoredSpriteNeedsCheck(tMainSprite))
-                    {
-                        tRenderColoredSprites[tIndex] = null;
-                        tNeedNormalCheck = true;
-                    }
-                    else
-                    {
-                        tRenderColoredSprites[tIndex] = tBuilding.getLastColoredSprite();
-                    }
-                    if (tNeedShadows)
-                    {
-                        tRenderShadows[tIndex] = tAsset.shadow && !tBuilding.chopped;
-                        tRenderShadowSprites[tIndex] = DynamicSprites.getShadowBuilding(tBuilding.asset, tRenderMainSprites[tIndex]);
-                    }
-                    if (tAsset.is_stockpile)
-                    {
-                        tNeedNormalCheck = true;
-                    }
-                    if (tAsset.sparkle_effect)
-                    {
-                        tNeedNormalCheck = true;
-                    }
+                    __instance.render_data.scales[tIndex] = tBuilding.getCurrentScale() * Core.savedSettings.BuildingSize;
                 }
             });
-            __instance._need_normal_check = tNeedNormalCheck;
-            // Prefix returns false which skips all Postfixes. Invoke VoxelEntities
-            // and ProcGen building emit directly so 3D buildings render.
-            if (Core.savedSettings.VoxelEntities)
-            {
-                try { WorldSphereMod.Voxel.VoxelRender.BuildingVoxelEmit.EmitVoxels(__instance); }
-                catch (System.Exception ex) { UnityEngine.Debug.LogError($"[WSM3D] BuildingVoxelEmit.EmitVoxels from Prefix failed: {ex}"); }
-            }
-            if (Core.savedSettings.ProceduralBuildings)
-            {
-                try { WorldSphereMod.ProcGen.BuildingProcRender.ProcMeshEmit.EmitMeshes(__instance); }
-                catch (System.Exception ex) { UnityEngine.Debug.LogError($"[WSM3D] ProcMeshEmit.EmitMeshes from Prefix failed: {ex}"); }
-            }
-            return false;
         }
     }
 }
