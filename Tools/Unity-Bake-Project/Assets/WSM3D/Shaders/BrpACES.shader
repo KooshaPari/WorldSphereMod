@@ -43,7 +43,7 @@ Shader "Hidden/WSM3D/BrpACES"
                 o.uv = v.uv;
                 #if UNITY_UV_STARTS_AT_TOP
                 if (_MainTex_TexelSize.y < 0)
-                    o.uv = 1.0 - o.uv;
+                    o.uv.y = 1.0 - o.uv.y;
                 #endif
                 return o;
             }
