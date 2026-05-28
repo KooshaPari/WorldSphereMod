@@ -40,6 +40,11 @@ namespace WorldSphereMod.Water
         readonly List<int> _trisScratch = new List<int>();
         readonly Dictionary<long, int> _cornerIndexScratch = new Dictionary<long, int>();
         readonly Dictionary<long, (float depthSum, int count)> _cornerDepthScratch = new Dictionary<long, (float, int)>();
+        // Per-corner shore flag. A corner is "shore" if any of the (up to 4)
+        // tiles touching it is non-water. Baked into vertex.color.G so the
+        // GerstnerWater shader can render depth-gradient foam without a
+        // screen-space depth buffer (built-in pipeline can't sample depth here).
+        readonly Dictionary<long, bool> _cornerShoreScratch = new Dictionary<long, bool>();
 
         public static WaterSurface? Create(Transform parent)
         {
@@ -512,9 +517,18 @@ namespace WorldSphereMod.Water
             }
             else
             {
+                // True translucent blend: SrcAlpha * src + (1-SrcAlpha) * dst.
+                // ZWrite=0 so the water doesn't punch a hole in the depth buffer
+                // (otherwise it reads as a flat billboard occluding everything behind).
+                // Queue 3000 = Transparent so opaque terrain renders first.
                 material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
                 material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                material.SetInt("_ZWrite", 1);
+                material.SetInt("_ZWrite", 0);
+                material.SetOverrideTag("RenderType", "Transparent");
+                material.SetOverrideTag("Queue", "Transparent");
+                material.EnableKeyword("_ALPHABLEND_ON");
+                material.DisableKeyword("_ALPHATEST_ON");
+                material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
                 material.renderQueue = 3000;
             }
 
