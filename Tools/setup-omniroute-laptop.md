@@ -14,6 +14,31 @@ Fallback tailnet (pre-funnel): `http://100.112.14.98:20128/v1`. Legacy funnel ho
 
 After a **DB wipe**, regenerate **`OMNROUTE_API_KEY`** in OmniRoute and update the local env file. Verify from the desk: `pwsh Tools/verify-omniroute-remote.ps1` (both `/models` and `/chat/completions` must OK).
 
+## 0. Optional: desk → MacBook via Tailscale SSH (bypass broken funnel)
+
+Often more reliable than funnel HTTPS: SSH to the Mac and call **`http://127.0.0.1:20128`** on the laptop (same as Cursor).
+
+**On the MacBook (one-time):**
+
+1. **System Settings → General → Sharing → Remote Login** — ON (OpenSSH on port 22).
+2. **Tailscale** — either:
+   - **Tailscale SSH** (recommended): [Admin console](https://login.tailscale.com/admin/acls) → allow SSH to `kooshapari@kooshas-laptop` for your desk user; on the Mac run `tailscale set --operator=$USER` if needed.
+   - **Or** add the desk’s public key to `~/.ssh/authorized_keys` on the Mac.
+
+**From the desk (after auth works):**
+
+```powershell
+# Tailscale SSH (uses tailnet identity; accept host key on first connect)
+tailscale ssh kooshapari@kooshas-laptop "curl -sS http://127.0.0.1:20128/v1/models -H 'Authorization: Bearer YOUR_KEY' | head -c 200"
+
+# Or OpenSSH to tailnet IP
+ssh kooshapari@100.112.14.98 "curl -sS -m 30 http://127.0.0.1:20128/v1/chat/completions ..."
+```
+
+Helper (once SSH works): `pwsh Tools/verify-omniroute-via-ssh.ps1 -SshTarget kooshapari@kooshas-laptop`
+
+**What we saw from the desk (2026-05-28):** port **22** on `100.112.14.98` answers, but **Permission denied** (no key/ACL yet). Funnel host `omniroute-a6e82363-1` is **not** an SSH endpoint (502 on port 22). Use **`kooshas-laptop`** / **`100.112.14.98`**, not the funnel DNS name, for SSH.
+
 ## 1. Confirm OmniRoute on loopback
 
 On the laptop (Terminal):
