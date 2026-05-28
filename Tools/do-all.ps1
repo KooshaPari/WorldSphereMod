@@ -217,7 +217,7 @@ try {
             if ($attempt -gt 1) {
                 Write-Host "playcua retry $attempt/$PlaycuaRetries — relaunch between attempts" -ForegroundColor Yellow
                 pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') relaunch -NoBuild | Out-Null
-                $null = Ensure-BridgeReady -WaitSeconds 300 -RelaunchIfDown
+                $null = Ensure-BridgeReady -WaitSeconds 300
                 Start-Sleep -Seconds 30
                 $null = Wait-World3D -MaxSeconds 120
             }
