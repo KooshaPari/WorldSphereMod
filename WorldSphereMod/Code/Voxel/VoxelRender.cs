@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using HarmonyLib;
 using UnityEngine;
-using WorldSphereMod.Textures;
 using WorldSphereMod.NewCamera;
+using WorldSphereMod.Textures;
 using Debug = UnityEngine.Debug;
 
 namespace WorldSphereMod.Voxel
@@ -76,27 +76,27 @@ namespace WorldSphereMod.Voxel
         /// </summary>
         public static bool EnsureMaterial()
         {
-                if (_materialAttempted || _material != null)
+            if (_materialAttempted || _material != null)
+            {
+                if (_material != null && _material.shader != null &&
+                    _material.shader.name == "Standard" &&
+                    Core.Sphere.LoadedShaders.ContainsKey("OpaqueVertexColor"))
                 {
-                    if (_material != null && _material.shader != null &&
-                        _material.shader.name == "Standard" &&
-                        Core.Sphere.LoadedShaders.ContainsKey("OpaqueVertexColor"))
+                    Material? upgrade = TryCompileInlineVoxelShader();
+                    if (upgrade != null)
                     {
-                        Material? upgrade = TryCompileInlineVoxelShader();
-                        if (upgrade != null)
-                        {
-                            Object.Destroy(_material);
-                            _material = upgrade;
-                            McPackLoader.ApplyToMaterial(_material);
-                            Debug.Log("[WSM3D] Voxel material upgraded from Standard to OpaqueVertexColor (late bundle load).");
-                        }
+                        Object.Destroy(_material);
+                        _material = upgrade;
+                        McPackLoader.ApplyToMaterial(_material);
+                        Debug.Log("[WSM3D] Voxel material upgraded from Standard to OpaqueVertexColor (late bundle load).");
                     }
-                    if (MeshInstanceBatcher.UseFallbackPath && _material != null && _material.enableInstancing)
-                    {
-                        _material.enableInstancing = false;
-                    }
-                    return _material != null;
                 }
+                if (MeshInstanceBatcher.UseFallbackPath && _material != null && _material.enableInstancing)
+                {
+                    _material.enableInstancing = false;
+                }
+                return _material != null;
+            }
             _materialAttempted = true;
 
             string[] candidates =
@@ -139,13 +139,13 @@ namespace WorldSphereMod.Voxel
             // (Sprites/Default) — the open-box-see-through bug. This inline
             // shader is opaque AND consumes vertex colors as the only albedo.
             Material? inlineMat = TryCompileInlineVoxelShader();
-                if (inlineMat != null)
-                {
-                    _material = inlineMat;
-                    McPackLoader.ApplyToMaterial(_material);
-                    Debug.Log("[WSM3D] Voxel material resolved via inline 'WSM3D/OpaqueVertexColor'.");
-                    return true;
-                }
+            if (inlineMat != null)
+            {
+                _material = inlineMat;
+                McPackLoader.ApplyToMaterial(_material);
+                Debug.Log("[WSM3D] Voxel material resolved via inline 'WSM3D/OpaqueVertexColor'.");
+                return true;
+            }
 
             foreach (var name in candidates)
             {
@@ -529,6 +529,7 @@ namespace WorldSphereMod.Voxel
             }
 
             [HarmonyPostfix]
+            [HarmonyPriority(Priority.First)]
             public static void EmitVoxels(ActorManager __instance)
             {
                 EmitVoxelsCalled = true;
@@ -818,6 +819,7 @@ namespace WorldSphereMod.Voxel
             }
 
             [HarmonyPostfix]
+            [HarmonyPriority(Priority.First)]
             public static void EmitVoxels(BuildingManager __instance)
             {
                 if (!_buildingEmitDiagLogged)
@@ -1236,7 +1238,8 @@ namespace WorldSphereMod.Voxel
             {
                 if (transform.parent != null) transform.SetParent(null, worldPositionStays: false);
                 UnityEngine.Object.DontDestroyOnLoad(gameObject);
-            } catch { }
+            }
+            catch { }
             MeshInstanceBatcher.SetMainThread();
             // Force per-instance fallback only when explicitly requested. The
             // Standard material path now keeps INSTANCING_ON in sync before DrawMeshInstanced.
@@ -1352,7 +1355,7 @@ namespace WorldSphereMod.Voxel
                 if (nowPerf - _telemetryLastTime > 10f)
                 {
                     _telemetryLastTime = nowPerf;
-                    Debug.Log($"[WSM3D][Telemetry] frameMs={Time.unscaledDeltaTime*1000:F2} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} cacheSize={VoxelMeshCache.Count} cacheHits={VoxelMeshCache.HitCount} cacheMisses={VoxelMeshCache.MissCount} submits={VoxelRender._submitDiagCount} gcMB={(System.GC.GetTotalMemory(false) / 1048576f):F1}");
+                    Debug.Log($"[WSM3D][Telemetry] frameMs={Time.unscaledDeltaTime * 1000:F2} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} cacheSize={VoxelMeshCache.Count} cacheHits={VoxelMeshCache.HitCount} cacheMisses={VoxelMeshCache.MissCount} submits={VoxelRender._submitDiagCount} gcMB={(System.GC.GetTotalMemory(false) / 1048576f):F1}");
                     VoxelRender._submitDiagCount = 0;
                 }
 
@@ -1508,7 +1511,7 @@ namespace WorldSphereMod.Voxel
             if (now - _telemetryLastTime > 10f)
             {
                 _telemetryLastTime = now;
-                Debug.Log($"[WSM3D][Telemetry] frameMs={Time.unscaledDeltaTime*1000:F2} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} cacheSize={VoxelMeshCache.Count} cacheHits={VoxelMeshCache.HitCount} cacheMisses={VoxelMeshCache.MissCount} submits={VoxelRender._submitDiagCount} gcMB={(System.GC.GetTotalMemory(false) / 1048576f):F1}");
+                Debug.Log($"[WSM3D][Telemetry] frameMs={Time.unscaledDeltaTime * 1000:F2} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} cacheSize={VoxelMeshCache.Count} cacheHits={VoxelMeshCache.HitCount} cacheMisses={VoxelMeshCache.MissCount} submits={VoxelRender._submitDiagCount} gcMB={(System.GC.GetTotalMemory(false) / 1048576f):F1}");
                 VoxelRender._submitDiagCount = 0;
             }
 
