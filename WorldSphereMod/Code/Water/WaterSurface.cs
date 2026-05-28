@@ -280,9 +280,10 @@ namespace WorldSphereMod.Water
 
         static Cubemap ResolveSkyCubemap()
         {
-            if (RenderSettings.skybox != null)
+            Material? skybox = RenderSettings.skybox;
+            if (skybox != null)
             {
-                Texture skyTex = RenderSettings.skybox.GetTexture("_Tex");
+                Texture? skyTex = ResolveSkyboxTexture(skybox);
                 if (skyTex is Cubemap cubemap)
                 {
                     return cubemap;
@@ -295,6 +296,39 @@ namespace WorldSphereMod.Water
             }
 
             return _proceduralSkyCubemap;
+        }
+
+        static Texture? ResolveSkyboxTexture(Material skybox)
+        {
+            if (skybox.HasProperty("_Cube"))
+            {
+                Texture? skyTex = skybox.GetTexture("_Cube");
+                if (skyTex != null)
+                {
+                    return skyTex;
+                }
+            }
+
+            if (skybox.HasProperty("_Cubemap"))
+            {
+                Texture? skyTex = skybox.GetTexture("_Cubemap");
+                if (skyTex != null)
+                {
+                    return skyTex;
+                }
+            }
+
+            if (skybox.HasProperty("_Tex"))
+            {
+                return skybox.GetTexture("_Tex");
+            }
+
+            if (skybox.HasProperty("_MainTex"))
+            {
+                return skybox.GetTexture("_MainTex");
+            }
+
+            return null;
         }
 
         static Cubemap BuildProceduralSkyCubemap()
