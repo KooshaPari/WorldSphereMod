@@ -2260,6 +2260,61 @@ function Invoke-HooksInstall {
     }
 }
 
+function Invoke-Diag {
+    Write-Info "Querying bridge diagnostics endpoints..."
+
+    $endpoints = @(
+        @{ path = "/health"; name = "Health" }
+        @{ path = "/telemetry"; name = "Telemetry" }
+        @{ path = "/diag/render_stats"; name = "Render Stats" }
+        @{ path = "/diag/emit_status"; name = "Emit Status" }
+    )
+
+    $baseUrl = "http://127.0.0.1:$($script:BridgePort)"
+    $results = @()
+
+    foreach ($endpoint in $endpoints) {
+        $url = $baseUrl + $endpoint.path
+        Write-Info "Fetching $($endpoint.name) from $url..."
+
+        try {
+            $response = Invoke-RestMethod -Uri $url -Method Get -TimeoutSec 8
+            $results += [PSCustomObject]@{
+                endpoint = $endpoint.path
+                name = $endpoint.name
+                status = "ok"
+                data = $response
+            }
+            Write-Success "  $($endpoint.name) received"
+        } catch {
+            $results += [PSCustomObject]@{
+                endpoint = $endpoint.path
+                name = $endpoint.name
+                status = "error"
+                error = $_.Exception.Message
+            }
+            Write-Warn "  $($endpoint.name) failed: $($_.Exception.Message)"
+        }
+    }
+
+    Write-Host ""
+    Write-Host "Bridge Diagnostics" -ForegroundColor Cyan
+    Write-Host "=================" -ForegroundColor Cyan
+    Write-Host ""
+
+    foreach ($result in $results) {
+        Write-Host "$($result.name) ($($result.endpoint))" -ForegroundColor Cyan
+        if ($result.status -eq "ok") {
+            Write-Host ($result.data | ConvertTo-Json -Depth 10)
+        } else {
+            Write-Host "Error: $($result.error)" -ForegroundColor Red
+        }
+        Write-Host ""
+    }
+
+    Write-Success "Diagnostics complete."
+}
+
 function Show-Help {
     Write-Host @"
 WorldSphereMod3D CLI — Command Surface
@@ -2586,6 +2641,10 @@ try {
                 $params["Phase"] = $commandArgs[0]
             }
             Invoke-Toggle @params
+        }
+
+        "diag" {
+            Invoke-Diag
         }
 
         "status" {
