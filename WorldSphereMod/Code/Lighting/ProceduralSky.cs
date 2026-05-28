@@ -402,7 +402,29 @@ namespace WorldSphereMod.Lighting
             if (water?._renderer != null)
             {
                 Material mat = water._renderer.material;
-                mat.SetTexture("_SkyCubemap", _skyCubemap);
+                if (mat != null)
+                {
+                    if (mat.HasProperty("_Tex"))
+                    {
+                        mat.SetTexture("_Tex", _skyCubemap);
+                    }
+                    else if (mat.HasProperty("_Cube"))
+                    {
+                        mat.SetTexture("_Cube", _skyCubemap);
+                    }
+                    else if (mat.HasProperty("_MainTex"))
+                    {
+                        mat.SetTexture("_MainTex", _skyCubemap);
+                    }
+                    else if (mat.HasProperty("_Cubemap"))
+                    {
+                        mat.SetTexture("_Cubemap", _skyCubemap);
+                    }
+                    else if (mat.HasProperty("_SkyCubemap"))
+                    {
+                        mat.SetTexture("_SkyCubemap", _skyCubemap);
+                    }
+                }
                 mat.SetVector("_SunDir", new Vector4(sunDir.x, sunDir.y, sunDir.z, 0f));
                 mat.SetColor("_SunColor", sunColor);
             }
