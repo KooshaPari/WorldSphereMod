@@ -531,9 +531,15 @@ namespace WorldSphereMod.Voxel
             }
 
             [HarmonyPostfix]
-            [HarmonyPriority(Priority.Last)]
+            [HarmonyPriority(Priority.First)]
             public static void EmitVoxels(ActorManager __instance)
             {
+                // REGRESSION GUARD: must stay Priority.First. Vanilla sprite-render
+                // Postfixes on precalculateRenderDataParallel race ours; if we run
+                // Last, has_normal_render[i] is cleared too late and both the voxel
+                // mesh AND the vanilla 2D billboard render — actors appear as 2D
+                // billboards instead of 3D voxels. Symptom: user reports
+                // "voxel actors back to billboards".
                 EmitVoxelsCalled = true;
                 Tools.ClearTileHeightSmoothCache();
                 // TEMPORARY DIAGNOSTIC: one-shot log to verify the Harmony postfix fires

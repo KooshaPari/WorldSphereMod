@@ -1200,72 +1200,28 @@ namespace WorldSphereMod
                 }
                 else
                 {
-                    // Audit every shader and every ShaderVariantCollection inside
-                    // the wsm3d-shaders bundle BEFORE running SafeShaders gate.
-                    // Empty .name post-load means Unity stripped variants from a
-                    // correctly-baked bundle (root cause: SVC keep list missed).
-                    // WarmUp on each SVC forces Unity to re-resolve referenced
-                    // variants so subsequent GetObject<Shader> sees populated names.
-                    try
-                    {
-                        var bundleField = typeof(WrappedAssetBundle).GetField("assetBundle", BindingFlags.NonPublic | BindingFlags.Instance);
-                        var rawBundle = bundleField?.GetValue(shaderAb);
-                        if (rawBundle != null)
-                        {
-                            var loadAllT = rawBundle.GetType().GetMethod("LoadAllAssets", BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(System.Type) }, null);
-                            if (loadAllT != null)
-                            {
-                                var svcArr = loadAllT.Invoke(rawBundle, new object[] { typeof(ShaderVariantCollection) }) as UnityEngine.Object[];
-                                int svcCount = svcArr != null ? svcArr.Length : 0;
-                                Debug.Log($"[WSM3D] wsm3d-shaders bundle SVC count={svcCount}");
-                                if (svcArr != null)
-                                {
-                                    foreach (var so in svcArr)
-                                    {
-                                        var svc = so as ShaderVariantCollection;
-                                        if (svc == null) continue;
-                                        Debug.Log($"[WSM3D] SVC '{svc.name}' shaderCount={svc.shaderCount} variantCount={svc.variantCount} isWarmedUp={svc.isWarmedUp}");
-                                        if (!svc.isWarmedUp)
-                                        {
-                                            try
-                                            {
-                                                svc.WarmUp();
-                                                Debug.Log($"[WSM3D] SVC '{svc.name}' WarmUp() complete; isWarmedUp={svc.isWarmedUp}");
-                                            }
-                                            catch (System.Exception ex)
-                                            {
-                                                Debug.LogWarning($"[WSM3D] SVC '{svc.name}' WarmUp threw: {ex.Message}");
-                                            }
-                                        }
-                                    }
-                                }
-
-                                var shArr = loadAllT.Invoke(rawBundle, new object[] { typeof(Shader) }) as UnityEngine.Object[];
-                                int shCount = shArr != null ? shArr.Length : 0;
-                                Debug.Log($"[WSM3D] wsm3d-shaders bundle Shader count={shCount}");
-                                if (shArr != null)
-                                {
-                                    foreach (var so in shArr)
-                                    {
-                                        var sh = so as Shader;
-                                        if (sh == null) continue;
-                                        int passCount = -1;
-                                        try { passCount = sh.passCount; } catch { passCount = -1; }
-                                        string nm = string.IsNullOrEmpty(sh.name) ? "<EMPTY>" : sh.name;
-                                        Debug.Log($"[WSM3D] bundle shader: name='{nm}' isSupported={sh.isSupported} passCount={passCount}");
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                Debug.LogWarning("[WSM3D] LoadAllAssets(System.Type) reflection method not found on AssetBundle; skipping diagnostic.");
-                            }
-                        }
-                    }
-                    catch (System.Exception ex)
-                    {
-                        Debug.LogWarning("[WSM3D] wsm3d-shaders diagnostic block threw: " + ex.Message);
-                    }
+                    // DIAGNOSTIC BLOCK DISABLED — see ADR-0013.
+                    //
+                    // Invoking AssetBundle.LoadAllAssets(typeof(ShaderVariantCollection))
+                    // or LoadAllAssets(typeof(Shader)) on wsm3d-shaders triggers Unity's
+                    // NATIVE crash handler:
+                    //   "Mismatched serialization in builtin class 'Shader'.
+                    //    Read 80 bytes but expected 4936 bytes"
+                    //   ArgumentException: ManagedStream must be readable
+                    //   → process abort intercepted by Unity crash reporter.
+                    //
+                    // This is a Unity 2022.3 cross-patch-version bundle serialization
+                    // bug on some shaders; the C# try/catch CANNOT intercept the native
+                    // crash. ADR-0013 mandates per-name GetObject<Shader> via the
+                    // SafeShaders gate (below) — DO NOT re-enable bulk enumeration.
+                    //
+                    // Regression history: the previous diagnostic block invoked
+                    // LoadAllAssets here and reintroduced the crash, taking the entire
+                    // mod offline. Downstream symptoms: water renders as Standard-
+                    // transparent billboard (no Gerstner displacement), voxel actors
+                    // fall back to 2D billboards (no WSM3D shader to suppress the
+                    // vanilla sprite render), mountain slope smoothing reverts.
+                    Debug.Log("[WSM3D] wsm3d-shaders enumeration diagnostic intentionally skipped (ADR-0013 — LoadAllAssets crashes Unity natively).");
 
                     try
                     {
