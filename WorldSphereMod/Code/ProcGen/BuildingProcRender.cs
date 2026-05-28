@@ -74,7 +74,7 @@ namespace WorldSphereMod.ProcGen
                             Sprite? impSp = rd.main_sprites[i];
                             if (impSp == null) continue;
                             Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(impSp);
-                            Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
+                            Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial(impSp);
                             if (im == null || imMat == null) continue;
                             Vector3 imPos = rd.positions[i];
                             Vector3 imScl = rd.scales[i];
