@@ -359,11 +359,11 @@ namespace WorldSphereMod.Voxel
                 }
             }
 
+            // PERF: do NOT recreate the snapshot from mesh.vertices/.colors32/.triangles.
+            // The mesh had UploadMeshData(true) called, so those reads emit LogWarning
+            // floods that destroy frame time. If BuildVoxelMeshAsync did not provide a
+            // snapshot via its out-param path, leave it null (Bridge-only diagnostic).
             MeshSnapshot snapshot = completion.Snapshot;
-            if (snapshot == null && mesh != null)
-            {
-                snapshot = CreateSnapshot(completion.Sprite, mesh, mesh.vertices, mesh.colors32, mesh.triangles);
-            }
 
             completion.Mesh = mesh;
             completion.Snapshot = snapshot;
@@ -478,8 +478,16 @@ namespace WorldSphereMod.Voxel
 
         static BuildCompletion BuildVoxelMeshAsync(BuildRequest request)
         {
-            Mesh m = BuildVoxelMesh(request.Sprite, request.Depth, request.ShapeHint, out int[] vertexToTexel, out string inflationStyle);
-            MeshSnapshot snapshot = m != null ? CreateSnapshot(request.Sprite, m, m.vertices, m.colors32, m.triangles) : null;
+            Mesh m = BuildVoxelMesh(request.Sprite, request.Depth, request.ShapeHint, out int[] vertexToTexel, out string inflationStyle, out MeshSnapshot snapshot);
+            // PERF: do NOT call CreateSnapshot here using mesh.vertices/.colors32/.triangles —
+            // SpriteVoxelizer.Build calls UploadMeshData(true) which strips the CPU copy.
+            // Reading those properties post-upload triggers 4 LogWarning lines per access
+            // ("Not allowed to access vertices ... isReadable is false"). Hundreds of
+            // sprites × multiple frames = thousands of synchronous LogWarning -> Player.log
+            // I/O calls per second, which was eating 1500-2700ms per frame (0.5 FPS).
+            // The Build* methods that DO have CPU-side data should return a snapshot via
+            // the out-param; otherwise leave snapshot null (it's a Bridge nice-to-have,
+            // not required for rendering).
             return new BuildCompletion
             {
                 Key = request.Key,
@@ -517,14 +525,17 @@ namespace WorldSphereMod.Voxel
                     {
                         Object.DestroyImmediate(mesh);
                         mesh = smoothed;
+                        // Smoothed mesh still has CPU-side data (MeshSmoother reads it),
+                        // so it's safe to snapshot here.
                         completion.Snapshot = CreateSnapshot(completion.Sprite, mesh, mesh.vertices, mesh.colors32, mesh.triangles);
                     }
                 }
 
-                if (completion.Snapshot == null)
-                {
-                    completion.Snapshot = CreateSnapshot(completion.Sprite, mesh, mesh.vertices, mesh.colors32, mesh.triangles);
-                }
+                // PERF: skip the redundant snapshot rebuild. SpriteVoxelizer.Build calls
+                // UploadMeshData(true) on the mesh, so reading mesh.vertices/.colors32/
+                // .triangles emits 4 LogWarning lines per call ("isReadable is false").
+                // BuildVoxelMeshAsync now wires the source-side snapshot via out-param;
+                // a null Snapshot is acceptable (it's only used by Bridge diagnostics).
 
                 LogVoxelizedSprite(completion.Sprite, mesh, completion.InflationStyle);
                 lock (_lock)
@@ -891,12 +902,13 @@ namespace WorldSphereMod.Voxel
 
         static Mesh BuildVoxelMesh(Sprite sprite, int depth, out Mesh mesh)
         {
-            mesh = BuildVoxelMesh(sprite, depth, ShapeHint.Auto, out _, out _);
+            mesh = BuildVoxelMesh(sprite, depth, ShapeHint.Auto, out _, out _, out _);
             return mesh;
         }
 
-        static Mesh BuildVoxelMesh(Sprite sprite, int depth, ShapeHint explicitShapeHint, out int[] vertexToTexel, out string inflationStyle)
+        static Mesh BuildVoxelMesh(Sprite sprite, int depth, ShapeHint explicitShapeHint, out int[] vertexToTexel, out string inflationStyle, out MeshSnapshot snapshot)
         {
+            snapshot = null;
             // Per-sprite shape-hint routing. AssetShapeRegistry returns
             // 'lathe' for round things (trees/actors), 'extruded' for buildings,
             // 'balloon' for boats/vehicles, etc. Honors non-auto global override.
@@ -963,11 +975,11 @@ namespace WorldSphereMod.Voxel
             {
                 vertexToTexel = System.Array.Empty<int>();
                 inflationStyle = "greedy_pertexel";
-                return SpriteVoxelizer.Build(sprite, out MeshSnapshot _, depth);
+                return SpriteVoxelizer.Build(sprite, out snapshot, depth);
             }
 
             vertexToTexel = System.Array.Empty<int>();
-            return SpriteVoxelizer.Build(sprite, out MeshSnapshot _, depth);
+            return SpriteVoxelizer.Build(sprite, out snapshot, depth);
         }
 
         static string ResolveVoxelInflationStyle()
