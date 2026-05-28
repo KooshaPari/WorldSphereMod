@@ -9,6 +9,12 @@ namespace WorldSphereMod.Lighting
         const int kProceduralCubemapSize = 128;
 
         static CubemapLighting? _instance;
+
+        /// <summary>True once the runtime cubemap skybox has been bound.
+        /// ProceduralSky checks this to yield priority and avoid the
+        /// Awake-order race that overwrites RenderSettings.skybox.</summary>
+        public static bool IsActive => _instance != null && _instance._applied;
+
         static Cubemap? _previousCustomReflection;
         static Material? _previousSkybox;
         static Material? _runtimeSkyboxMaterial;

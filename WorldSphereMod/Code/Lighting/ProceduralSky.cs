@@ -136,6 +136,18 @@ namespace WorldSphereMod.Lighting
         void Awake()
         {
             Instance = this;
+
+            // CubemapLighting wins the skybox slot when both are active —
+            // ApplyRuntimeSkybox runs in a coroutine and would otherwise
+            // race against ProceduralSky.Awake binding here. Yield priority
+            // so the HDR cubemap path remains authoritative.
+            if (CubemapLighting.IsActive)
+            {
+                Debug.Log("[WSM3D] ProceduralSky yielding skybox to CubemapLighting (HdrSkybox active).");
+                Destroy(this);
+                return;
+            }
+
             CaptureOriginalSkyboxState();
 
             Shader? shader = ResolveSkyShader(out bool isVanilla);
