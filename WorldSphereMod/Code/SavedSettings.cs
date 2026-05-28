@@ -23,7 +23,12 @@ public class SavedSettings
         public bool RotateStuffToCamera = true;
         public bool CameraRotatesWithWorld = true;
         public bool FirstPerson = true;
-        public float RenderRange = 2;
+        public float RowRange = 2;
+        public float RenderRange
+        {
+            get => RowRange;
+            set => RowRange = value;
+        }
         public float TileHeight = 1;
         public float BuildingSize = 0.5f;
         public float CameraDefaultStrategyZoomHeight = 10f;

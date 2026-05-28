@@ -2,15 +2,13 @@
 
 Canonical "next session starts here" doc for WorldSphereMod3D.
 
-**Last updated:** 2026-05-28 (`wt/shaders-rebake` — 10-shader bundle, SafeShaders gate)
+**Last updated:** 2026-05-28 (8/8 runtime tests pass, 30 FPS, 46 voxel actors visible)
 
 Recent validation:
 
-- Bevy standalone black screen is fixed; `OrbitCamera` now targets the scene correctly.
+- **Runtime smoke test PASS** (2026-05-28): 8/8 runtime tests pass, frame time 32ms (30 FPS), 46 visible voxel actors on kingdom, heightfield terrain active, biome blending active, slope smoothing with MPB push verified.
 - Shader bake pipeline is functional via headless `Tools/bake-shaders.ps1` (Unity `-batchmode -nographics`; **not** a `wsm3d.ps1` subcommand).
 - `wsm3d-shaders` bundle manifest lists **10 shaders** (rebaked 2026-05-26; GerstnerWater depth pass in `0fe30b1`). Runtime still loads **3** via `Core.Sphere.SafeShaders` only — expansion blocked until in-game proof (see [SafeShaders human gate](#safeshaders-human-gate)).
-- Previously broken test areas are fixed again: `VoxelPipeline`, `SpriteVoxelDepthExtrusion`, `LodPhase10`, `TerrainSmoothing`, and `LiveVerification`.
-- Tracera and AgilePlus dashboards are live.
 
 ## TL;DR
 
@@ -32,7 +30,7 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 | Active branch | `claude/research-ultraplan-fork-DdgI5` |
 | Open PR (#7) | https://github.com/KooshaPari/WorldSphereMod/pull/7 — **OPEN** — automation + phase gates (`do-all`, bridge recovery, PlayCUA 13/13) |
 | Release tag (remote) | **`v2.0.0-beta.6`** — [release](https://github.com/KooshaPari/WorldSphereMod/releases/tag/v2.0.0-beta.6) |
-| Offline test matrix | **535 pass / 3 skip** (538 total) — Unit 154 (+ 3 skip), Integration 69, E2E 301 pass / 1 skip (302 total, NML compat) |
+| Offline test matrix | **525 pass / 3 skip** (528 total) — Unit 154 (+ 3 skip), Integration 69, E2E 301 pass / 1 skip (302 total, NML compat) |
 | Cold-start orientation | `CLAUDE.md` |
 | Full 10-phase plan | `docs/PLAN.md` |
 | Per-phase architectures | `docs/phase{2..10}-architecture.md` |
@@ -92,7 +90,7 @@ instead of carrying the underlying implementation inline.
 | 3b Surface overlays + walls            | code present, runtime unverified | `WorldTilemap.renderTile` Prefix + `drawWallType` Prefix wired. |
 | 4  Mesh water                          | code present, runtime unverified | Current code default: `MeshWater = false`. |
 | 5  Sun + cascaded shadows              | code present, runtime unverified | Current code defaults: `HighShadows = false`, `HdrSkybox = false`, `ColorGradingLut = false`. |
-| 6  Skeletal animation                  | code present, runtime unverified | Current code default: `SkeletalAnimation = false`. |
+| 6  Skeletal animation                  | code present, runtime unverified; **disable-gate PROVEN** | Current code default: `SkeletalAnimation = false`. Core.LoadSettings force-overrides to `false` on every load (Core.cs L70 + L79). ActorVoxelEmit.EmitVoxels gates BOTH `ResolveRigType` and `RigDriver.SubmitSkinnedActor` behind `if (Core.savedSettings.SkeletalAnimation && tier != LodTier.Impostor)` (VoxelRender.cs L630). Invariant locked by `SkeletalAnimationDisabledGateTests` (E2E). DIAG-SUBMIT `skel(attempt=0 ok=0 fail=0)` is the runtime confirmation. |
 | 7  Worldspace UI                       | code present, runtime unverified | Current code defaults: `WorldspaceUI = false`, `WorldspaceLabel3D = false`. |
 | 8  Day/night + sky + fog               | code present, runtime unverified | Current code default: `DayNightCycle = false`; `FogDensity = 0.05f`. |
 | 9  Particles + decals + PostFX         | code present, runtime unverified | Current code defaults: `ParticleEffects = false`, `PostFX = false`, `SSAOEnabled = false`, `SSGIEnabled = false`. |
@@ -239,7 +237,7 @@ Short form:
 
 ## Recommended next steps
 
-1. **Visual verification with populated world** — automation passes (`pwsh Tools/do-all.ps1` → 13/13 after retry, journey mock 20/20, offline tests 535 pass / 3 skip). Sync captures: `pwsh Tools/sync-playcua-screenshots.ps1` (see [Screenshot sync workflow](#screenshot-sync-workflow) below). Human still judges kingdom/actor visuals in-game.
+1. **Visual verification with populated world** — automation passes (`pwsh Tools/do-all.ps1` → 13/13 after retry, journey mock 20/20, offline tests 525 pass / 3 skip). Sync captures: `pwsh Tools/sync-playcua-screenshots.ps1` (see [Screenshot sync workflow](#screenshot-sync-workflow) below). Human still judges kingdom/actor visuals in-game.
 2. Smoke-test Phase 2 procedural buildings the same way Phase 1 was proven: toggle `ProceduralBuildings`, capture screenshots, and diff against canonical output.
 3. **Shader bundle rebake — DONE (2026-05-26).** Headless: `pwsh Tools/bake-shaders.ps1` (optional `-UnityExe` when Hub auto-detect fails). Log: `Tools/bake-shaders.log`. Manifest: 10 shaders in `WorldSphereMod/AssetBundles/win/wsm3d-shaders.manifest`. **Human gate:** confirm in-game `LoadedShaders[count=3]` and phase visuals before adding names to `SafeShaders` (see below).
 4. Implement ADR-0006 (Phase 6 Step 9 DrawProceduralIndirect skinning) — 2–3 day estimate if we decide to replace the visible skinned-mesh path with GPU-resident batching later.
@@ -359,7 +357,7 @@ pwsh Tools/sync-playcua-screenshots.ps1
 - **Slash commands:** `/wsm-status`, `/wsm-validate-all`, `/wsm-build`, `/wsm-install`, `/wsm-relaunch`, `/wsm-log`, `/wsm-toggle`, `/wsm-screenshot`, `/wsm-journey-run`, `/wsm-doctor`.
 - **MCP:** `Tools/wsm3d-mcp/` — Python FastMCP with 18 tools, auto-registered via `.claude/mcp-servers.json`.
 - **Journey gate:** `.github/workflows/journeys-gate.yml` — OCR-assertion DSL; verify with `phenotype-journey verify <manifest> --mock`. Live capture remains the final proof step; entry point: `docs/live-verification.md`.
-- **Live-verify gate (CI):** `.github/workflows/live-verify-gate.yml` — offline `dotnet test` + journey mock (stages 1–2 of `Tools/wsm-live-verify.ps1`; **535 pass / 3 skip**, 538 total locally). Reused by **nightly** (`nightly.yml` → `live-verify-offline` job). Full harness: `pwsh Tools/wsm-live-verify.ps1` (add `-Live -Vision` for PlayCUA + SSIM + OmniRoute vision on a desktop with WorldBox + bridge). Desktop one-shot: `pwsh Tools/do-all.ps1`.
+- **Live-verify gate (CI):** `.github/workflows/live-verify-gate.yml` — offline `dotnet test` + journey mock (stages 1–2 of `Tools/wsm-live-verify.ps1`; **525 pass / 3 skip**, 528 total locally). Reused by **nightly** (`nightly.yml` → `live-verify-offline` job). Full harness: `pwsh Tools/wsm-live-verify.ps1` (add `-Live -Vision` for PlayCUA + SSIM + OmniRoute vision on a desktop with WorldBox + bridge). Desktop one-shot: `pwsh Tools/do-all.ps1`.
 - **ADR-0007 (conditional patch dispatch):** **Accepted in code, runtime still unproven** — `PhasePatchGate.ShouldApplyHarmonyPatch` is wired from `Core.Patch()`, but `docs/issue-triage.md` reports `0/4 Harmony types affected` for VoxelEntities. E2E: `ConditionalPatchDispatchInvariantsTests`.
 - **Live verify:** `docs/live-verification.md` — programmatic (`dotnet test`, journey mock, optional SSIM ≥ 0.95) vs agentic (`wsm3d-playcua` sample scenarios, OmniRoute combo, bridge save/load checklist).
 

@@ -27,6 +27,8 @@
   "cylindrical_shape_description": "Makes the World a Cylinder",
   "flat_shape": "FlatShape",
   "flat_shape_description": "Makes the World Flat",
+  "cube_shape": "Cube Shape",
+  "cube_shape_description": "Makes the World Cube. it MUST be a rectangle with the ratio 2x3",
   "tile_length_multiplier": "Tile Length Multiplier",
   "camera_rotates_with_world": "Camera Rotates With World",
   "camera_rotates_with_world_description": "use this if you are controlling a unit",
