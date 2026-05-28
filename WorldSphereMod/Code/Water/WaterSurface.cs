@@ -411,8 +411,6 @@ namespace WorldSphereMod.Water
             int emissionId = Shader.PropertyToID("_EmissionColor");
 
             Shader? s = null;
-            string resolvedFrom = "<none>";
-            bool isStandardFallback = false;
             // MeshWater should only resolve through the bundled GerstnerWater
             // shader now that the bundle fallback is fixed to Diffuse.
             const bool kGerstnerKnownBroken = false;
@@ -421,39 +419,18 @@ namespace WorldSphereMod.Water
                 if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("GerstnerWater", out var bundledWater) && bundledWater != null)
                 {
                     s = bundledWater;
-                    resolvedFrom = "LoadedShaders cache";
                     Debug.Log("[WSM3D] Water material resolved via Core.Sphere.LoadedShaders cache.");
                 }
                 if (s == null)
                 {
                     s = Shader.Find("WSM3D/GerstnerWater");
-                    if (s != null)
-                    {
-                        resolvedFrom = "Shader.Find('WSM3D/GerstnerWater')";
-                        Debug.Log("[WSM3D] Water material resolved via Shader.Find('WSM3D/GerstnerWater').");
-                    }
-                }
-            }
-
-            // ADR-0013 emergency fallback 2026-05-28: GerstnerWater is no longer
-            // in SafeShaders (native crash on bundle load). Render water with
-            // Unity's built-in Standard shader in transparent mode so the player
-            // still sees water bodies — no Gerstner displacement, but the
-            // surface and depth gradient are visible via vertex colors.
-            if (s == null)
-            {
-                s = Shader.Find("Standard");
-                if (s != null)
-                {
-                    isStandardFallback = true;
-                    resolvedFrom = "Shader.Find('Standard') [ADR-0013 fallback]";
-                    Debug.LogWarning("[WSM3D] GerstnerWater unavailable — falling back to Standard transparent (no wave displacement).");
+                    if (s != null) Debug.Log("[WSM3D] Water material resolved via Shader.Find('WSM3D/GerstnerWater').");
                 }
             }
 
             if (s == null)
             {
-                Debug.LogError("[WSM3D] No water shader available (GerstnerWater + Standard both null); water disabled.");
+                Debug.LogWarning("[WSM3D] No bundled GerstnerWater shader found; water disabled.");
                 return false;
             }
 
@@ -473,9 +450,7 @@ namespace WorldSphereMod.Water
             // GerstnerWater may not have #pragma multi_compile_instancing;
             // instancing is nice-to-have, not load-bearing.  Always configure
             // the material so water is visible.
-            ConfigureWaterMaterial(m, waterTint, baseColorId, colorId, smoothnessId, metallicId, surfaceTypeId, alphaClipId, emissionId,
-                isUrpLit: false, shaderName: isStandardFallback ? "Standard" : "");
-            Debug.Log($"[WSM3D] Water shader source: {resolvedFrom}");
+            ConfigureWaterMaterial(m, waterTint, baseColorId, colorId, smoothnessId, metallicId, surfaceTypeId, alphaClipId, emissionId);
 
             // Diagnostic: dump all material color properties to catch
             // mis-set tints that produce black output.

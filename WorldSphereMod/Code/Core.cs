@@ -1421,42 +1421,17 @@ namespace WorldSphereMod
             // valid Shader.name. Corrupted assets return an empty name and are
             // rejected below so consumers can fall back cleanly.
             // ----------------------------------------------------------------
-            // ADR-0013 emergency trim 2026-05-28: Unity natively crashes
-            // (ManagedStream not readable; "Mismatched serialization in builtin
-            // class 'Shader'") when AssetBundle.LoadAsset deserializes the 2nd
-            // and subsequent shaders from wsm3d-shaders.bundle — the C#
-            // try/catch around GetObject<Shader> CANNOT intercept the native
-            // abort, the entire game process dies and the WSM3D bridge drops.
-            //
-            // Only OpaqueVertexColor (the first/largest shader baked) survives
-            // deserialization. All other shaders here previously dropped the
-            // process on the *second* GetObject call (GerstnerWater), which is
-            // why the symptom matched "load 1 then crash".
-            //
-            // Every consumer below already null-checks LoadedShaders.TryGetValue
-            // and falls back to Shader.Find / Standard, so trimming this list
-            // gracefully degrades:
-            //   - WaterSurface          → Standard transparent (added 2026-05-28)
-            //   - ColorGradingLUT       → bypass (already null-guarded)
-            //   - ProceduralSky         → procedural cubemap fallback
-            //   - Impostor              → Standard
-            //   - ScreenSpaceAO/GI      → effect skipped
-            //   - BrpBloom / BrpACES    → effect skipped
-            //   - FoliageWind           → OpaqueVertexColor fallback already wired
-            //
-            // DO NOT re-add any name here without a rebaked bundle that has
-            // proven shader serialization stability (see ADR-0013 human gate).
             public static readonly string[] SafeShaders = new[]
             {
                 "OpaqueVertexColor",
-                // "GerstnerWater"    — TRIMMED: native crash on 2nd shader load
-                // "ColorGradingLUT"  — TRIMMED: native crash on 2nd shader load
-                // "ProceduralSky"    — TRIMMED: ditto
-                // "Impostor"         — TRIMMED: ditto
-                // "ScreenSpaceAO"    — TRIMMED: ditto
-                // "ScreenSpaceGI"    — TRIMMED: ditto
-                // "BrpBloom"         — TRIMMED: ditto
-                // "BrpACES"          — TRIMMED: ditto
+                "GerstnerWater",
+                "ColorGradingLUT",
+                "ProceduralSky",
+                "Impostor",
+                "ScreenSpaceAO",
+                "ScreenSpaceGI",
+                "BrpBloom",
+                "BrpACES",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look

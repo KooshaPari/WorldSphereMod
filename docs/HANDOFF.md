@@ -2,12 +2,11 @@
 
 Canonical "next session starts here" doc for WorldSphereMod3D.
 
-**Last updated:** 2026-05-28 (8/8 runtime tests pass, 30 FPS, 46 voxel actors visible; water shader complete)
+**Last updated:** 2026-05-28 (8/8 runtime tests pass, 30 FPS, 46 voxel actors visible)
 
 Recent validation:
 
 - **Runtime smoke test PASS** (2026-05-28): 8/8 runtime tests pass, frame time 32ms (30 FPS), 46 visible voxel actors on kingdom, heightfield terrain active, biome blending active, slope smoothing with MPB push verified.
-- **Water shader complete** (2026-05-28): `GerstnerWater.shader` implements Gerstner vertex displacement, `_SkyCubemap` Fresnel reflection (with `BuildProceduralSkyCubemap` fallback), and depth-gradient + shoreline foam (vertex.color.R = depth frac; vertex.color.G = shore flag from neighbor-edge bake in `WaterMaskBuffer`). Commit `b3333ff` added multi-direction wave params (`_WaveDir2`/`_WaveDir3`) at the C# layer; shader still uses one `GerstnerWave()` call — second/third wave directions are wired for a future shader pass update. **ADR-0013 note:** GerstnerWater is removed from `SafeShaders` (native crash on bundle load); runtime falls back to Standard transparent with emission. Re-add to `SafeShaders` after confirming bundle load stability in-game.
 - Shader bake pipeline is functional via headless `Tools/bake-shaders.ps1` (Unity `-batchmode -nographics`; **not** a `wsm3d.ps1` subcommand).
 - `wsm3d-shaders` bundle manifest lists **10 shaders** (rebaked 2026-05-26; GerstnerWater depth pass in `0fe30b1`). Runtime still loads **3** via `Core.Sphere.SafeShaders` only — expansion blocked until in-game proof (see [SafeShaders human gate](#safeshaders-human-gate)).
 

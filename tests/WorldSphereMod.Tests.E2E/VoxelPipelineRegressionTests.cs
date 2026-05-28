@@ -264,18 +264,20 @@ public class VoxelPipelineRegressionTests
         for (int i = 0; i < entries.Count; i++)
             shaderNames[i] = entries[i].Groups["name"].Value;
 
-        // ADR-0013 emergency trim 2026-05-28: Unity natively crashes when
-        // bundle deserialization hits the 2nd shader (ManagedStream not
-        // readable). Only OpaqueVertexColor survives. All other consumers
-        // null-check LoadedShaders and fall back gracefully (water →
-        // Standard transparent, postfx → bypass, foliage → OVC, etc).
         var expected = new[]
         {
             "OpaqueVertexColor",
+            "GerstnerWater",
+            "ColorGradingLUT",
+            "ProceduralSky",
+            "Impostor",
+            "ScreenSpaceAO",
+            "ScreenSpaceGI",
+            "BrpBloom",
+            "BrpACES",
         };
         shaderNames.Should().BeEquivalentTo(expected,
-            "SafeShaders must contain EXACTLY the runtime shader load set " +
-            "(post ADR-0013 emergency trim — only OpaqueVertexColor is bundle-safe)");
+            "SafeShaders must contain EXACTLY the runtime shader load set");
 
         // The ADR-0013 reference must be present as a guard against uninformed edits
         source.Should().Contain("ADR-0013",
