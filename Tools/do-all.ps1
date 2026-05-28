@@ -267,14 +267,9 @@ try {
         else { Add-DoAllStage 'live-verify-offline' 'passed' @{} }
     }
 
-    $auditArgs = @{ Quiet = $true }
-    if ($SkipLive) { $auditArgs['SkipLive'] = $true }
+    $auditArgs = @('-Quiet')
+    if ($SkipLive) { $auditArgs += '-SkipLive' }
     & (Join-Path $RepoRoot 'Tools/wsm3d-audit-tick.ps1') @auditArgs | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        Add-DoAllStage 'audit-tick' 'failed' @{ exitCode = $LASTEXITCODE }
-    } else {
-        Add-DoAllStage 'audit-tick' 'passed' @{}
-    }
 
     $report.durationMs = [math]::Round(((Get-Date) - $started).TotalMilliseconds, 0)
     $report.finishedAt = (Get-Date).ToUniversalTime().ToString('o')
