@@ -604,7 +604,7 @@ namespace WorldSphereMod.Voxel
                     {
                         cullPos = cullPos.To3DTileHeight(false);
                     }
-                    float radius = 2f;
+                    float radius = 2f * Mathf.Max(1f, Core.savedSettings.VoxelScaleMultiplier * 0.5f);
                     if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, radius))
                     {
                         dsFrustumFail++;
@@ -859,7 +859,7 @@ namespace WorldSphereMod.Voxel
                     {
                         cullPos = cullPos.To3DTileHeight(false);
                     }
-                    float radius = 3f;
+                    float radius = 3f * Mathf.Max(1f, Core.savedSettings.VoxelScaleMultiplier * 0.5f);
                     if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, radius))
                     {
                         continue;
@@ -989,7 +989,7 @@ namespace WorldSphereMod.Voxel
                 {
                     cullPos = cullPos.To3DTileHeight(false);
                 }
-                if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, 1.5f))
+                if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, 1.5f * Mathf.Max(1f, Core.savedSettings.VoxelScaleMultiplier * 0.5f)))
                 {
                     sr.enabled = true;
                     return;
