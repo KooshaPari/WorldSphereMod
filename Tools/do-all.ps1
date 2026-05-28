@@ -122,6 +122,7 @@ try {
         }
     }
 
+    $offlineVerifyDone = $false
     if (-not $SkipLive) {
         if ($Vision -and $env:OMNROUTE_BASE_URL -and $env:OMNROUTE_API_KEY) {
             Write-Host "=== do-all: omniroute probe ($($env:OMNROUTE_BASE_URL)) ===" -ForegroundColor Cyan
@@ -211,8 +212,15 @@ try {
                 if ($omnirouteProbeOk) { $VisionBackend } else { 'off' }
             } else { 'off' }
             Write-Host "playcua run-all VisionBackend=$vb" -ForegroundColor Gray
-            pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') playcua run-all -VisionBackend $vb 2>&1 | Out-Host
-            if ($LASTEXITCODE -eq 0) { $runOk = $true }
+            $playcuaExit = 0
+            try {
+                pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') playcua run-all -VisionBackend $vb 2>&1 | Out-Host
+                $playcuaExit = $LASTEXITCODE
+            } catch {
+                $playcuaExit = 1
+                Write-Host "playcua run-all error: $($_.Exception.Message)" -ForegroundColor Yellow
+            }
+            if ($playcuaExit -eq 0) { $runOk = $true }
         }
         if ($runOk) {
             Add-DoAllStage 'playcua-run-all' 'passed' @{
@@ -232,17 +240,28 @@ try {
         } else {
             Add-DoAllStage 'playcua-run-all' 'failed' @{ attempts = $attempt }
             Write-Host '=== do-all: playcua failed — wsm3d doctor (tail) ===' -ForegroundColor Red
-            pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') doctor 2>&1 |
-                ForEach-Object { "$_" } |
-                Select-Object -Last 20 |
-                Out-Host
+            try {
+                pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') doctor 2>&1 |
+                    ForEach-Object { "$_" } |
+                    Select-Object -Last 20 |
+                    Out-Host
+            } catch {
+                Write-Host "doctor skipped: $($_.Exception.Message)" -ForegroundColor DarkYellow
+            }
+            Write-Host '=== do-all: playcua failed — full offline verify (gates still run) ===' -ForegroundColor Cyan
+            pwsh (Join-Path $RepoRoot 'Tools/wsm-live-verify.ps1') | Out-Host
+            if ($LASTEXITCODE -ne 0) { Add-DoAllStage 'live-verify-offline' 'failed' @{} }
+            else { Add-DoAllStage 'live-verify-offline' 'passed' @{} }
+            $offlineVerifyDone = $true
         }
     }
 
-    Write-Host '=== do-all: full offline verify ===' -ForegroundColor Cyan
-    pwsh (Join-Path $RepoRoot 'Tools/wsm-live-verify.ps1') | Out-Host
-    if ($LASTEXITCODE -ne 0) { Add-DoAllStage 'live-verify-offline' 'failed' @{} }
-    else { Add-DoAllStage 'live-verify-offline' 'passed' @{} }
+    if (-not $offlineVerifyDone) {
+        Write-Host '=== do-all: full offline verify ===' -ForegroundColor Cyan
+        pwsh (Join-Path $RepoRoot 'Tools/wsm-live-verify.ps1') | Out-Host
+        if ($LASTEXITCODE -ne 0) { Add-DoAllStage 'live-verify-offline' 'failed' @{} }
+        else { Add-DoAllStage 'live-verify-offline' 'passed' @{} }
+    }
 
     & (Join-Path $RepoRoot 'Tools/wsm3d-audit-tick.ps1') -Quiet | Out-Null
 

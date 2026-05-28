@@ -108,19 +108,34 @@ class BridgeClient:
         return url
 
     def _request_json(self, method: str, path: str, params: Dict[str, Any] | None = None) -> Dict[str, Any]:
-        request = urllib.request.Request(
-            self._url(path, params),
-            method=method.upper(),
-        )
-        request.add_header("Accept", "application/json")
-        with urllib.request.urlopen(request, timeout=self.timeout) as resp:
-            body = resp.read().decode("utf-8")
-            data = json.loads(body) if body else {}
-            if data is None:
-                return {"ok": False, "error": "null_response", "raw": body[:120]}
-            if not isinstance(data, dict):
-                return {"ok": False, "error": f"non-dict response: {body[:120]}"}
-            return data
+        retriable_get = method.upper() == "GET" and path in ("/health", "/telemetry")
+        attempts = 2 if retriable_get else 1
+        last_error: urllib.error.URLError | None = None
+
+        for attempt in range(attempts):
+            request = urllib.request.Request(
+                self._url(path, params),
+                method=method.upper(),
+            )
+            request.add_header("Accept", "application/json")
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout) as resp:
+                    body = resp.read().decode("utf-8")
+                    data = json.loads(body) if body else {}
+                    if data is None:
+                        return {"ok": False, "error": "null_response", "raw": body[:120]}
+                    if not isinstance(data, dict):
+                        return {"ok": False, "error": f"non-dict response: {body[:120]}"}
+                    return data
+            except urllib.error.URLError as exc:
+                last_error = exc
+                if not retriable_get or attempt >= attempts - 1:
+                    raise
+                time.sleep(1.0)
+
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("request failed without error")
 
     def health(self) -> Dict[str, Any]:
         return self._request_json("GET", "/health")
@@ -796,7 +811,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("scenario", help="Path to YAML scenario")
     parser.add_argument("--host", default="127.0.0.1", help="BridgeRPC host")
     parser.add_argument("--port", type=int, default=8766, help="BridgeRPC port")
-    parser.add_argument("--bridge-timeout", type=float, default=8.0, help="HTTP timeout seconds")
+    parser.add_argument("--bridge-timeout", type=float, default=30.0, help="HTTP timeout seconds")
     parser.add_argument("--no-healthcheck", action="store_true", help="Skip bridge healthcheck")
     parser.add_argument(
         "--report",
