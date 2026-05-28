@@ -167,8 +167,8 @@ public sealed class TerrainSmoothingInvariantsTests
 
         blendBody.Should().Contain("const int radius = 3",
             "biome blend must sample a local neighborhood");
-        blendBody.Should().Contain("GetBaseColor(sample.data.tile_id)",
-            "neighbor samples must use base colors, not recursively blended colors");
+        blendBody.Should().Contain("GetTextureAverageColor(textureIndex)",
+            "neighbor samples must use per-texture averages, not recursively blended GetColor");
         blendBody.Should().Contain("totalWeight",
             "blend must normalize by accumulated sample weights");
         blendBody.Should().Contain("Core.Sphere.IsWrapped",

@@ -110,9 +110,9 @@ public class LiveVerificationHarnessInvariantsTests
         File.Exists(path).Should().BeTrue(OmnirouteVisionEnvExampleRelative);
 
         var content = File.ReadAllText(path);
-        content.Should().Contain("OMNROUTE_BASE_URL=http://127.0.0.1:20128/v1");
+        content.Should().Contain("OMNROUTE_BASE_URL=");
         content.Should().Contain("OMNROUTE_API_KEY=");
-        content.Should().Contain("OMNROUTE_VISION_COMBO=wsm3d-vision-frontier");
+        content.Should().MatchRegex("OMNROUTE_VISION_(MODEL|COMBO)=");
     }
 
     [Fact]

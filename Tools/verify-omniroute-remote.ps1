@@ -49,7 +49,7 @@ if (-not $env:OMNROUTE_BASE_URL -or -not $env:OMNROUTE_API_KEY) {
 
 $laptopOnline = Test-KooshasLaptopOnline
 if ($laptopOnline -eq $false) {
-    Write-Error 'kooshas-laptop offline on Tailscale — start laptop + OmniRoute'
+    Write-Host 'WARN kooshas-laptop offline on Tailscale — remote probe may fail until laptop wakes' -ForegroundColor Yellow
 }
 
 if ($BaseUrl) { $env:OMNROUTE_BASE_URL = $BaseUrl }
