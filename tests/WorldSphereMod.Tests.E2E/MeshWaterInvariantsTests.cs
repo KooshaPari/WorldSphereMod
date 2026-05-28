@@ -102,8 +102,16 @@ public sealed class MeshWaterInvariantsTests
         ensureBody.Should().Contain("Shader.Find(\"WSM3D/GerstnerWater\")",
             "runtime must probe the baked shader name when bundle cache is cold");
 
-        ensureBody.Should().Contain("[WSM3D] No bundled GerstnerWater shader found; water disabled.",
-            "missing shader path must disable water instead of creating a broken surface");
+        // ADR-0013 emergency trim 2026-05-28: GerstnerWater no longer ships
+        // in SafeShaders (native crash on bundle load). EnsureMaterial now
+        // falls back to Unity's built-in Standard in transparent mode rather
+        // than disabling water entirely — so the player still sees water.
+        ensureBody.Should().Contain("Shader.Find(\"Standard\")",
+            "ADR-0013 fallback: when GerstnerWater is unavailable, water must " +
+            "fall back to Unity's built-in Standard shader instead of being disabled");
+        ensureBody.Should().Contain("ADR-0013",
+            "the Standard fallback path must reference ADR-0013 so future editors " +
+            "understand WHY GerstnerWater isn't in the bundle load set");
     }
 
     [Fact]
