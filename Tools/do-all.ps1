@@ -76,6 +76,9 @@ try {
     }
 
     Import-DoAllVisionEnv
+    if ($PSBoundParameters.ContainsKey('VisionBackend')) {
+        $env:PLAYCUA_VISION_BACKEND = $VisionBackend
+    }
     $visionBackendResolved = if ($Vision) { Get-DefaultPlaycuaVisionBackend } else { 'off' }
     $omnirouteProbeOk = $true
 
