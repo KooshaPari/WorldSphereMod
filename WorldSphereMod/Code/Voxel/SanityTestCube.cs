@@ -19,7 +19,8 @@ namespace WorldSphereMod.Voxel
         public static void Draw()
         {
             if (!Core.savedSettings.DebugSanityCube && !Bridge.BridgeServer.LiveTelemetryProbeEnabled) return;
-            if (!TryEnsureProbePosition()) return;
+            bool liveProbe = Bridge.BridgeServer.LiveTelemetryProbeEnabled;
+            if (!TryEnsureProbePosition(liveProbe)) return;
             if (VoxelRender.GetResolvedMaterial() == null)
             {
                 if (!_loggedMissingMaterial)
@@ -48,23 +49,16 @@ namespace WorldSphereMod.Voxel
             VoxelRender.Submit(mesh, topMatrix, _topTint);
         }
 
-        static bool TryEnsureProbePosition()
+        static bool TryEnsureProbePosition(bool liveProbe)
         {
-            if (_hasLastActorPos) return true;
-
-            if (Bridge.BridgeServer.LiveTelemetryProbeEnabled)
+            if (liveProbe)
             {
-                if (MapBox.width > 0 && MapBox.height > 0)
-                {
-                    LastActorPos = new Vector3(MapBox.width * 0.5f, 12f, MapBox.height * 0.5f);
-                }
-                else
-                {
-                    LastActorPos = Vector3.zero;
-                }
+                LastActorPos = ResolveLiveProbePosition();
                 _hasLastActorPos = true;
                 return true;
             }
+
+            if (_hasLastActorPos) return true;
 
             Camera? cam = CameraManager.MainCamera;
             if (cam != null)
@@ -82,6 +76,27 @@ namespace WorldSphereMod.Voxel
             }
 
             return false;
+        }
+
+        static Vector3 ResolveLiveProbePosition()
+        {
+            if (World.world != null && MapBox.width > 0 && MapBox.height > 0)
+            {
+                return new Vector3(MapBox.width * 0.5f, 10f, MapBox.height * 0.5f);
+            }
+
+            if (CameraManager.MainCamera != null)
+            {
+                Camera cam = CameraManager.MainCamera;
+                return cam.transform.position + cam.transform.forward * 8f;
+            }
+
+            if (_hasLastActorPos)
+            {
+                return LastActorPos;
+            }
+
+            return Vector3.zero;
         }
 
         public static void CaptureFirstActorPos(Vector3 actorWorldPos)

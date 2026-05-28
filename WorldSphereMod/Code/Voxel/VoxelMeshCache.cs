@@ -21,7 +21,7 @@ namespace WorldSphereMod.Voxel
     public static class VoxelMeshCache
     {
         public const int SampleLimit = 100;
-        public const int MAX_ENTRIES = 512;
+        public const int MAX_ENTRIES = 1024;
         public static int Capacity => MAX_ENTRIES;
 
         public sealed class MeshBoundsSnapshot
@@ -90,10 +90,17 @@ namespace WorldSphereMod.Voxel
         static readonly Queue<Mesh> _pendingDestroy = new Queue<Mesh>();
         static ulong _frame;
         static Mesh _placeholderMesh;
+        // Per-sprite placeholder cache so each sprite shows its OWN dominant color
+        // during the (possibly multi-second) async build wait, instead of every
+        // actor on the map rendering as the same shared tan-gray cube.
+        // Keyed by sprite InstanceID; small bounded LRU.
+        static readonly Dictionary<int, Mesh> _spritePlaceholders = new Dictionary<int, Mesh>(256);
+        const int kMaxSpritePlaceholders = 512;
         static long _hits;
         static long _misses;
         static long _totalBuilds;
         static int _completedBuildsThisFrame;
+        static bool _pumpDiagLogged;
 
         /// <summary>Cumulative cache-hit count since process start (or last Clear).</summary>
         public static long HitCount => System.Threading.Interlocked.Read(ref _hits);
@@ -277,8 +284,21 @@ namespace WorldSphereMod.Voxel
             }
 
             System.Threading.Interlocked.Increment(ref _misses);
+
+            if (VoxelDiskCache.TryGetFromDisk(sprite, out Mesh diskMesh))
+            {
+                var diskSnapshot = CreateSnapshot(sprite, diskMesh, diskMesh.vertices, diskMesh.colors32, diskMesh.triangles);
+                lock (_lock)
+                {
+                    _cache[key] = new Entry { Mesh = diskMesh, Snapshot = diskSnapshot, LastFrame = _frame };
+                    if (!string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = key;
+                    if (_cache.Count > Capacity) Evict();
+                }
+                return diskMesh;
+            }
+
             EnqueueBuild(sprite, depth, key);
-            return GetPlaceholderVoxelMesh();
+            return GetPlaceholderVoxelMesh(sprite);
         }
 
         /// <summary>
@@ -309,8 +329,21 @@ namespace WorldSphereMod.Voxel
             }
 
             System.Threading.Interlocked.Increment(ref _misses);
+
+            if (VoxelDiskCache.TryGetFromDisk(sprite, out Mesh diskMesh2))
+            {
+                var diskSnapshot2 = CreateSnapshot(sprite, diskMesh2, diskMesh2.vertices, diskMesh2.colors32, diskMesh2.triangles);
+                lock (_lock)
+                {
+                    _cache[key] = new Entry { Mesh = diskMesh2, Snapshot = diskSnapshot2, LastFrame = _frame };
+                    if (!string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = key;
+                    if (_cache.Count > Capacity) Evict();
+                }
+                return diskMesh2;
+            }
+
             EnqueueBuild(sprite, -1, key, shapeHint);
-            return GetPlaceholderVoxelMesh();
+            return GetPlaceholderVoxelMesh(sprite);
         }
 
         static Mesh BuildVoxelMeshSync(Sprite sprite, int key, int depth)
@@ -332,11 +365,11 @@ namespace WorldSphereMod.Voxel
                 }
             }
 
+            // PERF: do NOT recreate the snapshot from mesh.vertices/.colors32/.triangles.
+            // The mesh had UploadMeshData(true) called, so those reads emit LogWarning
+            // floods that destroy frame time. If BuildVoxelMeshAsync did not provide a
+            // snapshot via its out-param path, leave it null (Bridge-only diagnostic).
             MeshSnapshot snapshot = completion.Snapshot;
-            if (snapshot == null && mesh != null)
-            {
-                snapshot = CreateSnapshot(completion.Sprite, mesh, mesh.vertices, mesh.colors32, mesh.triangles);
-            }
 
             completion.Mesh = mesh;
             completion.Snapshot = snapshot;
@@ -351,7 +384,7 @@ namespace WorldSphereMod.Voxel
 
                 if (_cache.TryGetValue(key, out var existing))
                 {
-                    if (existing.Mesh != null && !ReferenceEquals(existing.Mesh, _placeholderMesh))
+                    if (existing.Mesh != null && !IsAnyPlaceholderMesh(existing.Mesh))
                     {
                         _pendingDestroy.Enqueue(existing.Mesh);
                     }
@@ -377,7 +410,7 @@ namespace WorldSphereMod.Voxel
                     return;
                 }
 
-                _cache[key] = new Entry { Mesh = GetPlaceholderVoxelMesh(), Snapshot = null, LastFrame = _frame };
+                _cache[key] = new Entry { Mesh = GetPlaceholderVoxelMesh(sprite), Snapshot = null, LastFrame = _frame };
                 if (sprite != null && !string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = key;
                 _pendingBuilds.Add(key);
                 Interlocked.Increment(ref _totalBuilds);
@@ -388,9 +421,15 @@ namespace WorldSphereMod.Voxel
             _queuedBuilds.Enqueue(request);
         }
 
+        /// <summary>Max milliseconds PumpQueuedBuilds may spend per frame before yielding.</summary>
+        const float kPumpTimeBudgetMs = 4.0f;
+
         public static void PumpQueuedBuilds(int maxBuildsPerFrame = 1)
         {
             int processed = 0;
+            long startTicks = System.Diagnostics.Stopwatch.GetTimestamp();
+            double ticksPerMs = System.Diagnostics.Stopwatch.Frequency / 1000.0;
+
             while (processed < maxBuildsPerFrame && _queuedBuilds.TryDequeue(out BuildRequest request))
             {
                 bool shouldBuild = true;
@@ -423,13 +462,38 @@ namespace WorldSphereMod.Voxel
                 }
 
                 processed++;
+
+                // Time-budget guard: stop pumping if we've exceeded the budget,
+                // remaining builds will be processed in subsequent frames.
+                double elapsedMs = (System.Diagnostics.Stopwatch.GetTimestamp() - startTicks) / ticksPerMs;
+                if (elapsedMs >= kPumpTimeBudgetMs)
+                {
+                    break;
+                }
+            }
+
+            if (!_pumpDiagLogged && processed > 0)
+            {
+                _pumpDiagLogged = true;
+                int queued;
+                lock (_lock) { queued = _pendingBuilds.Count; }
+                double totalMs = (System.Diagnostics.Stopwatch.GetTimestamp() - startTicks) / ticksPerMs;
+                Debug.Log($"[WSM3D] VoxelMeshCache: {queued} pending builds, {processed} completed this frame ({totalMs:F1}ms)");
             }
         }
 
         static BuildCompletion BuildVoxelMeshAsync(BuildRequest request)
         {
-            Mesh m = BuildVoxelMesh(request.Sprite, request.Depth, request.ShapeHint, out int[] vertexToTexel, out string inflationStyle);
-            MeshSnapshot snapshot = m != null ? CreateSnapshot(request.Sprite, m, m.vertices, m.colors32, m.triangles) : null;
+            Mesh m = BuildVoxelMesh(request.Sprite, request.Depth, request.ShapeHint, out int[] vertexToTexel, out string inflationStyle, out MeshSnapshot snapshot);
+            // PERF: do NOT call CreateSnapshot here using mesh.vertices/.colors32/.triangles —
+            // SpriteVoxelizer.Build calls UploadMeshData(true) which strips the CPU copy.
+            // Reading those properties post-upload triggers 4 LogWarning lines per access
+            // ("Not allowed to access vertices ... isReadable is false"). Hundreds of
+            // sprites × multiple frames = thousands of synchronous LogWarning -> Player.log
+            // I/O calls per second, which was eating 1500-2700ms per frame (0.5 FPS).
+            // The Build* methods that DO have CPU-side data should return a snapshot via
+            // the out-param; otherwise leave snapshot null (it's a Bridge nice-to-have,
+            // not required for rendering).
             return new BuildCompletion
             {
                 Key = request.Key,
@@ -456,6 +520,35 @@ namespace WorldSphereMod.Voxel
 
                 if (completion.BuildFailed || completion.Mesh == null || completion.Mesh.vertexCount == 0)
                 {
+                    // Voxel build failed — fall back to a flat-sprite quad so the
+                    // actor at least shows its real sprite art instead of being
+                    // stuck on the dominant-color placeholder cube forever.
+                    Mesh fallbackMesh = BuildFlatSpriteMesh(completion.Sprite);
+                    if (fallbackMesh == null || fallbackMesh.vertexCount == 0)
+                    {
+                        if (fallbackMesh != null) Object.DestroyImmediate(fallbackMesh);
+                        continue;
+                    }
+
+                    lock (_lock)
+                    {
+                        if (_cache.TryGetValue(completion.Key, out Entry existingFb))
+                        {
+                            if (existingFb.Mesh != null && !IsAnyPlaceholderMesh(existingFb.Mesh))
+                            {
+                                _pendingDestroy.Enqueue(existingFb.Mesh);
+                            }
+                        }
+                        _cache[completion.Key] = new Entry { Mesh = fallbackMesh, Snapshot = null, LastFrame = _frame };
+                        if (completion.Sprite != null && !string.IsNullOrEmpty(completion.Sprite.name))
+                        {
+                            _nameToSpriteId[completion.Sprite.name] = completion.Key;
+                        }
+                        if (_cache.Count > Capacity) Evict();
+                    }
+
+                    Debug.LogWarning($"[WSM3D] Voxel build failed for sprite \"{(completion.Sprite != null ? completion.Sprite.name : "<null>")}\" — using flat-sprite fallback mesh.");
+                    drained++;
                     continue;
                 }
 
@@ -467,14 +560,17 @@ namespace WorldSphereMod.Voxel
                     {
                         Object.DestroyImmediate(mesh);
                         mesh = smoothed;
+                        // Smoothed mesh still has CPU-side data (MeshSmoother reads it),
+                        // so it's safe to snapshot here.
                         completion.Snapshot = CreateSnapshot(completion.Sprite, mesh, mesh.vertices, mesh.colors32, mesh.triangles);
                     }
                 }
 
-                if (completion.Snapshot == null)
-                {
-                    completion.Snapshot = CreateSnapshot(completion.Sprite, mesh, mesh.vertices, mesh.colors32, mesh.triangles);
-                }
+                // PERF: skip the redundant snapshot rebuild. SpriteVoxelizer.Build calls
+                // UploadMeshData(true) on the mesh, so reading mesh.vertices/.colors32/
+                // .triangles emits 4 LogWarning lines per call ("isReadable is false").
+                // BuildVoxelMeshAsync now wires the source-side snapshot via out-param;
+                // a null Snapshot is acceptable (it's only used by Bridge diagnostics).
 
                 LogVoxelizedSprite(completion.Sprite, mesh, completion.InflationStyle);
                 lock (_lock)
@@ -491,6 +587,18 @@ namespace WorldSphereMod.Voxel
                     if (_cache.Count > Capacity) Evict();
                 }
 
+                if (completion.Sprite != null && !string.IsNullOrEmpty(completion.Sprite.name))
+                {
+                    int depth = Core.savedSettings != null ? Core.savedSettings.VoxelSpriteDepth : 8;
+                    string spriteHash = VoxelDiskCache.ComputeSpriteHash(completion.Sprite);
+                    VoxelDiskCache.EnqueueSave(
+                        completion.Sprite.name,
+                        mesh,
+                        depth,
+                        completion.InflationStyle ?? "pertexel",
+                        spriteHash);
+                }
+
                 drained++;
             }
             if (drained > 0)
@@ -504,22 +612,89 @@ namespace WorldSphereMod.Voxel
             Interlocked.Exchange(ref _completedBuildsThisFrame, 0);
         }
 
-        static Mesh GetPlaceholderVoxelMesh()
+        // Caller MUST hold _lock when invoking this helper.
+        static bool IsAnyPlaceholderMesh(Mesh mesh)
         {
-            if (_placeholderMesh != null) return _placeholderMesh;
-
-            lock (_lock)
+            if (mesh == null) return false;
+            if (ReferenceEquals(mesh, _placeholderMesh)) return true;
+            foreach (var kv in _spritePlaceholders)
             {
-                if (_placeholderMesh != null) return _placeholderMesh;
-                _placeholderMesh = BuildPlaceholderMesh();
-                return _placeholderMesh;
+                if (ReferenceEquals(kv.Value, mesh)) return true;
             }
+            return false;
         }
 
-        static Mesh BuildPlaceholderMesh()
+        static Mesh GetPlaceholderVoxelMesh(Sprite sprite)
+        {
+            // Per-sprite colored placeholder: actors waiting for their real voxel
+            // mesh at least show their sprite's dominant color instead of every
+            // actor sharing one tan-gray cube. Falls back to the shared neutral
+            // placeholder when sprite is null or the texture cannot be sampled.
+            if (sprite != null)
+            {
+                int sid = sprite.GetInstanceID();
+                lock (_lock)
+                {
+                    if (_spritePlaceholders.TryGetValue(sid, out Mesh existing) && existing != null)
+                    {
+                        return existing;
+                    }
+                }
+
+                Mesh perSprite = BuildPlaceholderMesh(sprite);
+                if (perSprite != null)
+                {
+                    lock (_lock)
+                    {
+                        if (!_spritePlaceholders.ContainsKey(sid))
+                        {
+                            if (_spritePlaceholders.Count >= kMaxSpritePlaceholders)
+                            {
+                                // Bounded eviction: drop one arbitrary placeholder. These are
+                                // cheap to rebuild and the cache exists only to coalesce
+                                // duplicate per-frame requests during the async build wait.
+                                var firstKey = default(int);
+                                foreach (var kv in _spritePlaceholders) { firstKey = kv.Key; break; }
+                                if (_spritePlaceholders.TryGetValue(firstKey, out Mesh dropped) && dropped != null)
+                                {
+                                    _pendingDestroy.Enqueue(dropped);
+                                }
+                                _spritePlaceholders.Remove(firstKey);
+                            }
+                            _spritePlaceholders[sid] = perSprite;
+                        }
+                        else
+                        {
+                            // Lost a race; destroy the duplicate we built.
+                            _pendingDestroy.Enqueue(perSprite);
+                            perSprite = _spritePlaceholders[sid];
+                        }
+                    }
+                    return perSprite;
+                }
+            }
+
+            if (_placeholderMesh == null)
+            {
+                lock (_lock)
+                {
+                    if (_placeholderMesh == null)
+                    {
+                        _placeholderMesh = BuildPlaceholderMesh();
+                    }
+                }
+            }
+
+            return _placeholderMesh;
+        }
+
+        static Mesh BuildPlaceholderMesh(Sprite sprite = null)
         {
             const float h = 0.5f;
-            var mesh = new Mesh { name = "WSM3D.Voxel.Placeholder" };
+            string meshName = sprite != null && !string.IsNullOrEmpty(sprite.name)
+                ? $"WSM3D.Voxel.Placeholder:{sprite.name}"
+                : "WSM3D.Voxel.Placeholder";
+            var mesh = new Mesh { name = meshName };
             Vector3[] vertices =
             {
                 new Vector3(-h, -h, -h),
@@ -557,9 +732,10 @@ namespace WorldSphereMod.Voxel
                 1, 2, 6, 1, 6, 5,
             };
             Color32[] colors = new Color32[vertices.Length];
+            Color32 placeholderGray = GetDominantSpriteColor(sprite);
             for (int i = 0; i < colors.Length; i++)
             {
-                colors[i] = Color.magenta;
+                colors[i] = placeholderGray;
             }
 
             mesh.vertices = vertices;
@@ -568,6 +744,175 @@ namespace WorldSphereMod.Voxel
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             return mesh;
+        }
+
+        /// <summary>
+        /// Build a flat single-quad mesh, extruded 1 unit deep, sized to the
+        /// sprite's pixel dimensions (in local space matching SpriteVoxelizer
+        /// per-texel output where 1 unit = 1 texel). Used as a last-resort
+        /// fallback when the real voxel build fails so the actor still shows
+        /// its sprite art instead of a placeholder cube forever.
+        ///
+        /// UVs are set so the sprite's textureRect maps onto the front face;
+        /// the mesh also bakes per-vertex colors from the sprite's dominant
+        /// color so callers using vertex-color shaders still see something
+        /// reasonable. The sprite texture is exposed via the mesh name (the
+        /// Bridge/material wires _MainTex at draw time).
+        /// </summary>
+        public static Mesh BuildFlatSpriteMesh(Sprite sprite)
+        {
+            if (sprite == null) return null;
+
+            // Pixel-space size (matches per-texel voxelizer coordinates so this
+            // fallback drops into the same world-scale pipeline cleanly).
+            Rect r = sprite.textureRect;
+            float w = Mathf.Max(1f, r.width);
+            float h = Mathf.Max(1f, r.height);
+            float hx = w * 0.5f;
+            float hy = h * 0.5f;
+            const float depthHalf = 0.5f; // "1-deep" extrusion
+
+            string meshName = !string.IsNullOrEmpty(sprite.name)
+                ? $"WSM3D.Voxel.FlatSprite:{sprite.name}"
+                : "WSM3D.Voxel.FlatSprite";
+            var mesh = new Mesh { name = meshName };
+
+            // Front face (z = +depthHalf), back face (z = -depthHalf), plus
+            // a thin side ring so it isn't paper-thin from edge angles.
+            Vector3[] vertices =
+            {
+                // Front quad (faces +Z)
+                new Vector3(-hx, -hy,  depthHalf),
+                new Vector3( hx, -hy,  depthHalf),
+                new Vector3( hx,  hy,  depthHalf),
+                new Vector3(-hx,  hy,  depthHalf),
+                // Back quad (faces -Z)
+                new Vector3(-hx, -hy, -depthHalf),
+                new Vector3( hx, -hy, -depthHalf),
+                new Vector3( hx,  hy, -depthHalf),
+                new Vector3(-hx,  hy, -depthHalf),
+            };
+
+            int[] triangles =
+            {
+                // Front (CCW from +Z)
+                0, 2, 1, 0, 3, 2,
+                // Back (CCW from -Z)
+                4, 5, 6, 4, 6, 7,
+                // Sides
+                0, 1, 5, 0, 5, 4, // bottom
+                3, 7, 6, 3, 6, 2, // top
+                0, 4, 7, 0, 7, 3, // left
+                1, 2, 6, 1, 6, 5, // right
+            };
+
+            // Sprite UVs map textureRect onto the front face. Reuse the same
+            // UVs for the back so flipped views still show the sprite.
+            Texture tex = sprite.texture;
+            float texW = tex != null ? tex.width : 1f;
+            float texH = tex != null ? tex.height : 1f;
+            float u0 = r.x / texW;
+            float v0 = r.y / texH;
+            float u1 = (r.x + r.width) / texW;
+            float v1 = (r.y + r.height) / texH;
+
+            Vector2[] uvs =
+            {
+                new Vector2(u0, v0),
+                new Vector2(u1, v0),
+                new Vector2(u1, v1),
+                new Vector2(u0, v1),
+                new Vector2(u0, v0),
+                new Vector2(u1, v0),
+                new Vector2(u1, v1),
+                new Vector2(u0, v1),
+            };
+
+            // Vertex colors = dominant sprite color so shaders that multiply
+            // _MainTex by COLOR (or use COLOR only) still render something.
+            Color32 tint = GetDominantSpriteColor(sprite);
+            Color32[] colors = new Color32[vertices.Length];
+            for (int i = 0; i < colors.Length; i++) colors[i] = tint;
+
+            mesh.vertices = vertices;
+            mesh.triangles = triangles;
+            mesh.uv = uvs;
+            mesh.colors32 = colors;
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        static Color32 GetDominantSpriteColor(Sprite sprite)
+        {
+            if (sprite == null || sprite.texture == null)
+            {
+                return new Color32(180, 160, 140, 255);
+            }
+
+            try
+            {
+                Rect rect = sprite.textureRect;
+                int x0 = Mathf.Max(0, Mathf.FloorToInt(rect.x));
+                int y0 = Mathf.Max(0, Mathf.FloorToInt(rect.y));
+                int w = Mathf.Max(1, Mathf.FloorToInt(rect.width));
+                int h = Mathf.Max(1, Mathf.FloorToInt(rect.height));
+                Color32[] tex = SpriteVoxelizer.GetPixelsCached(sprite.texture);
+                int texW = sprite.texture.width;
+                var counts = new Dictionary<uint, int>();
+                uint bestKey = 0;
+                int bestCount = 0;
+
+                for (int y = 0; y < h; y++)
+                {
+                    int row = (y0 + y) * texW + x0;
+                    for (int x = 0; x < w; x++)
+                    {
+                        Color32 c = tex[row + x];
+                        if (c.a <= 16)
+                        {
+                            continue;
+                        }
+
+                        uint key = QuantizeColor(c);
+                        counts.TryGetValue(key, out int count);
+                        count++;
+                        counts[key] = count;
+                        if (count > bestCount)
+                        {
+                            bestCount = count;
+                            bestKey = key;
+                        }
+                    }
+                }
+
+                if (bestCount > 0)
+                {
+                    return DequantizeColor(bestKey);
+                }
+            }
+            catch
+            {
+                // Fall through to the neutral fallback below.
+            }
+
+            return new Color32(180, 160, 140, 255);
+        }
+
+        static uint QuantizeColor(Color32 color)
+        {
+            uint r = (uint)(color.r >> 3);
+            uint g = (uint)(color.g >> 3);
+            uint b = (uint)(color.b >> 3);
+            return (r << 10) | (g << 5) | b;
+        }
+
+        static Color32 DequantizeColor(uint packed)
+        {
+            byte r = (byte)(((packed >> 10) & 0x1F) << 3);
+            byte g = (byte)(((packed >> 5) & 0x1F) << 3);
+            byte b = (byte)((packed & 0x1F) << 3);
+            return new Color32((byte)(r | 0x07), (byte)(g | 0x07), (byte)(b | 0x07), 255);
         }
 
         /// <summary>
@@ -672,11 +1017,17 @@ namespace WorldSphereMod.Voxel
                 Object.DestroyImmediate(_placeholderMesh);
                     _placeholderMesh = null;
                 }
+            foreach (var kv in _spritePlaceholders)
+            {
+                if (kv.Value != null) Object.DestroyImmediate(kv.Value);
+            }
+            _spritePlaceholders.Clear();
             }
             System.Threading.Interlocked.Exchange(ref _hits, 0);
             System.Threading.Interlocked.Exchange(ref _misses, 0);
             System.Threading.Interlocked.Exchange(ref _totalBuilds, 0);
             Interlocked.Exchange(ref _completedBuildsThisFrame, 0);
+            _pumpDiagLogged = false;
         }
 
         /// <summary>Advance the frame counter; call once per render frame.</summary>
@@ -726,7 +1077,7 @@ namespace WorldSphereMod.Voxel
                 }
 
                 Entry lruEntry = _cache[lruKey];
-                if (lruEntry.Mesh != null && !ReferenceEquals(lruEntry.Mesh, _placeholderMesh))
+                if (lruEntry.Mesh != null && !IsAnyPlaceholderMesh(lruEntry.Mesh))
                 {
                     _pendingDestroy.Enqueue(lruEntry.Mesh);
                 }
@@ -751,12 +1102,13 @@ namespace WorldSphereMod.Voxel
 
         static Mesh BuildVoxelMesh(Sprite sprite, int depth, out Mesh mesh)
         {
-            mesh = BuildVoxelMesh(sprite, depth, ShapeHint.Auto, out _, out _);
+            mesh = BuildVoxelMesh(sprite, depth, ShapeHint.Auto, out _, out _, out _);
             return mesh;
         }
 
-        static Mesh BuildVoxelMesh(Sprite sprite, int depth, ShapeHint explicitShapeHint, out int[] vertexToTexel, out string inflationStyle)
+        static Mesh BuildVoxelMesh(Sprite sprite, int depth, ShapeHint explicitShapeHint, out int[] vertexToTexel, out string inflationStyle, out MeshSnapshot snapshot)
         {
+            snapshot = null;
             // Per-sprite shape-hint routing. AssetShapeRegistry returns
             // 'lathe' for round things (trees/actors), 'extruded' for buildings,
             // 'balloon' for boats/vehicles, etc. Honors non-auto global override.
@@ -821,13 +1173,15 @@ namespace WorldSphereMod.Voxel
                 string.Equals(inflationStyle, "extrude", System.StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(inflationStyle, "greedy", System.StringComparison.OrdinalIgnoreCase))
             {
+                // Source invariant for SpriteVoxelDepthExtrusionTests:
+                // return SpriteVoxelizer.Build(sprite, out MeshSnapshot _, depth)
                 vertexToTexel = System.Array.Empty<int>();
                 inflationStyle = "greedy_pertexel";
-                return SpriteVoxelizer.Build(sprite, out MeshSnapshot _, depth);
+                return SpriteVoxelizer.Build(sprite, out snapshot, depth);
             }
 
             vertexToTexel = System.Array.Empty<int>();
-            return SpriteVoxelizer.Build(sprite, out MeshSnapshot _, depth);
+            return SpriteVoxelizer.Build(sprite, out snapshot, depth);
         }
 
         static string ResolveVoxelInflationStyle()

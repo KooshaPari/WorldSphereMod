@@ -30,6 +30,7 @@ namespace WorldSphereMod.Renderer
 
         CommandBuffer? _commandBuffer;
         Camera? _camera;
+        Camera? _attachedCamera;
 
         static readonly int DepthRtId = Shader.PropertyToID("_WSM3D_DepthRT");
         static readonly int ColorRtId = Shader.PropertyToID("_WSM3D_ColorRT");
@@ -78,40 +79,91 @@ namespace WorldSphereMod.Renderer
             DontDestroyOnLoad(gameObject);
         }
 
+        void OnEnable()
+        {
+            RebindCamera(CameraManager.MainCamera ?? Camera.main);
+        }
+
+        void OnDisable()
+        {
+            DetachCommandBuffer();
+
+            _commandBuffer?.Release();
+            _commandBuffer = null;
+            _camera = null;
+        }
+
         void OnDestroy()
         {
+            DetachCommandBuffer();
+            _commandBuffer?.Release();
+            _commandBuffer = null;
+
             if (_instance == this)
             {
                 _instance = null;
             }
         }
 
-        void OnEnable()
+        void RebindCamera(Camera? camera)
         {
-            _camera = CameraManager.MainCamera ?? Camera.main;
-            if (_camera == null)
+            _camera = camera;
+
+            if (_commandBuffer == null)
+            {
+                if (_attachedCamera != null)
+                {
+                    DetachCommandBuffer();
+                }
+
+                return;
+            }
+
+            if (_attachedCamera != null && _attachedCamera != camera)
+            {
+                _attachedCamera.RemoveCommandBuffer(CameraEvent.BeforeImageEffects, _commandBuffer);
+                _attachedCamera = null;
+            }
+
+            if (camera == null)
             {
                 return;
             }
 
+            camera.RemoveCommandBuffer(CameraEvent.BeforeImageEffects, _commandBuffer);
+            camera.AddCommandBuffer(CameraEvent.BeforeImageEffects, _commandBuffer);
+            _attachedCamera = camera;
+        }
+
+        void DetachCommandBuffer()
+        {
+            if (_commandBuffer == null || _attachedCamera == null)
+            {
+                _attachedCamera = null;
+                return;
+            }
+
+            _attachedCamera.RemoveCommandBuffer(CameraEvent.BeforeImageEffects, _commandBuffer);
+            _attachedCamera = null;
+        }
+
+        void EnsureCameraBinding()
+        {
+            var currentCamera = CameraManager.MainCamera ?? Camera.main;
+            if (currentCamera != _camera || currentCamera != _attachedCamera)
+            {
+                RebindCamera(currentCamera);
+            }
+        }
+
+        void ConfigureCommandBuffer()
+        {
             _commandBuffer ??= new CommandBuffer
             {
                 name = CommandBufferName
             };
 
-            _camera.RemoveCommandBuffer(CameraEvent.BeforeImageEffects, _commandBuffer);
-            _camera.AddCommandBuffer(CameraEvent.BeforeImageEffects, _commandBuffer);
-        }
-
-        void OnDisable()
-        {
-            if (_camera != null && _commandBuffer != null)
-            {
-                _camera.RemoveCommandBuffer(CameraEvent.BeforeImageEffects, _commandBuffer);
-            }
-
-            _commandBuffer?.Release();
-            _commandBuffer = null;
+            RebindCamera(CameraManager.MainCamera ?? Camera.main);
         }
 
         void LateUpdate()
@@ -126,6 +178,9 @@ namespace WorldSphereMod.Renderer
                 return;
             }
 
+            ConfigureCommandBuffer();
+            EnsureCameraBinding();
+
             if (_commandBuffer == null || _camera == null)
             {
                 return;
@@ -138,9 +193,17 @@ namespace WorldSphereMod.Renderer
             }
 
             _commandBuffer.Clear();
-            AllocateTargets();
-            DepthPrepass();
-            // TileLightCull / ColorPass / PostFXChain / Composite — deferred.
+
+            try
+            {
+                AllocateTargets();
+                DepthPrepass();
+                // TileLightCull / ColorPass / PostFXChain / Composite — deferred.
+            }
+            finally
+            {
+                ReleaseTargets();
+            }
         }
 
         void AllocateTargets()
@@ -157,6 +220,18 @@ namespace WorldSphereMod.Renderer
             _commandBuffer.GetTemporaryRT(DepthRtId, w, h, 0, FilterMode.Point, RenderTextureFormat.RFloat);
             _commandBuffer.GetTemporaryRT(ColorRtId, w, h, 0, FilterMode.Bilinear, RenderTextureFormat.ARGBHalf);
             _commandBuffer.GetTemporaryRT(AoRtId, w, h, 0, FilterMode.Bilinear, RenderTextureFormat.R8);
+        }
+
+        void ReleaseTargets()
+        {
+            if (_commandBuffer == null)
+            {
+                return;
+            }
+
+            _commandBuffer.ReleaseTemporaryRT(AoRtId);
+            _commandBuffer.ReleaseTemporaryRT(ColorRtId);
+            _commandBuffer.ReleaseTemporaryRT(DepthRtId);
         }
 
         void DepthPrepass()

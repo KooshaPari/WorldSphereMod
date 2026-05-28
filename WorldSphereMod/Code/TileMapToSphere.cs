@@ -31,7 +31,7 @@ namespace WorldSphereMod.TileMapToSphere
             Max /= 8;
             for (int i = Min; i <= Max; i++)
             {
-                int I = (int)Tools.MathStuff.Wrap(CameraX, i, ZoneCamera._zone_manager.zones_total_x);
+                int I = (int)Core.Sphere.XGate.GetChange(CameraX, i, ZoneCamera._zone_manager.zones_total_x);
                 for(int j = 0; j < ZoneCamera._zone_manager.zones_total_y; j++)
                 {
                     TileZone tZone = ZoneCamera._zone_manager.getZone(I, j);
@@ -254,16 +254,33 @@ namespace WorldSphereMod.TileMapToSphere
             {
                 return;
             }
-            for (int iZone = 0; iZone < World.world.zone_camera._visible_zones.Count; iZone++)
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            int texQ = TextureQueue.Count;
+            int scaleQ = ScaleQueue.Count;
+            int colorQ = ColorQueue.Count;
+            int zoneCount = World.world.zone_camera._visible_zones.Count;
+            for (int iZone = 0; iZone < zoneCount; iZone++)
             {
                 TileZone tZone2 = World.world.zone_camera._visible_zones[iZone];
                 checkZoneToRender(tZone2);
             }
+            long zonesMs = sw.ElapsedMilliseconds;
+            sw.Restart();
             Finish();
+            long finishMs = sw.ElapsedMilliseconds;
+            sw.Restart();
             if (_biomeBlendDirty && Core.savedSettings.BiomeBlending)
             {
                 _biomeBlendDirty = false;
                 Core.Sphere.RefreshColors();
+            }
+            long blendMs = sw.ElapsedMilliseconds;
+            long total = zonesMs + finishMs + blendMs;
+            if (total > 16)
+            {
+                UnityEngine.Debug.LogWarning($"[WSM3D][PERF] Redraw3DTiles SLOW: {total}ms " +
+                    $"(zones={zonesMs}ms/{zoneCount}zones tex={texQ} scale={scaleQ} color={colorQ} " +
+                    $"finish={finishMs}ms blend={blendMs}ms)");
             }
         }
         static void Finish()
@@ -310,7 +327,32 @@ namespace WorldSphereMod.TileMapToSphere
     {
         static void render3DStuff()
         {
+            var frameSw = System.Diagnostics.Stopwatch.StartNew();
             QuantumSpriteManager.update();
+            long spriteMs = frameSw.ElapsedMilliseconds;
+
+            // The Prefix returns false which skips the original renderStuff body.
+            // The original calls precalculateRenderDataParallel on both managers
+            // which populates visible_units / _array_visible_buildings AND triggers
+            // all Harmony Postfixes (calculateactordata3D, calculatebuildindata3D,
+            // ActorVoxelEmit.EmitVoxels, BuildingVoxelEmit.EmitVoxels, etc.).
+            // Without these calls, actors/buildings spawned after world load are
+            // invisible because visible_units is never refreshed.
+            frameSw.Restart();
+            try
+            {
+                if (World.world != null && World.world.units != null)
+                    World.world.units.precalculateRenderDataParallel();
+                if (World.world != null && World.world.buildings != null)
+                    World.world.buildings.precalculateRenderDataParallel();
+            }
+            catch (System.Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[WSM3D] precalculateRenderDataParallel failed: {ex}");
+            }
+            long precalcMs = frameSw.ElapsedMilliseconds;
+
+            frameSw.Restart();
             Bench.bench("redraw_tiles", "game_total", false);
             if (Core.IsWorld3D)
             {
@@ -321,12 +363,28 @@ namespace WorldSphereMod.TileMapToSphere
                 World.world.tilemap.redrawTiles();
             }
             Bench.benchEnd("redraw_tiles", "game_total", false, 0L, false);
+            long redrawMs = frameSw.ElapsedMilliseconds;
+
+            frameSw.Restart();
             Bench.bench("update_debug_texts", "game_total", false);
             World.world.updateDebugGroupSystem();
             Bench.benchEnd("update_debug_texts", "game_total", false, 0L, false);
+            long debugMs = frameSw.ElapsedMilliseconds;
+
+            frameSw.Restart();
+            long refreshMs = 0;
+
             if (World.world._redraw_timer > 0f)
             {
                 World.world._redraw_timer -= Time.deltaTime;
+                // Drain leftover partial updates only when the timer is NOT about
+                // to fire, avoiding double RefreshSphere in the same frame.
+                if (Core.IsWorld3D && Core.Sphere.HasPendingUpdates())
+                {
+                    var pendingSw = System.Diagnostics.Stopwatch.StartNew();
+                    Core.Sphere.RefreshSphere();
+                    refreshMs = pendingSw.ElapsedMilliseconds;
+                }
             }
             else
             {
@@ -340,21 +398,42 @@ namespace WorldSphereMod.TileMapToSphere
                 Bench.bench("Refresh Sphere", "game_total");
                 if (Core.IsWorld3D)
                 {
-                    // Upstream terrain mesh source: SphereManager.Refresh* / Sphere.RefreshSphere().
+                    var refreshSw = System.Diagnostics.Stopwatch.StartNew();
                     Core.Sphere.RefreshSphere();
+                    refreshMs += refreshSw.ElapsedMilliseconds;
                 }
                 Bench.benchEnd("Refresh Sphere", "game_total");
             }
+            long timerMs = frameSw.ElapsedMilliseconds;
+
+            long totalFrame = spriteMs + precalcMs + redrawMs + debugMs + timerMs;
+            if (totalFrame > 16)
+            {
+                UnityEngine.Debug.LogWarning($"[WSM3D][PERF] render3DStuff SLOW: {totalFrame}ms " +
+                    $"(sprite={spriteMs}ms precalc={precalcMs}ms redraw={redrawMs}ms debug={debugMs}ms " +
+                    $"timer={timerMs}ms refresh={refreshMs}ms)");
+            }
+
+            // Drain bridge main-thread queue AFTER all tile work so
+            // VoxelFrameDriver ticks and telemetry updates every frame.
+            try { WorldSphereMod.Bridge.BridgeSurvival.Run(runVoxelFrame: true); }
+            catch (System.Exception ex) { UnityEngine.Debug.LogError($"[WSM3D] BridgeSurvival.Run in render3DStuff failed: {ex}"); }
         }
         static bool Prefix()
         {
           render3DStuff();
+          // Prefix returns false which skips the original renderStuff AND all
+          // Postfixes on MapBox.renderStuff (Harmony 2.x behaviour).
+          // render3DStuff() now calls precalculateRenderDataParallel directly,
+          // which fires all Postfixes on those methods (voxel emit, 3D transforms).
+          // BridgeSurvival.Run is called at the end of render3DStuff() so the
+          // bridge queue drains after all tile work completes.
           return false;
         }
     }
     public static class AddLayers
     {
-        static MethodInfo GetPixel => AccessTools.Method(typeof(Dictionary<MapLayer, PixelArray>), "get_Item");
+        static MethodInfo GetPixel => AccessTools.Method(typeof(AddLayers), nameof(GetPixelArray));
         static MethodInfo SetPixel => AccessTools.Method(typeof(PixelArray), "set_Item");
         static FieldInfo Pixels => AccessTools.Field(typeof(Core.Sphere), nameof(Core.Sphere.CachedColors));
         static CodeMatch FindPixels => new CodeMatch((CodeInstruction instruction) => instruction.opcode == OpCodes.Ldfld && instruction.operand is FieldInfo field && field.Name == "pixels");
@@ -402,6 +481,28 @@ namespace WorldSphereMod.TileMapToSphere
                 }
                 return Matcher.Instructions();
             } catch (System.Exception ex) { global::UnityEngine.Debug.LogWarning("[WSM3D] MapLayerTranspiler failed: " + ex.GetType().Name + " — returning original"); return instructions; }
+        }
+
+        public static PixelArray GetPixelArray(Dictionary<MapLayer, PixelArray> pixels, MapLayer layer)
+        {
+            if (pixels == null)
+            {
+                throw new ArgumentNullException(nameof(pixels));
+            }
+
+            if (layer == null)
+            {
+                throw new ArgumentNullException(nameof(layer));
+            }
+
+            if (pixels.TryGetValue(layer, out PixelArray cached) && cached != null)
+            {
+                return cached;
+            }
+
+            cached = new PixelArray(layer);
+            pixels[layer] = cached;
+            return cached;
         }
         //why maxim
         public static IEnumerable<CodeInstruction> ZoneLayerTranspiler(IEnumerable<CodeInstruction> instructions)
@@ -494,7 +595,17 @@ namespace WorldSphereMod.TileMapToSphere
             if (!Core.Sphere.CachedColors.TryGetValue(__instance, out PixelArray cached) || cached == null)
             {
                 PixelArray.AddLayer(__instance, 0);
-                cached = Core.Sphere.CachedColors[__instance];
+                if (!Core.Sphere.CachedColors.TryGetValue(__instance, out cached) || cached == null)
+                {
+                    // AddLayer bailed (e.g. IsWorld3D still false during init).
+                    // Fill vanilla pixels and let the original path handle it.
+                    for (int i = 0; i < num; i++)
+                    {
+                        __instance.pixels[i] = color;
+                    }
+                    __instance.updatePixels();
+                    return false;
+                }
             }
             for (int i = 0; i < num; i++)
             {
@@ -518,12 +629,23 @@ namespace WorldSphereMod.TileMapToSphere
             {
                 return;
             }
+            if (Layer == null || World.world == null || World.world.tiles_list == null || I < 0)
+            {
+                return;
+            }
             if (Layer.IsBase())
             {
                 AddToColorQueue(World.world.tiles_list[I]);
                 return;
             }
-            Core.Sphere.UpdateLayer(World.world.tiles_list[I].WorldToSphere());
+            try
+            {
+                Core.Sphere.UpdateLayer(World.world.tiles_list[I].WorldToSphere());
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[WSM3D] PixelArray.AddLayer failed for {Layer?.name ?? "<null>"}[{I}]: {ex.Message}");
+            }
         }
         MapLayer Layer;
         public PixelArray(MapLayer Layer)
@@ -532,6 +654,10 @@ namespace WorldSphereMod.TileMapToSphere
         }
         void Set(int I, Color32 Color)
         {
+            if (Layer == null || Layer.pixels == null || I < 0 || I >= Layer.pixels.Length)
+            {
+                return;
+            }
             //somehow more laggy then updating tiles which havent changed
            // if (!Layer.pixels[I].EqualsColor(Color))
             {

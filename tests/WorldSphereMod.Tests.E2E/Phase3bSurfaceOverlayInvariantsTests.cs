@@ -139,7 +139,7 @@ public sealed class Phase3bSurfaceOverlayInvariantsTests
         prefixBody.Should().Contain("!t.liquid && !t.ocean && !t.lava");
         prefixBody.Should().Contain("__instance.getVariation(pTile)");
         prefixBody.Should().Contain("FoliageMaterial.EnsureMaterial()");
-        prefixBody.Should().Contain("MeshInstanceBatcher.Submit(mesh, mat, trs, Color.white)");
+        prefixBody.Should().Contain("MeshInstanceBatcher.Submit(mesh, mat, trs, tint)");
         prefixBody.Should().Contain("return false",
             "successful overlay emit must skip the upstream Tilemap flush");
     }

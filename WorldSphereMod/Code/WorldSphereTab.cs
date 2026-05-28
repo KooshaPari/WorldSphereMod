@@ -133,7 +133,7 @@ namespace WorldSphereMod.UI
             textRect.position = new Vector3(0, 0, 0);
             textRect.localPosition = pos + new Vector3(0, -50, 0);
             textRect.sizeDelta = new Vector2(100, 100) + addSize;
-            textGo.AddComponent<GraphicRaycaster>();
+            textComp.raycastTarget = false;
             textComp.text = textString;
 
             return textComp;
@@ -199,11 +199,12 @@ namespace WorldSphereMod.UI
                 new ButtonData("camera_rotates_with_world", "camera_rotates_with_world_description", "WorldSphereMod/Camera", Core.savedSettings.CameraRotatesWithWorld, ToggleRotateToWorld),
                 new ButtonData("upside_down_movement", "upside_down_movement_description", "WorldSphereMod/Camera", Core.savedSettings.UpsideDownMovement, UpsideDown)
             });
-            GenerateSlider("render_distance", 1, 20, Core.savedSettings.RenderRange, (float val) => { Core.savedSettings.RenderRange = val; Core.SaveSettings(); }, "Camera Settings");
+            GenerateSlider("render_distance", 1, 20, Core.savedSettings.RowRange, (float val) => { Core.savedSettings.RowRange = val; Core.SaveSettings(); }, "Camera Settings");
             CreateWindowButton("World Settings", "WorldSphereMod/World", "world_settings_window", new List<ButtonData>()
             {
                 new ButtonData("cylindrical_shape", "cylindrical_shape_description", "WorldSphereMod/Round", Core.savedSettings.CurrentShape == 0, SetShape, false),
                 new ButtonData("flat_shape", "flat_shape_description", "WorldSphereMod/Flat", Core.savedSettings.CurrentShape == 1, SetShape, false),
+                new ButtonData("cube_shape", "cube_shape_description", "WorldSphereMod/Flat", Core.savedSettings.CurrentShape == 2, SetShape, false),
                 new ButtonData("perlin_noise", "perlin_noise_description", "WorldSphereMod/PerlinNoise", Core.savedSettings.PerlinNoise, PerlinNoise)
             });
             GenerateSlider("tile_length_multiplier", 1, 10, Core.savedSettings.TileHeight, (float x) => { Core.savedSettings.TileHeight = x; Core.SaveSettings(); }, "World Settings");
@@ -226,6 +227,8 @@ namespace WorldSphereMod.UI
                 new ButtonData("color_grading_lut",    "color_grading_lut_description",    "WorldSphereMod/ModIcon",       Core.savedSettings.ColorGradingLut,      TogglePhase),
                 new ButtonData("ssao_enabled",         "ssao_enabled_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.SSAOEnabled,          TogglePhase),
                 new ButtonData("ssgi_enabled",         "ssgi_enabled_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.SSGIEnabled,          TogglePhase),
+                new ButtonData("bloom_enabled",        "bloom_enabled_description",        "WorldSphereMod/ModIcon",       Core.savedSettings.BloomEnabled,         TogglePhase),
+                new ButtonData("aces_tonemapping",     "aces_tonemapping_description",     "WorldSphereMod/ModIcon",       Core.savedSettings.ACESTonemapping,      TogglePhase),
                 new ButtonData("skeletal_animation",   "skeletal_animation_description",   "WorldSphereMod/Rotate",        Core.savedSettings.SkeletalAnimation,   TogglePhase),
                 new ButtonData("worldspace_ui",        "worldspace_ui_description",        "WorldSphereMod/Camera",        Core.savedSettings.WorldspaceUI,        TogglePhase),
                 new ButtonData("worldspace_health_3d", "worldspace_health_3d_description", "WorldSphereMod/ModIcon",      Core.savedSettings.WorldspaceHealth3D,  TogglePhase),
@@ -363,12 +366,28 @@ namespace WorldSphereMod.UI
             if (!TryResolvePhaseToggleField(phaseToggleId, out FieldInfo? settingField))
             {
                 global::UnityEngine.Debug.LogWarning($"[WSM3D] Missing SavedSettings field for phase toggle '{phaseToggleId}'.");
+                WorldSphereMod.Worldspace.PhaseToast.ShowError($"{phaseToggleId} could not be toggled: unknown setting");
                 return;
             }
 
             bool nextValue = !(settingField.GetValue(Core.savedSettings) as bool? ?? false);
             settingField.SetValue(Core.savedSettings, nextValue);
-            Core.ApplyPhaseToggle(settingField.Name, nextValue);
+
+            try
+            {
+                Core.ApplyPhaseToggle(settingField.Name, nextValue);
+            }
+            catch (System.Exception ex)
+            {
+                string reason = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
+                global::UnityEngine.Debug.LogError($"[WSM3D] {settingField.Name} toggle failed: {ex}");
+                WorldSphereMod.Worldspace.PhaseToast.ShowError($"{settingField.Name} could not be {(nextValue ? "enabled" : "disabled")}: {reason}");
+                // Revert the setting since the toggle failed
+                settingField.SetValue(Core.savedSettings, !nextValue);
+                Core.SaveSettings();
+                return;
+            }
+
             Core.SaveSettings();
 
             if (!PlayerConfig.dict.ContainsKey(phaseToggleId))
@@ -396,6 +415,12 @@ namespace WorldSphereMod.UI
 
         static void SuppressPhasesWindowOnWorldLoad()
         {
+            // Skip suppression on first install so FirstRunWelcome can open the window.
+            if (Core.IsFirstInstall && !Core.savedSettings.HasSeenWelcome)
+            {
+                MapBox.on_world_loaded -= SuppressPhasesWindowOnWorldLoad;
+                return;
+            }
             try
             {
                 SuppressPhasesWindow();
@@ -543,6 +568,8 @@ namespace WorldSphereMod.UI
             bool previousColorGradingLut = Core.savedSettings.ColorGradingLut;
             bool previousSSAOEnabled = Core.savedSettings.SSAOEnabled;
             bool previousSSGIEnabled = Core.savedSettings.SSGIEnabled;
+            bool previousBloomEnabled = Core.savedSettings.BloomEnabled;
+            bool previousACESTonemapping = Core.savedSettings.ACESTonemapping;
             bool previousSkeletalAnimation = Core.savedSettings.SkeletalAnimation;
             bool previousWorldspaceUI = Core.savedSettings.WorldspaceUI;
             bool previousWorldspaceHealth3D = Core.savedSettings.WorldspaceHealth3D;
@@ -567,6 +594,8 @@ namespace WorldSphereMod.UI
             if (previousColorGradingLut != Core.savedSettings.ColorGradingLut)         Core.ApplyPhaseToggle(nameof(SavedSettings.ColorGradingLut),      Core.savedSettings.ColorGradingLut);
             if (previousSSAOEnabled != Core.savedSettings.SSAOEnabled)                 Core.ApplyPhaseToggle(nameof(SavedSettings.SSAOEnabled),          Core.savedSettings.SSAOEnabled);
             if (previousSSGIEnabled != Core.savedSettings.SSGIEnabled)                 Core.ApplyPhaseToggle(nameof(SavedSettings.SSGIEnabled),          Core.savedSettings.SSGIEnabled);
+            if (previousBloomEnabled != Core.savedSettings.BloomEnabled)               Core.ApplyPhaseToggle(nameof(SavedSettings.BloomEnabled),        Core.savedSettings.BloomEnabled);
+            if (previousACESTonemapping != Core.savedSettings.ACESTonemapping)         Core.ApplyPhaseToggle(nameof(SavedSettings.ACESTonemapping),      Core.savedSettings.ACESTonemapping);
             if (previousSkeletalAnimation != Core.savedSettings.SkeletalAnimation)       Core.ApplyPhaseToggle(nameof(SavedSettings.SkeletalAnimation),   Core.savedSettings.SkeletalAnimation);
             if (previousWorldspaceUI != Core.savedSettings.WorldspaceUI)                 Core.ApplyPhaseToggle(nameof(SavedSettings.WorldspaceUI),        Core.savedSettings.WorldspaceUI);
             if (previousWorldspaceHealth3D != Core.savedSettings.WorldspaceHealth3D)     Core.ApplyPhaseToggle(nameof(SavedSettings.WorldspaceHealth3D), Core.savedSettings.WorldspaceHealth3D);
@@ -586,7 +615,8 @@ namespace WorldSphereMod.UI
         static Dictionary<string, int> WorldShapes = new Dictionary<string, int>()
         {
             { "cylindrical_shape", 0 },
-            { "flat_shape", 1 }
+            { "flat_shape", 1 },
+            { "cube_shape", 2 }
         };
         static void PerlinNoise(string ID)
         {
@@ -608,8 +638,8 @@ namespace WorldSphereMod.UI
                     PlayerOptionData tData = PlayerConfig.dict[shape];
                     tData.boolVal = false;
                 }
-                PowerButtonSelector.instance.checkToggleIcons();
             }
+            PowerButtonSelector.instance.checkToggleIcons();
             Core.SaveSettings();
         }
         static void Toggle3D()
@@ -834,6 +864,67 @@ namespace WorldSphereMod.UI
             PowerButtonSelector.instance.checkToggleIcons();
         }
 
+        static void AddQuickStartGuide(GameObject content)
+        {
+            if (content == null) return;
+
+            string guideText = LM.Get("wsm3d_quick_start_guide");
+            if (string.IsNullOrEmpty(guideText) || guideText == "wsm3d_quick_start_guide")
+            {
+                guideText =
+                    "--- Quick Start ---\n" +
+                    "Voxel Actors (P1): 3D voxel units, items, projectiles\n" +
+                    "Mesh Buildings (P2): Procedural 3D buildings\n" +
+                    "Foliage (P3): Crossed-quad trees and bushes\n" +
+                    "Mesh Water (P4): Gerstner-wave water surface\n" +
+                    "Sun + Shadows (P5): Directional light + cascades\n" +
+                    "Skeletal Anim (P6): Auto-rigged voxel actors\n" +
+                    "Worldspace UI (P7): 3D nameplates and HP bars\n" +
+                    "Day/Night (P8): Procedural sky + time cycle\n" +
+                    "Post FX (P9): Bloom, SSAO, SSGI, color grading\n" +
+                    "---\n" +
+                    "Enable phases top-to-bottom for best results.\n" +
+                    "Reload the world after toggling.";
+            }
+
+            GameObject guideGo = new GameObject("QuickStartGuide", typeof(RectTransform));
+            guideGo.transform.SetParent(content.transform, false);
+            guideGo.transform.SetAsFirstSibling();
+
+            RectTransform guideRect = guideGo.GetComponent<RectTransform>();
+            guideRect.sizeDelta = new Vector2(200, 220);
+
+            GameObject textRef = GameObject.Find("/Canvas Container Main/Canvas - Windows/windows/3D Phases/Background/Title");
+            if (textRef != null)
+            {
+                GameObject textGo = UnityEngine.Object.Instantiate(textRef, guideGo.transform);
+                textGo.SetActive(true);
+
+                var textComp = textGo.GetComponent<Text>();
+                if (textComp != null)
+                {
+                    textComp.text = guideText;
+                    textComp.fontSize = 9;
+                    textComp.resizeTextMaxSize = 9;
+                    textComp.alignment = TextAnchor.UpperLeft;
+                }
+
+                var textRt = textGo.GetComponent<RectTransform>();
+                if (textRt != null)
+                {
+                    textRt.anchorMin = new Vector2(0, 0);
+                    textRt.anchorMax = new Vector2(1, 1);
+                    textRt.offsetMin = Vector2.zero;
+                    textRt.offsetMax = Vector2.zero;
+                    textRt.localPosition = Vector3.zero;
+                    textRt.sizeDelta = new Vector2(200, 220);
+                }
+            }
+
+            // Expand the content area to accommodate the guide.
+            content.GetComponent<RectTransform>().sizeDelta += new Vector2(0, 230);
+        }
+
         static void AddPhaseIconAndLabel(GameObject parent, string phaseId)
         {
             string iconName = GetPhaseIconName(phaseId);
@@ -870,6 +961,8 @@ namespace WorldSphereMod.UI
                 case "procedural_buildings": return "ProceduralBuildings";
                 case "skeletal_animation": return "SkeletalAnimation";
                 case "ssgi_enabled": return "SSGIEnabled";
+                case "bloom_enabled": return "BloomEnabled";
+                case "aces_tonemapping": return "ACESTonemapping";
                 case "voxel_entities": return "VoxelEntities";
                 case "worldspace_ui": return "WorldspaceUI";
                 default: return string.Empty;
@@ -925,7 +1018,5 @@ namespace WorldSphereMod.UI
         }
     }
 }
-
-
 
 

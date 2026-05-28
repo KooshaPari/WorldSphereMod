@@ -87,11 +87,30 @@ namespace WorldSphereMod.Foliage
                 Material? mat = FoliageMaterial.Get();
                 if (mat == null) return true;
 
-                // Road remains a flat decal. Foliage now uses voxel meshes so
-                // trees render with actual 3D depth on all axes.
-                Mesh? mesh = t.road
-                    ? CrossedQuadMeshCache.GetOrBuild(sprite, BuildingShape.Single, 0f)
-                    : VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob);
+                // Road remains a flat decal. Trees/bushes (.life) route through
+                // CrossedQuadMeshCache first when the CrossedQuadFoliage flag is on
+                // — that's the Phase 3 swaying-foliage path. If the cache cannot
+                // build a crossed-quad mesh this frame (per-frame budget exhausted,
+                // unreadable atlas, blank sprite), fall back to the OrganicBlob
+                // voxel pathway so the tile still renders something visible.
+                Mesh? mesh;
+                if (t.road)
+                {
+                    mesh = CrossedQuadMeshCache.GetOrBuild(sprite, BuildingShape.Single, 0f);
+                }
+                else if (t.life && Core.savedSettings.CrossedQuadFoliage)
+                {
+                    float swayAmp = 0.15f;
+                    mesh = CrossedQuadMeshCache.GetOrBuild(sprite, BuildingShape.CrossedQuad, swayAmp, sprite.name);
+                    if (mesh == null || mesh.vertexCount == 0)
+                    {
+                        mesh = VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob);
+                    }
+                }
+                else
+                {
+                    mesh = VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob);
+                }
                 if (mesh == null || mesh.vertexCount == 0) return true;
 
                 Vector2 pos2 = new Vector2(pTile.pos.x, pTile.pos.y);
@@ -108,7 +127,14 @@ namespace WorldSphereMod.Foliage
                     }
                 }
 
-                MeshInstanceBatcher.Submit(mesh, mat, trs, Color.white);
+                // Per-instance tint sampled from the sprite's opaque pixels —
+                // routed via Submit's color arg, which the batcher feeds into
+                // _Color on the MaterialPropertyBlock. OpaqueVertexColor /
+                // FoliageWind both multiply vertex.color × _Color, so the
+                // mesh's sway-encoded vertex colors come through as the actual
+                // foliage hue instead of emissive white.
+                Color tint = SpriteAverageColorCache.Sample(sprite);
+                MeshInstanceBatcher.Submit(mesh, mat, trs, tint);
 
                 // Update the diff memo. The cached sprite reference lets a future
                 // pass skip re-resolving the variation when the tile is still in

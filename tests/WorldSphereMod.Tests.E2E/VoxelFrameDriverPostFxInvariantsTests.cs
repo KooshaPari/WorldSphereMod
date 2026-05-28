@@ -4,9 +4,9 @@ using FluentAssertions;
 using Xunit;
 
 /// <summary>
-/// VoxelFrameDriver PostFX/SSAO reconciler wiring — change-only ApplySetting in TickPerFrame,
-/// separate PostFxController (URP volume) vs ScreenSpaceAO (OnRenderImage). Complements
-/// <see cref="SsaoPostFxInvariantsTests"/> which covers ApplyPhaseToggle and component internals.
+/// VoxelFrameDriver PostFX reconciler wiring — change-only WSM3DPostStack.ApplySetting
+/// in TickPerFrame. Complements <see cref="SsaoPostFxInvariantsTests"/> which covers
+/// ApplyPhaseToggle and component internals.
 /// </summary>
 public sealed class VoxelFrameDriverPostFxInvariantsTests
 {
@@ -63,88 +63,78 @@ public sealed class VoxelFrameDriverPostFxInvariantsTests
         throw new InvalidOperationException("Unbalanced braces while extracting method body");
     }
 
-    static int IndexOfOrFail(string source, string needle)
-    {
-        int index = source.IndexOf(needle, StringComparison.Ordinal);
-        index.Should().BeGreaterThanOrEqualTo(0, $"{needle} must appear in TickPerFrame");
-        return index;
-    }
-
     [Fact]
-    public void VoxelFrameDriver_TickPerFrame_reconciles_PostFX_SSAO_and_SSGI_without_per_frame_spam()
+    public void VoxelFrameDriver_TickPerFrame_reconciles_PostFX_via_WSM3DPostStack()
     {
         var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
         var tickBody = ExtractMethodBody(voxelRender, "public static void TickPerFrame()");
 
         tickBody.Should().Contain("_lastAppliedPostFX",
             "PostFX must track last applied value for change-only reconciliation");
-        tickBody.Should().Contain("PostFxController.ApplySetting(currentPostFX)",
-            "PostFX reconciler must call ApplySetting when SavedSettings diverges");
+        tickBody.Should().Contain("WSM3DPostStack.ApplySetting(currentPostFX)",
+            "PostFX reconciler must route to unified stack");
 
         tickBody.Should().Contain("_lastAppliedSSAOEnabled",
             "SSAOEnabled must track last applied value for change-only reconciliation");
-        tickBody.Should().Contain("ScreenSpaceAO.ApplySetting(currentSSAO)",
-            "SSAO reconciler must call ApplySetting when SavedSettings diverges");
+        tickBody.Should().Contain("WSM3DPostStack.RefreshMaterials()",
+            "sub-pass reconciler must refresh unified stack");
 
         tickBody.Should().Contain("_lastAppliedSSGIEnabled",
             "SSGIEnabled must track last applied value for change-only reconciliation");
-        tickBody.Should().Contain("ScreenSpaceGI.ApplySetting(currentSSGI)",
-            "SSGI reconciler must call ApplySetting when SavedSettings diverges");
-
-        tickBody.Should().Contain("ScreenSpaceAO.EnsureCreated()",
-            "late-bound main camera must retry SSAO component creation");
-        tickBody.Should().Contain("ScreenSpaceGI.EnsureCreated()",
-            "late-bound main camera must retry SSGI component creation");
     }
 
     [Fact]
-    public void VoxelFrameDriver_TickPerFrame_separates_PostFxController_from_ScreenSpaceAO_reconcilers()
+    public void VoxelFrameDriver_TickPerFrame_uses_unified_stack_not_individual_passes()
     {
         var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
         var tickBody = ExtractMethodBody(voxelRender, "public static void TickPerFrame()");
 
-        int postFxReconcile = IndexOfOrFail(tickBody, "PostFxController.ApplySetting(currentPostFX)");
-        int ssaoReconcile = IndexOfOrFail(tickBody, "ScreenSpaceAO.ApplySetting(currentSSAO)");
-        int ssgiReconcile = IndexOfOrFail(tickBody, "ScreenSpaceGI.ApplySetting(currentSSGI)");
-
-        postFxReconcile.Should().BeLessThan(ssaoReconcile,
-            "URP volume PostFX reconciler should precede built-in SSAO pass wiring");
-        ssaoReconcile.Should().BeLessThan(ssgiReconcile,
-            "SSAO and SSGI reconcilers stay as separate OnRenderImage passes");
-
-        var postFxGuard = tickBody.Substring(
-            tickBody.IndexOf("if (currentPostFX != _lastAppliedPostFX)", StringComparison.Ordinal),
-            ssaoReconcile - tickBody.IndexOf("if (currentPostFX != _lastAppliedPostFX)", StringComparison.Ordinal));
-        postFxGuard.Should().NotContain("ScreenSpaceAO",
-            "PostFxController reconciler must not reference ScreenSpaceAO");
-        postFxGuard.Should().NotContain("ScreenSpaceGI",
-            "PostFxController reconciler must not reference ScreenSpaceGI");
-
-        var ssaoGuard = tickBody.Substring(
-            tickBody.IndexOf("if (currentSSAO != _lastAppliedSSAOEnabled)", StringComparison.Ordinal),
-            ssgiReconcile - tickBody.IndexOf("if (currentSSAO != _lastAppliedSSAOEnabled)", StringComparison.Ordinal));
-        ssaoGuard.Should().NotContain("PostFxController",
-            "ScreenSpaceAO reconciler must not reference PostFxController URP volume path");
+        tickBody.Should().NotContain("PostFxController.ApplySetting",
+            "PostFX reconciler should route to WSM3DPostStack, not old URP controller");
+        tickBody.Should().NotContain("ScreenSpaceAO.ApplySetting",
+            "SSAO reconciler should route to WSM3DPostStack.RefreshMaterials");
+        tickBody.Should().NotContain("ScreenSpaceGI.ApplySetting",
+            "SSGI reconciler should route to WSM3DPostStack.RefreshMaterials");
+        tickBody.Should().NotContain("ScreenSpaceAO.EnsureCreated",
+            "legacy SSAO component must not be recreated once WSM3DPostStack owns the camera");
+        tickBody.Should().NotContain("ScreenSpaceGI.EnsureCreated",
+            "legacy SSGI component must not be recreated once WSM3DPostStack owns the camera");
     }
 
     [Fact]
-    public void VoxelFrameDriver_LateUpdate_does_not_reconcile_PostFX_or_SSAO()
+    public void WSM3DPostStack_OnDestroy_releases_materials_and_temps()
+    {
+        var stack = ReadSourceFile("WorldSphereMod/Code/PostFx/WSM3DPostStack.cs");
+        var destroyBody = ExtractMethodBody(stack, "void OnDestroy()");
+
+        destroyBody.Should().Contain("ReleaseMaterials()");
+        destroyBody.Should().Contain("ReleasePingPong()");
+        destroyBody.Should().Contain("_initialized = false");
+        destroyBody.Should().Contain("_instance == this");
+        stack.Should().Contain("void ReleaseMaterials()");
+        stack.Should().Contain("Destroy(_ssaoMat)");
+        stack.Should().Contain("Destroy(_ssgiMat)");
+        stack.Should().Contain("Destroy(_bloomMat)");
+        stack.Should().Contain("Destroy(_acesMat)");
+        stack.Should().Contain("Destroy(_lutMat)");
+    }
+
+    [Fact]
+    public void VoxelFrameDriver_LateUpdate_does_not_reconcile_PostFX()
     {
         var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
         var lateBody = ExtractMethodBody(voxelRender, "void LateUpdate()");
 
+        lateBody.Should().NotContain("WSM3DPostStack",
+            "PostFX reconciler belongs in TickPerFrame, not LateUpdate flush");
         lateBody.Should().NotContain("PostFxController.ApplySetting",
             "PostFX reconciler belongs in TickPerFrame pre-emit hook, not LateUpdate flush");
         lateBody.Should().NotContain("ScreenSpaceAO.ApplySetting",
             "SSAO reconciler belongs in TickPerFrame pre-emit hook, not LateUpdate flush");
-        lateBody.Should().NotContain("ScreenSpaceGI.ApplySetting",
-            "SSGI reconciler belongs in TickPerFrame pre-emit hook, not LateUpdate flush");
-        lateBody.Should().NotContain("EnsureCreated()",
-            "camera-bound post-FX component creation runs from TickPerFrame camera lookup");
     }
 
     [Fact]
-    public void VoxelFrameDriver_PostFx_reconciler_runs_from_BridgeSurvival_TickPerFrame_not_LateUpdate()
+    public void VoxelFrameDriver_PostFx_reconciler_runs_from_BridgeSurvival_TickPerFrame()
     {
         var bridgeTick = ReadSourceFile("WorldSphereMod/Code/Bridge/BridgePerFrameTick.cs");
         var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
@@ -154,10 +144,8 @@ public sealed class VoxelFrameDriverPostFxInvariantsTests
             "MapBox.renderStuff survival hook must invoke pre-emit voxel frame driver");
 
         var tickBody = ExtractMethodBody(voxelRender, "public static void TickPerFrame()");
-        tickBody.Should().Contain("PostFxController.ApplySetting(currentPostFX)",
+        tickBody.Should().Contain("WSM3DPostStack.ApplySetting(currentPostFX)",
             "PostFX reconciler must live in the TickPerFrame path wired from BridgeSurvival");
-        tickBody.Should().Contain("ScreenSpaceAO.ApplySetting(currentSSAO)",
-            "SSAO reconciler must live in the TickPerFrame path wired from BridgeSurvival");
 
         var lateBody = ExtractMethodBody(voxelRender, "void LateUpdate()");
         lateBody.Should().Contain("VoxelRender.Flush()",

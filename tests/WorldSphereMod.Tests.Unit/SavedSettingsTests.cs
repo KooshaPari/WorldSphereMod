@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using Xunit;
@@ -31,17 +32,50 @@ public class SavedSettingsTests
         return File.ReadAllText(path);
     }
 
+    private static string ExtractMethodBody(string source, string signature)
+    {
+        var headerIndex = source.IndexOf(signature, StringComparison.Ordinal);
+        headerIndex.Should().BeGreaterThanOrEqualTo(0, $"method signature should exist: {signature}");
+
+        var openBrace = source.IndexOf('{', headerIndex);
+        openBrace.Should().BeGreaterThanOrEqualTo(0, "method must open with a '{'");
+
+        var depth = 0;
+        for (int i = openBrace; i < source.Length; i++)
+        {
+            var c = source[i];
+            if (c == '{')
+            {
+                depth++;
+                continue;
+            }
+
+            if (c != '}')
+            {
+                continue;
+            }
+
+            depth--;
+            if (depth == 0)
+            {
+                return source.Substring(openBrace + 1, i - openBrace - 1);
+            }
+        }
+
+        throw new InvalidOperationException("Unbalanced braces while extracting method body");
+    }
+
     [Fact]
     public void SavedSettings_declares_Version_field_with_initial_value_2_0()
     {
         var source = ReadSavedSettingsSource();
 
         // Must declare: public string Version = "2.3";
-        var pattern = @"public\s+string\s+Version\s*=\s*""2\.2""";
+        var pattern = @"public\s+string\s+Version\s*=\s*""2\.3""";
         var match = Regex.Match(source, pattern);
 
         match.Success.Should().BeTrue(
-            "SavedSettings must declare: public string Version = \"2.0\";");
+            "SavedSettings must declare: public string Version = \"2.3\";");
     }
 
     [Fact]
@@ -64,16 +98,16 @@ public class SavedSettingsTests
         var phaseFields = new[]
         {
             ("VoxelEntities", true),
-            ("ProceduralBuildings", true),
-            ("CrossedQuadFoliage", true),
+            ("ProceduralBuildings", false),
+            ("CrossedQuadFoliage", false),
             ("BiomeBlending", true),
-            ("MeshWater", true),
-            ("HighShadows", true),
-            ("SkeletalAnimation", true),
-            ("WorldspaceUI", true),
-            ("DayNightCycle", true),
-            ("PostFX", true),
-            ("ParticleEffects", true)
+            ("MeshWater", false),
+            ("HighShadows", false),
+            ("SkeletalAnimation", false),
+            ("WorldspaceUI", false),
+            ("DayNightCycle", false),
+            ("PostFX", false),
+            ("ParticleEffects", false)
         };
 
         foreach (var (fieldName, expectedDefault) in phaseFields)
@@ -153,16 +187,16 @@ public class SavedSettingsTests
 
     [Theory]
     [InlineData("VoxelEntities", "true")]
-    [InlineData("ProceduralBuildings", "true")]
-    [InlineData("CrossedQuadFoliage", "true")]
+    [InlineData("ProceduralBuildings", "false")]
+    [InlineData("CrossedQuadFoliage", "false")]
     [InlineData("BiomeBlending", "true")]
-    [InlineData("MeshWater", "true")]
-    [InlineData("HighShadows", "true")]
-    [InlineData("SkeletalAnimation", "true")]
-    [InlineData("WorldspaceUI", "true")]
-    [InlineData("DayNightCycle", "true")]
-    [InlineData("PostFX", "true")]
-    [InlineData("ParticleEffects", "true")]
+    [InlineData("MeshWater", "false")]
+    [InlineData("HighShadows", "false")]
+    [InlineData("SkeletalAnimation", "false")]
+    [InlineData("WorldspaceUI", "false")]
+    [InlineData("DayNightCycle", "false")]
+    [InlineData("PostFX", "false")]
+    [InlineData("ParticleEffects", "false")]
     public void SavedSettings_field_default_value_matches_spec(string fieldName, string expectedDefault)
     {
         var source = ReadSavedSettingsSource();
@@ -178,8 +212,8 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+CrossedQuadFoliage\s*=\s*true")
-            .Success.Should().BeTrue("Phase 3 should default CrossedQuadFoliage to true");
+        Regex.Match(source, @"public\s+bool\s+CrossedQuadFoliage\s*=\s*false")
+            .Success.Should().BeTrue("Phase 3 should default CrossedQuadFoliage to false");
     }
 
     [Fact]
@@ -187,8 +221,8 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+MeshWater\s*=\s*true")
-            .Success.Should().BeTrue("Phase 4 should default MeshWater to true");
+        Regex.Match(source, @"public\s+bool\s+MeshWater\s*=\s*false")
+            .Success.Should().BeTrue("Phase 4 should default MeshWater to false");
     }
 
     [Fact]
@@ -196,8 +230,8 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+HighShadows\s*=\s*true")
-            .Success.Should().BeTrue("Phase 5 should default HighShadows to true");
+        Regex.Match(source, @"public\s+bool\s+HighShadows\s*=\s*false")
+            .Success.Should().BeTrue("Phase 5 should default HighShadows to false");
     }
 
     [Fact]
@@ -205,10 +239,10 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+HdrSkybox\s*=\s*true")
-            .Success.Should().BeTrue("Phase 5b should default HdrSkybox to true");
-        Regex.Match(source, @"public\s+bool\s+ColorGradingLut\s*=\s*true")
-            .Success.Should().BeTrue("Phase 5b should default ColorGradingLut to true");
+        Regex.Match(source, @"public\s+bool\s+HdrSkybox\s*=\s*false")
+            .Success.Should().BeTrue("Phase 5b should default HdrSkybox to false");
+        Regex.Match(source, @"public\s+bool\s+ColorGradingLut\s*=\s*false")
+            .Success.Should().BeTrue("Phase 5b should default ColorGradingLut to false");
     }
 
     [Fact]
@@ -216,8 +250,8 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+SkeletalAnimation\s*=\s*true")
-            .Success.Should().BeTrue("Phase 6 should default SkeletalAnimation to true");
+        Regex.Match(source, @"public\s+bool\s+SkeletalAnimation\s*=\s*false")
+            .Success.Should().BeTrue("Phase 6 should default SkeletalAnimation to false");
     }
 
     [Fact]
@@ -225,8 +259,8 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+DayNightCycle\s*=\s*true")
-            .Success.Should().BeTrue("Phase 8 should default DayNightCycle to true");
+        Regex.Match(source, @"public\s+bool\s+DayNightCycle\s*=\s*false")
+            .Success.Should().BeTrue("Phase 8 should default DayNightCycle to false");
         Regex.Match(source, @"public\s+float\s+FogDensity\s*=\s*0\.05f")
             .Success.Should().BeTrue("Phase 8 should default FogDensity to 0.05f");
     }
@@ -236,10 +270,10 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+PostFX\s*=\s*true")
-            .Success.Should().BeTrue("Phase 9 should default PostFX to true");
-        Regex.Match(source, @"public\s+bool\s+SSAOEnabled\s*=\s*true")
-            .Success.Should().BeTrue("Phase 9 should default SSAOEnabled to true");
+        Regex.Match(source, @"public\s+bool\s+PostFX\s*=\s*false")
+            .Success.Should().BeTrue("Phase 9 should default PostFX to false");
+        Regex.Match(source, @"public\s+bool\s+SSAOEnabled\s*=\s*false")
+            .Success.Should().BeTrue("Phase 9 should default SSAOEnabled to false");
         Regex.Match(source, @"public\s+bool\s+SSGIEnabled\s*=\s*false")
             .Success.Should().BeTrue("Phase 9 should default SSGIEnabled to false");
     }
@@ -284,5 +318,83 @@ public class SavedSettingsTests
 
         Regex.Match(source, @"public\s+int\s+SmoothingIterations\s*=\s*0")
             .Success.Should().BeTrue("SmoothingIterations must default to 0 when smoothing is off");
+    }
+
+    [Fact]
+    public void SavedSettings_lightweight_preset_disables_postfx_bloom_and_aces()
+    {
+        var source = ReadSavedSettingsSource();
+        var body = ExtractMethodBody(source, "public static void ApplyLightweightPreset(SavedSettings s)");
+
+        body.Should().Contain("s.PostFX = false");
+        body.Should().Contain("s.SSAOEnabled = false");
+        body.Should().Contain("s.SSGIEnabled = false");
+        body.Should().Contain("s.BloomEnabled = false");
+        body.Should().Contain("s.ACESTonemapping = false");
+    }
+
+    [Fact]
+    public void SavedSettings_full_preset_enables_postfx_bloom_and_aces()
+    {
+        var source = ReadSavedSettingsSource();
+        var body = ExtractMethodBody(source, "public static void ApplyFullPreset(SavedSettings s)");
+
+        body.Should().Contain("s.PostFX = true");
+        body.Should().Contain("s.SSAOEnabled = true");
+        body.Should().Contain("s.SSGIEnabled = true");
+        body.Should().Contain("s.BloomEnabled = true");
+        body.Should().Contain("s.ACESTonemapping = true");
+    }
+
+    private static string ReadWsm3dPs1Source()
+    {
+        var root = FindRepoRoot();
+        var path = Path.Combine(root, "Tools/wsm3d.ps1");
+        File.Exists(path).Should().BeTrue($"wsm3d.ps1 must exist at {path}");
+        return File.ReadAllText(path);
+    }
+
+    private static Dictionary<string, bool> ParsePhaseDefaultsFromWsm3dPs1()
+    {
+        var source = ReadWsm3dPs1Source();
+        var blockMatch = Regex.Match(
+            source,
+            @"\$script:PhaseDefaults\s*=\s*@\{([^}]+)\}",
+            RegexOptions.Singleline);
+        blockMatch.Success.Should().BeTrue("wsm3d.ps1 must declare $script:PhaseDefaults");
+
+        var defaults = new Dictionary<string, bool>(StringComparer.Ordinal);
+        foreach (Match entry in Regex.Matches(
+                     blockMatch.Groups[1].Value,
+                     @"""([^""]+)""\s*=\s*\$(true|false)"))
+        {
+            defaults[entry.Groups[1].Value] = bool.Parse(entry.Groups[2].Value);
+        }
+
+        defaults.Count.Should().BeGreaterThan(0, "PhaseDefaults must list at least one phase flag");
+        return defaults;
+    }
+
+    private static bool ReadSavedSettingsBoolDefault(string fieldName)
+    {
+        var source = ReadSavedSettingsSource();
+        var pattern = $@"public\s+bool\s+{Regex.Escape(fieldName)}\s*=\s*(true|false)";
+        var match = Regex.Match(source, pattern);
+        match.Success.Should().BeTrue($"SavedSettings must declare bool default for {fieldName}");
+        return bool.Parse(match.Groups[1].Value);
+    }
+
+    [Fact]
+    public void Wsm3d_PhaseDefaults_match_SavedSettings_bool_defaults()
+    {
+        var phaseDefaults = ParsePhaseDefaultsFromWsm3dPs1();
+
+        foreach (var (fieldName, ps1Default) in phaseDefaults)
+        {
+            var csDefault = ReadSavedSettingsBoolDefault(fieldName);
+            ps1Default.Should().Be(
+                csDefault,
+                $"Tools/wsm3d.ps1 PhaseDefaults['{fieldName}'] must match SavedSettings.cs default");
+        }
     }
 }

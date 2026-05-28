@@ -201,7 +201,10 @@ namespace WorldSphereMod.Rig
                 {
                     Vector3 current = actor.current_position;
                     Vector3 next = actor.next_step_position;
-                    walkAmount = Mathf.Clamp01(Vector3.Distance(current, next));
+                    // Cylindrical X-wrap (CurrentShape == 0): raw Vector3.Distance
+                    // explodes near the seam when current.x and next.x sit on
+                    // opposite sides of the world. Tools.MathStuff.Dist wraps X.
+                    walkAmount = Mathf.Clamp01(Tools.MathStuff.Dist(current.x, next.x, current.y, next.y));
                 }
             }
             catch

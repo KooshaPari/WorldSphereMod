@@ -104,14 +104,14 @@ public sealed class TerrainSmoothingInvariantsTests
     }
 
     [Fact]
-    public void SavedSettings_terrain_polish_flags_default_true()
+    public void SavedSettings_terrain_polish_flags_default_false()
     {
         var settings = ReadSource(SavedSettingsRelative);
 
         Regex.IsMatch(settings, @"public\s+bool\s+BiomeBlending\s*=\s*true")
-            .Should().BeTrue("biome color blending must default ON for new installs");
-        Regex.IsMatch(settings, @"public\s+bool\s+MountainSlopeSmoothing\s*=\s*true")
-            .Should().BeTrue("mountain slope smoothing must default ON for new installs");
+            .Should().BeTrue("biome color blending must default ON for smooth terrain transitions");
+        Regex.IsMatch(settings, @"public\s+bool\s+MountainSlopeSmoothing\s*=\s*false")
+            .Should().BeTrue("mountain slope smoothing must default OFF for new installs");
 
         settings.Should().Contain("Terrain polish: blend biome colors",
             "BiomeBlending must remain documented as terrain polish");
@@ -165,13 +165,25 @@ public sealed class TerrainSmoothingInvariantsTests
         var core = ReadSource(CoreRelative);
         var blendBody = ExtractMethodBody(core, "static Color32 BlendBiomeColor(int index, Color32 fallback)");
 
-        blendBody.Should().Contain("const int radius = 2",
-            "biome blend must sample a local neighborhood");
-        blendBody.Should().Contain("GetBaseColor(sample.data.tile_id)",
-            "neighbor samples must use base colors, not recursively blended colors");
-        blendBody.Should().Contain("totalWeight",
-            "blend must normalize by accumulated sample weights");
-        blendBody.Should().Contain("Core.Sphere.IsWrapped",
+        blendBody.Should().Contain("const int radius = 3;",
+            "biome blending must use a fixed three-tile sampling radius");
+        blendBody.Should().Contain("for (int dy = -radius; dy <= radius; dy++)",
+            "biome blend must scan rows inside the sampling radius");
+        blendBody.Should().Contain("for (int dx = -radius; dx <= radius; dx++)",
+            "biome blend must scan columns inside the sampling radius");
+        blendBody.Should().Contain("float distance = Mathf.Sqrt((dx * dx) + (dy * dy));",
+            "sample weights must be distance-based, not cardinal-only");
+        blendBody.Should().Contain("if (distance > radius)",
+            "samples outside the circular radius must be skipped");
+        blendBody.Should().Contain("float weight = 1f - (distance / (radius + 1f));",
+            "blend strength must decay smoothly as distance increases");
+        blendBody.Should().Contain("if (sample.data.tile_id != center.data.tile_id)",
+            "different-biome samples must be boosted to soften boundaries");
+        blendBody.Should().Contain("totalWeight += weight;",
+            "neighbor contributions must accumulate into a normalized weighted average");
+
+        var sampleBody = ExtractMethodBody(core, "static bool TrySampleBaseColor(int x, int y, out Color32 color, out WorldTile tile)");
+        sampleBody.Should().Contain("Core.Sphere.IsWrapped",
             "wrapped worlds must wrap horizontal neighbor coordinates");
     }
 
@@ -204,10 +216,10 @@ public sealed class TerrainSmoothingInvariantsTests
 
         detectBody.Should().Contain("tile.TileHeight()",
             "cliff detection must compare upstream tile heights");
-        detectBody.Should().Contain("Mathf.Abs(tileHeight - rightHeight) > 1f",
-            "horizontal cliff edges must exceed one height unit");
-        detectBody.Should().Contain("Mathf.Abs(tileHeight - upHeight) > 1f",
-            "vertical cliff edges must exceed one height unit");
+        detectBody.Should().Contain("Mathf.Abs(tileHeight - rightHeight) > 0.1f",
+            "horizontal cliff edges must exceed minimum height threshold for smooth coverage");
+        detectBody.Should().Contain("Mathf.Abs(tileHeight - upHeight) > 0.1f",
+            "vertical cliff edges must exceed minimum height threshold for smooth coverage");
         detectBody.Should().Contain("Core.Sphere.GetColor(tile.data.tile_id)",
             "cliff quads must carry biome-blended tile colors");
     }
@@ -225,15 +237,17 @@ public sealed class TerrainSmoothingInvariantsTests
     }
 
     [Fact]
-    public void MountainSlopeSurface_EnsureMaterial_prefers_Standard_shader_chain()
+    public void MountainSlopeSurface_EnsureMaterial_resolves_OpaqueVertexColor_with_white_tint()
     {
         var source = ReadSource(TerrainSmoothingRelative);
         var ensureBody = ExtractMethodBody(source, "static bool EnsureMaterial()");
 
-        ensureBody.Should().Contain("string[] candidates =");
-        ensureBody.Should().Contain("\"Standard\"",
-            "Standard must remain the primary slope material to avoid black OpaqueVertexColor regressions");
-        ensureBody.Should().Contain("\"WSM3D/OpaqueVertexColor\"");
+        ensureBody.Should().Contain("LoadedShaders.TryGetValue(\"OpaqueVertexColor\"",
+            "slope material must resolve from the bundle-loaded shader cache first");
+        ensureBody.Should().Contain("Shader.Find(\"WSM3D/OpaqueVertexColor\")",
+            "slope material must fall back to Shader.Find when cache misses");
+        ensureBody.Should().Contain("Color.white",
+            "tint must be white so vertex colors are the sole albedo source");
         ensureBody.Should().Contain("material.enableInstancing",
             "slope material must validate instancing before adoption");
         ensureBody.Should().Contain("[WSM3D] No mountain slope smoothing shader found; overlay disabled.",

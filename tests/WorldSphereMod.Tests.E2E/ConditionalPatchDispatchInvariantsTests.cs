@@ -25,11 +25,11 @@ public sealed class ConditionalPatchDispatchInvariantsTests
     }
 
     [Fact]
-    public void Adr_0007_conditional_patch_dispatch_is_proposed_and_documents_harmony_gate()
+    public void Adr_0007_conditional_patch_dispatch_is_accepted_and_documents_harmony_gate()
     {
         var adr = ReadRepoFile("docs/adr/ADR-0007-conditional-patch-dispatch.md");
 
-        adr.Should().Contain("**Status:** Proposed");
+        adr.Should().Contain("**Status:** Accepted");
         adr.Should().Contain("Conditional Harmony patch dispatch");
         adr.Should().Contain("PhasePatchGate");
         adr.Should().Contain("[Phase]");

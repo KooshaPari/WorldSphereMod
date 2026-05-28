@@ -16,19 +16,19 @@ This fork lands a real 3D pipeline on top of that foundation:
 
 | Phase | Status | What changes |
 |---|---|---|
-| 0  | landed       | Fork metadata, build portability (`WORLDBOX_PATH`), CI, settings/API v2 |
-| 1  | **landed (default ON)** | Voxelized actors + buildings. Current code default: `VoxelEntities = true`. Live smoke-test verification is documented separately; do not infer it from the default alone. |
-| 2  | **landed (default ON)** | Procedural building meshes. Current code default: `ProceduralBuildings = true`. |
-| 3  | code-complete (default ON) | 3a trees/bushes/rocks crossed-quads + 3b surface overlays + walls as 3D prisms. Current code default: `CrossedQuadFoliage = true`. |
-| 4  | code-complete (default ON) | Mesh water — WaterGerstner shader source landed; AssetBundle bake deferred to Phase 5b. Current code default: `MeshWater = true`. |
-| 5  | code-complete (default ON) | Sun driver + shadow cascade config + procedural sky landed. Current code defaults: `HighShadows = true`, `HdrSkybox = true`, `ColorGradingLut = true`. |
-| 6  | **landed (default ON)** | Skeletal pipeline. Current code default: `SkeletalAnimation = true`. |
-| 7  | code-complete (default ON) | Worldspace UI: nameplate, HP bar, damage popups, selection ring all landed; SelectionHooks wired via `SelectedUnit`. Current code defaults: `WorldspaceUI = true`, `WorldspaceLabel3D = true`. |
-| 8  | code-complete (default ON) | TimeOfDay autonomous driver + SunRig color gradient; ProceduralSky landed. Current code default: `DayNightCycle = true`; `FogDensity = 0.05f`. |
-| 9  | partial / default ON | Particle bursts on 5 effect IDs + URP PostFX volume. Current code defaults: `ParticleEffects = true`, `PostFX = true`, `SSAOEnabled = true`, `SSGIEnabled = false`. |
-| 10 | code-complete (no proxy) | FrustumCuller + LodSelector + ImpostorBillboard + softened hardware gate; Proxy tier still routes to Voxel. |
+| 0  | CODE_LANDED | Fork metadata, build portability (`WORLDBOX_PATH`), CI, settings/API v2 |
+| 1  | PROVEN | Voxelized actors + buildings. **default ON** — `VoxelEntities = true`. visible_units=46 confirmed in-game. |
+| 2  | CODE_LANDED | Procedural building meshes. **default OFF** — `ProceduralBuildings = false`. |
+| 3  | CODE_LANDED | 3a trees/bushes/rocks crossed-quads + 3b surface overlays + walls as 3D prisms. Current code default: `CrossedQuadFoliage = false`. |
+| 4  | CODE_LANDED | Mesh water — WaterGerstner shader source landed; AssetBundle bake deferred. **default OFF** — `MeshWater = false`. |
+| 5  | CODE_LANDED | Sun driver + shadow cascade config + procedural sky landed. Current code defaults: `HighShadows = false`, `HdrSkybox = false`, `ColorGradingLut = false`. |
+| 6  | CODE_LANDED | Skeletal pipeline. Current code default: `SkeletalAnimation = false`. |
+| 7  | CODE_LANDED | Worldspace UI: nameplate, HP bar, damage popups, selection ring all landed; SelectionHooks wired via `SelectedUnit`. Current code defaults: `WorldspaceUI = false`, `WorldspaceLabel3D = false`. |
+| 8  | CODE_LANDED | TimeOfDay autonomous driver + SunRig color gradient; ProceduralSky landed. **default OFF** — `DayNightCycle = false`; `FogDensity = 0.05f`. |
+| 9  | CODE_LANDED | Particle bursts on 5 effect IDs + URP PostFX volume. Current code defaults: `ParticleEffects = false`, `PostFX = false`, `SSAOEnabled = false`, `SSGIEnabled = false`. |
+| 10 | CODE_LANDED | FrustumCuller + LodSelector + ImpostorBillboard + softened hardware gate; Proxy tier still routes to Voxel. |
 
-`v2.0.0-beta.0` marks the start of beta: all 10 phases are code-complete, default-on behavior is active, and visible 3D rendering is now fully in place.
+`v2.0.0-beta.0` marks the start of beta in the project history. Phase 1 voxel actors are now PROVEN with visible_units=46 confirmed in-game. Remaining phases await runtime validation per `docs/issue-triage.md`.
 
 The full plan, including file-by-file changes and verification steps, lives
 at `docs/PLAN.md`.
@@ -165,6 +165,10 @@ still does *something* useful on incompatible GPUs.
 - This fork: documented in `docs/PLAN.md`.
 
 ## Dev tooling
+
+Parallel topic work uses git worktrees under `%USERPROFILE%\.cursor\worktrees\WorldSphereMod` (`wt/<topic>` branches, one subagent each).
+Merge to `claude/research-ultraplan-fork-DdgI5` before a single `pwsh Tools/do-all.ps1 -Vision` from the main repo (OmniRoute vision degrades to off when the laptop probe fails).
+Full workflow: [`docs/HANDOFF.md`](docs/HANDOFF.md#parallel-development-worktrees).
 
 | Component | Purpose | Invocation |
 |---|---|---|

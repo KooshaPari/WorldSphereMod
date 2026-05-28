@@ -29,7 +29,31 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+if sys.platform == "win32":
+    from ctypes import wintypes as _wintypes
+else:
+    _wintypes = None  # type: ignore[assignment]
+
+def _load_env_file(filename: str) -> None:
+    env_file = Path(__file__).resolve().parent.parent / filename
+    if not env_file.is_file():
+        return
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+_load_env_file("omniroute-vision.env")
+_load_env_file("fireworks-vision.env")
+
 from vision import (
+    FireworksVisionValidator,
     OmniRouteVisionValidator,
     VisionValidationError,
     VisionValidator,
@@ -84,17 +108,34 @@ class BridgeClient:
         return url
 
     def _request_json(self, method: str, path: str, params: Dict[str, Any] | None = None) -> Dict[str, Any]:
-        request = urllib.request.Request(
-            self._url(path, params),
-            method=method.upper(),
-        )
-        request.add_header("Accept", "application/json")
-        with urllib.request.urlopen(request, timeout=self.timeout) as resp:
-            body = resp.read().decode("utf-8")
-            data = json.loads(body) if body else {}
-            if not isinstance(data, dict):
-                return {"ok": False, "error": f"non-dict response: {body[:120]}"}
-            return data
+        retriable_get = method.upper() == "GET" and path in ("/health", "/telemetry")
+        attempts = 2 if retriable_get else 1
+        last_error: urllib.error.URLError | None = None
+
+        for attempt in range(attempts):
+            request = urllib.request.Request(
+                self._url(path, params),
+                method=method.upper(),
+            )
+            request.add_header("Accept", "application/json")
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout) as resp:
+                    body = resp.read().decode("utf-8")
+                    data = json.loads(body) if body else {}
+                    if data is None:
+                        return {"ok": False, "error": "null_response", "raw": body[:120]}
+                    if not isinstance(data, dict):
+                        return {"ok": False, "error": f"non-dict response: {body[:120]}"}
+                    return data
+            except urllib.error.URLError as exc:
+                last_error = exc
+                if not retriable_get or attempt >= attempts - 1:
+                    raise
+                time.sleep(1.0)
+
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("request failed without error")
 
     def health(self) -> Dict[str, Any]:
         return self._request_json("GET", "/health")
@@ -118,12 +159,47 @@ def _run_wait_n_frames(frames: int, fps: float) -> None:
         time.sleep(frame_delay)
 
 
+def _wait_bridge_alive(client: "BridgeClient", timeout_s: float = 90.0) -> bool:
+    deadline = time.time() + max(timeout_s, 1.0)
+    while time.time() < deadline:
+        try:
+            health = client.health()
+            if health.get("ok") and health.get("bridgeAlive"):
+                return True
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError):
+            pass
+        time.sleep(2.0)
+    return False
+
+
 class Win32ScreenshotError(RuntimeError):
     pass
 
 
+def is_worldbox_process_name(process_name: str) -> bool:
+    """Return True for WorldBox process names (worldbox.exe / WorldBox)."""
+    normalized = process_name.strip().lower()
+    if normalized.endswith(".exe"):
+        normalized = normalized[:-4]
+    return normalized == "worldbox"
+
+
+def is_worldbox_window_title(title: str) -> bool:
+    return "worldbox" in title.strip().lower()
+
+
+def matches_worldbox_window(title: str, process_name: str) -> bool:
+    return is_worldbox_window_title(title) or is_worldbox_process_name(process_name)
+
+
 class Win32Capture:
-    """Capture full-screen screenshots using native Win32 GDI APIs."""
+    """Capture screenshots using native Win32 GDI APIs."""
+
+    SRCCOPY = 0x00CC0020
+    DIB_RGB_COLORS = 0
+    GW_OWNER = 4
+    PW_CLIENTONLY = 0x00000001
+    TH32CS_SNAPPROCESS = 0x00000002
 
     def __init__(self) -> None:
         try:
@@ -131,8 +207,28 @@ class Win32Capture:
             self.ctypes = ctypes
         except Exception as exc:
             raise Win32ScreenshotError("ctypes not available in this Python runtime") from exc
+        self.last_capture_target = "desktop"
 
     def capture(self, out_path: Path) -> Path:
+        if sys.platform == "win32":
+            hwnd = self._find_worldbox_hwnd()
+            if hwnd:
+                try:
+                    self.last_capture_target = "worldbox_window"
+                    return self._capture_window_client(hwnd, out_path)
+                except Win32ScreenshotError:
+                    pass
+        self.last_capture_target = "desktop"
+        return self._capture_desktop(out_path)
+
+    def _load_dlls(self) -> Tuple[Any, Any]:
+        c = self.ctypes
+        return (
+            c.WinDLL("user32", use_last_error=True),
+            c.WinDLL("gdi32", use_last_error=True),
+        )
+
+    def _bitmap_structures(self) -> Tuple[Any, Any, Any]:
         c = self.ctypes
 
         class BITMAPINFOHEADER(c.Structure):
@@ -151,18 +247,233 @@ class Win32Capture:
             ]
 
         class RGBQUAD(c.Structure):
-            _fields_ = [("rgbBlue", c.c_ubyte), ("rgbGreen", c.c_ubyte), ("rgbRed", c.c_ubyte), ("rgbReserved", c.c_ubyte)]
+            _fields_ = [
+                ("rgbBlue", c.c_ubyte),
+                ("rgbGreen", c.c_ubyte),
+                ("rgbRed", c.c_ubyte),
+                ("rgbReserved", c.c_ubyte),
+            ]
 
         class BITMAPINFO(c.Structure):
             _fields_ = [("bmiHeader", BITMAPINFOHEADER), ("bmiColors", RGBQUAD * 1)]
 
-        user32 = c.WinDLL("user32", use_last_error=True)
-        gdi32 = c.WinDLL("gdi32", use_last_error=True)
+        return BITMAPINFOHEADER, RGBQUAD, BITMAPINFO
+
+    def _find_worldbox_process_ids(self, kernel32: Any) -> set[int]:
+        c = self.ctypes
+        wintypes = _wintypes
+
+        class PROCESSENTRY32W(c.Structure):
+            _fields_ = [
+                ("dwSize", wintypes.DWORD),
+                ("cntUsage", wintypes.DWORD),
+                ("th32ProcessID", wintypes.DWORD),
+                ("th32DefaultHeapID", c.c_size_t),
+                ("th32ModuleID", wintypes.DWORD),
+                ("cntThreads", wintypes.DWORD),
+                ("th32ParentProcessID", wintypes.DWORD),
+                ("pcPriClassBase", wintypes.LONG),
+                ("dwFlags", wintypes.DWORD),
+                ("szExeFile", wintypes.WCHAR * 260),
+            ]
+
+        snapshot = kernel32.CreateToolhelp32Snapshot(self.TH32CS_SNAPPROCESS, 0)
+        if snapshot in (-1, 0xFFFFFFFF):
+            return set()
+
+        entry = PROCESSENTRY32W()
+        entry.dwSize = c.sizeof(PROCESSENTRY32W)
+        pids: set[int] = set()
+        try:
+            if not kernel32.Process32FirstW(snapshot, c.byref(entry)):
+                return pids
+            while True:
+                if is_worldbox_process_name(entry.szExeFile):
+                    pids.add(int(entry.th32ProcessID))
+                if not kernel32.Process32NextW(snapshot, c.byref(entry)):
+                    break
+        finally:
+            kernel32.CloseHandle(snapshot)
+        return pids
+
+    def _find_worldbox_hwnd(self) -> int | None:
+        c = self.ctypes
+        wintypes = _wintypes
+        user32, _ = self._load_dlls()
+        kernel32 = c.WinDLL("kernel32", use_last_error=True)
+
+        class RECT(c.Structure):
+            _fields_ = [
+                ("left", c.c_long),
+                ("top", c.c_long),
+                ("right", c.c_long),
+                ("bottom", c.c_long),
+            ]
+
+        worldbox_pids = self._find_worldbox_process_ids(kernel32)
+        best_hwnd: int | None = None
+        best_area = 0
+
+        def _read_window_title(hwnd: int) -> str:
+            length = user32.GetWindowTextLengthW(hwnd)
+            if length <= 0:
+                return ""
+            buf = c.create_unicode_buffer(length + 1)
+            user32.GetWindowTextW(hwnd, buf, length + 1)
+            return buf.value
+
+        @c.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        def enum_proc(hwnd: int, _lparam: int) -> bool:
+            nonlocal best_hwnd, best_area
+            if not user32.IsWindow(hwnd):
+                return True
+            if user32.GetWindow(hwnd, self.GW_OWNER):
+                return True
+            if user32.IsIconic(hwnd):
+                return True
+
+            pid = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, c.byref(pid))
+            title = _read_window_title(hwnd)
+            is_worldbox_pid = pid.value in worldbox_pids
+            if not is_worldbox_pid and not is_worldbox_window_title(title):
+                return True
+
+            rect = RECT()
+            if not user32.GetWindowRect(hwnd, c.byref(rect)):
+                return True
+            width = max(0, rect.right - rect.left)
+            height = max(0, rect.bottom - rect.top)
+            area = width * height
+            if area <= 0:
+                return True
+            if area > best_area:
+                best_area = area
+                best_hwnd = int(hwnd)
+            return True
+
+        user32.EnumWindows(enum_proc, 0)
+        return best_hwnd
+
+    def _write_png(self, width: int, height: int, pixel_buf: Any, out_path: Path) -> Path:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            from PIL import Image
+        except Exception as exc:
+            raise Win32ScreenshotError(
+                "Pillow is required for PNG encoding; install with `pip install pillow`."
+            ) from exc
+
+        image = Image.frombuffer("RGBA", (width, height), pixel_buf, "raw", "BGRA", 0, 1)
+        image.save(out_path, format="PNG")
+        return out_path
+
+    def _read_bitmap_bits(
+        self,
+        gdi32: Any,
+        memdc: Any,
+        hbmp: Any,
+        width: int,
+        height: int,
+        BITMAPINFOHEADER: Any,
+        BITMAPINFO: Any,
+    ) -> Any:
+        c = self.ctypes
+        header = BITMAPINFOHEADER(
+            biSize=c.sizeof(BITMAPINFOHEADER),
+            biWidth=width,
+            biHeight=-height,
+            biPlanes=1,
+            biBitCount=32,
+            biCompression=0,
+            biSizeImage=width * height * 4,
+            biXPelsPerMeter=0,
+            biYPelsPerMeter=0,
+            biClrUsed=0,
+            biClrImportant=0,
+        )
+        bmi = BITMAPINFO(bmiHeader=header)
+        pixel_buf = c.create_string_buffer(width * height * 4)
+        got = gdi32.GetDIBits(
+            memdc,
+            hbmp,
+            0,
+            height,
+            c.byref(pixel_buf),
+            c.byref(bmi),
+            self.DIB_RGB_COLORS,
+        )
+        if got != height:
+            raise Win32ScreenshotError("GetDIBits returned unexpected row count")
+        return pixel_buf
+
+    def _capture_window_client(self, hwnd: int, out_path: Path) -> Path:
+        c = self.ctypes
+        user32, gdi32 = self._load_dlls()
+        BITMAPINFOHEADER, _, BITMAPINFO = self._bitmap_structures()
+
+        class RECT(c.Structure):
+            _fields_ = [
+                ("left", c.c_long),
+                ("top", c.c_long),
+                ("right", c.c_long),
+                ("bottom", c.c_long),
+            ]
+
+        client_rect = RECT()
+        if not user32.GetClientRect(hwnd, c.byref(client_rect)):
+            raise Win32ScreenshotError("failed to get WorldBox client rect")
+        width = client_rect.right - client_rect.left
+        height = client_rect.bottom - client_rect.top
+        if width <= 0 or height <= 0:
+            raise Win32ScreenshotError("WorldBox client bounds were empty")
+
+        hdc_window = user32.GetWindowDC(hwnd)
+        if not hdc_window:
+            raise Win32ScreenshotError("failed to get WorldBox window DC")
+
+        memdc = gdi32.CreateCompatibleDC(hdc_window)
+        if not memdc:
+            user32.ReleaseDC(hwnd, hdc_window)
+            raise Win32ScreenshotError("failed to create memory DC")
+
+        hbmp = gdi32.CreateCompatibleBitmap(hdc_window, width, height)
+        if not hbmp:
+            gdi32.DeleteDC(memdc)
+            user32.ReleaseDC(hwnd, hdc_window)
+            raise Win32ScreenshotError("failed to create compatible bitmap")
+
+        old_obj = gdi32.SelectObject(memdc, hbmp)
+        copied = bool(user32.PrintWindow(hwnd, memdc, self.PW_CLIENTONLY))
+        if not copied:
+            copied = bool(
+                gdi32.BitBlt(memdc, 0, 0, width, height, hdc_window, 0, 0, self.SRCCOPY)
+            )
+        if not copied:
+            gdi32.SelectObject(memdc, old_obj)
+            gdi32.DeleteObject(hbmp)
+            gdi32.DeleteDC(memdc)
+            user32.ReleaseDC(hwnd, hdc_window)
+            raise Win32ScreenshotError("failed to copy WorldBox window pixels")
+
+        try:
+            pixel_buf = self._read_bitmap_bits(
+                gdi32, memdc, hbmp, width, height, BITMAPINFOHEADER, BITMAPINFO
+            )
+            return self._write_png(width, height, pixel_buf, out_path)
+        finally:
+            gdi32.SelectObject(memdc, old_obj)
+            gdi32.DeleteObject(hbmp)
+            gdi32.DeleteDC(memdc)
+            user32.ReleaseDC(hwnd, hdc_window)
+
+    def _capture_desktop(self, out_path: Path) -> Path:
+        c = self.ctypes
+        user32, gdi32 = self._load_dlls()
+        BITMAPINFOHEADER, _, BITMAPINFO = self._bitmap_structures()
 
         SM_CXSCREEN = 0
         SM_CYSCREEN = 1
-        SRCCOPY = 0x00CC0020
-        DIB_RGB_COLORS = 0
 
         width = user32.GetSystemMetrics(SM_CXSCREEN)
         height = user32.GetSystemMetrics(SM_CYSCREEN)
@@ -186,68 +497,23 @@ class Win32Capture:
             raise Win32ScreenshotError("failed to create compatible bitmap")
 
         old_obj = gdi32.SelectObject(memdc, hbmp)
-        if not gdi32.BitBlt(memdc, 0, 0, width, height, hdc, 0, 0, SRCCOPY):
+        if not gdi32.BitBlt(memdc, 0, 0, width, height, hdc, 0, 0, self.SRCCOPY):
             gdi32.SelectObject(memdc, old_obj)
             gdi32.DeleteObject(hbmp)
             gdi32.DeleteDC(memdc)
             user32.ReleaseDC(hwnd, hdc)
             raise Win32ScreenshotError("BitBlt failed while copying screen")
 
-        header = BITMAPINFOHEADER(
-            biSize=c.sizeof(BITMAPINFOHEADER),
-            biWidth=width,
-            biHeight=-height,
-            biPlanes=1,
-            biBitCount=32,
-            biCompression=0,
-            biSizeImage=width * height * 4,
-            biXPelsPerMeter=0,
-            biYPelsPerMeter=0,
-            biClrUsed=0,
-            biClrImportant=0,
-        )
-        bmi = BITMAPINFO(bmiHeader=header)
-
-        buf_size = width * height * 4
-        pixel_buf = c.create_string_buffer(buf_size)
-        got = gdi32.GetDIBits(
-            memdc,
-            hbmp,
-            0,
-            height,
-            c.byref(pixel_buf),
-            c.byref(bmi),
-            DIB_RGB_COLORS,
-        )
-        if got != height:
-            gdi32.SelectObject(memdc, old_obj)
-            gdi32.DeleteObject(hbmp)
-            gdi32.DeleteDC(memdc)
-            user32.ReleaseDC(hwnd, hdc)
-            raise Win32ScreenshotError("GetDIBits returned unexpected row count")
-
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Pillow is used to encode PNG while keeping capture path via Win32.
         try:
-            from PIL import Image
-        except Exception as exc:
+            pixel_buf = self._read_bitmap_bits(
+                gdi32, memdc, hbmp, width, height, BITMAPINFOHEADER, BITMAPINFO
+            )
+            return self._write_png(width, height, pixel_buf, out_path)
+        finally:
             gdi32.SelectObject(memdc, old_obj)
             gdi32.DeleteObject(hbmp)
             gdi32.DeleteDC(memdc)
             user32.ReleaseDC(hwnd, hdc)
-            raise Win32ScreenshotError(
-                "Pillow is required for PNG encoding; install with `pip install pillow`."
-            ) from exc
-
-        image = Image.frombuffer("RGBA", (width, height), pixel_buf, "raw", "BGRA", 0, 1)
-        image.save(out_path, format="PNG")
-
-        gdi32.SelectObject(memdc, old_obj)
-        gdi32.DeleteObject(hbmp)
-        gdi32.DeleteDC(memdc)
-        user32.ReleaseDC(hwnd, hdc)
-        return out_path
 
 
 def _telemetry_value(payload: Dict[str, Any], name: str) -> Any:
@@ -374,7 +640,18 @@ def _execute_scenario(
                 raise ValueError(f"load_save step #{index} requires non-negative slot")
             payload = client.load_save(slot)
             ok = bool(payload.get("ok"))
-            details = payload
+            details = dict(payload)
+            if ok and payload.get("queued"):
+                settle_frames = int(raw_step.get("settle_frames", 150))
+                settle_fps = float(raw_step.get("settle_fps", raw_step.get("fps", 30)))
+                _run_wait_n_frames(settle_frames, settle_fps)
+                details["settle_frames"] = settle_frames
+                details["settle_fps"] = settle_fps
+                bridge_timeout = float(raw_step.get("bridge_wait_seconds", 90))
+                bridge_alive = _wait_bridge_alive(client, bridge_timeout)
+                details["bridge_alive"] = bridge_alive
+                if not bridge_alive:
+                    ok = False
         elif action == "wait_n_frames":
             frames = int(raw_step.get("frames", raw_step.get("count", 0)))
             fps = float(raw_step.get("fps", raw_step.get("frame_rate", 30)))
@@ -413,7 +690,10 @@ def _execute_scenario(
                 screenshot_path = artifact_root / screenshot_path
             img_path = screenshot.capture(screenshot_path)
             ok = True
-            details = {"path": str(img_path)}
+            details = {
+                "path": str(img_path),
+                "capture_target": screenshot.last_capture_target,
+            }
 
             vision = raw_step.get("vision") or {}
             if vision:
@@ -430,11 +710,28 @@ def _execute_scenario(
                         else "validator unavailable",
                     }
                 else:
-                    result = validator.validate(img_path, prompt, criteria)
-                    details["vision"] = result
-                    ok = bool(result.get("passes", False))
-                    if required and not ok:
-                        details["error"] = result.get("reason", "vision criteria failed")
+                    try:
+                        result = validator.validate(img_path, prompt, criteria)
+                    except VisionValidationError as exc:
+                        details["vision"] = {
+                            "ok": False,
+                            "required": required,
+                            "status": "failed" if required else "skipped",
+                            "reason": str(exc),
+                        }
+                        if required:
+                            raise
+                    else:
+                        details["vision"] = {
+                            "ok": bool(result.get("passes", False)),
+                            "required": required,
+                            "status": "passed" if result.get("passes", False) else "failed",
+                            "result": result,
+                        }
+                        if required:
+                            ok = bool(result.get("passes", False))
+                            if not ok:
+                                details["error"] = result.get("reason", "vision criteria failed")
         elif action == "assert_telemetry":
             required = bool(raw_step.get("required", True))
             ok, details = _assert_telemetry(raw_step, client)
@@ -467,6 +764,11 @@ def _execute_scenario(
 
 
 def _default_vision_backend() -> str:
+    explicit = (os.getenv("PLAYCUA_VISION_BACKEND") or "").strip().lower()
+    if explicit in {"fireworks", "omniroute", "anthropic", "off"}:
+        return explicit
+    if os.getenv("FIREWORKS_API_KEY", "").strip():
+        return "fireworks"
     if os.getenv("OMNROUTE_API_KEY", "").strip():
         return "omniroute"
     if os.getenv("ANTHROPIC_API_KEY", "").strip():
@@ -474,8 +776,13 @@ def _default_vision_backend() -> str:
     return "off"
 
 
+def _fireworks_model_from_env() -> str:
+    return (os.getenv("FIREWORKS_VISION_MODEL") or "accounts/fireworks/models/kimi-k2p5").strip()
+
+
 def _omniroute_model_from_env() -> str:
-    return (os.getenv("OMNROUTE_VISION_MODEL") or os.getenv("OMNROUTE_VISION_COMBO") or "").strip()
+    # Prefer combo name — forwards multimodal payloads; bare model ids may drop images.
+    return (os.getenv("OMNROUTE_VISION_COMBO") or os.getenv("OMNROUTE_VISION_MODEL") or "").strip()
 
 
 def _create_vision_validator(args: argparse.Namespace) -> VisionValidatorProtocol | None:
@@ -489,6 +796,13 @@ def _create_vision_validator(args: argparse.Namespace) -> VisionValidatorProtoco
             model=args.omniroute_model,
             timeout_s=args.omniroute_timeout,
         )
+    if backend == "fireworks":
+        return FireworksVisionValidator(
+            api_key=args.fireworks_key,
+            base_url=args.fireworks_base_url,
+            model=args.fireworks_model,
+            timeout_s=args.fireworks_timeout,
+        )
     if backend == "anthropic":
         if not args.anthropic_key:
             raise VisionValidationError("Anthropic vision selected but ANTHROPIC_API_KEY is missing")
@@ -501,7 +815,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("scenario", help="Path to YAML scenario")
     parser.add_argument("--host", default="127.0.0.1", help="BridgeRPC host")
     parser.add_argument("--port", type=int, default=8766, help="BridgeRPC port")
-    parser.add_argument("--bridge-timeout", type=float, default=8.0, help="HTTP timeout seconds")
+    parser.add_argument("--bridge-timeout", type=float, default=30.0, help="HTTP timeout seconds")
     parser.add_argument("--no-healthcheck", action="store_true", help="Skip bridge healthcheck")
     parser.add_argument(
         "--report",
@@ -510,12 +824,33 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--vision-backend",
-        choices=["omniroute", "anthropic", "off"],
+        choices=["fireworks", "omniroute", "anthropic", "off"],
         default=None,
         help=(
-            "Vision provider (default: omniroute if OMNROUTE_API_KEY set, "
-            "else anthropic if ANTHROPIC_API_KEY set, else off)"
+            "Vision provider (default: fireworks if FIREWORKS_API_KEY set, "
+            "else omniroute if OMNROUTE_API_KEY set, else anthropic, else off)"
         ),
+    )
+    parser.add_argument(
+        "--fireworks-base-url",
+        default=os.getenv("FIREWORKS_BASE_URL", "https://api.fireworks.ai/inference/v1"),
+        help="Fireworks OpenAI-compatible base URL (or FIREWORKS_BASE_URL)",
+    )
+    parser.add_argument(
+        "--fireworks-key",
+        default=os.getenv("FIREWORKS_API_KEY", ""),
+        help="Fireworks API key (or FIREWORKS_API_KEY env / User scope on Windows)",
+    )
+    parser.add_argument(
+        "--fireworks-model",
+        default=_fireworks_model_from_env(),
+        help="Fireworks vision model (FIREWORKS_VISION_MODEL, default kimi-k2p5)",
+    )
+    parser.add_argument(
+        "--fireworks-timeout",
+        type=float,
+        default=120.0,
+        help="HTTP timeout seconds for Fireworks vision requests",
     )
     parser.add_argument(
         "--omniroute-base-url",
@@ -535,7 +870,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--omniroute-timeout",
         type=float,
-        default=120.0,
+        default=300.0,
         help="HTTP timeout seconds for OmniRoute vision requests",
     )
     parser.add_argument(

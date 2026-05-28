@@ -47,14 +47,14 @@ public sealed class Phase6RigRegistryTests
         var source = ReadSource(@"WorldSphereMod/Code/Constants.cs");
 
         source.Should().Contain("ActorRigTypes");
-        foreach (var id in new[] { "human", "wolf", "bear", "snake", "sand_spider", "dragon", "crabzilla" })
+        foreach (var id in new[] { "human", "dwarf", "elf", "orc", "goblin", "wolf", "bear", "snake", "butterfly", "bee", "bird", "eagle", "sand_spider", "dragon", "crabzilla" })
         {
             source.Should().Contain($"[\"{id}\"]", $"ActorRigTypes should include {id}");
         }
     }
 
     [Fact]
-    public void Constants_resolve_actor_rig_uses_registry_then_humanoid_default()
+    public void Constants_resolve_actor_rig_uses_registry_then_prefix_then_humanoid_default()
     {
         var source = ReadSource(@"WorldSphereMod/Code/Constants.cs");
 
@@ -62,6 +62,11 @@ public sealed class Phase6RigRegistryTests
         source.Should().Contain("RegisterActorRig");
         source.Should().Contain("return RigType.Humanoid");
         source.Should().Contain("VehicleShapeHints.IsVehicleAssetId");
+        source.Should().Contain("MatchesAnyPrefix");
+        source.Should().Contain("_humanoidPrefixes");
+        source.Should().Contain("_quadrupedPrefixes");
+        source.Should().Contain("_birdPrefixes");
+        source.Should().Contain("_insectPrefixes");
     }
 
     [Fact]
@@ -69,7 +74,6 @@ public sealed class Phase6RigRegistryTests
     {
         var source = ReadSource(@"WorldSphereMod/Code/Constants.cs");
 
-        source.Should().NotContain("[\"eagle\"]");
         source.Should().NotContain("[\"spider\"]");
     }
 

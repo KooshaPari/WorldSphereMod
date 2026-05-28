@@ -68,12 +68,12 @@ public sealed class MeshWaterInvariantsTests
     }
 
     [Fact]
-    public void SavedSettings_MeshWater_defaults_true()
+    public void SavedSettings_MeshWater_defaults_false()
     {
         var settings = ReadSource(SavedSettingsRelative);
 
-        Regex.IsMatch(settings, @"public\s+bool\s+MeshWater\s*=\s*true")
-            .Should().BeTrue("Phase 4 mesh water must default ON for new installs");
+        Regex.IsMatch(settings, @"public\s+bool\s+MeshWater\s*=\s*false")
+            .Should().BeTrue("Phase 4 mesh water must default OFF for new installs");
         settings.Should().Contain("Phase 4: Mesh water surface",
             "MeshWater must remain documented as the Phase 4 water toggle");
     }
@@ -100,18 +100,9 @@ public sealed class MeshWaterInvariantsTests
         ensureBody.Should().Contain("LoadedShaders.TryGetValue(\"GerstnerWater\"",
             "bundled GerstnerWater must be preferred when AssetBundle cache is warm");
         ensureBody.Should().Contain("Shader.Find(\"WSM3D/GerstnerWater\")",
-            "runtime must probe the baked shader name before Resources fallback");
-        ensureBody.Should().Contain("Resources.Load<Shader>(\"Shaders/WaterGerstner\")",
-            "EnsureMaterial must load the shipped WaterGerstner.shader resource");
+            "runtime must probe the baked shader name when bundle cache is cold");
 
-        ensureBody.Should().Contain("string[] candidates =");
-        ensureBody.Should().Contain("\"Universal Render Pipeline/Lit\"");
-        ensureBody.Should().Contain("\"Standard\"");
-        ensureBody.Should().Contain("\"Universal Render Pipeline/Unlit\"");
-        ensureBody.Should().NotContain("\"Sprites/Default\"",
-            "Sprites/Default is a transparent dummy — it caused opaque-black water in fallback");
-
-        ensureBody.Should().Contain("[WSM3D] No water shader found; water disabled.",
+        ensureBody.Should().Contain("[WSM3D] No bundled GerstnerWater shader found; water disabled.",
             "missing shader path must disable water instead of creating a broken surface");
     }
 
@@ -122,12 +113,12 @@ public sealed class MeshWaterInvariantsTests
         var configureBody = ExtractMethodBody(source,
             "static void ConfigureWaterMaterial(Material material, Color waterTint,");
 
+        configureBody.Should().Contain("SetStandardTransparentMode(material)",
+            "built-in Standard fallback should use the shared transparent setup helper");
         configureBody.Should().Contain("EnableKeyword(\"_EMISSION\")",
             "Standard/URP Lit fallback must self-illuminate in zero-light scenes");
-        configureBody.Should().Contain("material.renderQueue = 2000",
-            "built-in Standard fallback must use opaque queue to avoid black transparent water");
-        configureBody.Should().Contain("MeshWater creates blackworld",
-            "regression comment must stay attached to the renderQueue guard");
+        configureBody.Should().Contain("material.renderQueue = 3000",
+            "GerstnerWater path must use transparent queue for depth-based alpha blending");
     }
 
     [Fact]

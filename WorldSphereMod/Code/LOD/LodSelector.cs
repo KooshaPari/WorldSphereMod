@@ -29,16 +29,15 @@ namespace WorldSphereMod.LOD
         static float _cachedLodScale = float.NaN;
         static float _cachedVoxelThreshold = float.NaN;
         static float _cachedProxyThreshold = float.NaN;
+        static float _cachedVoxelScale = float.NaN;
         static float _voxelMaxDistSqr;
         static float _proxyMaxDistSqr;
-        // Entity height is the assumed world-units height used to compute the LOD
-        // screen-projected size threshold. Phase 1 ships with VoxelScaleMultiplier=8
-        // (see project_wsm3d_phase1_visible — meshes are 8x oversize so they're visible
-        // at vanilla strategy-view altitude). Pre-multiplying entityHeight here keeps
-        // the LOD math in sync with the actual rendered size without forcing the user
-        // to set LODScale=8 manually.
-        // Bumped 8→16 at alpha.8 to match VoxelScaleMultiplier=16 (commit 698883e).
-        const float _entityHeight = 0.5f * 16.0f;
+        // Base vanilla actor sprite half-height in world units. Actual rendered
+        // height = _baseEntityHeight * VoxelScaleMultiplier. Read VoxelScaleMultiplier
+        // at runtime so the LOD math tracks the live setting (otherwise stale JSON or
+        // a user-changed multiplier silently demotes every actor to Impostor — see
+        // project_wsm3d_lod_threshold_bug).
+        const float _baseEntityHeight = 0.5f;
 
         public static LodTier Select(Vector3 worldPos, int instanceId)
         {
@@ -49,18 +48,22 @@ namespace WorldSphereMod.LOD
 
             float fov = cam.fieldOfView;
             float lodScale = Core.savedSettings.LODScale;
+            float voxelScale = Mathf.Max(0.0001f, Core.savedSettings.VoxelScaleMultiplier);
             if (fov != _cachedFov || lodScale != _cachedLodScale
-                || VoxelThreshold != _cachedVoxelThreshold || ProxyThreshold != _cachedProxyThreshold)
+                || VoxelThreshold != _cachedVoxelThreshold || ProxyThreshold != _cachedProxyThreshold
+                || voxelScale != _cachedVoxelScale)
             {
+                float entityHeight = _baseEntityHeight * voxelScale;
                 float tanHalfFov = Mathf.Max(0.0001f, Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad));
-                float voxelMaxDist = _entityHeight * lodScale / (VoxelThreshold * tanHalfFov);
-                float proxyMaxDist = _entityHeight * lodScale / (ProxyThreshold * tanHalfFov);
+                float voxelMaxDist = entityHeight * lodScale / (VoxelThreshold * tanHalfFov);
+                float proxyMaxDist = entityHeight * lodScale / (ProxyThreshold * tanHalfFov);
                 _voxelMaxDistSqr = voxelMaxDist * voxelMaxDist;
                 _proxyMaxDistSqr = proxyMaxDist * proxyMaxDist;
                 _cachedFov = fov;
                 _cachedLodScale = lodScale;
                 _cachedVoxelThreshold = VoxelThreshold;
                 _cachedProxyThreshold = ProxyThreshold;
+                _cachedVoxelScale = voxelScale;
             }
 
             Vector3 camPos = cam.transform.position;

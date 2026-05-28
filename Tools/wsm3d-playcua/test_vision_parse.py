@@ -28,6 +28,12 @@ class VisionParseTests(unittest.TestCase):
         self.assertFalse(result["passes"])
         self.assertEqual(result["reason"], "missing HUD")
 
+    def test_parse_json_embedded_in_plain_text(self) -> None:
+        raw = 'Final answer: {"passes": true, "reason": "scene is clear", "confidence": 0.75}'
+        result = parse_vision_response(raw)
+        self.assertTrue(result["passes"])
+        self.assertEqual(result["reason"], "scene is clear")
+
     def test_parse_empty_response(self) -> None:
         result = parse_vision_response("   \n  ")
         self.assertFalse(result["passes"])
@@ -40,6 +46,11 @@ class VisionParseTests(unittest.TestCase):
             "not json" in result["reason"] or "parse failed" in result["reason"],
             msg=result["reason"],
         )
+
+    def test_parse_textual_passes_fallback(self) -> None:
+        result = parse_vision_response("Vision result: passes true. No blocking overlays.")
+        self.assertTrue(result["passes"])
+        self.assertAlmostEqual(result["confidence"], 0.5)
 
     def test_parse_invalid_json_fragment(self) -> None:
         result = parse_vision_response("{passes: true}")

@@ -27,6 +27,8 @@
   "cylindrical_shape_description": "Makes the World a Cylinder",
   "flat_shape": "FlatShape",
   "flat_shape_description": "Makes the World Flat",
+  "cube_shape": "Cube Shape",
+  "cube_shape_description": "Makes the World Cube. it MUST be a rectangle with the ratio 2x3",
   "tile_length_multiplier": "Tile Length Multiplier",
   "camera_rotates_with_world": "Camera Rotates With World",
   "camera_rotates_with_world_description": "use this if you are controlling a unit",
@@ -77,10 +79,18 @@
   "ssao_enabled_description": "Kernel-sampled SSAO darkens crevices for added depth.",
   "ssgi_enabled": "Screen-Space Global Illumination",
   "ssgi_enabled_description": "Single-bounce SSGI brightens shadow contact.",
+  "bloom_enabled": "Bloom",
+  "bloom_enabled_description": "Soft glow on bright pixels for a cinematic look.",
+  "aces_tonemapping": "ACES Tonemap",
+  "aces_tonemapping_description": "Filmic ACES tone curve for realistic HDR-to-SDR mapping.",
   "weather_rain": "Weather: Rain",
   "weather_rain_description": "Falling rain droplets with downward velocity.",
   "weather_snow": "Weather: Snow",
   "weather_snow_description": "Slow-falling snowflakes.",
   "weather_lightning": "Weather: Lightning",
-  "weather_lightning_description": "Periodic lightning flash + vertical bolt."
+  "weather_lightning_description": "Periodic lightning flash + vertical bolt.",
+  "worldspace_health_3d": "3D Health Bars",
+  "worldspace_health_3d_description": "Worldspace 3D mesh health bars instead of legacy billboard quads.",
+  "wsm3d_welcome_message": "WorldSphere 3D is installed! Voxel actors are enabled by default. Open the 3D Phases panel to enable more features.",
+  "wsm3d_quick_start_guide": "--- Quick Start ---\nVoxel Actors (P1): 3D voxel units, items, projectiles\nMesh Buildings (P2): Procedural 3D buildings\nFoliage (P3): Crossed-quad trees and bushes\nMesh Water (P4): Gerstner-wave water surface\nSun + Shadows (P5): Directional light + cascades\nSkeletal Anim (P6): Auto-rigged voxel actors\nWorldspace UI (P7): 3D nameplates and HP bars\nDay/Night (P8): Procedural sky + time cycle\nPost FX (P9): Bloom, SSAO, SSGI, color grading\n---\nEnable phases top-to-bottom for best results.\nReload the world after toggling."
 }

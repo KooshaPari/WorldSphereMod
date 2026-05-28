@@ -2,10 +2,10 @@
 //
 // Minimal opaque shader that reads per-vertex Color as albedo + multiplies by
 // _Color (MaterialPropertyBlock per-instance tint) + emission from _EmissionColor.
-// No lighting attenuation, no transparency, no z-fighting.
+// Adds a basic directional light term so voxel actors get diffuse shading.
 //
 // Closes the "Standard-shader voxels render black because scene lighting doesn't
-// reach them" issue by skipping lighting entirely.
+// reach them" issue with a lightweight diffuse + ambient term.
 //
 // Build step (once per WSM3D release that wants this on the visibility floor):
 //   1. Open WorldSphereMod-AssetBundles Unity 2022.3 project
@@ -22,12 +22,12 @@ Shader "WSM3D/OpaqueVertexColor"
     {
         _Color ("Tint", Color) = (1,1,1,1)
         _MainTex ("Main Tex (sampled white if unset)", 2D) = "white" {}
-        _EmissionColor ("Emission", Color) = (0,0,0,1)
+        _EmissionColor ("Emission", Color) = (0.15,0.15,0.15,1)
     }
 
     SubShader
     {
-        Tags { "RenderType"="Opaque" "Queue"="Geometry" "DisableBatching"="False" "IgnoreProjector"="True" }
+        Tags { "RenderType"="Opaque" "Queue"="Geometry+1" "DisableBatching"="False" "IgnoreProjector"="True" }
         LOD 100
         Cull Off
         ZWrite On
@@ -49,6 +49,7 @@ Shader "WSM3D/OpaqueVertexColor"
             {
                 float4 vertex : POSITION;
                 float2 uv : TEXCOORD0;
+                float3 normal : NORMAL;
                 fixed4 color : COLOR;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
@@ -58,6 +59,7 @@ Shader "WSM3D/OpaqueVertexColor"
                 float4 pos : SV_POSITION;
                 float2 uv : TEXCOORD0;
                 fixed4 color : COLOR;
+                float3 worldNormal : TEXCOORD1;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -77,6 +79,7 @@ Shader "WSM3D/OpaqueVertexColor"
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
                 o.color = v.color;
+                o.worldNormal = UnityObjectToWorldNormal(v.normal);
                 return o;
             }
 
@@ -87,7 +90,8 @@ Shader "WSM3D/OpaqueVertexColor"
                 fixed4 emiss = UNITY_ACCESS_INSTANCED_PROP(Props, _EmissionColor);
                 fixed4 tex = tex2D(_MainTex, i.uv);
                 fixed3 albedo = i.color.rgb * tint.rgb * tex.rgb;
-                fixed3 final = saturate(albedo + emiss.rgb);
+                float NdotL = max(0.0, dot(normalize(i.worldNormal), _WorldSpaceLightPos0.xyz));
+                fixed3 final = saturate(albedo * (NdotL * 0.6 + 0.4) + emiss.rgb);
                 return fixed4(final, 1.0);
             }
             ENDCG
