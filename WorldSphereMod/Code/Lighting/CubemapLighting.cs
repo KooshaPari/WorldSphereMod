@@ -105,9 +105,9 @@ namespace WorldSphereMod.Lighting
                 CapturePreviousSkyboxState();
                 ApplyRuntimeSkybox(skyCubemap);
                 RenderSettings.customReflection = skyCubemap;
-                RenderSettings.ambientMode = AmbientMode.Skybox;
+                ApplyNeutralAmbient();
                 RenderSettings.defaultReflectionMode = DefaultReflectionMode.Custom;
-                RenderSettings.reflectionIntensity = 1f;
+                RenderSettings.reflectionIntensity = 0.3f;
                 _applied = true;
                 _loadInProgress = false;
                 yield break;
@@ -118,9 +118,9 @@ namespace WorldSphereMod.Lighting
             CapturePreviousSkyboxState();
             ApplyRuntimeSkybox(skyCubemap);
             RenderSettings.customReflection = skyCubemap;
-            RenderSettings.ambientMode = AmbientMode.Skybox;
+            ApplyNeutralAmbient();
             RenderSettings.defaultReflectionMode = DefaultReflectionMode.Custom;
-            RenderSettings.reflectionIntensity = 1f;
+            RenderSettings.reflectionIntensity = 0.3f;
             _applied = true;
             _loadInProgress = false;
         }
@@ -162,6 +162,18 @@ namespace WorldSphereMod.Lighting
                 RenderSettings.defaultReflectionMode = _previousDefaultReflectionMode;
             }
             RenderSettings.reflectionIntensity = _previousReflectionIntensity;
+        }
+
+        static void ApplyNeutralAmbient()
+        {
+            // Skybox-mode SH probe samples the pale-blue horizon and tints
+            // everything blue. Trilight with neutral sky/equator/ground keeps
+            // shading directional without the blue cast.
+            RenderSettings.ambientMode = AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = new Color(0.95f, 0.95f, 0.95f);
+            RenderSettings.ambientEquatorColor = new Color(0.7f, 0.7f, 0.7f);
+            RenderSettings.ambientGroundColor = new Color(0.3f, 0.3f, 0.3f);
+            RenderSettings.ambientIntensity = 0.5f;
         }
 
         static void CapturePreviousReflectionState()

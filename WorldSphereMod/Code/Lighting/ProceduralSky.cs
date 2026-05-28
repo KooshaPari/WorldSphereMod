@@ -292,6 +292,9 @@ namespace WorldSphereMod.Lighting
             // Vanilla Skybox/Procedural uses the scene directional light
             // automatically, so no need to set _SunDir. But we can nudge
             // the ambient light to match the sky tint for coherence.
+            // Skybox ambient mode IGNORES ambientLight — force Trilight so
+            // the day/night cycle actually drives ambient shading.
+            RenderSettings.ambientMode = AmbientMode.Trilight;
             RenderSettings.ambientLight = Color.Lerp(zenith * 0.25f, horizon * 0.4f, 0.5f);
         }
 
