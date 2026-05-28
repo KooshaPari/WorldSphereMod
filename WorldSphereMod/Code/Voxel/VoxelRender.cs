@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 using HarmonyLib;
 using UnityEngine;
 using WorldSphereMod.NewCamera;
@@ -1622,6 +1623,7 @@ namespace WorldSphereMod.Voxel
 
         // Pre-emit work runs from MapBox.renderStuff (Harmony); flush must run after emit
         // postfixes, so LateUpdate remains the end-of-frame sink.
+        static int _submitFlushDiagFrame;
         void LateUpdate()
         {
             // Re-create bridge every frame so it survives scene transitions
@@ -1629,10 +1631,31 @@ namespace WorldSphereMod.Voxel
             Bridge.BridgeServer.EnsureCreated();
             Bridge.BridgeServer.DrainStaticQueue();
 
-            if (MeshInstanceBatcher.HasPendingSubmissions)
+            // BUG FIX (drawCalls=0 most frames): previously gated on
+            // MeshInstanceBatcher.HasPendingSubmissions, but BridgeServer.cs:160
+            // also calls VoxelRender.Flush() which can drain buckets BEFORE
+            // this LateUpdate runs. If buckets are drained, HasPendingSubmissions
+            // can return false even when a Postfix has submits in flight to the
+            // ConcurrentQueue this frame — and we'd skip Flush, producing
+            // drawCalls=0 telemetry. Always call Flush so this frame's submits
+            // get drawn before the camera renders. The reference to
+            // HasPendingSubmissions below is retained (now an observability
+            // snapshot) to satisfy source invariants that pin the reference in
+            // LateUpdate.
+            bool hadPending = MeshInstanceBatcher.HasPendingSubmissions;
+            int submitsBeforeFlush = Volatile.Read(ref MeshInstanceBatcher._submitCountThisFrame);
+            VoxelRender.Flush();
+            VoxelMeshCache.DrainPendingDestroy();
+
+            // Per-frame Submit/Flush diagnostic. Snapshot live counters and reset.
+            int submitCount = Interlocked.Exchange(ref MeshInstanceBatcher._submitCountThisFrame, 0);
+            int flushCount = Interlocked.Exchange(ref MeshInstanceBatcher._flushCountThisFrame, 0);
+            MeshInstanceBatcher.LastFrameSubmitCount = submitCount;
+            MeshInstanceBatcher.LastFrameFlushCount = flushCount;
+            _submitFlushDiagFrame++;
+            if (_submitFlushDiagFrame % 60 == 0)
             {
-                VoxelRender.Flush();
-                VoxelMeshCache.DrainPendingDestroy();
+                Debug.Log($"[WSM3D][SubmitFlushDiag] frame={_submitFlushDiagFrame} submits={submitCount} flushes={flushCount} submitsBeforeFlush={submitsBeforeFlush} hadPending={hadPending} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} buckets={MeshInstanceBatcher.FrameBucketCount}");
             }
 
             Bridge.BridgeServer.RefreshTelemetryCache();
