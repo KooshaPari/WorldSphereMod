@@ -579,7 +579,7 @@ namespace WorldSphereMod.Voxel
                 }
             }
 
-            return BuildPlaceholderMesh(sprite);
+            return _placeholderMesh;
         }
 
         static Mesh BuildPlaceholderMesh(Sprite sprite = null)

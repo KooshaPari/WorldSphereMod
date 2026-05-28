@@ -227,6 +227,10 @@ namespace WorldSphereMod.Voxel
                 }
             }
 
+            // Collect dead bucket keys for removal after iteration
+            // (can't modify dictionary during enumeration).
+            List<Key> _deadKeys = null;
+
             var bucketEnumerator = _buckets.GetEnumerator();
             while (bucketEnumerator.MoveNext())
             {
@@ -246,6 +250,7 @@ namespace WorldSphereMod.Voxel
                     bucket.Matrices.Clear();
                     bucket.Colors.Clear();
                     FrameBucketCount++;
+                    (_deadKeys ??= new List<Key>()).Add(key);
                     continue;
                 }
 
@@ -342,6 +347,14 @@ namespace WorldSphereMod.Voxel
                     bucket.Matrices.Clear();
                 bucket.Colors.Clear();
                 FrameBucketCount++;
+            }
+
+            // Purge dead buckets whose mesh/material was destroyed, preventing
+            // unbounded growth of the _buckets dictionary with stale keys.
+            if (_deadKeys != null)
+            {
+                for (int di = 0; di < _deadKeys.Count; di++)
+                    _buckets.Remove(_deadKeys[di]);
             }
 
             // InstancingEfficiency computed on-demand via property getter.

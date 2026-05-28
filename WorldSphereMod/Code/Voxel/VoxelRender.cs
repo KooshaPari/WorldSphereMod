@@ -63,6 +63,9 @@ namespace WorldSphereMod.Voxel
             _actorSkeletalDiagnosticLogged = false;
             _actorVoxelSubmitTranslations.Clear();
             _flushDiagLogged = false;
+            _submitDiagLogged = false;
+            ActorVoxelEmit.ResetDiag();
+            BuildingVoxelEmit.ResetDiag();
         }
 
         /// <summary>
@@ -518,6 +521,13 @@ namespace WorldSphereMod.Voxel
             static int _emitDiagFrameCounter;
             static bool _emitDiagSawNonZero;
 
+            public static void ResetDiag()
+            {
+                _emitDiagLogged = false;
+                _emitDiagFrameCounter = 0;
+                _emitDiagSawNonZero = false;
+            }
+
             [HarmonyPostfix]
             public static void EmitVoxels(ActorManager __instance)
             {
@@ -755,6 +765,12 @@ namespace WorldSphereMod.Voxel
         {
             static bool _buildingVoxelEmitSubmitLogged;
             static bool _buildingEmitDiagLogged;
+
+            public static void ResetDiag()
+            {
+                _buildingVoxelEmitSubmitLogged = false;
+                _buildingEmitDiagLogged = false;
+            }
 
             [HarmonyPostfix]
             public static void EmitVoxels(BuildingManager __instance)
