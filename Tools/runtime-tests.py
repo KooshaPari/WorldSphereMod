@@ -443,7 +443,7 @@ def format_junit(results: list[TestResult], suite_name: str = "wsm3d-runtime") -
     tree = ET.ElementTree(suite)
     # Write to string
     import io
-    buf = io.BytesIO()
+    buf = io.StringIO()
     tree.write(buf, encoding="unicode", xml_declaration=True)
     return buf.getvalue()
 
