@@ -690,6 +690,44 @@ namespace WorldSphereMod
                 TextureAverageCache[textureIndex] = average;
                 return average;
             }
+            // Sample a tile's base color (composed map-layer pixels) at (x,y),
+            // honoring X-wrap for cylindrical worlds. Returns false when the
+            // tile is out of bounds or unresolvable.
+            static bool TrySampleBaseColor(int x, int y, out Color32 color, out WorldTile tile)
+            {
+                color = default;
+                tile = null;
+                if (y < 0 || y >= MapBox.height)
+                {
+                    return false;
+                }
+                if (Core.Sphere.IsWrapped)
+                {
+                    x = (int)Tools.MathStuff.Wrap(x, 0, MapBox.width);
+                }
+                else if (x < 0 || x >= MapBox.width)
+                {
+                    return false;
+                }
+                WorldTile sample = World.world.GetTileSimple(x, y);
+                if (sample == null)
+                {
+                    return false;
+                }
+                int idx = sample.data.tile_id;
+                Color32[] worldPixels = World.world.world_layer.pixels;
+                if (worldPixels == null || idx < 0 || idx >= worldPixels.Length)
+                {
+                    return false;
+                }
+                color = GetBaseColor(idx);
+                tile = sample;
+                return true;
+            }
+
+            // Smooth biome boundaries by blending the tile's base color toward
+            // a weighted neighborhood average. This keeps interior detail
+            // crisp while softening edges across nearby biome transitions.
             static Color32 BlendBiomeColor(int index, Color32 fallback)
             {
                 WorldTile[] tilesList = World.world != null ? World.world.tiles_list : null;
@@ -703,6 +741,7 @@ namespace WorldSphereMod
                 {
                     return fallback;
                 }
+
                 const int radius = 3;
                 float totalWeight = 0f;
                 float r = 0f;
@@ -742,8 +781,7 @@ namespace WorldSphereMod
                             continue;
                         }
 
-                        int textureIndex = WorldTileTexture(sample);
-                        Color32 sampleColor = GetTextureAverageColor(textureIndex);
+                        Color32 sampleColor = GetBaseColor(sample.data.tile_id);
                         if (sampleColor.a == 0)
                         {
                             continue;
@@ -759,11 +797,11 @@ namespace WorldSphereMod
                             continue;
                         }
 
-                        totalWeight += weight;
                         r += sampleColor.r * weight;
                         g += sampleColor.g * weight;
                         b += sampleColor.b * weight;
                         a += sampleColor.a * weight;
+                        totalWeight += weight;
                     }
                 }
 

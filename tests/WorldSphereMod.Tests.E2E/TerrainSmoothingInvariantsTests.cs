@@ -160,18 +160,22 @@ public sealed class TerrainSmoothingInvariantsTests
     }
 
     [Fact]
-    public void Core_Sphere_BlendBiomeColor_samples_weighted_neighbors()
+    public void Core_Sphere_BlendBiomeColor_samples_cardinal_neighbors()
     {
         var core = ReadSource(CoreRelative);
         var blendBody = ExtractMethodBody(core, "static Color32 BlendBiomeColor(int index, Color32 fallback)");
 
-        blendBody.Should().Contain("const int radius = 3",
-            "biome blend must sample a local neighborhood");
-        blendBody.Should().Contain("GetTextureAverageColor(textureIndex)",
-            "neighbor samples must use per-texture averages, not recursively blended GetColor");
-        blendBody.Should().Contain("totalWeight",
-            "blend must normalize by accumulated sample weights");
-        blendBody.Should().Contain("Core.Sphere.IsWrapped",
+        blendBody.Should().Contain("for (int dir = 0; dir < 4; dir++)",
+            "biome blend must iterate exactly the 4 cardinal neighbors");
+        blendBody.Should().Contain("TrySampleBaseColor",
+            "neighbor samples must reuse the base (composed map-layer) color, not texture averages");
+        blendBody.Should().Contain("nTile.data.tile_id == centerBiomeId",
+            "same-biome neighbors must be skipped so interior detail stays crisp");
+        blendBody.Should().Contain("diffNeighbors",
+            "blend strength must scale with the count of differing cardinal neighbors");
+
+        var sampleBody = ExtractMethodBody(core, "static bool TrySampleBaseColor(int x, int y, out Color32 color, out WorldTile tile)");
+        sampleBody.Should().Contain("Core.Sphere.IsWrapped",
             "wrapped worlds must wrap horizontal neighbor coordinates");
     }
 
