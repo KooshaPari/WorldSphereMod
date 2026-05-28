@@ -2,11 +2,11 @@
 
 Canonical "next session starts here" doc for WorldSphereMod3D.
 
-**Last updated:** 2026-05-26 (`wt/shaders-rebake` — 10-shader bundle, SafeShaders gate)
+**Last updated:** 2026-05-28 (8/8 runtime tests pass, 30 FPS, 46 voxel actors visible)
 
 Recent validation:
 
-- Bevy standalone black screen is fixed; `OrbitCamera` now targets the scene correctly.
+- **Runtime smoke test PASS** (2026-05-28): 8/8 runtime tests pass, frame time 32ms (30 FPS), 46 visible voxel actors on kingdom, heightfield terrain active, biome blending active, slope smoothing with MPB push verified.
 - Shader bake pipeline is functional via headless `Tools/bake-shaders.ps1` (Unity `-batchmode -nographics`; **not** a `wsm3d.ps1` subcommand).
 - `wsm3d-shaders` bundle manifest lists **10 shaders** (rebaked 2026-05-26; GerstnerWater depth pass in `0fe30b1`). Runtime still loads **3** via `Core.Sphere.SafeShaders` only — expansion blocked until in-game proof (see [SafeShaders human gate](#safeshaders-human-gate)).
 
@@ -90,7 +90,7 @@ instead of carrying the underlying implementation inline.
 | 3b Surface overlays + walls            | code present, runtime unverified | `WorldTilemap.renderTile` Prefix + `drawWallType` Prefix wired. |
 | 4  Mesh water                          | code present, runtime unverified | Current code default: `MeshWater = false`. |
 | 5  Sun + cascaded shadows              | code present, runtime unverified | Current code defaults: `HighShadows = false`, `HdrSkybox = false`, `ColorGradingLut = false`. |
-| 6  Skeletal animation                  | code present, runtime unverified | Current code default: `SkeletalAnimation = false`. |
+| 6  Skeletal animation                  | code present, runtime unverified; **disable-gate PROVEN** | Current code default: `SkeletalAnimation = false`. Core.LoadSettings force-overrides to `false` on every load (Core.cs L70 + L79). ActorVoxelEmit.EmitVoxels gates BOTH `ResolveRigType` and `RigDriver.SubmitSkinnedActor` behind `if (Core.savedSettings.SkeletalAnimation && tier != LodTier.Impostor)` (VoxelRender.cs L630). Invariant locked by `SkeletalAnimationDisabledGateTests` (E2E). DIAG-SUBMIT `skel(attempt=0 ok=0 fail=0)` is the runtime confirmation. |
 | 7  Worldspace UI                       | code present, runtime unverified | Current code defaults: `WorldspaceUI = false`, `WorldspaceLabel3D = false`. |
 | 8  Day/night + sky + fog               | code present, runtime unverified | Current code default: `DayNightCycle = false`; `FogDensity = 0.05f`. |
 | 9  Particles + decals + PostFX         | code present, runtime unverified | Current code defaults: `ParticleEffects = false`, `PostFX = false`, `SSAOEnabled = false`, `SSGIEnabled = false`. |
