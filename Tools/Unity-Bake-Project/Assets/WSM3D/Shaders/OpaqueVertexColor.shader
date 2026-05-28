@@ -5,7 +5,7 @@
 // Adds a basic directional light term so voxel actors get diffuse shading.
 //
 // Closes the "Standard-shader voxels render black because scene lighting doesn't
-// reach them" issue by skipping lighting entirely.
+// reach them" issue with a lightweight diffuse + ambient term.
 //
 // Build step (once per WSM3D release that wants this on the visibility floor):
 //   1. Open WorldSphereMod-AssetBundles Unity 2022.3 project
