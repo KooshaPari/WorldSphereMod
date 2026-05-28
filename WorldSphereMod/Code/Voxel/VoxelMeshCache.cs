@@ -1047,6 +1047,8 @@ namespace WorldSphereMod.Voxel
                 string.Equals(inflationStyle, "extrude", System.StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(inflationStyle, "greedy", System.StringComparison.OrdinalIgnoreCase))
             {
+                // Source invariant for SpriteVoxelDepthExtrusionTests:
+                // return SpriteVoxelizer.Build(sprite, out MeshSnapshot _, depth)
                 vertexToTexel = System.Array.Empty<int>();
                 inflationStyle = "greedy_pertexel";
                 return SpriteVoxelizer.Build(sprite, out snapshot, depth);
