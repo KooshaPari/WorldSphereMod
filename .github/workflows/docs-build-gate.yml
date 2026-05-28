@@ -3,23 +3,23 @@ name: docs-build-gate
 # Blocking quality gate: PRs touching docs/** must produce a buildable
 # VitePress site. Mirrors DINOForge -gate.yml naming convention.
 #
-# NOTE: Requires a `package.json` at repo root with a `docs:build` script
-# (VitePress). If `package.json` does not exist yet, the workflow runs but
+# NOTE: Requires a `package.json` in the docs subdirectory with a `docs:build` script
+# (VitePress). If `docs/package.json` does not exist yet, the workflow runs but
 # the build step is skipped with a clear "ready when paths land" notice.
 
 on:
   pull_request:
     paths:
       - "docs/**"
-      - "package.json"
-      - "package-lock.json"
+      - "docs/package.json"
+      - "docs/package-lock.json"
       - ".github/workflows/docs-build-gate.yml"
   push:
     branches: [main, "claude/**"]
     paths:
       - "docs/**"
-      - "package.json"
-      - "package-lock.json"
+      - "docs/package.json"
+      - "docs/package-lock.json"
       - ".github/workflows/docs-build-gate.yml"
 
 permissions:
