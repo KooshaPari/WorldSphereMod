@@ -115,6 +115,10 @@ try {
             throw 'Bridge did not become reachable after relaunch (waited 8m)'
         }
         $health = Get-BridgeHealth
+        if (-not $health) {
+            Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge dropped after ready check' }
+            throw 'Bridge dropped immediately after ready check'
+        }
         Add-DoAllStage 'bridge-wait' 'passed' @{ isWorld3D = [bool]$health.isWorld3D }
 
             if (-not $health.isWorld3D) {
@@ -143,6 +147,10 @@ try {
             throw 'Bridge not reachable (use relaunch or start WorldBox)'
         }
         $health = Get-BridgeHealth
+        if (-not $health) {
+            Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge dropped after ready check' }
+            throw 'Bridge dropped immediately after ready check'
+        }
         if (-not $health.isWorld3D) {
             $bootstrap = Join-Path $RepoRoot 'Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml'
             python (Join-Path $RepoRoot 'Tools/wsm3d-playcua/main.py') $bootstrap --vision-backend off 2>&1 | Out-Null
@@ -217,7 +225,7 @@ try {
             if ($attempt -gt 1) {
                 Write-Host "playcua retry $attempt/$PlaycuaRetries — relaunch between attempts" -ForegroundColor Yellow
                 pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') relaunch -NoBuild | Out-Null
-                $null = Ensure-BridgeReady -WaitSeconds 300
+                $null = Ensure-BridgeReady -WaitSeconds 300 -RelaunchIfDown
                 Start-Sleep -Seconds 30
                 $null = Wait-World3D -MaxSeconds 120
             }
