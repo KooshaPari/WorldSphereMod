@@ -861,6 +861,12 @@ namespace WorldSphereMod
 
             public static void RefreshSphere()
             {
+                // Snapshot whether any tile data actually changed BEFORE we drain
+                // the queues. The heightfield mesh rebuild is expensive (~1M verts
+                // on a 316² map at 43k tiles) — we must only invalidate it when
+                // real tile changes are pending, not on every 0.1s redraw tick.
+                bool hadDirtyTiles = Manager.HasDirtyTiles;
+
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 _scalesDone = Manager.RefreshScales();
                 long scaleMs = sw.ElapsedMilliseconds;
@@ -877,7 +883,7 @@ namespace WorldSphereMod
                 RefreshColors();
                 long colorMs = sw.ElapsedMilliseconds;
 
-                if (Manager.UseHeightFieldTerrain)
+                if (hadDirtyTiles && Manager.UseHeightFieldTerrain)
                 {
                     Manager.HeightField.MarkDirty();
                 }
@@ -1194,6 +1200,73 @@ namespace WorldSphereMod
                 }
                 else
                 {
+                    // Audit every shader and every ShaderVariantCollection inside
+                    // the wsm3d-shaders bundle BEFORE running SafeShaders gate.
+                    // Empty .name post-load means Unity stripped variants from a
+                    // correctly-baked bundle (root cause: SVC keep list missed).
+                    // WarmUp on each SVC forces Unity to re-resolve referenced
+                    // variants so subsequent GetObject<Shader> sees populated names.
+                    try
+                    {
+                        var bundleField = typeof(WrappedAssetBundle).GetField("assetBundle", BindingFlags.NonPublic | BindingFlags.Instance);
+                        var rawBundle = bundleField?.GetValue(shaderAb);
+                        if (rawBundle != null)
+                        {
+                            var loadAllT = rawBundle.GetType().GetMethod("LoadAllAssets", BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(System.Type) }, null);
+                            if (loadAllT != null)
+                            {
+                                var svcArr = loadAllT.Invoke(rawBundle, new object[] { typeof(ShaderVariantCollection) }) as UnityEngine.Object[];
+                                int svcCount = svcArr != null ? svcArr.Length : 0;
+                                Debug.Log($"[WSM3D] wsm3d-shaders bundle SVC count={svcCount}");
+                                if (svcArr != null)
+                                {
+                                    foreach (var so in svcArr)
+                                    {
+                                        var svc = so as ShaderVariantCollection;
+                                        if (svc == null) continue;
+                                        Debug.Log($"[WSM3D] SVC '{svc.name}' shaderCount={svc.shaderCount} variantCount={svc.variantCount} isWarmedUp={svc.isWarmedUp}");
+                                        if (!svc.isWarmedUp)
+                                        {
+                                            try
+                                            {
+                                                svc.WarmUp();
+                                                Debug.Log($"[WSM3D] SVC '{svc.name}' WarmUp() complete; isWarmedUp={svc.isWarmedUp}");
+                                            }
+                                            catch (System.Exception ex)
+                                            {
+                                                Debug.LogWarning($"[WSM3D] SVC '{svc.name}' WarmUp threw: {ex.Message}");
+                                            }
+                                        }
+                                    }
+                                }
+
+                                var shArr = loadAllT.Invoke(rawBundle, new object[] { typeof(Shader) }) as UnityEngine.Object[];
+                                int shCount = shArr != null ? shArr.Length : 0;
+                                Debug.Log($"[WSM3D] wsm3d-shaders bundle Shader count={shCount}");
+                                if (shArr != null)
+                                {
+                                    foreach (var so in shArr)
+                                    {
+                                        var sh = so as Shader;
+                                        if (sh == null) continue;
+                                        int passCount = -1;
+                                        try { passCount = sh.passCount; } catch { passCount = -1; }
+                                        string nm = string.IsNullOrEmpty(sh.name) ? "<EMPTY>" : sh.name;
+                                        Debug.Log($"[WSM3D] bundle shader: name='{nm}' isSupported={sh.isSupported} passCount={passCount}");
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                Debug.LogWarning("[WSM3D] LoadAllAssets(System.Type) reflection method not found on AssetBundle; skipping diagnostic.");
+                            }
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogWarning("[WSM3D] wsm3d-shaders diagnostic block threw: " + ex.Message);
+                    }
+
                     try
                     {
                         // DO NOT ADD MORE SHADERS to SafeShaders — see ADR-0013.
