@@ -211,17 +211,35 @@ namespace WorldSphereMod.Terrain
         /// Computes an interpolated corner color at the junction of four tiles.
         /// Averages the biome colors of the four adjacent tiles.
         /// </summary>
+        // Minimum per-channel brightness (0–255) so mountain biome colors
+        // that are very dark (dark gray rock, black volcanic) don't produce
+        // an invisible mesh even with the emission floor.
+        const int MinChannelBrightness = 38; // ~0.15 in 0–255 space
+
         Color32 CornerColor(int cx, int cy, int width, int height, bool wrapped)
         {
             Color32 c00 = SampleTileColor(cx - 1, cy - 1, width, height, wrapped);
             Color32 c10 = SampleTileColor(cx,     cy - 1, width, height, wrapped);
             Color32 c01 = SampleTileColor(cx - 1, cy,     width, height, wrapped);
             Color32 c11 = SampleTileColor(cx,     cy,     width, height, wrapped);
-            return new Color32(
-                (byte)((c00.r + c10.r + c01.r + c11.r) / 4),
-                (byte)((c00.g + c10.g + c01.g + c11.g) / 4),
-                (byte)((c00.b + c10.b + c01.b + c11.b) / 4),
-                255);
+            int r = (c00.r + c10.r + c01.r + c11.r) / 4;
+            int g = (c00.g + c10.g + c01.g + c11.g) / 4;
+            int b = (c00.b + c10.b + c01.b + c11.b) / 4;
+            // Brightness guard: if max channel is below the floor, scale up
+            // proportionally so the hue is preserved but the mesh stays visible.
+            int maxCh = Mathf.Max(r, Mathf.Max(g, b));
+            if (maxCh > 0 && maxCh < MinChannelBrightness)
+            {
+                float scale = (float)MinChannelBrightness / maxCh;
+                r = Mathf.Min(255, Mathf.RoundToInt(r * scale));
+                g = Mathf.Min(255, Mathf.RoundToInt(g * scale));
+                b = Mathf.Min(255, Mathf.RoundToInt(b * scale));
+            }
+            else if (maxCh == 0)
+            {
+                r = g = b = MinChannelBrightness;
+            }
+            return new Color32((byte)r, (byte)g, (byte)b, 255);
         }
 
         void RebuildMesh()
@@ -657,14 +675,16 @@ namespace WorldSphereMod.Terrain
             }
             catch { }
 
-            // OpaqueVertexColor is unlit (LightMode=Always), so emission is
-            // unnecessary — the shader outputs vertex_color * _Color + _EmissionColor
-            // directly. A non-zero emission tints the biome colors gray. Keep it at
-            // zero so vertex colors are the sole albedo source.
+            // OpaqueVertexColor is unlit (LightMode=Always): output =
+            // vertex_color * _Color * tex + _EmissionColor.  WorldBox scenes
+            // have no directional/ambient light, and many mountain biome
+            // colors are dark browns/grays (RGB ≤ 0.15).  Without an emission
+            // floor the slope mesh is nearly black.  Match the voxel pipeline's
+            // brightness guard (0.15) so slopes stay visible.
             material.EnableKeyword("_EMISSION");
             if (material.HasProperty("_EmissionColor"))
             {
-                material.SetColor("_EmissionColor", Color.black);
+                material.SetColor("_EmissionColor", new Color(0.15f, 0.15f, 0.15f, 1f));
             }
 
             _material = material;

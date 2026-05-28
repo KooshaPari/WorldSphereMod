@@ -9,8 +9,9 @@
 #>
 param(
     [string]$EnvFile = (Join-Path $PSScriptRoot 'omniroute-vision.env'),
+    [string]$BaseUrl,
     [int]$ModelsTimeoutSec = 30,
-    [int]$ChatTimeoutSec = 25
+    [int]$ChatTimeoutSec = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -51,7 +52,11 @@ if ($laptopOnline -eq $false) {
     Write-Error 'kooshas-laptop offline on Tailscale — start laptop + OmniRoute'
 }
 
+if ($BaseUrl) { $env:OMNROUTE_BASE_URL = $BaseUrl }
 $base = $env:OMNROUTE_BASE_URL.TrimEnd('/')
+if ($ChatTimeoutSec -le 0) {
+    $ChatTimeoutSec = if ($base -match '^https://') { 120 } else { 25 }
+}
 $headers = @{ Authorization = "Bearer $env:OMNROUTE_API_KEY" }
 $modelId = if ($env:OMNROUTE_VISION_MODEL) { $env:OMNROUTE_VISION_MODEL }
 elseif ($env:OMNROUTE_VISION_COMBO) { $env:OMNROUTE_VISION_COMBO }

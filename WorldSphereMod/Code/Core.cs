@@ -227,6 +227,8 @@ namespace WorldSphereMod
                 if (flagName == nameof(SavedSettings.HdrSkybox))
                 {
                     WorldSphereMod.Lighting.CubemapLighting.ApplySetting(newValue);
+                    if (newValue) WorldSphereMod.Lighting.ProceduralSky.EnsureCreated();
+                    else if (!Core.savedSettings.DayNightCycle) WorldSphereMod.Lighting.ProceduralSky.ApplySetting(false);
                 }
                 if (flagName == nameof(SavedSettings.PostFX))
                 {
@@ -557,6 +559,7 @@ namespace WorldSphereMod
             static Texture2DArray Textures;
             static SphereManagerSettings SphereManagerConfig;
             static Dictionary<Tile, int> TileIDS;
+            static Dictionary<int, Color32> TextureAverageCache;
             #endregion
             public static List<MapLayer> BaseLayers;
             public static Dictionary<MapLayer, PixelArray> CachedColors;
@@ -600,6 +603,7 @@ namespace WorldSphereMod
                     onCreated: mgr =>
                     {
                         Manager = mgr;
+                        ConfigureHeightField(mgr, width, height);
                         Debug.Log($"[WSM3D][PERF] Sphere.Begin.ManagerCreated(async)={sw.Elapsed.TotalMilliseconds:F3}ms");
                         Debug.Log($"[WSM3D] Sphere.Begin: shape={savedSettings.CurrentShape} " +
                             $"({(CurrentShape.IsWrapped ? "cylindrical" : "flat")}) " +
@@ -630,6 +634,55 @@ namespace WorldSphereMod
                 }
 
                 return new Color32((byte)r, (byte)g, (byte)b, (byte)Mathf.Clamp(a, 0, 255));
+            }
+            static Color32 GetTextureAverageColor(int textureIndex)
+            {
+                if (Textures == null || textureIndex < 0 || textureIndex >= Textures.depth)
+                {
+                    return new Color32(128, 128, 128, 255);
+                }
+
+                TextureAverageCache ??= new Dictionary<int, Color32>();
+                if (TextureAverageCache.TryGetValue(textureIndex, out Color32 cached))
+                {
+                    return cached;
+                }
+
+                Color32[] pixels;
+                try
+                {
+                    pixels = Textures.GetPixels32(textureIndex);
+                }
+                catch
+                {
+                    return new Color32(128, 128, 128, 255);
+                }
+
+                if (pixels == null || pixels.Length == 0)
+                {
+                    return new Color32(128, 128, 128, 255);
+                }
+
+                long r = 0;
+                long g = 0;
+                long b = 0;
+                long a = 0;
+                for (int i = 0; i < pixels.Length; i++)
+                {
+                    Color32 p = pixels[i];
+                    r += p.r;
+                    g += p.g;
+                    b += p.b;
+                    a += p.a;
+                }
+
+                Color32 average = new Color32(
+                    (byte)Mathf.Clamp((int)(r / pixels.Length), 0, 255),
+                    (byte)Mathf.Clamp((int)(g / pixels.Length), 0, 255),
+                    (byte)Mathf.Clamp((int)(b / pixels.Length), 0, 255),
+                    (byte)Mathf.Clamp((int)(a / pixels.Length), 0, 255));
+                TextureAverageCache[textureIndex] = average;
+                return average;
             }
             static Color32 BlendBiomeColor(int index, Color32 fallback)
             {
@@ -683,13 +736,18 @@ namespace WorldSphereMod
                             continue;
                         }
 
-                        Color32 sampleColor = GetBaseColor(sample.data.tile_id);
+                        int textureIndex = WorldTileTexture(sample);
+                        Color32 sampleColor = GetTextureAverageColor(textureIndex);
                         if (sampleColor.a == 0)
                         {
                             continue;
                         }
 
                         float weight = 1f - (distance / (radius + 1f));
+                        if (sample.data.tile_id != center.data.tile_id)
+                        {
+                            weight *= 1.5f;
+                        }
                         if (weight <= 0f)
                         {
                             continue;
@@ -757,6 +815,11 @@ namespace WorldSphereMod
                 sw.Restart();
                 RefreshColors();
                 long colorMs = sw.ElapsedMilliseconds;
+
+                if (Manager.UseHeightFieldTerrain)
+                {
+                    Manager.HeightField.MarkDirty();
+                }
 
                 long total = scaleMs + texMs + addedMs + colorMs;
                 if (total > 16)
@@ -896,6 +959,65 @@ namespace WorldSphereMod
             {
                 if (Manager == null || !Manager.IsReady) return;
                 Manager.DrawTiles(CameraX);
+            }
+            static void ConfigureHeightField(SphereManager mgr, int mapWidth, int mapHeight)
+            {
+                bool enabled = savedSettings.UseHeightFieldTerrain && savedSettings.CurrentShape == 0;
+                mgr.UseHeightFieldTerrain = enabled;
+                if (!enabled) return;
+
+                var hf = mgr.HeightField;
+
+                bool wrapped = CurrentShape.IsWrapped;
+                int w = mapWidth;
+                int h = mapHeight;
+
+                hf.Configure(
+                    sampleHeight: (tx, ty) =>
+                    {
+                        int sx = wrapped ? ((tx % w) + w) % w : Mathf.Clamp(tx, 0, w - 1);
+                        int sy = Mathf.Clamp(ty, 0, h - 1);
+                        WorldTile tile = World.world.GetTileSimple(sx, sy);
+                        if (tile == null) return 0f;
+                        return tile.TileHeight();
+                    },
+                    sampleColor: (tx, ty) =>
+                    {
+                        int sx = wrapped ? ((tx % w) + w) % w : Mathf.Clamp(tx, 0, w - 1);
+                        int sy = Mathf.Clamp(ty, 0, h - 1);
+                        WorldTile tile = World.world.GetTileSimple(sx, sy);
+                        if (tile == null) return new Color32(128, 128, 128, 255);
+                        return GetColor(tile.data.tile_id);
+                    },
+                    sampleTexture: (tx, ty) =>
+                    {
+                        int sx = wrapped ? ((tx % w) + w) % w : Mathf.Clamp(tx, 0, w - 1);
+                        int sy = Mathf.Clamp(ty, 0, h - 1);
+                        WorldTile tile = World.world.GetTileSimple(sx, sy);
+                        if (tile == null) return 0;
+                        return WorldTileTexture(tile);
+                    },
+                    projectPosition: (worldX, worldY, height) =>
+                    {
+                        return mgr.SphereTilePosition(worldX, worldY, height * HeightMult);
+                    }
+                );
+
+                // Create a vertex-color material for the height field since the
+                // instanced CompoundSphere shader reads StructuredBuffers that
+                // don't exist on a plain DrawMesh call.
+                Shader vcShader = Shader.Find("Sprites/Default");
+                if (vcShader == null) vcShader = Shader.Find("Unlit/Color");
+                if (vcShader != null)
+                {
+                    Material hfMat = new Material(vcShader)
+                    {
+                        color = Color.white,
+                    };
+                    hf.SetMaterial(hfMat);
+                }
+
+                Debug.Log($"[WSM3D] HeightFieldRenderer configured: map={w}x{h} wrapped={wrapped}");
             }
             static void CreateCachedColors()
             {
@@ -1182,19 +1304,21 @@ namespace WorldSphereMod
             }
 
             // ----------------------------------------------------------------
-            // DO NOT ADD MORE SHADERS — the other 7 in wsm3d-shaders
-            // (StratumVoxelPBR, ProceduralSky, Impostor, ScreenSpaceAO,
-            // ScreenSpaceGI, BrpBloom, BrpACES) produce ManagedStream
-            // errors on load, which trigger Unity's native crash reporter
-            // ("Uploading Crash Report") and can freeze or kill the game.
-            // Even though we catch exceptions in C#, the crash fires in
-            // Unity's native layer before our catch runs. See ADR-0013.
+            // Load only shaders that survive bundle deserialization with a
+            // valid Shader.name. Corrupted assets return an empty name and are
+            // rejected below so consumers can fall back cleanly.
             // ----------------------------------------------------------------
             public static readonly string[] SafeShaders = new[]
             {
                 "OpaqueVertexColor",
                 "GerstnerWater",
                 "ColorGradingLUT",
+                "ProceduralSky",
+                "Impostor",
+                "ScreenSpaceAO",
+                "ScreenSpaceGI",
+                "BrpBloom",
+                "BrpACES",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look
@@ -1246,6 +1370,7 @@ namespace WorldSphereMod
                     Textures.SetPixels32(GetTruePixels(Sprites[i]), i);
                 }
                 Textures.Apply();
+                TextureAverageCache = new Dictionary<int, Color32>();
                 void AddTile(TileTypeBase Tile)
                 {
                     TileSprites sprites = Tile.sprites;

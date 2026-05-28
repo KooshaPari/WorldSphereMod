@@ -170,6 +170,22 @@ namespace WorldSphereMod.Water
                 }
             }
 
+            // Diagnose vertex color distribution (depth fraction stored in R channel).
+            // If all R values are near 1.0, all water renders as _DeepColor (very dark).
+            if (colors.Count > 0)
+            {
+                float minR = 1f, maxR = 0f, sumR = 0f;
+                for (int ci = 0; ci < colors.Count; ci++)
+                {
+                    float r = colors[ci].r;
+                    if (r < minR) minR = r;
+                    if (r > maxR) maxR = r;
+                    sumR += r;
+                }
+                Debug.Log($"[WSM3D] Water mesh: {vertices.Count} verts, {triangles.Count / 3} tris, " +
+                    $"maxDepth={maxDepth:F2}, depthFrac R range=[{minR:F3}, {maxR:F3}] avg={sumR / colors.Count:F3}");
+            }
+
             _mesh.SetVertices(vertices);
             _mesh.SetColors(colors);
             _mesh.SetTriangles(triangles, 0);
@@ -266,14 +282,12 @@ namespace WorldSphereMod.Water
 
             Material m = new Material(s) { name = "WSM3D.Water" };
             m.enableInstancing = true;
-            if (m.enableInstancing)
-            {
-                ConfigureWaterMaterial(m, waterTint, baseColorId, colorId, smoothnessId, metallicId, surfaceTypeId, alphaClipId, emissionId);
-                _material = m;
-                Debug.Log($"[WSM3D] Water material resolved via '{s.name}' (bundled transparent blue)");
-                return true;
-            }
-            Object.Destroy(m);
+            // GerstnerWater may not have #pragma multi_compile_instancing;
+            // instancing is nice-to-have, not load-bearing.  Always configure
+            // the material so water is visible.
+            ConfigureWaterMaterial(m, waterTint, baseColorId, colorId, smoothnessId, metallicId, surfaceTypeId, alphaClipId, emissionId);
+            _material = m;
+            Debug.Log($"[WSM3D] Water material resolved via '{s.name}' (bundled transparent blue, instancing={m.enableInstancing})");
             return true;
         }
 
@@ -296,6 +310,15 @@ namespace WorldSphereMod.Water
             if (material.HasProperty(metallicId))
             {
                 material.SetFloat(metallicId, 0.0f);
+            }
+
+            // Explicitly set _DeepColor so deep water is a visible dark-blue
+            // instead of the shader default (0.04, 0.12, 0.30) which looks
+            // almost black in unlit WorldBox scenes.
+            int deepColorId = Shader.PropertyToID("_DeepColor");
+            if (material.HasProperty(deepColorId))
+            {
+                material.SetColor(deepColorId, new Color(0.08f, 0.22f, 0.45f, 0.90f));
             }
 
             if (isUrpLit)

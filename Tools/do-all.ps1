@@ -140,7 +140,7 @@ try {
                 $txt = $null
                 if ($null -ne $modelCount -and $modelCount -gt 0) {
                     try {
-                        $chatTimeoutSec = 20
+                        $chatTimeoutSec = if ($base -match '^https://') { 120 } else { 20 }
                         $body = @{
                             model       = $modelId
                             max_tokens  = 24

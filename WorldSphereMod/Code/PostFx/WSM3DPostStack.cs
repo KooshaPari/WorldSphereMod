@@ -1,3 +1,4 @@
+using System.IO;
 using UnityEngine;
 using WorldSphereMod.NewCamera;
 
@@ -130,12 +131,11 @@ namespace WorldSphereMod.PostFx
             if (lutShader != null)
             {
                 _lutMat = new Material(lutShader) { name = "WSM3D.PostStack.LUT" };
-                _lutTexture = Resources.Load<Texture2D>("LUT/default");
-                if (_lutTexture == null)
-                {
-                    _lutTexture = Resources.Load<Texture2D>("LUT/lut_default");
-                    _lutTexture ??= Resources.Load<Texture2D>("lut_default");
-                }
+                _lutTexture = TryLoadLutFromDisk("LUT/default.png");
+                _lutTexture ??= TryLoadLutFromDisk("LUT/lut_default.png");
+                _lutTexture ??= Resources.Load<Texture2D>("LUT/default");
+                _lutTexture ??= Resources.Load<Texture2D>("LUT/lut_default");
+                _lutTexture ??= Resources.Load<Texture2D>("lut_default");
                 if (_lutTexture != null)
                 {
                     if (_lutMat.HasProperty("_LutTex"))
@@ -144,14 +144,16 @@ namespace WorldSphereMod.PostFx
                         _lutMat.SetTexture("_LookupTex", _lutTexture);
                     else if (_lutMat.HasProperty("_LUT_Tex2D"))
                         _lutMat.SetTexture("_LUT_Tex2D", _lutTexture);
+                    if (_lutMat.HasProperty("_LutParams"))
+                        _lutMat.SetVector("_LutParams", new Vector4(16f / 256f, 1f / 16f, 1f, 0f));
                     Debug.Log($"[WSM3D] PostStack LUT texture loaded: {_lutTexture.name} ({_lutTexture.width}x{_lutTexture.height}).");
                 }
                 else
                 {
-                    Debug.LogWarning("[WSM3D] PostStack LUT texture not found in Resources (LUT/default, LUT/lut_default, lut_default). Color grading pass will be skipped at render time.");
+                    if (_lutMat.HasProperty("_LutParams"))
+                        _lutMat.SetVector("_LutParams", new Vector4(16f / 256f, 1f / 16f, 0f, 0f));
+                    Debug.LogWarning("[WSM3D] PostStack LUT texture not found (disk or Resources). Color grading pass will be identity at render time.");
                 }
-                if (_lutMat.HasProperty("_LutParams"))
-                    _lutMat.SetVector("_LutParams", new Vector4(16f / 256f, 1f / 16f, 1f, 0f));
             }
             else
             {
@@ -238,6 +240,74 @@ namespace WorldSphereMod.PostFx
                     "PostFX shaders are unavailable — Unity cannot runtime-compile .shader source files outside an AssetBundle.");
             }
             return shader != null ? new Material(shader) : null;
+        }
+
+        static Texture2D TryLoadLutFromDisk(string relativePath)
+        {
+            try
+            {
+                string modDir = Mod.ModDirectory;
+                if (string.IsNullOrEmpty(modDir)) return null;
+                string fullPath = Path.Combine(modDir, "Resources", relativePath);
+                if (!File.Exists(fullPath)) return null;
+                byte[] bytes = File.ReadAllBytes(fullPath);
+                Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false, true);
+                tex.name = Path.GetFileNameWithoutExtension(relativePath);
+                if (!TryLoadPngViaReflection(tex, bytes))
+                {
+                    Object.Destroy(tex);
+                    return null;
+                }
+                tex.filterMode = FilterMode.Bilinear;
+                tex.wrapMode = TextureWrapMode.Clamp;
+                Debug.Log($"[WSM3D] PostStack LUT loaded from disk: {fullPath} ({tex.width}x{tex.height})");
+                return tex;
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[WSM3D] PostStack LUT disk load failed for '{relativePath}': {ex.Message}");
+                return null;
+            }
+        }
+
+        static bool TryLoadPngViaReflection(Texture2D tex, byte[] bytes)
+        {
+            try
+            {
+                var miInstance = typeof(Texture2D).GetMethod(
+                    "LoadImage",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic,
+                    null,
+                    new System.Type[] { typeof(byte[]) },
+                    null);
+                if (miInstance != null)
+                {
+                    object result = miInstance.Invoke(tex, new object[] { bytes });
+                    if (result is bool b1) return b1;
+                    return true;
+                }
+                var icType = typeof(Texture2D).Assembly.GetType("UnityEngine.ImageConversion");
+                if (icType != null)
+                {
+                    var miStatic = icType.GetMethod(
+                        "LoadImage",
+                        System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public,
+                        null,
+                        new System.Type[] { typeof(Texture2D), typeof(byte[]) },
+                        null);
+                    if (miStatic != null)
+                    {
+                        object result = miStatic.Invoke(null, new object[] { tex, bytes });
+                        if (result is bool b2) return b2;
+                        return true;
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[WSM3D] TryLoadPngViaReflection threw: {ex.GetType().Name}: {ex.Message}");
+            }
+            return false;
         }
 
         void ApplySSAOParams()

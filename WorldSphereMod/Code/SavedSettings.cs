@@ -77,6 +77,9 @@ public class SavedSettings
         public bool BuildingStyleProcgen = false;
         // Phase 3: Crossed-quad foliage (vs. billboarded sprite top tiles).
         public bool CrossedQuadFoliage = false;
+        // ADR-0017 M0: continuous height-field mesh terrain (replaces per-tile quads).
+        // Flat shape only. Default OFF until validated in-game.
+        public bool UseHeightFieldTerrain = false;
         // Terrain polish: blend biome colors across tile boundaries.
         public bool BiomeBlending = true;
         // Phase 4: Mesh water surface (vs. flat tile color).

@@ -6,9 +6,12 @@ namespace WorldSphereMod.Lighting
     public sealed class CubemapLighting : MonoBehaviour
     {
         public const string CubemapResourcePath = "Cubemap/sky-default";
+        const int kProceduralCubemapSize = 128;
 
         static CubemapLighting? _instance;
         static Cubemap? _previousCustomReflection;
+        static Material? _previousSkybox;
+        static Material? _runtimeSkyboxMaterial;
         static AmbientMode _previousAmbientMode;
         static DefaultReflectionMode _previousDefaultReflectionMode;
         static float _previousReflectionIntensity;
@@ -97,9 +100,13 @@ namespace WorldSphereMod.Lighting
             if (skyCubemap == null)
             {
                 Debug.Log("[WSM3D] CubemapLighting: no custom cubemap found, applying skybox-derived ambient + reflection mode.");
+                skyCubemap = CreateProceduralCubemap();
                 CapturePreviousReflectionState();
+                CapturePreviousSkyboxState();
+                ApplyRuntimeSkybox(skyCubemap);
+                RenderSettings.customReflection = skyCubemap;
                 RenderSettings.ambientMode = AmbientMode.Skybox;
-                RenderSettings.defaultReflectionMode = DefaultReflectionMode.Skybox;
+                RenderSettings.defaultReflectionMode = DefaultReflectionMode.Custom;
                 RenderSettings.reflectionIntensity = 1f;
                 _applied = true;
                 _loadInProgress = false;
@@ -108,6 +115,8 @@ namespace WorldSphereMod.Lighting
 
             Debug.Log($"[WSM3D] CubemapLighting loaded cubemap '{skyCubemap.name}' (dimension={skyCubemap.dimension}).");
             CapturePreviousReflectionState();
+            CapturePreviousSkyboxState();
+            ApplyRuntimeSkybox(skyCubemap);
             RenderSettings.customReflection = skyCubemap;
             RenderSettings.ambientMode = AmbientMode.Skybox;
             RenderSettings.defaultReflectionMode = DefaultReflectionMode.Custom;
@@ -121,6 +130,11 @@ namespace WorldSphereMod.Lighting
             if (!_applied || !_hasCapturedReflectionState)
             {
                 return;
+            }
+
+            if (_previousSkybox != null)
+            {
+                RenderSettings.skybox = _previousSkybox;
             }
 
             // Only restore customReflection if the previous value is a real
@@ -161,6 +175,76 @@ namespace WorldSphereMod.Lighting
             _previousDefaultReflectionMode = RenderSettings.defaultReflectionMode;
             _previousReflectionIntensity = RenderSettings.reflectionIntensity;
             _hasCapturedReflectionState = true;
+        }
+
+        static void CapturePreviousSkyboxState()
+        {
+            if (_previousSkybox == null)
+            {
+                _previousSkybox = RenderSettings.skybox;
+            }
+        }
+
+        static void ApplyRuntimeSkybox(Cubemap cubemap)
+        {
+            Shader? skyboxShader = Shader.Find("Skybox/Cubemap");
+            if (skyboxShader == null)
+            {
+                Debug.LogWarning("[WSM3D] CubemapLighting: Skybox/Cubemap shader not found; applying reflection cubemap only.");
+                return;
+            }
+
+            if (_runtimeSkyboxMaterial == null)
+            {
+                _runtimeSkyboxMaterial = new Material(skyboxShader)
+                {
+                    name = "WSM3D.RuntimeSkybox",
+                    hideFlags = HideFlags.HideAndDontSave
+                };
+            }
+            else if (_runtimeSkyboxMaterial.shader != skyboxShader)
+            {
+                _runtimeSkyboxMaterial.shader = skyboxShader;
+            }
+
+            _runtimeSkyboxMaterial.SetTexture("_Tex", cubemap);
+            RenderSettings.skybox = _runtimeSkyboxMaterial;
+        }
+
+        static Cubemap CreateProceduralCubemap()
+        {
+            Cubemap cubemap = new Cubemap(kProceduralCubemapSize, TextureFormat.RGBAHalf, false)
+            {
+                name = "WSM3D.ProceduralSkyCubemap",
+                hideFlags = HideFlags.HideAndDontSave
+            };
+
+            Color bottom = new Color(0.04f, 0.08f, 0.22f, 1f);
+            Color horizon = new Color(0.45f, 0.68f, 0.92f, 1f);
+            Color top = new Color(0.94f, 0.97f, 1.0f, 1f);
+
+            for (int y = 0; y < kProceduralCubemapSize; y++)
+            {
+                float t = kProceduralCubemapSize > 1 ? (float)y / (kProceduralCubemapSize - 1) : 0f;
+                Color vertical = t < 0.5f
+                    ? Color.Lerp(bottom, horizon, t * 2f)
+                    : Color.Lerp(horizon, top, (t - 0.5f) * 2f);
+
+                for (int x = 0; x < kProceduralCubemapSize; x++)
+                {
+                    float u = kProceduralCubemapSize > 1 ? (float)x / (kProceduralCubemapSize - 1) : 0f;
+                    float edge = Mathf.Abs(u - 0.5f) * 2f;
+                    Color color = Color.Lerp(vertical, top, edge * 0.06f);
+
+                    for (int face = 0; face < 6; face++)
+                    {
+                        cubemap.SetPixel((CubemapFace)face, x, y, color);
+                    }
+                }
+            }
+
+            cubemap.Apply(false, false);
+            return cubemap;
         }
     }
 }

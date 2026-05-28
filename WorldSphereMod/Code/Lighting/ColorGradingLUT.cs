@@ -1,4 +1,5 @@
 using System.Collections;
+using System.IO;
 using UnityEngine;
 using WorldSphereMod.NewCamera;
 
@@ -95,12 +96,16 @@ namespace WorldSphereMod.Lighting
         IEnumerator InitializeAsync()
         {
             _initializing = true;
-            ResourceRequest textureRequest = Resources.LoadAsync<Texture2D>(LutTextureResourcePath);
-            yield return textureRequest;
-            _lutTexture = textureRequest.asset as Texture2D;
+            _lutTexture = TryLoadLutFromDisk("LUT/default.png");
             if (_lutTexture == null)
             {
-                Debug.LogWarning($"[WSM3D] ColorGradingLUT texture '{LutTextureResourcePath}' not found in Resources; color grading skipped.");
+                ResourceRequest textureRequest = Resources.LoadAsync<Texture2D>(LutTextureResourcePath);
+                yield return textureRequest;
+                _lutTexture = textureRequest.asset as Texture2D;
+            }
+            if (_lutTexture == null)
+            {
+                Debug.LogWarning($"[WSM3D] ColorGradingLUT texture not found (disk '{Mod.ModDirectory}/Resources/LUT/default.png' or Resources '{LutTextureResourcePath}'); color grading skipped.");
                 _initializing = false;
                 yield break;
             }
@@ -157,6 +162,60 @@ namespace WorldSphereMod.Lighting
             _hasApplied = true;
             _materialReady = _lutMaterial != null;
             _initializing = false;
+        }
+
+        static Texture2D? TryLoadLutFromDisk(string relativePath)
+        {
+            try
+            {
+                string modDir = Mod.ModDirectory;
+                if (string.IsNullOrEmpty(modDir)) return null;
+                string fullPath = Path.Combine(modDir, "Resources", relativePath);
+                if (!File.Exists(fullPath)) return null;
+                byte[] bytes = File.ReadAllBytes(fullPath);
+                Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false, true);
+                tex.name = Path.GetFileNameWithoutExtension(relativePath);
+                var miInstance = typeof(Texture2D).GetMethod(
+                    "LoadImage",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic,
+                    null,
+                    new System.Type[] { typeof(byte[]) },
+                    null);
+                if (miInstance != null)
+                {
+                    object result = miInstance.Invoke(tex, new object[] { bytes });
+                    if (result is bool b && !b) { Destroy(tex); return null; }
+                }
+                else
+                {
+                    var icType = typeof(Texture2D).Assembly.GetType("UnityEngine.ImageConversion");
+                    var miStatic = icType?.GetMethod(
+                        "LoadImage",
+                        System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public,
+                        null,
+                        new System.Type[] { typeof(Texture2D), typeof(byte[]) },
+                        null);
+                    if (miStatic != null)
+                    {
+                        object result = miStatic.Invoke(null, new object[] { tex, bytes });
+                        if (result is bool b && !b) { Destroy(tex); return null; }
+                    }
+                    else
+                    {
+                        Destroy(tex);
+                        return null;
+                    }
+                }
+                tex.filterMode = FilterMode.Bilinear;
+                tex.wrapMode = TextureWrapMode.Clamp;
+                Debug.Log($"[WSM3D] ColorGradingLUT loaded from disk: {fullPath} ({tex.width}x{tex.height})");
+                return tex;
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[WSM3D] ColorGradingLUT disk load failed for '{relativePath}': {ex.Message}");
+                return null;
+            }
         }
 
         void OnRenderImage(RenderTexture source, RenderTexture destination)
