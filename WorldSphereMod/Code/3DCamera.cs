@@ -31,7 +31,7 @@ namespace WorldSphereMod.NewCamera
         {
             if (Core.IsWorld3D)
             {
-                __result = IsWithinCameraView(pPos.To3DTileHeight(10));
+                __result = IsWithinCameraView(pPos.To3DTileHeight(Core.savedSettings != null ? Core.savedSettings.CameraDefaultStrategyZoomHeight : 10f));
                 return false;
             }
             return true;
@@ -75,7 +75,9 @@ namespace WorldSphereMod.NewCamera
                 // Clamp incoming orthographic size to the 3D surface-
                 // distance range so vanilla zoom code (which thinks in
                 // 2D half-extents) can't push the camera to orbit.
-                Height = Mathf.Clamp(value, CameraManager.MinSurfaceDistance, CameraManager.MaxSurfaceDistance);
+                float minSurface = Core.savedSettings != null ? Core.savedSettings.CameraMinSurfaceDistance : 1f;
+                float maxSurface = Core.savedSettings != null ? Core.savedSettings.CameraMaxSurfaceDistance : 60f;
+                Height = Mathf.Clamp(value, minSurface, maxSurface);
                 return false;
             }
             return true;
@@ -85,15 +87,6 @@ namespace WorldSphereMod.NewCamera
     //this manages the camera
     public static class CameraManager
     {
-        internal const float DefaultStrategyZoomHeight = 10f;
-        /// <summary>
-        /// Maximum camera distance from sphere surface in 3D mode.
-        /// Prevents the 2D orthographic-size values (which can reach
-        /// half the map dimension) from pushing the camera hundreds
-        /// of units away where terrain is a pale dot.
-        /// </summary>
-        internal const float MaxSurfaceDistance = 60f;
-        internal const float MinSurfaceDistance = 1f;
         const KeyCode EmergencySnapKey = KeyCode.F12;
         public static Vector2 Position => Manager.transform.position;
         public static Transform transform => MainCamera.transform;
@@ -105,10 +98,11 @@ namespace WorldSphereMod.NewCamera
                 return;
             }
 
-            Height = DefaultStrategyZoomHeight;
+            float defaultZoom = Core.savedSettings != null ? Core.savedSettings.CameraDefaultStrategyZoomHeight : 10f;
+            Height = defaultZoom;
             if (Manager != null)
             {
-                Manager._target_zoom = DefaultStrategyZoomHeight;
+                Manager._target_zoom = defaultZoom;
             }
             Vector3 snappedPosition = Core.Sphere.Exists
                 ? Core.Sphere.SpherePos(MapBox.width * 0.5f, MapBox.height * 0.5f, Height)
@@ -128,10 +122,13 @@ namespace WorldSphereMod.NewCamera
             OriginalCamera.enabled = false;
             MainCamera.enabled = true;
             Manager.main_camera = MainCamera;
-            Height = DefaultStrategyZoomHeight;
-            Manager._target_zoom = DefaultStrategyZoomHeight;
-            MainCamera.nearClipPlane = 0.5f;
-            MainCamera.farClipPlane = Core.Sphere.Radius * 4f + 500f;
+            float defaultZoom = Core.savedSettings != null ? Core.savedSettings.CameraDefaultStrategyZoomHeight : 10f;
+            Height = defaultZoom;
+            Manager._target_zoom = defaultZoom;
+            MainCamera.nearClipPlane = Core.savedSettings != null ? Core.savedSettings.CameraNearClipPlane : 0.5f;
+            float farMultiplier = Core.savedSettings != null ? Core.savedSettings.CameraFarClipRadiusMultiplier : 4f;
+            float farPadding = Core.savedSettings != null ? Core.savedSettings.CameraFarClipPadding : 500f;
+            MainCamera.farClipPlane = Core.Sphere.Radius * farMultiplier + farPadding;
             MainCamera.transform.position = Core.Sphere.SpherePos(Position.x, Position.y, Height);
             UnityEngine.Debug.Log($"[WSM3D] MakeCamera3D: Height={Height} radius={Core.Sphere.Radius:F3} farClip={MainCamera.farClipPlane:F1}");
         }
@@ -184,21 +181,23 @@ namespace WorldSphereMod.NewCamera
             // Clamp Height so the 2D orthographic-size value (which can
             // reach half the map dimension) doesn't push the 3D camera
             // hundreds of units from the sphere surface.
-            Height = Mathf.Clamp(Height, MinSurfaceDistance, MaxSurfaceDistance);
+            float minSurface = Core.savedSettings != null ? Core.savedSettings.CameraMinSurfaceDistance : 1f;
+            float maxSurface = Core.savedSettings != null ? Core.savedSettings.CameraMaxSurfaceDistance : 60f;
+            Height = Mathf.Clamp(Height, minSurface, maxSurface);
             MainCamera.transform.position = Core.Sphere.SpherePos(Position.x, Position.y, Height);
             MainCamera.transform.rotation = (Core.savedSettings.CameraRotatesWithWorld ? Core.Sphere.GetRotation(MainCamera.transform.position) * Constants.ToUpright : Quaternion.identity) * Quaternion.Euler(RotateCamera.Rotation);
             if (ControllableUnit._unit_main != null && Core.savedSettings.FirstPerson)
             {
                 Manager._target_zoom = ControllableUnit._unit_main.position_height + ControllableUnit._unit_main.GetHeight() + CameraTile.TileHeight();
             }
-            float MinZoom = CameraTile.TileHeight() + MinSurfaceDistance;
+            float MinZoom = CameraTile.TileHeight() + minSurface;
             if (Manager._target_zoom < MinZoom)
             {
                 Manager._target_zoom = MinZoom;
             }
-            if (Manager._target_zoom > MaxSurfaceDistance)
+            if (Manager._target_zoom > maxSurface)
             {
-                Manager._target_zoom = MaxSurfaceDistance;
+                Manager._target_zoom = maxSurface;
             }
             Bench.bench("Draw Sphere", "game_total"); //im not even sure if the lag is actually tracked
             Core.Sphere.DrawTiles((int)Position.x);
@@ -378,7 +377,8 @@ namespace WorldSphereMod.NewCamera
             {
                 MoveCamera.camera_drag_run = true;
                 Vector3 MousePos = Position;
-                if (Toolbox.DistVec3(Vector3.zero, Position) > 0.1f)
+                float dragThreshold = Core.savedSettings != null ? Core.savedSettings.CameraTouchDragThreshold : 0.1f;
+                if (Toolbox.DistVec3(Vector3.zero, Position) > dragThreshold)
                 {
                     MoveCamera.camera_drag_activated = true;
                 }
@@ -389,7 +389,8 @@ namespace WorldSphereMod.NewCamera
                     MoveCamera._touch_dist = Toolbox.DistVec3(Cam._first_touch, Cam.getTouchPos(true));
                     if (World.world.player_control.touch_ticks_skip > 5)
                     {
-                        if (MoveCamera._touch_dist >= 20f || (float)World.world.player_control.touch_ticks_skip > 0.3f)
+                        float zoomThreshold = Core.savedSettings != null ? Core.savedSettings.CameraTouchZoomThreshold : 20f;
+                        if (MoveCamera._touch_dist >= zoomThreshold || (float)World.world.player_control.touch_ticks_skip > 0.3f)
                         {
                             World.world.player_control.already_used_zoom = true;
                             World.world.player_control.already_used_power = false;
@@ -456,14 +457,19 @@ namespace WorldSphereMod.NewCamera
             // In 3D mode Height is the camera's distance from the sphere
             // surface, NOT a 2D orthographic half-extent. Cap the max so
             // the camera stays at a playable strategy-view altitude.
-            Manager.orthographic_size_max = MaxSurfaceDistance;
-            Manager._target_zoom = DefaultStrategyZoomHeight;
-            Height = DefaultStrategyZoomHeight;
-            Manager.main_camera.orthographicSize = Mathf.Clamp(Manager._target_zoom, MinSurfaceDistance, MaxSurfaceDistance);
+            float defaultZoom = Core.savedSettings != null ? Core.savedSettings.CameraDefaultStrategyZoomHeight : 10f;
+            float minSurface = Core.savedSettings != null ? Core.savedSettings.CameraMinSurfaceDistance : 1f;
+            float maxSurface = Core.savedSettings != null ? Core.savedSettings.CameraMaxSurfaceDistance : 60f;
+            Manager.orthographic_size_max = maxSurface;
+            Manager._target_zoom = defaultZoom;
+            Height = defaultZoom;
+            Manager.main_camera.orthographicSize = Mathf.Clamp(Manager._target_zoom, minSurface, maxSurface);
             World.world.setZoomOrthographic(Manager.main_camera.orthographicSize);
             float radius = Core.Sphere.Exists ? Core.Sphere.Radius : 50f;
-            Manager.main_camera.nearClipPlane = 0.5f;
-            Manager.main_camera.farClipPlane = radius * 4f + 500f;
+            Manager.main_camera.nearClipPlane = Core.savedSettings != null ? Core.savedSettings.CameraNearClipPlane : 0.5f;
+            float farMultiplier = Core.savedSettings != null ? Core.savedSettings.CameraFarClipRadiusMultiplier : 4f;
+            float farPadding = Core.savedSettings != null ? Core.savedSettings.CameraFarClipPadding : 500f;
+            Manager.main_camera.farClipPlane = radius * farMultiplier + farPadding;
         }
         static bool Prefix()
         {

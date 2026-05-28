@@ -227,7 +227,8 @@ namespace WorldSphereMod.Voxel
                     // dominates the unlit contribution + actually makes voxels visible.
                     // Without per-vertex emission texture we can't tint emission per-pixel,
                     // but this at least lifts everything off black floor.
-                    m.SetColor("_EmissionColor", new UnityEngine.Color(1.5f, 1.5f, 1.5f, 1f));
+                    float emissionMultiplier = Core.savedSettings != null ? Core.savedSettings.ImpostorEmissionMultiplier : 1.5f;
+                    m.SetColor("_EmissionColor", new UnityEngine.Color(emissionMultiplier, emissionMultiplier, emissionMultiplier, 1f));
                     m.globalIlluminationFlags = UnityEngine.MaterialGlobalIlluminationFlags.RealtimeEmissive;
                 }
                 catch { }
@@ -464,7 +465,7 @@ namespace WorldSphereMod.Voxel
 
         static void LogActorVoxelSubmitDiagnostics(Camera? camera)
         {
-            if (_actorVoxelSubmitTranslations.Count == 0) return;
+            if (_actorVoxelSubmitTranslations.Count == 0 || !Core.savedSettings.ProfilerDump) return;
 
             Debug.Log($"[WSM3D][DIAG] Actor-voxel TRS.GetColumn(3) first {_actorVoxelSubmitTranslations.Count} submissions:");
             for (int i = 0; i < _actorVoxelSubmitTranslations.Count; i++)
@@ -478,7 +479,7 @@ namespace WorldSphereMod.Voxel
 
         static void LogCameraFrustumBounds(Camera? cam)
         {
-            if (cam == null) return;
+            if (cam == null || !Core.savedSettings.ProfilerDump) return;
 
             Vector3 nearBL = cam.ViewportToWorldPoint(new Vector3(0f, 0f, cam.nearClipPlane));
             Vector3 nearBR = cam.ViewportToWorldPoint(new Vector3(1f, 0f, cam.nearClipPlane));
@@ -672,7 +673,7 @@ namespace WorldSphereMod.Voxel
                     {
                         bool submitted = false;
                         Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
-                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
+                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial(sp);
                         if (im == null || im.vertexCount == 0) { dsImpostorMeshNull++; continue; }
                         if (imMat == null) { dsImpostorMatNull++; continue; }
                         Vector3 imPos = rd.positions[i];
@@ -875,7 +876,7 @@ namespace WorldSphereMod.Voxel
                     {
                         bool submitted = false;
                         Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
-                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
+                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial(sp);
                         // Impostor mesh build failed: fall through to vanilla
                         // sprite (don't zero scales — that's the "hide the
                         // sprite because we drew our own mesh" path, which
@@ -1003,7 +1004,7 @@ namespace WorldSphereMod.Voxel
                 if (tier == WorldSphereMod.LOD.LodTier.Impostor)
                 {
                     Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
-                    Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
+                    Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial(sp);
                     if (im == null || im.vertexCount == 0 || imMat == null)
                     {
                         sr.enabled = true;
@@ -1107,7 +1108,7 @@ namespace WorldSphereMod.Voxel
                     if (tier == WorldSphereMod.LOD.LodTier.Impostor)
                     {
                         Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sprite);
-                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
+                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial(sprite);
                         if (im == null || im.vertexCount == 0 || imMat == null)
                         {
                             continue;

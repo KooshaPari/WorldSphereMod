@@ -22,25 +22,6 @@ namespace WorldSphereMod.Worldspace
         static readonly Dictionary<Actor, NameplateText> _suppressedUpstream = new();
         static readonly Type? s_textMesh3DType = GetTextMesh3DType();
 
-        public const float kFadeNear = 10f;
-        public const float kFadeFar = 30f;
-
-        // Screen-space-stable sizing. The label transform is rescaled in LateUpdate
-        // so that its apparent screen size stays roughly constant regardless of the
-        // 3D camera distance. The 2D top-down baseline sat ~kReferenceDistance world
-        // units above the actor; at that distance the label should render at 1x.
-        // Beyond that we scale up linearly (with a clamp) so far labels stay legible
-        // without becoming the dominant on-screen element when the camera dollies
-        // in close.
-        const float kReferenceDistance = 10f;
-        const float kMinScale = 0.25f;
-        const float kMaxScale = 4f;
-        // The label was authored for 2D top-down where one "tile" equals one world
-        // unit. In 3D the rig sits in mesh-units (~8x because of VoxelScaleMultiplier),
-        // so the un-corrected label dwarfs the actor. Knock the base size down so
-        // even at the reference distance the label is comparable to an actor head.
-        const float kBaseScale = 0.15f;
-
         public static NameplateWorld? Attach(Actor a, Transform rigRoot)
         {
             if (a == null || rigRoot == null) return null;
@@ -62,7 +43,8 @@ namespace WorldSphereMod.Worldspace
             // Keep the label anchored to the rig root so it inherits the same lifted
             // world-space transform as the voxel actor path.
             t.localPosition = Vector3.zero;
-            t.localScale = Vector3.one * kBaseScale;
+            float baseScale = Core.savedSettings != null ? Core.savedSettings.NameplateBaseScale : 0.15f;
+            t.localScale = Vector3.one * baseScale;
 
             var np = go.AddComponent<NameplateWorld>();
             np.Actor = a;
@@ -145,8 +127,10 @@ namespace WorldSphereMod.Worldspace
             // Min(1, cameraDistance / 100) so labels never exceed the rig's own
             // mesh-unit scale, then keep a kBaseScale floor so close-up text is
             // still legible. This replaces the previous linear-grow policy.
-            float clamped = Mathf.Min(1f, d / 100f);
-            float effective = Mathf.Max(kBaseScale, clamped);
+            float baseScale = Core.savedSettings != null ? Core.savedSettings.NameplateBaseScale : 0.15f;
+            float divisor = Core.savedSettings != null ? Core.savedSettings.NameplateScaleDistanceDivisor : 100f;
+            float clamped = Mathf.Min(1f, d / divisor);
+            float effective = Mathf.Max(baseScale, clamped);
             transform.localScale = Vector3.one * effective;
 
             ApplyFade(d);
@@ -154,7 +138,9 @@ namespace WorldSphereMod.Worldspace
 
         void ApplyFade(float camDistance)
         {
-            float alpha = 1f - Mathf.InverseLerp(kFadeNear, kFadeFar, camDistance);
+            float fadeNear = Core.savedSettings != null ? Core.savedSettings.NameplateFadeNear : 10f;
+            float fadeFar = Core.savedSettings != null ? Core.savedSettings.NameplateFadeFar : 30f;
+            float alpha = 1f - Mathf.InverseLerp(fadeNear, fadeFar, camDistance);
 
             if (_fallbackLabel != null)
             {
