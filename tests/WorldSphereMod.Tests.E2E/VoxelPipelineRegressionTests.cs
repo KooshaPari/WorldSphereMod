@@ -237,9 +237,8 @@ public class VoxelPipelineRegressionTests
     // ---------------------------------------------------------------
     // ADR-0013: loading corrupted shaders from wsm3d-shaders triggers
     // Unity's native crash reporter ("Uploading Crash Report") which
-    // freezes the game. Only 3 of 10 bundle shaders load without
-    // ManagedStream errors. The foreach loop MUST use SafeShaders and
-    // SafeShaders MUST contain exactly these 3 names, no more.
+    // freezes the game. The foreach loop MUST use SafeShaders and
+    // SafeShaders MUST contain exactly the curated runtime set, no more.
     [Fact]
     public void Core_shader_load_list_matches_SafeShaders_exactly()
     {
@@ -265,12 +264,20 @@ public class VoxelPipelineRegressionTests
         for (int i = 0; i < entries.Count; i++)
             shaderNames[i] = entries[i].Groups["name"].Value;
 
-        var expected = new[] { "OpaqueVertexColor", "GerstnerWater", "ColorGradingLUT" };
+        var expected = new[]
+        {
+            "OpaqueVertexColor",
+            "GerstnerWater",
+            "ColorGradingLUT",
+            "ProceduralSky",
+            "Impostor",
+            "ScreenSpaceAO",
+            "ScreenSpaceGI",
+            "BrpBloom",
+            "BrpACES",
+        };
         shaderNames.Should().BeEquivalentTo(expected,
-            "SafeShaders must contain EXACTLY these 3 shaders — the other 7 in " +
-            "wsm3d-shaders (StratumVoxelPBR, ProceduralSky, Impostor, ScreenSpaceAO, " +
-            "ScreenSpaceGI, BrpBloom, BrpACES) produce ManagedStream errors that " +
-            "trigger Unity's native crash reporter. See ADR-0013.");
+            "SafeShaders must contain EXACTLY the runtime shader load set");
 
         // The ADR-0013 reference must be present as a guard against uninformed edits
         source.Should().Contain("ADR-0013",

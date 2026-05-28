@@ -1128,7 +1128,7 @@ namespace WorldSphereMod
                     Debug.LogError("[WSM3D] CompoundSphereMaterial missing from bundle.");
 
                 // wsm3d-shaders bundle ships 10 BRP shaders (+ SVC asset); runtime
-                // loads only SafeShaders (3) — see ADR-0013 / human gate before
+                // loads only SafeShaders — see ADR-0013 / human gate before
                 // expanding the list. Load with try/catch if bundle file is missing.
                 WrappedAssetBundle shaderAb = null;
                 try { shaderAb = AssetBundleUtils.GetAssetBundle("wsm3d-shaders"); }
