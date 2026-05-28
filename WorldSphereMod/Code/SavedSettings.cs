@@ -136,6 +136,12 @@ public class SavedSettings
         public float FoliageDensity = 1.0f;
         public bool ProfilerDump = false;
 
+        // Per-frame building render budget: process at most this many buildings
+        // per frame, cycling through the full visible set across frames.
+        // 0 = unlimited (process all). Reduces per-frame cost from O(visible)
+        // to O(budget) at the expense of spreading updates over multiple frames.
+        public int BuildingRenderBudget = 200;
+
         // Voxel disk cache: persist voxelized meshes to SQLite so subsequent
         // launches skip the async voxelization queue entirely.
         public bool VoxelDiskCache = true;

@@ -10,6 +10,8 @@ namespace WorldSphereMod.ProcGen
     public static class BuildingProcRender
     {
         static bool _firstBuildingPosLogged;
+        // Per-frame budget cycling offset (same pattern as BuildingVoxelEmit).
+        static int _budgetOffset;
 
         [Phase(nameof(SavedSettings.ProceduralBuildings))]
         [HarmonyPatch(typeof(BuildingManager), nameof(BuildingManager.precalculateRenderDataParallel))]
@@ -33,7 +35,20 @@ namespace WorldSphereMod.ProcGen
 
                 if (profile) totalSw.Start();
 
-                for (int i = 0; i < n; i++)
+                // Per-frame budget: only process a slice of visible buildings each
+                // frame, cycling through the full set. 0 = unlimited.
+                int budget = Core.savedSettings.BuildingRenderBudget;
+                int start = 0;
+                int end = n;
+                if (budget > 0 && n > budget)
+                {
+                    if (_budgetOffset >= n) _budgetOffset = 0;
+                    start = _budgetOffset;
+                    end = UnityEngine.Mathf.Min(start + budget, n);
+                    _budgetOffset = end >= n ? 0 : end;
+                }
+
+                for (int i = start; i < end; i++)
                 {
                     Building b = arr[i];
                     if (b == null || b.asset == null) continue;

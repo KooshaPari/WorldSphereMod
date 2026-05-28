@@ -765,11 +765,15 @@ namespace WorldSphereMod.Voxel
         {
             static bool _buildingVoxelEmitSubmitLogged;
             static bool _buildingEmitDiagLogged;
+            // Per-frame budget cycling: tracks where we left off in the visible
+            // buildings array so we process the next slice each frame.
+            static int _budgetOffset;
 
             public static void ResetDiag()
             {
                 _buildingVoxelEmitSubmitLogged = false;
                 _buildingEmitDiagLogged = false;
+                _budgetOffset = 0;
             }
 
             [HarmonyPostfix]
@@ -789,7 +793,21 @@ namespace WorldSphereMod.Voxel
                 var rd = __instance.render_data;
                 var arr = __instance._array_visible_buildings;
                 int n = __instance._visible_buildings_count;
-                for (int i = 0; i < n; i++)
+
+                // Per-frame budget: only process a slice of visible buildings each
+                // frame, cycling through the full set. 0 = unlimited.
+                int budget = Core.savedSettings.BuildingRenderBudget;
+                int start = 0;
+                int end = n;
+                if (budget > 0 && n > budget)
+                {
+                    if (_budgetOffset >= n) _budgetOffset = 0;
+                    start = _budgetOffset;
+                    end = Mathf.Min(start + budget, n);
+                    _budgetOffset = end >= n ? 0 : end;
+                }
+
+                for (int i = start; i < end; i++)
                 {
                     Building b = arr[i];
                     if (b == null || b.asset == null) continue;
