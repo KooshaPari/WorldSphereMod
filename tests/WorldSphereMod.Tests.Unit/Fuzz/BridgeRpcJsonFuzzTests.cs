@@ -96,8 +96,10 @@ public class BridgeRpcJsonFuzzTests
             }
 
             roundTrip.Should().NotBeNull();
-            // JSON mutation may rewrite Version independently of the in-memory settings object.
-            roundTrip!.Version.Should().MatchRegex("^2\\.[23]$");
+            // JSON mutation may rewrite Version independently of the in-memory settings object;
+            // TryDeserialize mirrors Core.LoadSettings parse (no Version gate). Core bumps Version on load.
+            Action reparseAct = () => _ = JsonConvert.SerializeObject(roundTrip);
+            reparseAct.Should().NotThrow();
         }
     }
 

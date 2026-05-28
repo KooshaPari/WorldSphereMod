@@ -4,6 +4,7 @@
 worldbox_Data/Managed/Assembly-CSharp-firstpass.dll
 worldbox_Data/Managed/Newtonsoft.Json.dll
 worldbox_Data/Managed/SleekRender.dll
+worldbox_Data/Managed/SQLite.dll
 worldbox_Data/Managed/UnityEngine.CoreModule.dll
 worldbox_Data/Managed/UnityEngine.InputLegacyModule.dll
 worldbox_Data/Managed/UnityEngine.ParticleSystemModule.dll
