@@ -529,7 +529,7 @@ namespace WorldSphereMod.Voxel
             }
 
             [HarmonyPostfix]
-            [HarmonyPriority(Priority.First)]
+            [HarmonyPriority(Priority.Last)]
             public static void EmitVoxels(ActorManager __instance)
             {
                 EmitVoxelsCalled = true;
