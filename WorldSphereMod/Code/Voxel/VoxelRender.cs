@@ -613,8 +613,18 @@ namespace WorldSphereMod.Voxel
                     LastFrustumCullerPassCount++;
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, a.GetHashCode());
                     if (tier == WorldSphereMod.LOD.LodTier.Impostor) dsTierImpostor++;
-                    else if (tier == WorldSphereMod.LOD.LodTier.Proxy) dsTierProxy++;
-                    else if (tier == WorldSphereMod.LOD.LodTier.Voxel) dsTierVoxel++;
+                    else if (tier == WorldSphereMod.LOD.LodTier.Voxel)
+                    {
+                        dsTierVoxel++;
+                    }
+                    else if (tier != WorldSphereMod.LOD.LodTier.Impostor)
+                    {
+                        // Proxy currently shares the full voxel path, so keep
+                        // it in the voxel-path diagnostics without introducing a
+                        // Proxy-specific emit branch.
+                        dsTierVoxel++;
+                        dsTierProxy++;
+                    }
                     else dsTierOther++;
 
                     if (Core.savedSettings.SkeletalAnimation && tier != WorldSphereMod.LOD.LodTier.Impostor)
