@@ -60,6 +60,21 @@ namespace WorldSphereMod.Water
                 renderer.sharedMaterial.SetTexture("_SkyCubemap", skyCubemap);
             }
 
+            // Defensive MaterialPropertyBlock push, mirroring the slope-mesh fix.
+            // Even though GerstnerWater's _Color/_DeepColor are plain uniforms (no
+            // UNITY_DEFINE_INSTANCED_PROP), enableInstancing=true + a future
+            // shader change to per-instance buffers would silently zero these and
+            // render water black. Pushing through MPB stays correct in both modes.
+            Color waterShallowColor = new Color(0.22f, 0.65f, 0.70f, 0.75f);
+            Color waterDeepColor = new Color(0.08f, 0.22f, 0.45f, 0.90f);
+            Color waterFoamColor = new Color(0.92f, 0.95f, 1.00f, 1f);
+            var mpb = new MaterialPropertyBlock();
+            mpb.SetColor("_Color", waterShallowColor);
+            mpb.SetColor("_DeepColor", waterDeepColor);
+            mpb.SetColor("_Foam", waterFoamColor);
+            mpb.SetColor("_EmissionColor", new Color(0.05f, 0.1f, 0.15f, 1f));
+            renderer.SetPropertyBlock(mpb);
+
             var surface = go.AddComponent<WaterSurface>();
             surface._filter = filter;
             surface._renderer = renderer;
