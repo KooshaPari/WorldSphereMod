@@ -1992,22 +1992,20 @@ function Invoke-PlaycuaScenarios {
 
     $failed = @()
     $playcuaBootstrapped = $false
+    $bootstrapVision = if ($PSBoundParameters.ContainsKey("VisionBackend")) { $VisionBackend } else { "off" }
     Push-Location $RepoRoot
     try {
         foreach ($scenario in $Scenarios) {
-            if (-not $playcuaBootstrapped) {
-                if (-not (Ensure-BridgeReady -WaitSeconds 20)) {
-                    $null = Ensure-BridgeReady -RelaunchIfDown
-                }
+            if (-not (Test-BridgeHealthy)) {
+                Write-Warn "Bridge down before $($scenario.Name) — relaunch + bootstrap 3D ..."
+                $null = Invoke-BridgeRelaunchAndBootstrap3D -BootstrapVisionBackend $bootstrapVision -SettleSeconds 30 -BridgeWaitMinutes 5 -World3DWaitSeconds 120
+            } elseif (-not $playcuaBootstrapped) {
                 $health = Get-BridgeHealth
                 if ($health -and -not [bool]$health.isWorld3D) {
-                    $bootstrapVision = if ($PSBoundParameters.ContainsKey("VisionBackend")) { $VisionBackend } else { "off" }
                     $null = Invoke-PlaycuaBootstrapSaveLoad -VisionBackend $bootstrapVision
                     $null = Wait-BridgeWorld3D -WaitSeconds 180
                 }
                 $playcuaBootstrapped = $true
-            } elseif (-not (Ensure-BridgeReady -WaitSeconds 20)) {
-                $null = Ensure-BridgeReady -RelaunchIfDown
             }
 
             $scenarioReport = Join-Path $artifactRoot ("playcua-" + $scenario.BaseName + ".json")
@@ -2029,11 +2027,12 @@ function Invoke-PlaycuaScenarios {
             for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
                 if ($attempt -gt 1) {
                     Write-Info "playcua retry $($scenario.Name) (attempt $attempt/$maxAttempts) ..."
-                    if (-not (Ensure-BridgeReady -WaitSeconds 30 -RelaunchIfDown)) {
-                        Write-Warn "Bridge still down before retry of $($scenario.Name)"
+                    if (-not (Test-BridgeHealthy)) {
+                        Write-Warn "Bridge down before retry of $($scenario.Name) — relaunch + bootstrap 3D ..."
+                        $null = Invoke-BridgeRelaunchAndBootstrap3D -BootstrapVisionBackend $bootstrapVision -SettleSeconds 30 -BridgeWaitMinutes 5 -World3DWaitSeconds 120
+                    } else {
+                        $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend $bootstrapVision
                     }
-                    $bootstrapVision = if ($PSBoundParameters.ContainsKey("VisionBackend")) { $VisionBackend } else { "off" }
-                    $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend $bootstrapVision
                     Start-Sleep -Seconds 3
                 }
                 & $python @pyArgs
