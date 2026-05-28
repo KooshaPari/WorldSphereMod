@@ -444,6 +444,57 @@ public class VoxelPipelineRegressionTests
             "(up to ~256x256) work in 3D mode; current value is " + value);
     }
 
+    // ---------------------------------------------------------------
+    // 10. SkeletalAnimation gate must precede RigDriver.SubmitSkinnedActor
+    // ---------------------------------------------------------------
+    // Regression: when SkeletalAnimation is disabled, the skeletal-rig path
+    // in ActorVoxelEmit.EmitVoxels MUST skip entirely. If the gate is
+    // removed or moved, SubmitSkinnedActor runs unconditionally, causing
+    // double-rendering (voxel + rig) and wasted GPU work on settings where
+    // the rig system is intentionally disabled.
+    [Fact]
+    public void SkeletalPath_is_gated_by_SkeletalAnimation_setting()
+    {
+        var source = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
+
+        // Locate the single SubmitSkinnedActor call site
+        int submitIndex = source.IndexOf("RigDriver.SubmitSkinnedActor", StringComparison.Ordinal);
+        submitIndex.Should().BeGreaterThanOrEqualTo(0,
+            "VoxelRender.cs must call RigDriver.SubmitSkinnedActor in the skeletal path");
+
+        // Verify exactly one call site (the gated one). If a second appears,
+        // the test must be reviewed to confirm gating for the new site too.
+        int secondIndex = source.IndexOf("RigDriver.SubmitSkinnedActor", submitIndex + 1, StringComparison.Ordinal);
+        secondIndex.Should().Be(-1,
+            "RigDriver.SubmitSkinnedActor must have exactly one call site in VoxelRender.cs; " +
+            "a second call would require re-verifying the SkeletalAnimation gate covers it");
+
+        // Find the nearest preceding SkeletalAnimation gate. It must exist
+        // in a reasonable window before the submit call (the surrounding if).
+        int sourceBeforeSubmit_start = Math.Max(0, submitIndex - 4000);
+        string windowBeforeSubmit = source.Substring(sourceBeforeSubmit_start, submitIndex - sourceBeforeSubmit_start);
+
+        int gateIndex = windowBeforeSubmit.LastIndexOf(
+            "Core.savedSettings.SkeletalAnimation", StringComparison.Ordinal);
+        gateIndex.Should().BeGreaterThanOrEqualTo(0,
+            "RigDriver.SubmitSkinnedActor call must be preceded by a " +
+            "Core.savedSettings.SkeletalAnimation gate in the same scope");
+
+        // The gate must be inside an `if (...)` that references SkeletalAnimation
+        // — i.e. the line containing SkeletalAnimation must also contain `if`.
+        int absGateIndex = sourceBeforeSubmit_start + gateIndex;
+        int lineStart = source.LastIndexOf('\n', absGateIndex) + 1;
+        int lineEnd = source.IndexOf('\n', absGateIndex);
+        if (lineEnd < 0) lineEnd = source.Length;
+        string gateLine = source.Substring(lineStart, lineEnd - lineStart);
+
+        gateLine.Should().Contain("if",
+            "the SkeletalAnimation gate must be an `if` statement that branches around " +
+            "the skeletal path (line was: " + gateLine.Trim() + ")");
+        gateLine.Should().Contain("Core.savedSettings.SkeletalAnimation",
+            "the gate must reference Core.savedSettings.SkeletalAnimation directly");
+    }
+
     static int CountOccurrences(string text, string pattern)
     {
         int count = 0;
