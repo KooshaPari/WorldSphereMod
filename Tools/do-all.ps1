@@ -86,19 +86,6 @@ try {
         return $health
     }
 
-    function Wait-World3D {
-        param([int]$MaxSeconds = 180)
-        $deadline = (Get-Date).AddSeconds($MaxSeconds)
-        while ((Get-Date) -lt $deadline) {
-            try {
-                $h = Invoke-RestMethod -Uri 'http://127.0.0.1:8766/health' -TimeoutSec 4
-                if ($h.isWorld3D) { return $h }
-            } catch {}
-            Start-Sleep -Seconds 5
-        }
-        try { return Invoke-RestMethod -Uri 'http://127.0.0.1:8766/health' -TimeoutSec 4 } catch { return $null }
-    }
-
     $health = $null
     if (-not $SkipLive) {
         if (-not $SkipRelaunch) {
