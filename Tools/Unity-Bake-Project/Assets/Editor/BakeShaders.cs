@@ -95,12 +95,19 @@ public static class BakeShaders
             // compatibility across Unity versions. Bake target is Unity 6.3 but
             // WorldBox runs Unity 2022 — Unity normally refuses cross-version bundle
             // load. Uncompressed + ChunkBasedCompression sometimes works as a stop-gap.
-            BuildPipeline.BuildAssetBundles(
+            var manifest = BuildPipeline.BuildAssetBundles(
                 platformDir,
                 BuildAssetBundleOptions.UncompressedAssetBundle |
                 BuildAssetBundleOptions.ForceRebuildAssetBundle,
                 target);
-            Debug.Log($"[WSM3D-Bake] built wsm3d-shaders bundle for {target} -> {platformDir}");
+            if (manifest != null)
+            {
+                Debug.Log($"[WSM3D-Bake] built wsm3d-shaders bundle for {target} -> {platformDir}");
+            }
+            else
+            {
+                Debug.LogError($"[WSM3D-Bake] FAILED to build wsm3d-shaders bundle for {target}");
+            }
         }
         Debug.Log("[WSM3D-Bake] All platforms done (shader-only bundle).");
     }
