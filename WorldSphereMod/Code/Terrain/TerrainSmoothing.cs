@@ -60,6 +60,66 @@ namespace WorldSphereMod.Terrain
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
 
+            // CRITICAL: OpaqueVertexColor declares _Color and _EmissionColor inside
+            // UNITY_INSTANCING_BUFFER. When the shader compiles with instancing
+            // enabled, UNITY_ACCESS_INSTANCED_PROP reads from the per-instance
+            // constant buffer, NOT from material.SetColor() values. A single
+            // MeshRenderer without an explicit MaterialPropertyBlock leaves that
+            // buffer zero-initialized -> albedo*0 + 0 = pure black. Push the tint
+            // and emission via an MPB so the instanced-prop path resolves to the
+            // intended values.
+            try
+            {
+                MaterialPropertyBlock mpb = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(mpb);
+                mpb.SetColor("_Color", Color.white);
+                mpb.SetColor("_EmissionColor", new Color(0.15f, 0.15f, 0.15f, 1f));
+                renderer.SetPropertyBlock(mpb);
+                Debug.Log("[WSM3D] Mountain slope MPB pushed _Color=white _EmissionColor=0.15.");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[WSM3D] Mountain slope MPB push failed: {ex.Message}");
+            }
+
+            // Full diagnostic dump at slope renderer creation. Captures every
+            // angle of the "shader resolves but output is black" failure mode:
+            // shader/material properties, lighting environment, layer/camera mask.
+            try
+            {
+                Material m = renderer.sharedMaterial;
+                Shader sh = m != null ? m.shader : null;
+                string shaderName = sh != null ? sh.name : "<null>";
+                int passCount = sh != null ? sh.passCount : -1;
+                int renderQueue = m != null ? m.renderQueue : -1;
+                string colorStr = (m != null && m.HasProperty("_Color")) ? m.GetColor("_Color").ToString() : "N/A";
+                string emissStr = (m != null && m.HasProperty("_EmissionColor")) ? m.GetColor("_EmissionColor").ToString() : "N/A";
+                Texture mt = (m != null && m.HasProperty("_MainTex")) ? m.GetTexture("_MainTex") : null;
+                string mainTexStr = mt == null
+                    ? "NULL"
+                    : (ReferenceEquals(mt, Texture2D.whiteTexture) ? "whiteTexture" : $"{mt.name}({mt.GetType().Name})");
+                bool emissionKw = m != null && m.IsKeywordEnabled("_EMISSION");
+                Color ambient = RenderSettings.ambientLight;
+                Color ambSky = RenderSettings.ambientSkyColor;
+                float ambIntensity = RenderSettings.ambientIntensity;
+                int layer = go.layer;
+                string layerName = LayerMask.LayerToName(layer);
+                Camera mainCam = Camera.main;
+                int camMask = mainCam != null ? mainCam.cullingMask : -1;
+                bool visibleToCam = mainCam != null && ((camMask & (1 << layer)) != 0);
+                Debug.Log(
+                    $"[WSM3D-DIAG] Slope renderer: shader='{shaderName}' passCount={passCount} renderQueue={renderQueue} " +
+                    $"_Color={colorStr} _EmissionColor={emissStr} _EMISSION_kw={emissionKw} _MainTex={mainTexStr} " +
+                    $"instancing={(m != null ? m.enableInstancing : false)} layer={layer}('{layerName}') " +
+                    $"camCullingMask=0x{camMask:X} visibleToMainCam={visibleToCam} " +
+                    $"ambientLight={ambient} ambientSky={ambSky} ambientIntensity={ambIntensity} " +
+                    $"sun={(RenderSettings.sun != null ? RenderSettings.sun.name : "<null>")}");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[WSM3D-DIAG] Slope diagnostic dump failed: {ex.Message}");
+            }
+
             MountainSlopeSurface surface = go.AddComponent<MountainSlopeSurface>();
             surface._filter = filter;
             surface._renderer = renderer;
