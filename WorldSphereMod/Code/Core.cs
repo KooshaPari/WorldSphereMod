@@ -615,6 +615,23 @@ namespace WorldSphereMod
                             $"({(CurrentShape.IsWrapped ? "cylindrical" : "flat")}) " +
                             $"width={width} height={height} radius={Manager.Radius:F3}");
                         FinishBecome3D();
+                        // Defensive re-trigger: HdrSkybox / DayNightCycle settings can
+                        // toggle ApplySetting() at NML-load time BEFORE IsWorld3D=true,
+                        // causing EnsureCreated() to silently bail. Re-call here once
+                        // Sphere.Exists is guaranteed true so the pale-blue ambient fix
+                        // and procedural sky always run when their flags are enabled.
+                        try
+                        {
+                            if (savedSettings.HdrSkybox)
+                                WorldSphereMod.Lighting.CubemapLighting.EnsureCreated();
+                        }
+                        catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] CubemapLighting re-trigger failed: " + ex.Message); }
+                        try
+                        {
+                            if (savedSettings.HdrSkybox || savedSettings.DayNightCycle)
+                                WorldSphereMod.Lighting.ProceduralSky.EnsureCreated();
+                        }
+                        catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] ProceduralSky re-trigger failed: " + ex.Message); }
                     }));
             }
             static Color32 GetBaseColor(int index)

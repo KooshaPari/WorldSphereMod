@@ -979,7 +979,16 @@ namespace WorldSphereMod.Voxel
                     return;
                 }
 
+                // Drop.transform.position is the 2D-engine position with z~0. The
+                // FrustumCuller uses the 3D camera and expects 3D-lifted coordinates;
+                // without the To3DTileHeight(false) lift, drops fall outside the
+                // frustum and get culled — same class of bug as the documented
+                // 2D-position vs 3D-frustum issue in ActorVoxelEmit/BuildingVoxelEmit.
                 Vector3 cullPos = __instance.transform.position;
+                if (cullPos.z < Constants.ZDisplacement * 0.5f)
+                {
+                    cullPos = cullPos.To3DTileHeight(false);
+                }
                 if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, 1.5f))
                 {
                     sr.enabled = true;
@@ -1015,7 +1024,7 @@ namespace WorldSphereMod.Voxel
                     return;
                 }
 
-                Vector3 pos = __instance.transform.position;
+                Vector3 pos = cullPos;
                 float scale = Mathf.Max(__instance._scale, 0.01f) * Core.savedSettings.VoxelScaleMultiplier;
                 Vector3 scl = new Vector3(scale, scale, scale);
                 scl.z = scl.x;
