@@ -259,7 +259,12 @@ public class VoxelPipelineRegressionTests
             RegexOptions.Singleline);
         arrayMatch.Success.Should().BeTrue("SafeShaders array initializer must exist");
 
-        var entries = Regex.Matches(arrayMatch.Groups["body"].Value, @"""(?<name>[^""]+)""");
+        var bodyWithoutLineComments = Regex.Replace(
+            arrayMatch.Groups["body"].Value,
+            @"//.*$",
+            string.Empty,
+            RegexOptions.Multiline);
+        var entries = Regex.Matches(bodyWithoutLineComments, @"""(?<name>[^""]+)""");
         var shaderNames = new string[entries.Count];
         for (int i = 0; i < entries.Count; i++)
             shaderNames[i] = entries[i].Groups["name"].Value;
