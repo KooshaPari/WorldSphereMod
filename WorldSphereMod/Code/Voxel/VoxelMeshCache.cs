@@ -90,6 +90,12 @@ namespace WorldSphereMod.Voxel
         static readonly Queue<Mesh> _pendingDestroy = new Queue<Mesh>();
         static ulong _frame;
         static Mesh _placeholderMesh;
+        // Per-sprite placeholder cache so each sprite shows its OWN dominant color
+        // during the (possibly multi-second) async build wait, instead of every
+        // actor on the map rendering as the same shared tan-gray cube.
+        // Keyed by sprite InstanceID; small bounded LRU.
+        static readonly Dictionary<int, Mesh> _spritePlaceholders = new Dictionary<int, Mesh>(256);
+        const int kMaxSpritePlaceholders = 512;
         static long _hits;
         static long _misses;
         static long _totalBuilds;
@@ -378,7 +384,7 @@ namespace WorldSphereMod.Voxel
 
                 if (_cache.TryGetValue(key, out var existing))
                 {
-                    if (existing.Mesh != null && !ReferenceEquals(existing.Mesh, _placeholderMesh))
+                    if (existing.Mesh != null && !IsAnyPlaceholderMesh(existing.Mesh))
                     {
                         _pendingDestroy.Enqueue(existing.Mesh);
                     }
@@ -577,8 +583,68 @@ namespace WorldSphereMod.Voxel
             Interlocked.Exchange(ref _completedBuildsThisFrame, 0);
         }
 
+        // Caller MUST hold _lock when invoking this helper.
+        static bool IsAnyPlaceholderMesh(Mesh mesh)
+        {
+            if (mesh == null) return false;
+            if (ReferenceEquals(mesh, _placeholderMesh)) return true;
+            foreach (var kv in _spritePlaceholders)
+            {
+                if (ReferenceEquals(kv.Value, mesh)) return true;
+            }
+            return false;
+        }
+
         static Mesh GetPlaceholderVoxelMesh(Sprite sprite)
         {
+            // Per-sprite colored placeholder: actors waiting for their real voxel
+            // mesh at least show their sprite's dominant color instead of every
+            // actor sharing one tan-gray cube. Falls back to the shared neutral
+            // placeholder when sprite is null or the texture cannot be sampled.
+            if (sprite != null)
+            {
+                int sid = sprite.GetInstanceID();
+                lock (_lock)
+                {
+                    if (_spritePlaceholders.TryGetValue(sid, out Mesh existing) && existing != null)
+                    {
+                        return existing;
+                    }
+                }
+
+                Mesh perSprite = BuildPlaceholderMesh(sprite);
+                if (perSprite != null)
+                {
+                    lock (_lock)
+                    {
+                        if (!_spritePlaceholders.ContainsKey(sid))
+                        {
+                            if (_spritePlaceholders.Count >= kMaxSpritePlaceholders)
+                            {
+                                // Bounded eviction: drop one arbitrary placeholder. These are
+                                // cheap to rebuild and the cache exists only to coalesce
+                                // duplicate per-frame requests during the async build wait.
+                                var firstKey = default(int);
+                                foreach (var kv in _spritePlaceholders) { firstKey = kv.Key; break; }
+                                if (_spritePlaceholders.TryGetValue(firstKey, out Mesh dropped) && dropped != null)
+                                {
+                                    _pendingDestroy.Enqueue(dropped);
+                                }
+                                _spritePlaceholders.Remove(firstKey);
+                            }
+                            _spritePlaceholders[sid] = perSprite;
+                        }
+                        else
+                        {
+                            // Lost a race; destroy the duplicate we built.
+                            _pendingDestroy.Enqueue(perSprite);
+                            perSprite = _spritePlaceholders[sid];
+                        }
+                    }
+                    return perSprite;
+                }
+            }
+
             if (_placeholderMesh == null)
             {
                 lock (_lock)
@@ -596,7 +662,10 @@ namespace WorldSphereMod.Voxel
         static Mesh BuildPlaceholderMesh(Sprite sprite = null)
         {
             const float h = 0.5f;
-            var mesh = new Mesh { name = "WSM3D.Voxel.Placeholder" };
+            string meshName = sprite != null && !string.IsNullOrEmpty(sprite.name)
+                ? $"WSM3D.Voxel.Placeholder:{sprite.name}"
+                : "WSM3D.Voxel.Placeholder";
+            var mesh = new Mesh { name = meshName };
             Vector3[] vertices =
             {
                 new Vector3(-h, -h, -h),
@@ -822,6 +891,11 @@ namespace WorldSphereMod.Voxel
                 Object.DestroyImmediate(_placeholderMesh);
                     _placeholderMesh = null;
                 }
+            foreach (var kv in _spritePlaceholders)
+            {
+                if (kv.Value != null) Object.DestroyImmediate(kv.Value);
+            }
+            _spritePlaceholders.Clear();
             }
             System.Threading.Interlocked.Exchange(ref _hits, 0);
             System.Threading.Interlocked.Exchange(ref _misses, 0);
@@ -877,7 +951,7 @@ namespace WorldSphereMod.Voxel
                 }
 
                 Entry lruEntry = _cache[lruKey];
-                if (lruEntry.Mesh != null && !ReferenceEquals(lruEntry.Mesh, _placeholderMesh))
+                if (lruEntry.Mesh != null && !IsAnyPlaceholderMesh(lruEntry.Mesh))
                 {
                     _pendingDestroy.Enqueue(lruEntry.Mesh);
                 }
