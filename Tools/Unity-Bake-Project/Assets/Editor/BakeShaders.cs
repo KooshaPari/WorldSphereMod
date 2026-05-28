@@ -87,6 +87,7 @@ public static class BakeShaders
             (BuildTarget.StandaloneOSX, "osx"),
         };
 
+        bool anyFailed = false;
         foreach (var (target, folder) in targets)
         {
             string platformDir = Path.Combine(outBase, folder);
@@ -107,7 +108,12 @@ public static class BakeShaders
             else
             {
                 Debug.LogError($"[WSM3D-Bake] FAILED to build wsm3d-shaders bundle for {target}");
+                anyFailed = true;
             }
+        }
+        if (anyFailed)
+        {
+            throw new System.Exception("[WSM3D-Bake] One or more platform builds failed — see above errors.");
         }
         Debug.Log("[WSM3D-Bake] All platforms done (shader-only bundle).");
     }
