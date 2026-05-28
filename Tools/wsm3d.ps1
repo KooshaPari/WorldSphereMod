@@ -441,6 +441,82 @@ function Test-OmniRouteReachable {
     }
 }
 
+function ConvertFrom-OmniRouteSseChat {
+    param([string]$Raw)
+
+    $content = [System.Text.StringBuilder]::new()
+    foreach ($line in ($Raw -split "(`r`n|`n)")) {
+        $t = $line.Trim()
+        if (-not $t.StartsWith('data:')) { continue }
+        $payload = $t.Substring(5).Trim()
+        if ($payload -eq '[DONE]') { break }
+        try {
+            $chunk = $payload | ConvertFrom-Json
+            $choice = @($chunk.choices) | Select-Object -First 1
+            if ($choice.delta.content) { [void]$content.Append([string]$choice.delta.content) }
+            if ($choice.message.content) { return [string]$choice.message.content }
+        } catch {
+            # ignore malformed SSE lines
+        }
+    }
+    $built = $content.ToString()
+    if ([string]::IsNullOrWhiteSpace($built)) {
+        throw 'SSE stream had no content deltas'
+    }
+    return $built
+}
+
+function Get-OmniRouteChatReplyText {
+    param($Response)
+
+    if ($null -eq $Response) { throw 'null chat response' }
+    if ($Response -is [string]) {
+        if ($Response -match 'data:\s*\{') {
+            return ConvertFrom-OmniRouteSseChat -Raw $Response
+        }
+        throw "unexpected string chat response: $($Response.Substring(0, [Math]::Min(200, $Response.Length)))"
+    }
+    if ($Response.choices -and @($Response.choices).Count -gt 0) {
+        $msg = $Response.choices[0].message
+        if ($msg -and $msg.content) { return [string]$msg.content }
+    }
+    throw 'empty choices in chat response'
+}
+
+function Invoke-OmniRouteChatProbe {
+    param(
+        [string]$BaseUrl = $script:OmniRouteBaseUrl,
+        [string]$ApiKey = $env:OMNROUTE_API_KEY,
+        [string]$ModelId,
+        [string]$Prompt = 'Reply with exactly: vision-ok',
+        [int]$MaxTokens = 24,
+        [int]$TimeoutSec = 0
+    )
+
+    if (-not $ApiKey) { throw 'OMNROUTE_API_KEY not set' }
+    if (-not $ModelId) {
+        if ($env:OMNROUTE_VISION_MODEL) { $ModelId = $env:OMNROUTE_VISION_MODEL }
+        elseif ($env:OMNROUTE_VISION_COMBO) { $ModelId = $env:OMNROUTE_VISION_COMBO }
+        else { $ModelId = 'gemini/gemini-2.5-flash' }
+    }
+    $base = $BaseUrl.TrimEnd('/')
+    if ($TimeoutSec -le 0) {
+        $TimeoutSec = if ($base -match '^https://') { 120 } else { 30 }
+    }
+    $body = @{
+        model       = $ModelId
+        max_tokens  = $MaxTokens
+        temperature = 0
+        stream      = $false
+        messages    = @(@{ role = 'user'; content = $Prompt })
+    } | ConvertTo-Json -Depth 5
+    $chat = Invoke-RestMethod -Uri "$base/chat/completions" -Method Post -Headers @{
+        Authorization  = "Bearer $ApiKey"
+        'Content-Type' = 'application/json'
+    } -Body $body -TimeoutSec $TimeoutSec
+    return Get-OmniRouteChatReplyText -Response $chat
+}
+
 function Get-GitSubmoduleDoctorRows {
     $rows = @()
 

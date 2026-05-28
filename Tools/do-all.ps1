@@ -140,18 +140,7 @@ try {
                 $txt = $null
                 if ($null -ne $modelCount -and $modelCount -gt 0) {
                     try {
-                        $chatTimeoutSec = if ($base -match '^https://') { 120 } else { 20 }
-                        $body = @{
-                            model       = $modelId
-                            max_tokens  = 24
-                            temperature = 0
-                            messages    = @(@{ role = 'user'; content = 'Reply with exactly: vision-ok' })
-                        } | ConvertTo-Json -Depth 5
-                        $chat = Invoke-RestMethod -Uri "$base/chat/completions" -Method Post -Headers @{
-                            Authorization  = "Bearer $env:OMNROUTE_API_KEY"
-                            'Content-Type' = 'application/json'
-                        } -Body $body -TimeoutSec $chatTimeoutSec
-                        $txt = $chat.choices[0].message.content
+                        $txt = Invoke-OmniRouteChatProbe -BaseUrl $base -ModelId $modelId
                         $omnirouteProbeOk = $true
                     } catch {
                         $omnirouteProbeOk = $false
@@ -170,18 +159,7 @@ try {
                         }
                     }
                 } else {
-                    $chatTimeoutSec = 25
-                    $body = @{
-                        model       = $modelId
-                        max_tokens  = 24
-                        temperature = 0
-                        messages    = @(@{ role = 'user'; content = 'Reply with exactly: vision-ok' })
-                    } | ConvertTo-Json -Depth 5
-                    $chat = Invoke-RestMethod -Uri "$base/chat/completions" -Method Post -Headers @{
-                        Authorization  = "Bearer $env:OMNROUTE_API_KEY"
-                        'Content-Type' = 'application/json'
-                    } -Body $body -TimeoutSec $chatTimeoutSec
-                    $txt = $chat.choices[0].message.content
+                    $txt = Invoke-OmniRouteChatProbe -BaseUrl $base -ModelId $modelId -TimeoutSec 25
                     Add-DoAllStage 'omniroute-probe' 'passed' @{ models = $modelCount; model = $modelId; reply = $txt }
                     Write-Host "omniroute vision probe OK ($modelId): $txt" -ForegroundColor Green
                 }

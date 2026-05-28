@@ -15,6 +15,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'wsm3d.ps1')
 
 function Import-OmniRouteEnv {
     param([string]$Path)
@@ -74,23 +75,10 @@ try {
     exit 1
 }
 
-# /chat/completions (text — same gate as do-all.ps1)
+# /chat/completions (text — same gate as do-all.ps1; stream=false + SSE fallback)
 try {
-    $body = @{
-        model       = $modelId
-        max_tokens  = 24
-        temperature = 0
-        messages    = @(@{ role = 'user'; content = 'Reply with exactly: vision-ok' })
-    } | ConvertTo-Json -Depth 5
-    $chat = Invoke-RestMethod -Uri "$base/chat/completions" -Method Post -Headers ($headers + @{
-            'Content-Type' = 'application/json'
-        }) -Body $body -TimeoutSec $ChatTimeoutSec
-    if (-not $chat.choices -or $chat.choices.Count -lt 1) {
-        $snippet = ($chat | ConvertTo-Json -Compress -Depth 4)
-        if ($snippet.Length -gt 240) { $snippet = $snippet.Substring(0, 240) + '…' }
-        throw "empty choices in response: $snippet"
-    }
-    $txt = $chat.choices[0].message.content
+    $probeTimeout = if ($ChatTimeoutSec -gt 0) { $ChatTimeoutSec } else { 0 }
+    $txt = Invoke-OmniRouteChatProbe -BaseUrl $base -ModelId $modelId -TimeoutSec $probeTimeout
     Write-Host "OK /chat/completions: $txt" -ForegroundColor Green
 } catch {
     Write-Host "FAIL /chat/completions: $($_.Exception.Message)" -ForegroundColor Red

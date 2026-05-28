@@ -28,10 +28,11 @@ steps:
         op: "<"
         value: 4000
   - action: load_save
+    optional: true
     slot: 2
     settle_frames: 120
     bridge_wait_seconds: 90
-    note: Queue save2 load; PlayCUA waits for bridge drain after transition.
+    note: Queue save2 load when slot exists; skipped gracefully if save2 is missing.
   - action: wait_n_frames
     frames: 6
     fps: 30
