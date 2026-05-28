@@ -522,12 +522,24 @@ namespace WorldSphereMod.Voxel
             static bool _emitDiagLogged;
             static int _emitDiagFrameCounter;
             static bool _emitDiagSawNonZero;
+            // Rolling counter that throttles the tile-height-smooth cache clear.
+            static int _tileHeightClearFrameCounter;
+            // Clear the smooth-height memo only every N frames. The cache is keyed
+            // by integer tile position; terrain elevation only changes on player
+            // edits (rare relative to render frames). Clearing it every frame — as
+            // this used to — cold-misses GetTileHeightSmooth for EVERY entity in the
+            // rest of the precalc window (this Postfix fires before BuildingManager's
+            // precalc + BuildingProcRender's 200-building budget slice), turning a
+            // memoized O(1) lookup into a neighbour-sampling recompute storm. That was
+            // the dominant "precalc" cost (500ms+ frames with ~531 buildings).
+            const int TileHeightCacheClearInterval = 30;
 
             public static void ResetDiag()
             {
                 _emitDiagLogged = false;
                 _emitDiagFrameCounter = 0;
                 _emitDiagSawNonZero = false;
+                _tileHeightClearFrameCounter = 0;
             }
 
             [HarmonyPostfix]
@@ -541,7 +553,12 @@ namespace WorldSphereMod.Voxel
                 // billboards instead of 3D voxels. Symptom: user reports
                 // "voxel actors back to billboards".
                 EmitVoxelsCalled = true;
-                Tools.ClearTileHeightSmoothCache();
+                if (_tileHeightClearFrameCounter <= 0)
+                {
+                    Tools.ClearTileHeightSmoothCache();
+                    _tileHeightClearFrameCounter = TileHeightCacheClearInterval;
+                }
+                _tileHeightClearFrameCounter--;
                 // TEMPORARY DIAGNOSTIC: one-shot log to verify the Harmony postfix fires
                 if (!_emitDiagLogged)
                 {
