@@ -145,6 +145,7 @@ those files; changes can cascade.
 - **Large maps hang in 3D mode.** Maps larger than ~316x316 hang because `CompoundSpheres` renders all tiles per frame with no culling or chunking. This is a known upstream limitation — don't increase default map size until a chunked renderer is in place.
 - **World.world.tiles doesn't exist.** Use `MapBox.instance.tiles_list` (or the locally cached array) to iterate tiles. `World.world.tiles` is a common guess that won't compile.
 - **SaveManager.loadWorld may not resolve in Harmony patches.** The method name can be obfuscated or renamed across WorldBox versions. Verify the exact method signature in the target DLL before writing a `[HarmonyPatch]` for it.
+- **Never squash-merge the megabase/integration branch** — squash dropped the SafeShaders crash-fix and reverted the submodule pointer (see `docs/squash-merge-postmortem.md`). Use merge-commit or fast-forward.
 
 ## When you're done with a phase
 
