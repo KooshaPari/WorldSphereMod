@@ -25,6 +25,18 @@ namespace WorldSphereMod.Terrain
         Mesh? _mesh;
         bool _dirty = true;
 
+        // Frame-coalesced rebuild throttle. Brush tools dirty hundreds of tiles
+        // per frame; the slope mesh scans all 43k tiles (316²) for cliff quads
+        // each rebuild. Without throttling the game freezes for the entire brush
+        // stroke. Defer until brush goes quiet (no new dirty for QuietSec) OR
+        // we've been stalling for MaxStallSec. MinIntervalSec prevents
+        // back-to-back rebuilds when dirties trickle in.
+        float _lastDirtyTime = -1f;
+        float _lastRebuildTime = -1f;
+        const float QuietSec = 0.20f;
+        const float MaxStallSec = 0.50f;
+        const float MinIntervalSec = 0.10f;
+
         // Subdivision level per tile edge for the smooth mesh (4 = 16 sub-quads per tile).
         const int SubDiv = 4;
 
@@ -175,6 +187,7 @@ namespace WorldSphereMod.Terrain
             if (Instance != null)
             {
                 Instance._dirty = true;
+                Instance._lastDirtyTime = Time.realtimeSinceStartup;
             }
         }
 
@@ -215,9 +228,27 @@ namespace WorldSphereMod.Terrain
                 return;
             }
 
-            if (_dirty)
+            if (!_dirty)
+            {
+                return;
+            }
+
+            // Brush-stroke coalescing: defer rebuild until brush goes quiet
+            // (no new dirty for QuietSec) OR we've been stalling for MaxStallSec.
+            // Without this, every brushed tile triggers a fresh 43k-tile cliff
+            // scan + mesh build, freezing the game during multi-tile strokes.
+            float now = Time.realtimeSinceStartup;
+            float sinceLastDirty = now - _lastDirtyTime;
+            float sinceLastRebuild = now - _lastRebuildTime;
+            bool isFirstBuild = _lastRebuildTime < 0f;
+            bool brushQuiet = sinceLastDirty >= QuietSec;
+            bool stalledTooLong = sinceLastRebuild >= MaxStallSec;
+            bool intervalElapsed = sinceLastRebuild >= MinIntervalSec;
+
+            if (isFirstBuild || ((brushQuiet || stalledTooLong) && intervalElapsed))
             {
                 RebuildMesh();
+                _lastRebuildTime = Time.realtimeSinceStartup;
             }
         }
 
@@ -269,9 +300,9 @@ namespace WorldSphereMod.Terrain
         float CornerHeight(int cx, int cy, int width, int height, bool wrapped)
         {
             float h00 = SampleTileHeight(cx - 1, cy - 1, width, height, wrapped);
-            float h10 = SampleTileHeight(cx,     cy - 1, width, height, wrapped);
-            float h01 = SampleTileHeight(cx - 1, cy,     width, height, wrapped);
-            float h11 = SampleTileHeight(cx,     cy,     width, height, wrapped);
+            float h10 = SampleTileHeight(cx, cy - 1, width, height, wrapped);
+            float h01 = SampleTileHeight(cx - 1, cy, width, height, wrapped);
+            float h11 = SampleTileHeight(cx, cy, width, height, wrapped);
             return (h00 + h10 + h01 + h11) * 0.25f;
         }
 
@@ -287,9 +318,9 @@ namespace WorldSphereMod.Terrain
         Color32 CornerColor(int cx, int cy, int width, int height, bool wrapped)
         {
             Color32 c00 = SampleTileColor(cx - 1, cy - 1, width, height, wrapped);
-            Color32 c10 = SampleTileColor(cx,     cy - 1, width, height, wrapped);
-            Color32 c01 = SampleTileColor(cx - 1, cy,     width, height, wrapped);
-            Color32 c11 = SampleTileColor(cx,     cy,     width, height, wrapped);
+            Color32 c10 = SampleTileColor(cx, cy - 1, width, height, wrapped);
+            Color32 c01 = SampleTileColor(cx - 1, cy, width, height, wrapped);
+            Color32 c11 = SampleTileColor(cx, cy, width, height, wrapped);
             int r = (c00.r + c10.r + c01.r + c11.r) / 4;
             int g = (c00.g + c10.g + c01.g + c11.g) / 4;
             int b = (c00.b + c10.b + c01.b + c11.b) / 4;
@@ -392,14 +423,14 @@ namespace WorldSphereMod.Terrain
                 //   (tx, ty) ---- (tx+1, ty)
                 //      |              |
                 //   (tx, ty+1) -- (tx+1, ty+1)
-                float hBL = CornerHeight(tx,     ty,     width, height, wrapped);
-                float hBR = CornerHeight(tx + 1, ty,     width, height, wrapped);
-                float hTL = CornerHeight(tx,     ty + 1, width, height, wrapped);
+                float hBL = CornerHeight(tx, ty, width, height, wrapped);
+                float hBR = CornerHeight(tx + 1, ty, width, height, wrapped);
+                float hTL = CornerHeight(tx, ty + 1, width, height, wrapped);
                 float hTR = CornerHeight(tx + 1, ty + 1, width, height, wrapped);
 
-                Color32 cBL = CornerColor(tx,     ty,     width, height, wrapped);
-                Color32 cBR = CornerColor(tx + 1, ty,     width, height, wrapped);
-                Color32 cTL = CornerColor(tx,     ty + 1, width, height, wrapped);
+                Color32 cBL = CornerColor(tx, ty, width, height, wrapped);
+                Color32 cBR = CornerColor(tx + 1, ty, width, height, wrapped);
+                Color32 cTL = CornerColor(tx, ty + 1, width, height, wrapped);
                 Color32 cTR = CornerColor(tx + 1, ty + 1, width, height, wrapped);
 
                 int baseVertex = vertices.Count;
@@ -798,6 +829,13 @@ namespace WorldSphereMod.Terrain
                 material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
                 Debug.LogWarning("[WSM3D] Mountain slope using Standard shader fallback — emission boosted to 1.0 for visibility.");
             }
+
+            // Slope mesh sits coplanar/just-above the CompoundSphere terrain
+            // (Geometry=2000). Force Geometry+1 (2001) so the slope wins the
+            // depth tie against terrain — matches voxel actors, foliage, BPR.
+            // See ADR-0010 + ADR-0012 for the renderQueue contract across the
+            // mod's 3D pipeline.
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Geometry + 1;
 
             _material = material;
             Debug.Log($"[WSM3D] Mountain slope material created: shader='{shader.name}' " +
