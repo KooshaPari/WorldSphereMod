@@ -186,7 +186,7 @@ try {
                 Write-Host "playcua retry $attempt/$PlaycuaRetries — relaunch between attempts" -ForegroundColor Yellow
                 pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') relaunch -NoBuild | Out-Null
                 $retryHealth = Wait-BridgeReady -MaxMinutes 5
-                if ($retryHealth -and -not $retryHealth.isWorld3D) {
+                if ($retryHealth -and $retryHealth.bridgeAlive -and -not $retryHealth.isWorld3D) {
                     $bootstrap = Join-Path $RepoRoot 'Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml'
                     python (Join-Path $RepoRoot 'Tools/wsm3d-playcua/main.py') $bootstrap --vision-backend off 2>&1 | Out-Null
                 }
