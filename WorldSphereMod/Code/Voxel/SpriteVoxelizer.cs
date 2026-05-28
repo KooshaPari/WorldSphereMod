@@ -238,6 +238,18 @@ namespace WorldSphereMod.Voxel
                 RenderTexture.ReleaseTemporary(fallbackRt);
             }
             snapshot = VoxelMeshCache.CreateSnapshot(sprite, mesh, verts, cols, tris);
+            // PERF: capture FULL CPU-side arrays here, BEFORE UploadMeshData(true) strips
+            // them. The disk-cache save path (VoxelDiskCache.EnqueueSave via
+            // VoxelMeshCache.DrainCompletedBuilds) consumes these instead of re-reading the
+            // uploaded mesh — reading mesh.vertices/.colors32/.triangles/.normals after the
+            // upload emits four synchronous "isReadable is false" LogWarnings per build,
+            // flooding Player.log and spiking frame time to ~1.5-2s. verts/cols/tris are the
+            // exact arrays just assigned to the mesh; normals must be read pre-upload because
+            // RecalculateNormals() produced them GPU-side only.
+            snapshot.fullVertices = verts.ToArray();
+            snapshot.fullTriangles = tris.ToArray();
+            snapshot.fullColors = cols.ToArray();
+            snapshot.fullNormals = mesh.normals;
             bool logBuild = false;
             int diagIndex = 0;
             lock (_buildGreedyDiagLock)
