@@ -313,7 +313,9 @@ Get-Content Tools/.reports/audit-tick-latest.json | ConvertFrom-Json
 
 ### OmniRoute (kooshas-laptop)
 
-`do-all.ps1 -Vision` requires **kooshas-laptop** awake on Tailscale with OmniRoute at **`http://100.112.14.98:20128/v1`** (`Tools/omniroute-vision.env`). **Cursor on the laptop** can use `localhost:20128`; the **desk** must reach **`/chat/completions`**, not only `/models` (2214 models over Tailscale does *not* imply vision works). If desk gets **502** or timeout on chat while CC works locally, expose the API on the tailnet, e.g. on the laptop:
+`do-all.ps1 -Vision` requires **kooshas-laptop** awake on Tailscale with OmniRoute at **`http://100.112.14.98:20128/v1`** (`Tools/omniroute-vision.env`). **Laptop setup (macOS):** [`Tools/setup-omniroute-laptop.md`](../Tools/setup-omniroute-laptop.md) — loopback check, `tailscale serve`, desk probes. **Desk check:** `pwsh Tools/verify-omniroute-remote.ps1` (exit 0 = `/models` + `/chat/completions` OK).
+
+**Cursor on the laptop** can use `localhost:20128`; the **desk** must reach **`/chat/completions`**, not only `/models` (2214 models over Tailscale does *not* imply vision works). If desk gets **502** or timeout on chat while CC works locally, expose the API on the tailnet, e.g. on the laptop:
 
 ```bash
 # OmniRoute bound to 127.0.0.1 only — forward over Tailscale:
