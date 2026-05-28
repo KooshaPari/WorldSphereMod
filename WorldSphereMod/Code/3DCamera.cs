@@ -161,8 +161,10 @@ namespace WorldSphereMod.NewCamera
             Tools.CopyComponent(OriginalCamera.GetComponent<SleekRenderPostProcess>(), MainCamera.gameObject);
             MainCamera.clearFlags = CameraClearFlags.Skybox;
             MainCamera.AddComponent<Skybox>();
-            MainCamera.GetComponent<Skybox>().material = new Material(SkyBoxShader);
-            MainCamera.GetComponent<Skybox>().material.mainTexture = GetSkyboxTexture();
+            MainCamera.GetComponent<Skybox>().material = new Material(SkyBoxShader)
+            {
+                mainTexture = GetSkyboxTexture()
+            };
             RotateCamera.UpdateRotation(Vector2.zero);
         }
         public static MoveCamera Manager;
@@ -214,48 +216,13 @@ namespace WorldSphereMod.NewCamera
             }
         }
     }
+    public delegate Vector2 GetVector(float Speed, bool Vertical);
     public class MovementEnhancement
     {
         static bool UpsideDown => Vector3.Dot(transform.up, Vector3.up) < 0;
         public static Vector2 GetMovementVector(float Speed, bool Vertical)
         {
-            Vector3 vector;
-            float yRotation = RotateCamera.Rotation.y;
-
-            float rad = yRotation * Mathf.Deg2Rad;
-
-            bool Inversed = Core.savedSettings.InvertedCameraMovement;
-            if (Core.savedSettings.CameraRotatesWithWorld)
-            {
-                Inversed = !Inversed;
-            }
-        
-            if (Inversed ? !Vertical : Vertical)
-            {
-                vector = new Vector3(Mathf.Sin(rad), 0, Mathf.Cos(rad)).normalized;
-                if (Core.savedSettings.CameraRotatesWithWorld)
-                {
-                    vector.z *= RotateCamera.InvertMult;
-                }
-            }
-            else
-            {
-                vector = new Vector3(Mathf.Cos(rad), 0, -Mathf.Sin(rad)).normalized;
-                vector.x *= RotateCamera.InvertMult;
-                if (Core.savedSettings.CameraRotatesWithWorld)
-                {
-                    vector *= -1;
-                }
-                else
-                {
-                    vector.z *= RotateCamera.InvertMult;
-                }
-            }
-            if(!Core.savedSettings.CameraRotatesWithWorld && !Core.Sphere.IsWrapped)
-            {
-                vector.x *= RotateCamera.InvertMult;
-            }
-            return new Vector2(vector.x * Speed, vector.z * Speed * RotateCamera.InvertMult);
+            return Core.Sphere.GetCameraVector(Speed, Vertical);
         }
         public static void Move(HotkeyAsset pAsset)
         {
@@ -341,7 +308,7 @@ namespace WorldSphereMod.NewCamera
         }
         public static void UpdateRotation(Vector2 Change)
         {
-            Rotation.x = Tools.MathStuff.Wrap(Rotation.x, -Change.y, 360);
+            Rotation.x = Tools.MathStuff.WrappedChange(Rotation.x, -Change.y, 360);
             Rotation.y = Rotation.y + (Change.x * InvertMult);
         }
         //i dont know how this fucking works and im too scared to touch it
@@ -429,8 +396,8 @@ namespace WorldSphereMod.NewCamera
         static void ToBounds3D()
         {
             Vector3 pos = default;
-            pos.x = Mathf.Clamp(Tools.MathStuff.Wrap(Manager.transform.position.x, 0, Core.Sphere.Width), 0, Core.Sphere.Width);
-            pos.y = Mathf.Clamp(Manager.transform.position.y, 0, MapBox.height-0.5f);
+            pos.x = Mathf.Clamp(Core.Sphere.XGate.GetChange(Manager.transform.position.x, 0, Core.Sphere.Width), 0, Core.Sphere.Width);
+            pos.y = Mathf.Clamp(Core.Sphere.YGate.GetChange(Manager.transform.position.y, 0, Core.Sphere.Height), 0, MapBox.height-0.5f);
             pos.z = -0.5f;
             Manager.transform.position = pos;
             World.world.nameplate_manager.update();
