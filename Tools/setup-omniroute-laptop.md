@@ -2,7 +2,13 @@
 
 Desk PlayCUA / `do-all.ps1 -Vision` needs **OpenAI-compatible chat** on the laptop over Tailscale. A working **`/models`** list from the desk does **not** prove vision works — **`/chat/completions`** must succeed too (502/timeout on chat while Cursor works on `localhost:20128` usually means OmniRoute is bound to loopback only).
 
-Tailscale machine: **kooshas-laptop** (typical tailnet IP **`100.112.14.98`**). Desk env: `Tools/omniroute-vision.env` with `OMNROUTE_BASE_URL=http://100.112.14.98:20128/v1`. Do not use stale funnel hostnames (e.g. `omniroute-a6e82363`).
+Tailscale machine: **kooshas-laptop** (tailnet IP **`100.112.14.98`**) and funnel peer **`omniroute-a6e82363`**. Desk env (`Tools/omniroute-vision.env`):
+
+```env
+OMNROUTE_BASE_URL=https://omniroute-a6e82363.tail2b570.ts.net/v1
+```
+
+**Desk check:** `/models` often works while **`POST /chat/completions` returns 502** if the funnel only proxies part of the API. Fix by serving the full OmniRoute HTTP API (e.g. `tailscale funnel --bg http://127.0.0.1:20128` on the machine that runs OmniRoute, or bind OmniRoute on the tailnet). Verify with `pwsh Tools/verify-omniroute-remote.ps1` from the desk (must print OK for both endpoints).
 
 ## 1. Confirm OmniRoute on loopback
 
