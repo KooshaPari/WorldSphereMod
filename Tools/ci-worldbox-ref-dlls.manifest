@@ -11,6 +11,7 @@ worldbox_Data/Managed/UnityEngine.ParticleSystemModule.dll
 worldbox_Data/Managed/UnityEngine.PhysicsModule.dll
 worldbox_Data/Managed/UnityEngine.TextRenderingModule.dll
 worldbox_Data/Managed/UnityEngine.TilemapModule.dll
+worldbox_Data/Managed/UnityEngine.IMGUIModule.dll
 worldbox_Data/Managed/UnityEngine.UI.dll
 worldbox_Data/Managed/UnityEngine.UIModule.dll
 worldbox_Data/StreamingAssets/mods/NeoModLoader.dll
