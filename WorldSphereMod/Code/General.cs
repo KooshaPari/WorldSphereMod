@@ -36,7 +36,7 @@ namespace WorldSphereMod.General
         }
         [HarmonyPatch(typeof(MapBox), nameof(MapBox.setMapSize))]
         [HarmonyPrefix]
-        static void PrepareShape(ref int pWidth, int pHeight)
+        static void PrepareShape(ref int pWidth, ref int pHeight)
         {
             if (Core.savedSettings.Is3D)
             {

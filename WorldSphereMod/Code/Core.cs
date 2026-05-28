@@ -548,7 +548,7 @@ namespace WorldSphereMod
                     this.GetCameraVector = getVector;
                     this.Prepare = isvalid;
                 }
-                public bool IsWrapped => object.ReferenceEquals(XGate, WrappedGate);
+                public bool IsWrapped => object.ReferenceEquals(XGate.GetDist, WrappedGate.GetDist);
                 public PrepareShape Prepare;
                 public PhaseGate XGate;
                 public PhaseGate YGate;

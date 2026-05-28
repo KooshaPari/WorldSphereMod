@@ -651,9 +651,9 @@ namespace WorldSphereMod
                         target.x += worldWidth;
                 }
                 float dy = target.y - current.y;
-                if (Mathf.Abs(dx) > worldHeight / 2f)
+                if (Mathf.Abs(dy) > worldHeight / 2f)
                 {
-                    if (dx > 0)
+                    if (dy > 0)
                         target.y -= worldHeight;
                     else
                         target.y += worldHeight;
