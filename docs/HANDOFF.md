@@ -313,7 +313,7 @@ Get-Content Tools/.reports/audit-tick-latest.json | ConvertFrom-Json
 
 ### OmniRoute (kooshas-laptop)
 
-`do-all.ps1 -Vision` uses OmniRoute from `Tools/omniroute-vision.env`. **Preferred desk URL (funnel):** `https://omniroute-a6e82363.tail2b570.ts.net/v1`. Fallback tailnet IP: `http://100.112.14.98:20128/v1`. **Laptop setup:** [`Tools/setup-omniroute-laptop.md`](../Tools/setup-omniroute-laptop.md). **Desk check:** `pwsh Tools/verify-omniroute-remote.ps1` (exit 0 = `/models` + `/chat/completions` OK; funnel chat may need up to 120s).
+`do-all.ps1 -Vision` uses OmniRoute from `Tools/omniroute-vision.env`. **Desk URL (direct tailnet):** `http://100.112.14.98:20128/v1` — OmniRoute’s pre-funnel address on **kooshas-laptop**. **Funnel** `https://omniroute-a6e82363.tail2b570.ts.net/v1` is optional when enabled; if funnel chat returns 502, stay on the tailnet IP. **Laptop setup:** [`Tools/setup-omniroute-laptop.md`](../Tools/setup-omniroute-laptop.md). **Desk check:** `pwsh Tools/verify-omniroute-remote.ps1`.
 
 **Cursor on the laptop** can use `localhost:20128`; the **desk** must reach **`/chat/completions`**, not only `/models` (2214 models over Tailscale does *not* imply vision works). If desk gets **502** or timeout on chat while CC works locally, expose the API on the tailnet, e.g. on the laptop:
 

@@ -578,15 +578,21 @@ namespace WorldSphereMod.Voxel
                 LastVisibleUnitsCount = n;
                 LastFrustumCullerPassCount = 0;
                 LastBatcherSubmitCount = 0;
+                // DIAG-SUBMIT path counters — find where the 8 meshOk actors are being dropped
+                int dsNullActor = 0, dsPerpSkipped = 0, dsFrustumFail = 0;
+                int dsTierImpostor = 0, dsTierProxy = 0, dsTierVoxel = 0, dsTierOther = 0;
+                int dsSkeletalAttempt = 0, dsSkeletalSubmitOk = 0, dsSkeletalSubmitFail = 0;
+                int dsImpostorMeshNull = 0, dsImpostorMatNull = 0, dsImpostorSubmit = 0;
+                int dsSpriteNull = 0, dsVoxelMeshNull = 0, dsVoxelSubmitAttempt = 0, dsVoxelSubmitOk = 0, dsVoxelSubmitFail = 0;
                 for (int i = 0; i < n; i++)
                 {
                     Actor a = arr[i];
-                    if (a == null || a.asset == null) continue;
+                    if (a == null || a.asset == null) { dsNullActor++; continue; }
                     // Per-asset opt-out: the existing v1 API hands designers a way to
                     // mark assets as "perp" (ground-aligned billboard). Those keep
                     // sprite rendering for now — they tend to be flat decals (arrows,
                     // ground markers) where voxelization adds nothing.
-                    if (Constants.PerpActors.ContainsKey(a.asset.id)) continue;
+                    if (Constants.PerpActors.ContainsKey(a.asset.id)) { dsPerpSkipped++; continue; }
                     // GATE REMOVED (codex plate-78 diff): upstream may set has_normal_render=false
                     // for actors that should still get voxelized (e.g. all actors after the first
                     // created settlement per user observation). Buildings have no such gate;
@@ -601,16 +607,22 @@ namespace WorldSphereMod.Voxel
                     float radius = 2f;
                     if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, radius))
                     {
+                        dsFrustumFail++;
                         continue;
                     }
                     LastFrustumCullerPassCount++;
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, a.GetHashCode());
+                    if (tier == WorldSphereMod.LOD.LodTier.Impostor) dsTierImpostor++;
+                    else if (tier == WorldSphereMod.LOD.LodTier.Proxy) dsTierProxy++;
+                    else if (tier == WorldSphereMod.LOD.LodTier.Voxel) dsTierVoxel++;
+                    else dsTierOther++;
 
                     if (Core.savedSettings.SkeletalAnimation && tier != WorldSphereMod.LOD.LodTier.Impostor)
                     {
                         WorldSphereMod.Rig.RigType rigType = ResolveRigType(a.asset.id);
                         if (rigType != WorldSphereMod.Rig.RigType.None)
                         {
+                            dsSkeletalAttempt++;
                             Vector3 skPos = rd.positions[i];
                             Vector3 skPosBeforeLift = skPos;
                             Vector3 skRot = rd.rotations[i];
@@ -631,21 +643,27 @@ namespace WorldSphereMod.Voxel
                             if (WorldSphereMod.Rig.RigDriver.SubmitSkinnedActor(
                                     a, skPos, Quaternion.Euler(0f, skRot.y, 0f), skScl, rd.colors[i], rigType))
                             {
+                                dsSkeletalSubmitOk++;
                                 rd.has_normal_render[i] = false;
+                            }
+                            else
+                            {
+                                dsSkeletalSubmitFail++;
                             }
                             continue;
                         }
                     }
 
                     Sprite sp = rd.main_sprites[i];
-                    if (sp == null) continue;
+                    if (sp == null) { dsSpriteNull++; continue; }
 
                     if (tier == WorldSphereMod.LOD.LodTier.Impostor)
                     {
                         bool submitted = false;
                         Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
                         Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
-                        if (im == null || im.vertexCount == 0 || imMat == null) continue;
+                        if (im == null || im.vertexCount == 0) { dsImpostorMeshNull++; continue; }
+                        if (imMat == null) { dsImpostorMatNull++; continue; }
                         Vector3 imPos = rd.positions[i];
                         Vector3 imPosBeforeLift = imPos;
                         Vector3 imScl = rd.scales[i];
@@ -659,6 +677,7 @@ namespace WorldSphereMod.Voxel
                         Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
                         MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
                         LastBatcherSubmitCount++;
+                        dsImpostorSubmit++;
                         submitted = true;
                         if (submitted)
                         {
@@ -669,7 +688,8 @@ namespace WorldSphereMod.Voxel
 
                     // Phase 10: LodTier.Proxy (and Voxel) share full voxel path until BuildProxy/ProxyMeshCache ship.
                     Mesh m = VoxelMeshCache.Get(sp, -1, true);
-                    if (m == null || m.vertexCount == 0) continue;
+                    if (m == null || m.vertexCount == 0) { dsVoxelMeshNull++; continue; }
+                    dsVoxelSubmitAttempt++;
 
                     Vector3 pos = rd.positions[i];
                     Vector3 posBeforeLift = pos;
@@ -700,9 +720,20 @@ namespace WorldSphereMod.Voxel
                     if (Submit(m, trs, rd.colors[i]))
                     {
                         LastBatcherSubmitCount++;
+                        dsVoxelSubmitOk++;
                         rd.has_normal_render[i] = false;
                         TraceActorColorSample("voxel", i, rd.colors[i], a, sp, posBeforeLift, pos, rot, scl);
                     }
+                    else
+                    {
+                        dsVoxelSubmitFail++;
+                    }
+                }
+                // DIAG-SUBMIT one-shot path report — answers "where did the meshOk actors go?"
+                if (!_emitDiagSawNonZero || _emitDiagFrameCounter < 3)
+                {
+                    _emitDiagFrameCounter++;
+                    Debug.Log($"[WSM3D][DIAG-SUBMIT] EmitVoxels paths n={n} nullActor={dsNullActor} perpSkip={dsPerpSkipped} frustumFail={dsFrustumFail} frustumPass={LastFrustumCullerPassCount} | tier(Imp={dsTierImpostor} Proxy={dsTierProxy} Voxel={dsTierVoxel} Other={dsTierOther}) | skel(attempt={dsSkeletalAttempt} ok={dsSkeletalSubmitOk} fail={dsSkeletalSubmitFail}) | spriteNull={dsSpriteNull} | impostor(meshNull={dsImpostorMeshNull} matNull={dsImpostorMatNull} submit={dsImpostorSubmit}) | voxel(meshNull={dsVoxelMeshNull} attempt={dsVoxelSubmitAttempt} ok={dsVoxelSubmitOk} fail={dsVoxelSubmitFail}) | LastBatcherSubmitCount={LastBatcherSubmitCount} SkeletalAnimation={Core.savedSettings.SkeletalAnimation}");
                 }
             }
 
