@@ -30,6 +30,6 @@ public class ToolsInvariantsTests
         source.Should().Contain("public static bool ViewPortToRay(this Camera Camera, Vector2 viewportPos, out Ray Ray)");
         source.Should().Contain("public static float GetTileHeightSmooth(this Vector2 Pos)");
         source.Should().Contain("public static class MathStuff");
-        source.Should().Contain("public static float WrappedDist(float a, float b)");
+        source.Should().Contain("public static float WrappedDist(float a, float b, float L)");
     }
 }

@@ -48,23 +48,10 @@ try {
     }
 
     function Import-DoAllVisionEnv {
-        foreach ($fileName in @('omniroute-vision.env', 'fireworks-vision.env')) {
-            $envFile = Join-Path $RepoRoot "Tools/$fileName"
-            if (Test-Path -LiteralPath $envFile) {
-                Get-Content -LiteralPath $envFile | ForEach-Object {
-                    if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
-                        Set-Item -Path "env:$($matches[1].Trim())" -Value $matches[2].Trim()
-                    }
-                }
-            }
-        }
-    }
-
-    function Import-DoAllVisionEnv {
-        Import-DoAllVisionEnvFile "omniroute-vision.env"
-        Import-DoAllVisionEnvFile "fireworks-vision.env"
+        Import-VisionEnvFile 'omniroute-vision.env'
+        Import-VisionEnvFile 'fireworks-vision.env'
         if (-not $env:FIREWORKS_API_KEY) {
-            $userFw = [Environment]::GetEnvironmentVariable("FIREWORKS_API_KEY", "User")
+            $userFw = [Environment]::GetEnvironmentVariable('FIREWORKS_API_KEY', 'User')
             if ($userFw) { $env:FIREWORKS_API_KEY = $userFw }
         }
     }
@@ -121,21 +108,10 @@ try {
         }
         Add-DoAllStage 'bridge-wait' 'passed' @{ isWorld3D = [bool]$health.isWorld3D }
 
-            if (-not $health.isWorld3D) {
-                Write-Host '=== do-all: bootstrap save2 (bridge-save-load-smoke) ===' -ForegroundColor Cyan
-                $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend off
-                $health = Get-BridgeHealth
-            }
-        } else {
-            $health = Wait-BridgeReady -MaxMinutes 2
-            if (-not $health -or -not $health.bridgeAlive) {
-                Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge down' }
-                throw 'Bridge not reachable (use relaunch or start WorldBox)'
-            }
-            if (-not $health.isWorld3D) {
-                $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend off
-                $health = Get-BridgeHealth
-            }
+        if (-not $health.isWorld3D) {
+            Write-Host '=== do-all: bootstrap save2 (bridge-save-load-smoke) ===' -ForegroundColor Cyan
+            $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend off
+            $health = Get-BridgeHealth
         }
     } else {
         if (-not (Ensure-BridgeReady -WaitSeconds 120)) {
