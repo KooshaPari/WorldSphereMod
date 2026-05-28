@@ -27,6 +27,7 @@ Shader "WSM3D/ColorGradingLUT"
             CGPROGRAM
             #pragma vertex vert_img
             #pragma fragment frag
+            #pragma target 3.0
             #include "UnityCG.cginc"
 
             sampler2D _MainTex;

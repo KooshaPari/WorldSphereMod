@@ -23,6 +23,9 @@ Shader "WSM3D/Impostor"
 
         Pass
         {
+            Name "ImpostorPass"
+            Tags { "LightMode" = "Always" }
+
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag

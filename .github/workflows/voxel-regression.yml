@@ -1,0 +1,23 @@
+name: voxel-regression
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-tests:
+    name: WorldSphereMod E2E
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Run E2E tests
+        run: dotnet test tests/WorldSphereMod.Tests.E2E/

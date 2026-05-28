@@ -1,6 +1,6 @@
 # ADR-0007: Conditional Harmony patch dispatch
 
-**Status:** Proposed
+**Status:** Accepted
 
 **Date:** 2026-05-23
 
@@ -49,10 +49,8 @@ How should Harmony patch types declare phase membership, and where should the â€
 
 ### Roll-out
 
-1. Land scaffold + invariants (this ADR **Proposed**).
-2. After smoke on safe-min / per-phase toggles, flip status to **Accepted**.
-3. Optional follow-up: route `PhasePatchManager.GetPhaseTypes` filtering through the same helper.
-
+1. Land scaffold + invariants (ADR **Accepted** after phase PlayCUA smoke).
+2. Optional follow-up: route `PhasePatchManager.GetPhaseTypes` filtering through the same helper.
 ## Consequences
 
 ### Positive

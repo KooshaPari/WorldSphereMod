@@ -31,9 +31,11 @@ namespace WorldSphereMod.PostFx
         static readonly float[] IntensityByQuality = { 0.8f, 1.0f, 1.1f };
 
         static ScreenSpaceAO? _instance;
-        static readonly Vector4[] Kernel = new Vector4[MaxSamples];
+        internal static readonly Vector4[] Kernel = new Vector4[MaxSamples];
+        static bool _kernelBuilt;
         Material? _material;
         bool _initializing;
+        bool _destroyed;
 
         static Camera? ResolveMainCamera()
         {
@@ -72,7 +74,7 @@ namespace WorldSphereMod.PostFx
 
         public static void EnsureCreated()
         {
-            if (!Core.IsWorld3D || !Core.savedSettings.SSAOEnabled)
+            if (!Core.IsWorld3D || Core.savedSettings == null || !Core.savedSettings.SSAOEnabled)
             {
                 return;
             }
@@ -112,6 +114,12 @@ namespace WorldSphereMod.PostFx
 
         void OnDestroy()
         {
+            _destroyed = true;
+            if (_material != null)
+            {
+                Destroy(_material);
+                _material = null;
+            }
             if (_instance == this)
             {
                 _instance = null;
@@ -127,22 +135,48 @@ namespace WorldSphereMod.PostFx
         IEnumerator ConfigureMaterialAsync()
         {
             _initializing = true;
-            ResourceRequest request = Resources.LoadAsync<Shader>(ShaderResourcePath);
-            yield return request;
-            Shader? shader = request.asset as Shader;
+
+            Shader? shader = ResolveShader();
+            if (shader == null)
+            {
+                ResourceRequest request = Resources.LoadAsync<Shader>(ShaderResourcePath);
+                yield return request;
+                if (_destroyed) { _initializing = false; yield break; }
+                shader = request.asset as Shader;
+            }
             shader ??= Shader.Find(ShaderFallbackName);
             if (shader == null)
             {
-                Debug.LogWarning("[WSM3D] ScreenSpaceAO: shader not found (Resources/Shaders/ScreenSpaceAO or Hidden/ScreenSpaceAO)");
+                Debug.LogWarning("[WSM3D] ScreenSpaceAO: shader unavailable (LoadedShaders, Shader.Find, Resources). " +
+                    "SSAO pass will be skipped — no visual impact.");
                 _initializing = false;
                 yield break;
             }
+            if (_destroyed) { _initializing = false; yield break; }
             _material = new Material(shader);
+            Debug.Log($"[WSM3D] ScreenSpaceAO material created via shader '{shader.name}'.");
             _initializing = false;
         }
 
-        void BuildKernel()
+        static Shader? ResolveShader()
         {
+            if (Core.IsWorld3D && Core.Sphere.LoadedShaders.TryGetValue("ScreenSpaceAO", out var bundled) && bundled != null)
+            {
+                Debug.Log("[WSM3D] ScreenSpaceAO shader resolved via Core.Sphere.LoadedShaders cache.");
+                return bundled;
+            }
+            Shader? s = Shader.Find("WSM3D/ScreenSpaceAO");
+            if (s != null)
+            {
+                Debug.Log("[WSM3D] ScreenSpaceAO shader resolved via Shader.Find('WSM3D/ScreenSpaceAO').");
+                return s;
+            }
+            return null;
+        }
+
+        internal static void BuildKernelStatic()
+        {
+            if (_kernelBuilt) return;
             System.Random rng = new System.Random(1337);
             for (int i = 0; i < Kernel.Length; i++)
             {
@@ -157,7 +191,10 @@ namespace WorldSphereMod.PostFx
                 float scale = (i + 1f) / Kernel.Length;
                 Kernel[i] = new Vector4(sample.x, sample.y, 0f, scale);
             }
+            _kernelBuilt = true;
         }
+
+        void BuildKernel() => BuildKernelStatic();
 
         void UpdateSettings()
         {

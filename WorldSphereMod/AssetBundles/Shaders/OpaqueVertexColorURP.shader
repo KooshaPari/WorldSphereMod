@@ -13,7 +13,7 @@ Shader "WSM3D/OpaqueVertexColorURP"
     {
         [MainColor] _BaseColor ("Tint", Color) = (1, 1, 1, 1)
         [MainTexture] _BaseMap ("Main Tex", 2D) = "white" {}
-        [HDR] _EmissionColor ("Emission", Color) = (0, 0, 0, 1)
+        [HDR] _EmissionColor ("Emission", Color) = (0.15, 0.15, 0.15, 1)
     }
 
     SubShader

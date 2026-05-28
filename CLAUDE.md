@@ -47,6 +47,10 @@ $env:WORLDBOX_PATH = "C:/Program Files (x86)/Steam/steamapps/common/worldbox"
 dotnet build WorldSphereMod.csproj -c Release
 ```
 
+After a successful `dotnet build`, always launch through NML and check
+`Player.log` for **both** `error CS` **and** `Failed to compile` after
+EVERY launch before treating the build as valid.
+
 CI in `.github/workflows/build.yml` builds only `WorldSphereAPI.csproj`
 (it's Unity-free, targets netstandard2.0). The main mod can't be built in
 CI because it needs WorldBox's reference DLLs — that's local-only.
@@ -131,6 +135,16 @@ those files; changes can cascade.
   rebuilt from Unity 2022.3 — not editable by hand.
 - **SavedSettings folder is snake_case.** NML's `Paths.ModsConfigPath` resolves to `mods_config/` on Windows (lowercase + underscore), NOT `ModsConfig/`. The CLI hardcodes the right path; the MCP server auto-discovers via glob.
 - **CompoundSpheres.dll is a runtime dep, not stale.** `WorldSphereMod/Assemblies/CompoundSpheres.dll` (23KB) must stay shipped — `Mod.cs`, `Tools.cs`, `Core.cs`, `WaterRender.cs`, `TileMapToSphere.cs`, `CompoundSphereScripts.cs` all `using CompoundSpheres;`. Without it, NML's Roslyn compile fails with ~60 CS0246 errors.
+- **NML Roslyn Compatibility.** `dotnet build` uses net48 Roslyn, but NML compiles the mod with Unity's embedded Roslyn, which is stricter. Known incompatibilities:
+  - `.Length` on non-array types is treated as a method group.
+  - `tiles_list.Length` breaks for that reason — use an explicit `WorldTile[]` local variable instead.
+  - Always test with NML and check `Player.log` for `error CS` after launch.
+- **NML Publicizer trap.** NML compiles against the original (non-publicized) WorldBox DLL, not publicized assemblies. Accessing private WorldBox fields requires reflection at runtime — `AccessTools.Field` / `Traverse` — even if your IDE shows them as accessible via a publicizer.
+- **Harmony Prefix return-false kills ALL Postfixes.** In Harmony 2.x, a Prefix that returns `false` (skip original) also suppresses every Postfix on that method. If you need Postfix logic to still run, call the Postfix methods explicitly from within the Prefix.
+- **SmoothLoader.add signature.** `SmoothLoader.add` takes `MapLoaderAction`, not `System.Action`. Passing a plain `Action` compiles in dotnet but fails at NML load time.
+- **Large maps hang in 3D mode.** Maps larger than ~316x316 hang because `CompoundSpheres` renders all tiles per frame with no culling or chunking. This is a known upstream limitation — don't increase default map size until a chunked renderer is in place.
+- **World.world.tiles doesn't exist.** Use `MapBox.instance.tiles_list` (or the locally cached array) to iterate tiles. `World.world.tiles` is a common guess that won't compile.
+- **SaveManager.loadWorld may not resolve in Harmony patches.** The method name can be obfuscated or renamed across WorldBox versions. Verify the exact method signature in the target DLL before writing a `[HarmonyPatch]` for it.
 
 ## When you're done with a phase
 

@@ -37,8 +37,10 @@ namespace WorldSphereMod.Bridge
     }
 
     /// <summary>
-    /// Harmony Postfix on MapBox.renderStuff — always reached via TileMapToSphere.RefreshSphere
-    /// Prefix (returns false) every frame, including after save/load scene transitions.
+    /// Harmony Postfix on MapBox.renderStuff — NOTE: this is suppressed by
+    /// RefreshSphere.Prefix returning false. BridgeSurvival.Run is called
+    /// explicitly from the Prefix instead. This Postfix is kept as a safety net
+    /// for any code path where the Prefix doesn't fire.
     /// </summary>
     [HarmonyPatch(typeof(MapBox), nameof(MapBox.renderStuff))]
     public static class BridgePerFrameTick

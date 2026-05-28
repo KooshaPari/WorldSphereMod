@@ -247,6 +247,7 @@ namespace WorldSphereMod.Bridge
                 _boundPort = port;
                 _listenerThread = new Thread(ListenLoop) { IsBackground = true, Name = "WSM3D BridgeServer" };
                 _listenerThread.Start();
+                WorldSphereMod.Voxel.SanityTestCube.Reset();
                 LiveTelemetryProbeEnabled = true;
                 Debug.Log($"[WSM3D][Bridge] HTTP RPC listening on 127.0.0.1:{port}");
                 return true;
@@ -284,6 +285,7 @@ namespace WorldSphereMod.Bridge
         {
             _running = false;
             LiveTelemetryProbeEnabled = false;
+            try { WorldSphereMod.Voxel.SanityTestCube.Reset(); } catch { }
             try { _listener?.Stop(); } catch { }
             try { _listener?.Close(); } catch { }
             if (_listenerThread != null && _listenerThread.IsAlive && Thread.CurrentThread.ManagedThreadId != _listenerThread.ManagedThreadId)
@@ -377,6 +379,21 @@ namespace WorldSphereMod.Bridge
                         WriteJson(context.Response, InvokeOnMainThread(() => BuildPhasePayload(phaseName)));
                         return;
                     }
+                    if (string.Equals(path, "/diag/emit_status", StringComparison.OrdinalIgnoreCase))
+                    {
+                        WriteJson(context.Response, InvokeOnMainThread(BuildEmitStatusPayload));
+                        return;
+                    }
+                    if (string.Equals(path, "/diag/render_stats", StringComparison.OrdinalIgnoreCase))
+                    {
+                        WriteJson(context.Response, InvokeOnMainThread(BuildRenderStatsPayload));
+                        return;
+                    }
+                    if (string.Equals(path, "/diag/full_dump", StringComparison.OrdinalIgnoreCase))
+                    {
+                        WriteJson(context.Response, InvokeOnMainThread(BuildFullDumpPayload));
+                        return;
+                    }
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && path.StartsWith("/settings/", StringComparison.OrdinalIgnoreCase))
                 {
@@ -388,7 +405,7 @@ namespace WorldSphereMod.Bridge
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/load_save", StringComparison.OrdinalIgnoreCase))
                 {
                     string slotText = context.Request.QueryString["slot"] ?? string.Empty;
-                    WriteJson(context.Response, InvokeOnMainThread(() => LoadSave(slotText)));
+                    WriteJson(context.Response, LoadSaveQueued(slotText));
                     return;
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && (string.Equals(path, "/actions/screenshot", StringComparison.OrdinalIgnoreCase) || string.Equals(path, "/screenshot/now", StringComparison.OrdinalIgnoreCase)))
@@ -411,6 +428,19 @@ namespace WorldSphereMod.Bridge
                 {
                     string packPath = context.Request.QueryString["path"] ?? string.Empty;
                     WriteJson(context.Response, InvokeOnMainThread(() => BuildTexturePackImportPayload(packPath)));
+                    return;
+                }
+
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/spawn_units", StringComparison.OrdinalIgnoreCase))
+                {
+                    string countText = context.Request.QueryString["count"] ?? "10";
+                    string race = context.Request.QueryString["race"] ?? "human";
+                    WriteJson(context.Response, SpawnUnitsQueued(countText, race));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/generate_world", StringComparison.OrdinalIgnoreCase))
+                {
+                    WriteJson(context.Response, GenerateWorldQueued());
                     return;
                 }
 
@@ -498,6 +528,15 @@ namespace WorldSphereMod.Bridge
                 hits = WorldSphereMod.Voxel.VoxelMeshCache.HitCount,
                 misses = WorldSphereMod.Voxel.VoxelMeshCache.MissCount
             }
+        };
+
+        object BuildEmitStatusPayload() => new
+        {
+            ok = true,
+            emitVoxelsCalled = WorldSphereMod.Voxel.VoxelRender.ActorVoxelEmit.EmitVoxelsCalled,
+            visibleUnitsCount = WorldSphereMod.Voxel.VoxelRender.ActorVoxelEmit.LastVisibleUnitsCount,
+            frustumCullerPassCount = WorldSphereMod.Voxel.VoxelRender.ActorVoxelEmit.LastFrustumCullerPassCount,
+            batcherSubmitCount = WorldSphereMod.Voxel.VoxelRender.ActorVoxelEmit.LastBatcherSubmitCount,
         };
 
 
@@ -922,9 +961,8 @@ namespace WorldSphereMod.Bridge
         string BuildSettingsJson() => JsonConvert.SerializeObject(Core.savedSettings ?? new SavedSettings(), Formatting.Indented);
 
         /// <summary>
-        /// Apply a settings mutation from the HTTP listener thread without blocking on
-        /// <see cref="InvokeOnMainThread{T}"/> (PlayCUA bootstrap must not stall when the
-        /// main thread queue is backed up during load).
+        /// Apply a settings mutation by parsing on the listener thread and deferring Unity
+        /// mutation + persistence onto the main thread queue.
         /// </summary>
         object UpdateSettingQueued(string key, string rawValue)
         {
@@ -933,9 +971,6 @@ namespace WorldSphereMod.Bridge
             if (field == null) return new { ok = false, error = "unknown_setting", key };
             if (!BridgeSettingParser.TryParseSettingValue(field.FieldType, rawValue, out object? parsed, out string parseError))
                 return new { ok = false, error = parseError, key, value = rawValue };
-
-            field.SetValue(Core.savedSettings, parsed);
-            try { Core.SaveSettings(); } catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] SaveSettings failed: " + ex.Message); }
 
             string fieldName = field.Name;
             bool invalidateVoxel = fieldName == "VoxelInflationStyle" || fieldName == "VoxelMeshSmoothing" || fieldName == "SmoothingIterations" || fieldName == "VoxelScaleMultiplier" || fieldName == "VoxelSpriteDepth" || fieldName == "VoxelLuminanceDepth" || fieldName == "VoxelNeutralLuminance" || fieldName == "VoxelShadowRecession" || fieldName == "VoxelColorTonemap" || fieldName == "ForceFallbackDrawPath";
@@ -946,6 +981,14 @@ namespace WorldSphereMod.Bridge
             {
                 try
                 {
+                    if (Core.savedSettings == null)
+                    {
+                        Debug.LogWarning("[WSM3D][Bridge] deferred setting apply skipped because savedSettings is null for " + fieldName);
+                        return;
+                    }
+
+                    field.SetValue(Core.savedSettings, parsed);
+                    try { Core.SaveSettings(); } catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] SaveSettings failed: " + ex.Message); }
                     if (applyPhase) Core.ApplyPhaseToggle(fieldName, phaseValue);
                     if (invalidateVoxel)
                     {
@@ -963,7 +1006,11 @@ namespace WorldSphereMod.Bridge
         }
 
 
-        object LoadSave(string slotText)
+        /// <summary>
+        /// Queue save load on the main thread and return immediately. Synchronous InvokeOnMainThread
+        /// often timed out during loadWorld (5s), serializing null to PlayCUA as non-dict response.
+        /// </summary>
+        object LoadSaveQueued(string slotText)
         {
             if (!BridgeSettingParser.TryParseNonNegativeInt(slotText, out int slot))
             {
@@ -976,15 +1023,102 @@ namespace WorldSphereMod.Bridge
                 return new { ok = false, error = "missing_save", slot, path };
             }
 
-            if (World.world == null || World.world.save_manager == null)
+            int queuedSlot = slot;
+            string queuedPath = path;
+            _mainThreadQueue.Enqueue(() =>
             {
-                return new { ok = false, error = "world_not_ready", slot, path };
-            }
+                try
+                {
+                    if (World.world == null || World.world.save_manager == null)
+                    {
+                        Debug.LogWarning("[WSM3D][Bridge] load_save skipped: world_not_ready slot=" + queuedSlot);
+                        return;
+                    }
 
-            SaveManager.setCurrentPathAndId(path, slot);
-            World.world.save_manager.prepareLoading();
-            World.world.save_manager.loadWorld(path);
-            return new { ok = true, slot, path };
+                    SaveManager.setCurrentPathAndId(queuedPath, queuedSlot);
+                    World.world.save_manager.prepareLoading();
+                    World.world.save_manager.loadWorld(queuedPath, false);
+                    // loadWorld Postfix also runs survival; belt-and-suspenders if patch order differs.
+                    CaptureMainThread();
+                    EnsureCreated();
+                    DrainStaticQueue();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning("[WSM3D][Bridge] load_save failed slot=" + queuedSlot + ": " + ex.Message);
+                }
+            });
+
+            return new { ok = true, slot, path, queued = true };
+        }
+
+        object SpawnUnitsQueued(string countText, string race)
+        {
+            if (!BridgeSettingParser.TryParseNonNegativeInt(countText, out int count))
+                return new { ok = false, error = "invalid_count", count = countText };
+            count = Math.Min(count, 200);
+
+            _mainThreadQueue.Enqueue(() =>
+            {
+                try
+                {
+                    if (World.world == null || MapBox.instance == null)
+                    {
+                        Debug.LogWarning("[WSM3D][Bridge] spawn_units skipped: world_not_ready");
+                        return;
+                    }
+
+                    var mapBox = MapBox.instance;
+                    int mapW = MapBox.width;
+                    int mapH = MapBox.height;
+                    int spawned = 0;
+                    var rng = new System.Random();
+
+                    for (int i = 0; i < count; i++)
+                    {
+                        int x = rng.Next(mapW / 4, 3 * mapW / 4);
+                        int y = rng.Next(mapH / 4, 3 * mapH / 4);
+                        WorldTile tile = mapBox.GetTile(x, y);
+                        if (tile == null || tile.Type.ocean) continue;
+                        try
+                        {
+                            if (mapBox.units == null) { Debug.LogWarning("[WSM3D][Bridge] spawn_units: mapBox.units is null"); break; }
+                            mapBox.units.createNewUnit(race, tile);
+                            spawned++;
+                        }
+                        catch (Exception spawnEx) { Debug.LogWarning($"[WSM3D][Bridge] spawn_units[{i}]: {spawnEx.GetType().Name}: {spawnEx.Message}\n{spawnEx.StackTrace}"); break; }
+                    }
+                    Debug.Log($"[WSM3D][Bridge] spawn_units: spawned {spawned}/{count} {race} units");
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning("[WSM3D][Bridge] spawn_units failed: " + ex.Message);
+                }
+            });
+
+            return new { ok = true, count, race, queued = true };
+        }
+
+        object GenerateWorldQueued()
+        {
+            _mainThreadQueue.Enqueue(() =>
+            {
+                try
+                {
+                    if (MapBox.instance == null)
+                    {
+                        Debug.LogWarning("[WSM3D][Bridge] generate_world skipped: MapBox not ready");
+                        return;
+                    }
+                    MapBox.instance.generateNewMap();
+                    Debug.Log("[WSM3D][Bridge] generate_world: new map generated");
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning("[WSM3D][Bridge] generate_world failed: " + ex.Message);
+                }
+            });
+            return new { ok = true, queued = true };
         }
 
         object CaptureScreenshot(string outputPath)
@@ -1071,6 +1205,337 @@ namespace WorldSphereMod.Bridge
         {
             WorldSphereMod.Voxel.MeshInstanceBatcher.ArmFallbackDiagOnce();
             return new { ok = true, status = "armed" };
+        }
+
+        object BuildRenderStatsPayload()
+        {
+            long drawCalls = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameDrawCalls;
+            long instances = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameInstances;
+            long buckets = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameBucketCount;
+            bool fallbackPath = WorldSphereMod.Voxel.MeshInstanceBatcher.UseFallbackPath;
+            bool instancingBroken = WorldSphereMod.Voxel.MeshInstanceBatcher.InstancingBroken;
+
+            int visibleUnits = 0;
+            int visibleBuildings = 0;
+            try
+            {
+                ActorManager units = World.world != null ? World.world.units : null;
+                if (units != null) visibleUnits = units.visible_units.count;
+            }
+            catch { }
+            try
+            {
+                BuildingManager buildings = World.world != null ? World.world.buildings : null;
+                if (buildings != null) visibleBuildings = buildings._visible_buildings_count;
+            }
+            catch { }
+
+            int voxelCacheSize = SafeCount(() => WorldSphereMod.Voxel.VoxelMeshCache.Count);
+            int procgenCacheSize = SafeCount(() => WorldSphereMod.ProcGen.ProcGenCache.Count);
+            int foliageCount = SafeCount(() => WorldSphereMod.Foliage.CrossedQuadMeshCache.Count);
+            int impostorCount = SafeCount(() => WorldSphereMod.LOD.ImpostorBillboard.Count);
+
+            bool emitVoxelsFired = drawCalls > 0 || _cachedLastNonZeroDrawCalls > 0;
+
+            object cameraInfo = null;
+            try
+            {
+                Camera cam = Camera.main;
+                if (cam != null)
+                {
+                    Vector3 pos = cam.transform.position;
+                    float dist = pos.magnitude;
+                    cameraInfo = new
+                    {
+                        position = new { x = pos.x, y = pos.y, z = pos.z },
+                        distanceFromOrigin = dist,
+                        fieldOfView = cam.fieldOfView,
+                        orthographic = cam.orthographic,
+                        orthographicSize = cam.orthographicSize,
+                        nearClip = cam.nearClipPlane,
+                        farClip = cam.farClipPlane
+                    };
+                }
+            }
+            catch { }
+
+            string materialShaderName = null;
+            {
+                Material mat = WorldSphereMod.Voxel.VoxelRender._material;
+                if (mat != null && mat.shader != null)
+                    materialShaderName = mat.shader.name;
+            }
+
+            return new
+            {
+                ok = true,
+                drawCalls,
+                instances,
+                buckets,
+                fallbackPath,
+                instancingBroken,
+                emitVoxelsFired,
+                lastNonZeroDrawCalls = _cachedLastNonZeroDrawCalls,
+                visibleUnits,
+                visibleBuildings,
+                voxelCacheSize,
+                procgenCacheSize,
+                foliageCount,
+                impostorCount,
+                materialShaderName,
+                camera = cameraInfo,
+                isWorld3D = _cachedIsWorld3D,
+                voxelEntitiesEnabled = Core.savedSettings != null && Core.savedSettings.VoxelEntities,
+                frameMs = Time.unscaledDeltaTime * 1000f,
+                frameCount = Time.frameCount
+            };
+        }
+
+        object BuildFullDumpPayload()
+        {
+            object settings;
+            try
+            {
+                string settingsJson = JsonConvert.SerializeObject(Core.savedSettings ?? new SavedSettings());
+                settings = JsonConvert.DeserializeObject(settingsJson);
+            }
+            catch (Exception ex) { settings = new { error = ex.Message }; }
+
+            object telemetry = BuildTelemetryPayload();
+            object renderStats = BuildRenderStatsPayload();
+            object emitStatus = BuildEmitStatusPayload();
+            object voxelStats = null;
+            try { voxelStats = BuildVoxelStatsPayload(); } catch { }
+            object voxelQueue = null;
+            try { voxelQueue = BuildVoxelQueuePayload(); } catch { }
+            object memory = null;
+            try { memory = BuildMemoryPayload(); } catch { }
+
+            var loadedShaders = new List<object>();
+            try
+            {
+                foreach (KeyValuePair<string, Shader> kv in Core.Sphere.LoadedShaders)
+                {
+                    Shader sh = kv.Value;
+                    loadedShaders.Add(new
+                    {
+                        key = kv.Key,
+                        name = sh != null ? sh.name : null,
+                        supported = sh != null && sh.isSupported,
+                        renderQueue = sh != null ? sh.renderQueue : -1,
+                        passCount = sh != null ? sh.passCount : 0
+                    });
+                }
+            }
+            catch { }
+
+            var materials = new List<object>();
+            try
+            {
+                Material voxelMat = WorldSphereMod.Voxel.VoxelRender._material;
+                if (voxelMat != null) materials.Add(DescribeMaterial("voxel", voxelMat));
+            }
+            catch { }
+            try
+            {
+                Material[] all = Resources.FindObjectsOfTypeAll<Material>();
+                int sampled = 0;
+                for (int i = 0; i < all.Length && sampled < 32; i++)
+                {
+                    Material m = all[i];
+                    if (m == null || m.shader == null) continue;
+                    string sname = m.shader.name ?? string.Empty;
+                    if (sname.IndexOf("OpaqueVertexColor", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        sname.IndexOf("VoxelLit", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        sname.IndexOf("GerstnerWater", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        sname.IndexOf("WSM3D", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        materials.Add(DescribeMaterial("scan", m));
+                        sampled++;
+                    }
+                }
+            }
+            catch { }
+
+            object cameraState = null;
+            try
+            {
+                Camera cam = Camera.main;
+                if (cam != null)
+                {
+                    Transform t = cam.transform;
+                    cameraState = new
+                    {
+                        position = PodVector3(t.position),
+                        forward = PodVector3(t.forward),
+                        up = PodVector3(t.up),
+                        rotationEuler = PodVector3(t.eulerAngles),
+                        fieldOfView = cam.fieldOfView,
+                        orthographic = cam.orthographic,
+                        orthographicSize = cam.orthographicSize,
+                        nearClip = cam.nearClipPlane,
+                        farClip = cam.farClipPlane,
+                        clearFlags = cam.clearFlags.ToString(),
+                        backgroundColor = new { r = cam.backgroundColor.r, g = cam.backgroundColor.g, b = cam.backgroundColor.b, a = cam.backgroundColor.a },
+                        cullingMask = cam.cullingMask,
+                        depth = cam.depth,
+                        renderingPath = cam.renderingPath.ToString(),
+                        allowHDR = cam.allowHDR,
+                        allowMSAA = cam.allowMSAA
+                    };
+                }
+            }
+            catch (Exception ex) { cameraState = new { error = ex.Message }; }
+
+            object renderSettings = null;
+            try
+            {
+                renderSettings = new
+                {
+                    ambientMode = RenderSettings.ambientMode.ToString(),
+                    ambientLight = new { r = RenderSettings.ambientLight.r, g = RenderSettings.ambientLight.g, b = RenderSettings.ambientLight.b, a = RenderSettings.ambientLight.a },
+                    ambientIntensity = RenderSettings.ambientIntensity,
+                    ambientSkyColor = new { r = RenderSettings.ambientSkyColor.r, g = RenderSettings.ambientSkyColor.g, b = RenderSettings.ambientSkyColor.b },
+                    ambientEquatorColor = new { r = RenderSettings.ambientEquatorColor.r, g = RenderSettings.ambientEquatorColor.g, b = RenderSettings.ambientEquatorColor.b },
+                    ambientGroundColor = new { r = RenderSettings.ambientGroundColor.r, g = RenderSettings.ambientGroundColor.g, b = RenderSettings.ambientGroundColor.b },
+                    fog = RenderSettings.fog,
+                    fogMode = RenderSettings.fogMode.ToString(),
+                    fogColor = new { r = RenderSettings.fogColor.r, g = RenderSettings.fogColor.g, b = RenderSettings.fogColor.b, a = RenderSettings.fogColor.a },
+                    fogDensity = RenderSettings.fogDensity,
+                    fogStartDistance = RenderSettings.fogStartDistance,
+                    fogEndDistance = RenderSettings.fogEndDistance,
+                    skybox = RenderSettings.skybox != null ? RenderSettings.skybox.name : null,
+                    sun = RenderSettings.sun != null ? RenderSettings.sun.name : null,
+                    defaultReflectionMode = RenderSettings.defaultReflectionMode.ToString(),
+                    reflectionIntensity = RenderSettings.reflectionIntensity,
+                    haloStrength = RenderSettings.haloStrength,
+                    flareStrength = RenderSettings.flareStrength
+                };
+            }
+            catch (Exception ex) { renderSettings = new { error = ex.Message }; }
+
+            object qualitySettings = null;
+            try
+            {
+                qualitySettings = new
+                {
+                    currentLevel = QualitySettings.GetQualityLevel(),
+                    currentLevelName = QualitySettings.names != null && QualitySettings.GetQualityLevel() < QualitySettings.names.Length ? QualitySettings.names[QualitySettings.GetQualityLevel()] : null,
+                    shadows = QualitySettings.shadows.ToString(),
+                    shadowResolution = QualitySettings.shadowResolution.ToString(),
+                    shadowDistance = QualitySettings.shadowDistance,
+                    shadowCascades = QualitySettings.shadowCascades,
+                    pixelLightCount = QualitySettings.pixelLightCount,
+                    antiAliasing = QualitySettings.antiAliasing,
+                    vSyncCount = QualitySettings.vSyncCount,
+                    realtimeReflectionProbes = QualitySettings.realtimeReflectionProbes
+                };
+            }
+            catch (Exception ex) { qualitySettings = new { error = ex.Message }; }
+
+            object screenInfo = null;
+            try
+            {
+                screenInfo = new
+                {
+                    width = Screen.width,
+                    height = Screen.height,
+                    fullScreen = Screen.fullScreen,
+                    fullScreenMode = Screen.fullScreenMode.ToString(),
+                    dpi = Screen.dpi,
+                    currentResolution = new { w = Screen.currentResolution.width, h = Screen.currentResolution.height, refreshRate = Screen.currentResolution.refreshRate }
+                };
+            }
+            catch { }
+
+            object timeInfo = null;
+            try
+            {
+                timeInfo = new
+                {
+                    frameCount = Time.frameCount,
+                    time = Time.time,
+                    unscaledTime = Time.unscaledTime,
+                    realtimeSinceStartup = Time.realtimeSinceStartup,
+                    deltaTime = Time.deltaTime,
+                    unscaledDeltaTime = Time.unscaledDeltaTime,
+                    timeScale = Time.timeScale,
+                    fixedDeltaTime = Time.fixedDeltaTime,
+                    captureFramerate = Time.captureFramerate
+                };
+            }
+            catch { }
+
+            object gpuInfo = null;
+            try
+            {
+                gpuInfo = new
+                {
+                    deviceName = SystemInfo.graphicsDeviceName,
+                    deviceVendor = SystemInfo.graphicsDeviceVendor,
+                    deviceVersion = SystemInfo.graphicsDeviceVersion,
+                    deviceType = SystemInfo.graphicsDeviceType.ToString(),
+                    shaderLevel = SystemInfo.graphicsShaderLevel,
+                    memoryMB = SystemInfo.graphicsMemorySize,
+                    supportsComputeShaders = SystemInfo.supportsComputeShaders,
+                    supportsInstancing = SystemInfo.supportsInstancing,
+                    supportsAsyncCompute = SystemInfo.supportsAsyncCompute,
+                    maxTextureSize = SystemInfo.maxTextureSize
+                };
+            }
+            catch { }
+
+            return new
+            {
+                ok = true,
+                generatedAtUtc = DateTime.UtcNow.ToString("yyyyMMddTHHmmssfff'Z'", CultureInfo.InvariantCulture),
+                frameCount = Time.frameCount,
+                bridgePort = _boundPort,
+                isWorld3D = _cachedIsWorld3D,
+                settings,
+                telemetry,
+                renderStats,
+                emitStatus,
+                voxelStats,
+                voxelQueue,
+                memory,
+                loadedShaders,
+                materials,
+                camera = cameraState,
+                renderSettings,
+                qualitySettings,
+                screen = screenInfo,
+                time = timeInfo,
+                gpu = gpuInfo
+            };
+        }
+
+        static object DescribeMaterial(string tag, Material m)
+        {
+            try
+            {
+                Shader sh = m.shader;
+                var keywords = new List<string>();
+                try { string[] sk = m.shaderKeywords; if (sk != null) keywords.AddRange(sk); } catch { }
+                return new
+                {
+                    tag,
+                    name = m.name,
+                    shader = sh != null ? sh.name : null,
+                    shaderSupported = sh != null && sh.isSupported,
+                    renderQueue = m.renderQueue,
+                    enableInstancing = m.enableInstancing,
+                    passCount = m.passCount,
+                    globalIlluminationFlags = m.globalIlluminationFlags.ToString(),
+                    doubleSidedGI = m.doubleSidedGI,
+                    shaderKeywords = keywords,
+                    color = m.HasProperty("_Color") ? (object)new { r = m.GetColor("_Color").r, g = m.GetColor("_Color").g, b = m.GetColor("_Color").b, a = m.GetColor("_Color").a } : null
+                };
+            }
+            catch (Exception ex)
+            {
+                return new { tag, error = ex.Message };
+            }
         }
 
         static string FindSavePath(int slot)
@@ -1179,6 +1644,11 @@ namespace WorldSphereMod.Bridge
         static long SafeLong(Func<long> read)
         {
             try { return read(); } catch { return 0L; }
+        }
+
+        static int SafeCount(Func<int> read)
+        {
+            try { return read(); } catch { return 0; }
         }
 
         static float SafeHitRate(Func<long> hits, Func<long> misses)

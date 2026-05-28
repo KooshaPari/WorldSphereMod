@@ -65,21 +65,80 @@ if (-not $SkipBuild) {
     }
 }
 
+# --- Wipe stale upstream-named folder to avoid GUID collision ---
+# The fork's mod.json GUID is `worldsphere3d.fork`. If a previous install
+# (or a sibling clone of upstream) left a `Mods/WorldSphereMod` folder with
+# the same GUID, NML logs "Repeat Mod" and may load the wrong one. Always
+# nuke the upstream-named folder before installing our `WorldSphereMod3D`.
+$staleUpstreamDst = Join-Path $WorldBoxPath "Mods/WorldSphereMod"
+if ((Test-Path $staleUpstreamDst) -and ($InstallFolderName -ne "WorldSphereMod")) {
+    Write-Host "[install] removing stale upstream-named folder at $staleUpstreamDst (GUID collision guard)" -ForegroundColor DarkYellow
+    Remove-Item -Recurse -Force $staleUpstreamDst -ErrorAction SilentlyContinue
+    if (Test-Path $staleUpstreamDst) {
+        throw "Could not remove stale $staleUpstreamDst. Close WorldBox and retry."
+    }
+}
+
+# --- Wipe prior install (retry loop for Windows lock / antivirus contention) ---
 if (Test-Path $modDst) {
     Write-Host "[install] removing prior install at $modDst" -ForegroundColor DarkGray
-    Remove-Item -Recurse -Force $modDst
+    $retries = 3
+    for ($attempt = 1; $attempt -le $retries; $attempt++) {
+        Remove-Item -Recurse -Force $modDst -ErrorAction SilentlyContinue
+        if (-not (Test-Path $modDst)) { break }
+        if ($attempt -lt $retries) {
+            Write-Host "[install]   removal incomplete (locked handles?), retry $attempt/$retries..." -ForegroundColor Yellow
+            Start-Sleep -Seconds 1
+        } else {
+            throw "Could not fully remove $modDst after $retries attempts. Close WorldBox / antivirus and retry."
+        }
+    }
 }
 New-Item -ItemType Directory -Force -Path $modDst | Out-Null
 
+# --- Copy every item fresh via robocopy /MIR (dirs) or Copy-Item (files) ---
+# robocopy /MIR guarantees a byte-identical mirror regardless of timestamps,
+# file locks on the *source* side, or Copy-Item merge-vs-replace quirks.
 $items = @("Code", "Assemblies", "AssetBundles", "GameResources", "Locales", "mod.json")
 foreach ($item in $items) {
     $src = Join-Path $modSrc $item
     if (Test-Path $src) {
         Write-Host "[install]   $item" -ForegroundColor DarkCyan
-        Copy-Item -Recurse -Force -Path $src -Destination $modDst
+        if ((Get-Item $src) -is [System.IO.DirectoryInfo]) {
+            $dst = Join-Path $modDst $item
+            # robocopy exit codes 0-7 are success (bitmask); 8+ are errors
+            & robocopy $src $dst /MIR /NJH /NJS /NP /NFL /NDL /R:2 /W:1 | Out-Null
+            $roboExit = $LASTEXITCODE
+            if ($roboExit -ge 8) {
+                throw "robocopy failed copying $item (exit $roboExit)"
+            }
+            # Reset so downstream callers don't see robocopy's non-zero success codes
+            $global:LASTEXITCODE = 0
+        } else {
+            Copy-Item -Force -Path $src -Destination $modDst
+        }
     } else {
         Write-Host "[install]   $item (skipped — not present in source)" -ForegroundColor DarkGray
     }
+}
+
+# --- Verify critical artifacts landed ---
+$csDst = Join-Path $modDst "Code"
+$csCount = (Get-ChildItem -Path $csDst -Filter "*.cs" -Recurse -ErrorAction SilentlyContinue).Count
+$csSrc  = (Get-ChildItem -Path (Join-Path $modSrc "Code") -Filter "*.cs" -Recurse).Count
+if ($csCount -ne $csSrc) {
+    throw "[install] MISMATCH: source has $csSrc .cs files but destination has $csCount"
+}
+Write-Host "[install]   verified $csCount .cs files" -ForegroundColor DarkGreen
+
+$compoundDll = Join-Path $modDst "Assemblies/CompoundSpheres.dll"
+if (-not (Test-Path $compoundDll)) {
+    throw "[install] CompoundSpheres.dll missing from installed Assemblies — NML will fail with CS0246"
+}
+
+$bundleDir = Join-Path $modDst "AssetBundles"
+if ((Test-Path (Join-Path $modSrc "AssetBundles")) -and -not (Test-Path $bundleDir)) {
+    throw "[install] AssetBundles directory missing from install"
 }
 
 # CompoundSpheres.dll IS a real runtime dependency (Code/ references its

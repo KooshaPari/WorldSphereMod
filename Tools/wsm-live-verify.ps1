@@ -14,7 +14,7 @@
   Enable Stage 3 (bridge, playcua, SSIM). Without -Live, Stage 3 is skipped.
 
 .PARAMETER Vision
-  Pass --vision-backend omniroute to wsm3d-playcua screenshot checks.
+  Pass --vision-backend to wsm3d-playcua (default: fireworks if FIREWORKS_API_KEY set, else omniroute).
 
 .PARAMETER Phase
   Restrict phase-previews SSIM to a single phase number (1-10). PlayCUA always runs every sample-scenarios/*.yaml.
@@ -37,6 +37,38 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+
+function Import-VisionEnvFile {
+    param([string]$FileName)
+    $envFile = Join-Path $PSScriptRoot $FileName
+    if (-not (Test-Path -LiteralPath $envFile)) { return }
+    Get-Content -LiteralPath $envFile | ForEach-Object {
+        if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
+            Set-Item -Path "env:$($matches[1].Trim())" -Value $matches[2].Trim()
+        }
+    }
+}
+
+function Import-VisionEnv {
+    Import-VisionEnvFile "omniroute-vision.env"
+    Import-VisionEnvFile "fireworks-vision.env"
+    if (-not $env:FIREWORKS_API_KEY) {
+        $userFw = [Environment]::GetEnvironmentVariable("FIREWORKS_API_KEY", "User")
+        if ($userFw) { $env:FIREWORKS_API_KEY = $userFw }
+    }
+}
+
+function Get-DefaultPlaycuaVisionBackend {
+    $explicit = if ($env:PLAYCUA_VISION_BACKEND) { $env:PLAYCUA_VISION_BACKEND.Trim().ToLowerInvariant() } else { "" }
+    if ($explicit -in @("fireworks", "omniroute", "anthropic", "off")) { return $explicit }
+    if ($env:FIREWORKS_API_KEY) { return "fireworks" }
+    if ($env:OMNROUTE_API_KEY) { return "omniroute" }
+    if ($env:ANTHROPIC_API_KEY) { return "anthropic" }
+    return "off"
+}
+
+Import-VisionEnv
+. (Join-Path $repoRoot "Tools/wsm3d.ps1")
 $reportDir = Join-Path $repoRoot "Tools/.reports"
 $reportPath = Join-Path $reportDir "live-verify-latest.json"
 $ssimThreshold = 0.95
@@ -181,6 +213,45 @@ function Invoke-BridgeLiveBootstrap {
     Start-Sleep -Seconds 3
 }
 
+function Wait-BridgeWorldSettle {
+    param(
+        [int]$Port = 8766,
+        [int]$MaxSeconds = 120,
+        [int]$MinStableReads = 4
+    )
+
+    $base = "http://127.0.0.1:$Port"
+    $stableHits = 0
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    Write-Host "Waiting for in-game world settle (telemetry stable, max ${MaxSeconds}s)..."
+    while ($sw.Elapsed.TotalSeconds -lt $MaxSeconds) {
+        try {
+            $health = Invoke-RestMethod -Uri "$base/health" -Method Get -TimeoutSec 8
+            $t = Invoke-RestMethod -Uri "$base/telemetry" -Method Get -TimeoutSec 8
+            $draws = [int]$t.lastNonZeroDrawCalls
+            $frameMs = [double]$t.frameMs
+            $world3d = $false
+            if ($null -ne $health.isWorld3D) {
+                $world3d = [bool]$health.isWorld3D
+            }
+            if ($world3d -and $draws -ge 2 -and $frameMs -gt 0 -and $frameMs -lt 150) {
+                $stableHits++
+                if ($stableHits -ge $MinStableReads) {
+                    Write-Host ("World settle ok: isWorld3D={0} lastNonZeroDrawCalls={1} frameMs={2}" -f $world3d, $draws, $frameMs)
+                    Start-Sleep -Seconds 8
+                    return
+                }
+            } else {
+                $stableHits = 0
+            }
+        } catch {
+            $stableHits = 0
+        }
+        Start-Sleep -Seconds 5
+    }
+    Write-Warning "World settle timed out after ${MaxSeconds}s; continuing PlayCUA."
+}
+
 function Test-BridgeHealthy {
     try {
         $response = Invoke-RestMethod -Uri $bridgeUrl -Method Get -TimeoutSec 8
@@ -253,7 +324,28 @@ function Get-PlaycuaScenarios {
         return @()
     }
 
-    return Get-ChildItem -Path $scenarioRoot -Filter "*.yaml" -File | Sort-Object Name
+    function Get-PlaycuaScenarioSortKey {
+        param([System.IO.FileInfo]$ScenarioFile)
+
+        if ($ScenarioFile.BaseName -eq "bridge-health-vision") {
+            return [pscustomobject]@{ group = 0; phase = -1; name = $ScenarioFile.Name }
+        }
+        if ($ScenarioFile.BaseName -eq "bridge-save-load-smoke") {
+            return [pscustomobject]@{ group = 1; phase = -1; name = $ScenarioFile.Name }
+        }
+        if ($ScenarioFile.BaseName -match '^phase-(\d+)') {
+            return [pscustomobject]@{ group = 2; phase = [int]$Matches[1]; name = $ScenarioFile.Name }
+        }
+        return [pscustomobject]@{ group = 3; phase = [int]::MaxValue; name = $ScenarioFile.Name }
+    }
+
+    return Get-ChildItem -Path $scenarioRoot -Filter "*.yaml" -File | Sort-Object @{
+        Expression = { (Get-PlaycuaScenarioSortKey $_).group }
+    }, @{
+        Expression = { (Get-PlaycuaScenarioSortKey $_).phase }
+    }, @{
+        Expression = { (Get-PlaycuaScenarioSortKey $_).name }
+    }
 }
 
 function Get-PlaycuaScenarioName {
@@ -429,11 +521,23 @@ if (-not $Live) {
 
     try {
         if (-not (Test-BridgeHealthy)) {
+            Write-Host ""
+            Write-Host "Bridge health check failed at $bridgeUrl (port $bridgePort not reachable)." -ForegroundColor Red
+            Write-Host "Relaunch WorldBox with the mod bridge, then re-run -Live:" -ForegroundColor Yellow
+            Write-Host "  pwsh Tools/wsm3d.ps1 relaunch -NoBuild" -ForegroundColor Cyan
+            Write-Host ""
             throw "Bridge health check failed at $bridgeUrl (start MCP/bridge on port $bridgePort)."
         }
         $liveDetails.bridgeHealthy = $true
         Invoke-BridgeLiveBootstrap -Port $bridgePort
         $liveDetails.bridgeBootstrap = @{ VoxelEntities = $true; DebugSanityCube = $true }
+        if ($Vision) {
+            # Do not bootstrap load_save here: post-load bridge RPC can stall until relaunch
+            # (see docs/journeys/scratch/bridge-scene-transition-known-issue.md). Phase YAMLs
+            # queue load_save per-scenario when needed.
+            Wait-BridgeWorldSettle -Port $bridgePort -MaxSeconds 60
+            $liveDetails.worldSettle = $true
+        }
 
         $python = Resolve-PythonCommand
         $playcuaMain = Join-Path $repoRoot "Tools/wsm3d-playcua/main.py"
@@ -454,6 +558,33 @@ if (-not $Live) {
                 Write-Host ("PlayCUA: -Vision not set; running $($bridgeOnly.Count) bridge-* scenario(s) only.")
                 $scenarios = $bridgeOnly
             }
+        } elseif ($Vision) {
+            try {
+                $worldHealth = Invoke-RestMethod -Uri $bridgeUrl -Method Get -TimeoutSec 8
+                $liveDetails.isWorld3D = [bool]$worldHealth.isWorld3D
+                if (-not $liveDetails.isWorld3D) {
+                    $phaseCount = @($scenarios | Where-Object { $_.BaseName -like 'phase-*' }).Count
+                    if ($phaseCount -gt 0) {
+                        Write-Warning ("isWorld3D=false after settle; skipping $phaseCount phase scenario(s). Load save2 and enter 3D, then re-run -Live -Vision.")
+                        $scenarios = @($scenarios | Where-Object { $_.BaseName -like 'bridge-*' })
+                        $liveDetails.phaseScenariosSkipped = $phaseCount
+                    }
+                }
+            } catch {
+                Write-Warning ("Could not read /health before PlayCUA: {0}" -f $_.Exception.Message)
+            }
+        }
+
+        $visionBackend = $null
+        if ($Vision) {
+            $visionBackend = Get-DefaultPlaycuaVisionBackend
+            if ($visionBackend -eq "off") {
+                throw "Vision requested but no backend configured (set FIREWORKS_API_KEY or OMNROUTE_API_KEY)."
+            }
+            if ($visionBackend -eq "omniroute") {
+                Test-OmniRoutePeerReachable
+            }
+            $liveDetails.visionBackend = $visionBackend
         }
 
         $artifactRoot = Join-Path $repoRoot "Tools/wsm3d-playcua/.reports/live-verify-artifacts"
@@ -470,7 +601,10 @@ if (-not $Live) {
                 "--report", $scenarioReport
             )
             if ($Vision) {
-                $args += @("--vision-backend", "omniroute")
+                $args += @("--vision-backend", $visionBackend)
+                if ($visionBackend -eq 'omniroute') {
+                    $args += @('--omniroute-timeout', '300')
+                }
             }
 
             Write-Host ("playcua " + $scenario.Name + " ...")
@@ -492,6 +626,8 @@ if (-not $Live) {
 
         if (-not $Vision -and $Phase -le 0) {
             $liveDetails.ssimSkipped = "Pass -Vision (and load the matching phase in-game) to run phase-preview SSIM."
+        } elseif (($liveDetails['phaseScenariosSkipped'] -gt 0 -or ($liveDetails.ContainsKey('isWorld3D') -and $liveDetails.isWorld3D -eq $false)) -and $Phase -le 0) {
+            $liveDetails.ssimSkipped = "Phase PlayCUA skipped (isWorld3D=false); phase-preview SSIM requires in-game 3D."
         } else {
         $captureRoot = Join-Path $artifactRoot "ssim-captures"
         if (-not (Test-Path -LiteralPath $captureRoot)) {

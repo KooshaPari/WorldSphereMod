@@ -156,6 +156,11 @@ using WorldSphereMod;
             {
                 InitProfiler.Measure("EnsureCreated: RuntimeStatsOverlay", () => { try { WorldSphereMod.Worldspace.RuntimeStatsOverlay.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] RuntimeStatsOverlay FAILED: " + ex); } });
             }
+            // DebugHUD is always mounted (F8 toggles visibility); gated by
+            // DebugHUDVisible flag at OnGUI time, so the per-frame cost when
+            // hidden is one bool check.
+            InitProfiler.Measure("EnsureCreated: DebugHUD", () => { try { WorldSphereMod.UI.DebugHUD.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] DebugHUD FAILED: " + ex); } });
+            InitProfiler.Measure("EnsureCreated: PhaseToast", () => { try { WorldSphereMod.Worldspace.PhaseToast.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] PhaseToast FAILED: " + ex); } });
             yield return null;
             InitProfiler.Measure("EnsureCreated: TimeOfDay", () => { try { WorldSphereMod.Lighting.TimeOfDay.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] TimeOfDay FAILED: " + ex); } });
             yield return null;
@@ -163,11 +168,7 @@ using WorldSphereMod;
             yield return null;
             InitProfiler.Measure("EnsureCreated: CubemapLighting", () => { try { WorldSphereMod.Lighting.CubemapLighting.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] CubemapLighting FAILED: " + ex); } });
             yield return null;
-            InitProfiler.Measure("EnsureCreated: ColorGradingLUT", () => { try { WorldSphereMod.Lighting.ColorGradingLUT.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] ColorGradingLUT FAILED: " + ex); } });
-            yield return null;
-            InitProfiler.Measure("EnsureCreated: ScreenSpaceAO", () => { try { WorldSphereMod.PostFx.ScreenSpaceAO.ApplySetting(Core.savedSettings != null && Core.savedSettings.SSAOEnabled); } catch (System.Exception ex) { Debug.LogError("[WSM3D] ScreenSpaceAO FAILED: " + ex); } });
-            yield return null;
-            InitProfiler.Measure("EnsureCreated: ScreenSpaceGI", () => { try { WorldSphereMod.PostFx.ScreenSpaceGI.ApplySetting(Core.savedSettings != null && Core.savedSettings.SSGIEnabled); } catch (System.Exception ex) { Debug.LogError("[WSM3D] ScreenSpaceGI FAILED: " + ex); } });
+            InitProfiler.Measure("EnsureCreated: WSM3DPostStack", () => { try { WorldSphereMod.PostFx.WSM3DPostStack.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] WSM3DPostStack FAILED: " + ex); } });
             yield return null;
             InitProfiler.Measure("EnsureCreated: WeatherDriver", () => { try { WorldSphereMod.Weather.WeatherDriver.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] WeatherDriver FAILED: " + ex); } });
         }
@@ -190,6 +191,11 @@ public void PostInit()
         }
         if (Core.savedSettings.DebugSpawnBuildings && Object != null && Object.GetComponent<WorldSphereMod.ProcGen.DebugSpawnBuildingsDriver>() == null) Object.AddComponent<WorldSphereMod.ProcGen.DebugSpawnBuildingsDriver>();
         if (IsAutoTest && Object != null && Object.GetComponent<AutoTestDriver>() == null) Object.AddComponent<AutoTestDriver>();
+        // First-run welcome: auto-open settings tab + show tooltip on fresh install.
+        if (Core.IsFirstInstall && !Core.savedSettings.HasSeenWelcome && Object != null && Object.GetComponent<WorldSphereMod.FirstRunWelcome>() == null)
+        {
+            Object.AddComponent<WorldSphereMod.FirstRunWelcome>();
+        }
     }
 
     public string GetLocaleFilesDirectory(ModDeclare pModDeclare)

@@ -36,9 +36,17 @@ Tools/**/target/
 
 # Tool session logs
 Tools/*.log
+Tools/**/*.log
 Tools/bake-shaders.log
 Tools/.reports/
 Tools/wsm3d-playcua/__pycache__/
+Tools/wsm3d-playcua/.reports/
+artifacts/
+Tools/omniroute-vision.env
+Tools/fireworks-vision.env
+Tools/_probe_omniroute*.py
+Tools/_write_omniroute_env.py
+Tools/_combo_inspect.py
 
 # Unity local boot config
 Tools/Unity-Bake-Project/ProjectSettings/boot.config

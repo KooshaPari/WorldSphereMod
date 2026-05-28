@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+import socket
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -28,6 +29,71 @@ def build_vision_prompt(prompt: str, criteria: Any) -> str:
     )
 
 
+def parse_chat_completion_body(body: str) -> dict[str, Any]:
+    """Parse OpenAI-compatible chat response (JSON or SSE fallback)."""
+    text = (body or "").strip()
+    if not text:
+        raise VisionValidationError("empty chat completion body")
+
+    if text.startswith("{"):
+        data = json.loads(text)
+        if isinstance(data, dict):
+            return data
+        raise VisionValidationError("chat completion JSON was not an object")
+
+    if "data:" not in text:
+        raise VisionValidationError(f"chat completion not JSON or SSE: {text[:180]}")
+
+    content_parts: list[str] = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line.startswith("data:"):
+            continue
+        payload = line[5:].strip()
+        if payload == "[DONE]":
+            break
+        try:
+            chunk = json.loads(payload)
+        except json.JSONDecodeError:
+            continue
+        choices = chunk.get("choices")
+        if not isinstance(choices, list) or not choices:
+            continue
+        choice = choices[0] if isinstance(choices[0], dict) else {}
+        delta = choice.get("delta") if isinstance(choice.get("delta"), dict) else {}
+        message = choice.get("message") if isinstance(choice.get("message"), dict) else {}
+        for piece in (delta.get("content"), message.get("content")):
+            if isinstance(piece, str) and piece:
+                content_parts.append(piece)
+            elif isinstance(piece, list):
+                for block in piece:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        content_parts.append(str(block.get("text", "")))
+    full = "".join(content_parts)
+    if not full.strip():
+        raise VisionValidationError("SSE stream had no message content")
+    return {"choices": [{"message": {"content": full}}]}
+
+
+def message_content_from_completion(data: dict[str, Any]) -> str:
+    choices = data.get("choices")
+    if not isinstance(choices, list) or not choices:
+        raise VisionValidationError(f"missing choices: {str(data)[:180]}")
+    message = choices[0].get("message") if isinstance(choices[0], dict) else None
+    if not isinstance(message, dict):
+        raise VisionValidationError("choice missing message")
+    content = message.get("content", "")
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                parts.append(str(block.get("text", "")))
+            elif isinstance(block, str):
+                parts.append(block)
+        return "".join(parts)
+    return str(content)
+
+
 def parse_vision_response(full: str) -> Dict[str, Any]:
     """Parse model text into {passes, reason, confidence} contract."""
     if not full.strip():
@@ -35,6 +101,11 @@ def parse_vision_response(full: str) -> Dict[str, Any]:
 
     text = full.strip()
     candidates = [text]
+
+    fenced = re.fullmatch(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.I)
+    if fenced:
+        candidates.append(fenced.group(1).strip())
+
     match = re.search(r"\{.*\}", text, re.S)
     if match:
         candidates.append(match.group(0))
@@ -50,8 +121,14 @@ def parse_vision_response(full: str) -> Dict[str, Any]:
             return {"passes": False, "reason": "vision response was not an object"}
         return parsed
 
-    if last_exc is not None:
+    if last_exc is not None and ("{" in text or text.lstrip().startswith("[")):
         return {"passes": False, "reason": f"vision json parse failed: {last_exc}"}
+
+    if re.search(r"\bpass(?:es)?\b[^a-z0-9]{0,8}\btrue\b", text, re.I):
+        return {"passes": True, "reason": text[:240], "confidence": 0.5}
+    if re.search(r"\bpass(?:es)?\b[^a-z0-9]{0,8}\bfalse\b", text, re.I):
+        return {"passes": False, "reason": text[:240], "confidence": 0.5}
+
     return {"passes": False, "reason": f"vision response not json: {full[:180]}"}
 
 
@@ -116,27 +193,27 @@ class VisionValidator:
         return parse_vision_response(full)
 
 
-class OmniRouteVisionValidator:
-    """OpenAI-compatible chat completions via OmniRoute for vision checks."""
+class OpenAICompatibleVisionValidator:
+    """OpenAI-compatible chat completions (image_url) for vision checks."""
 
     def __init__(
         self,
         api_key: str | None,
-        base_url: str = "http://127.0.0.1:20128/v1",
-        model: str | None = None,
+        base_url: str,
+        model: str | None,
+        provider: str,
         timeout_s: float = 120.0,
     ) -> None:
         self.api_key = (api_key or "").strip()
         self.base_url = base_url.rstrip("/")
         self.model = (model or "").strip()
+        self.provider = provider
         self.timeout_s = timeout_s
 
         if not self.api_key:
-            raise VisionValidationError("OmniRoute API key unavailable (set OMNROUTE_API_KEY)")
+            raise VisionValidationError(f"{provider} API key unavailable")
         if not self.model:
-            raise VisionValidationError(
-                "OmniRoute vision model unavailable (set OMNROUTE_VISION_MODEL or OMNROUTE_VISION_COMBO)"
-            )
+            raise VisionValidationError(f"{provider} vision model unavailable")
 
     def validate(self, image_path: Path, prompt: str, criteria: Any) -> Dict[str, Any]:
         if not image_path.exists():
@@ -146,6 +223,7 @@ class OmniRouteVisionValidator:
         payload = {
             "model": self.model,
             "max_tokens": 1024,
+            "stream": False,
             "messages": [
                 {
                     "role": "user",
@@ -172,41 +250,185 @@ class OmniRouteVisionValidator:
             },
         )
 
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout_s) as resp:
-                body = resp.read().decode("utf-8")
-        except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")[:240]
-            raise VisionValidationError(f"OmniRoute HTTP {exc.code}: {detail}") from exc
-        except urllib.error.URLError as exc:
-            raise VisionValidationError(f"OmniRoute request failed: {exc}") from exc
-
-        try:
-            data = json.loads(body) if body else {}
-        except json.JSONDecodeError as exc:
-            raise VisionValidationError(f"OmniRoute non-JSON response: {body[:180]}") from exc
-
-        if not isinstance(data, dict):
-            raise VisionValidationError("OmniRoute response was not a JSON object")
-
-        choices = data.get("choices")
-        if not isinstance(choices, list) or not choices:
-            raise VisionValidationError(f"OmniRoute missing choices: {str(data)[:180]}")
-
-        message = choices[0].get("message") if isinstance(choices[0], dict) else None
-        if not isinstance(message, dict):
-            raise VisionValidationError("OmniRoute choice missing message")
-
-        content = message.get("content", "")
-        if isinstance(content, list):
-            parts: list[str] = []
-            for block in content:
-                if isinstance(block, dict) and block.get("type") == "text":
-                    parts.append(str(block.get("text", "")))
-                elif isinstance(block, str):
-                    parts.append(block)
-            full = "".join(parts)
+        body = ""
+        for attempt in range(2):
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout_s) as resp:
+                    body = resp.read().decode("utf-8")
+                break
+            except urllib.error.HTTPError as exc:
+                if attempt == 0 and exc.code in {408, 429, 500, 502, 503, 504}:
+                    continue
+                detail = exc.read().decode("utf-8", errors="replace")[:240]
+                raise VisionValidationError(f"{self.provider} HTTP {exc.code}: {detail}") from exc
+            except (urllib.error.URLError, TimeoutError, socket.timeout) as exc:
+                if attempt == 0:
+                    continue
+                raise VisionValidationError(f"{self.provider} request failed: {exc}") from exc
         else:
-            full = str(content)
+            raise VisionValidationError(f"{self.provider} request failed after retry")
 
+        try:
+            data = parse_chat_completion_body(body)
+        except (json.JSONDecodeError, VisionValidationError) as exc:
+            raise VisionValidationError(f"{self.provider} response parse failed: {exc}") from exc
+
+        full = message_content_from_completion(data)
         return parse_vision_response(full)
+
+
+class OmniRouteVisionValidator(OpenAICompatibleVisionValidator):
+    """OpenAI-compatible chat completions via OmniRoute for vision checks."""
+
+    def __init__(
+        self,
+        api_key: str | None,
+        base_url: str = "http://127.0.0.1:20128/v1",
+        model: str | None = None,
+        timeout_s: float = 120.0,
+    ) -> None:
+        super().__init__(
+            api_key=api_key,
+            base_url=base_url,
+            model=model,
+            provider="OmniRoute",
+            timeout_s=timeout_s,
+        )
+        if not self.api_key:
+            raise VisionValidationError("OmniRoute API key unavailable (set OMNROUTE_API_KEY)")
+        if not self.model:
+            raise VisionValidationError(
+                "OmniRoute vision model unavailable (set OMNROUTE_VISION_MODEL or OMNROUTE_VISION_COMBO)"
+            )
+
+    @staticmethod
+    def _image_not_received(reason: str) -> bool:
+        lower = reason.lower()
+        needles = (
+            "no screenshot",
+            "no visual input",
+            "image was not provided",
+            "no screenshot image",
+            "no image provided",
+            "without an image",
+            "cannot verify",
+            "cannot analyze",
+            "not provided for analysis",
+        )
+        return any(n in lower for n in needles)
+
+    def _build_user_content(self, image_data: str, prompt: str, criteria: Any, style: str) -> list[dict[str, Any]]:
+        text = build_vision_prompt(prompt, criteria)
+        if style == "inline":
+            return [
+                {"type": "text", "text": text},
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": image_data,
+                    },
+                },
+            ]
+        if style == "gemini_image":
+            return [
+                {"type": "text", "text": text},
+                {"type": "image", "data": image_data, "mime_type": "image/png"},
+            ]
+        return [
+            {"type": "text", "text": text},
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/png;base64,{image_data}",
+                    "detail": "high",
+                },
+            },
+        ]
+
+    def validate(self, image_path: Path, prompt: str, criteria: Any) -> Dict[str, Any]:
+        if not image_path.exists():
+            raise VisionValidationError(f"screenshot not found: {image_path}")
+
+        image_data = base64.b64encode(image_path.read_bytes()).decode("ascii")
+        last: Dict[str, Any] | None = None
+        for style in ("image_url", "gemini_image", "inline"):
+            payload = {
+                "model": self.model,
+                "max_tokens": 1024,
+                "stream": False,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": self._build_user_content(image_data, prompt, criteria, style),
+                    }
+                ],
+            }
+            last = self._post_and_parse(payload)
+            reason = str(last.get("reason", ""))
+            if not self._image_not_received(reason):
+                return last
+        return last if last is not None else {"passes": False, "reason": "OmniRoute vision empty", "confidence": 0.0}
+
+    def _post_and_parse(self, payload: dict[str, Any]) -> Dict[str, Any]:
+        url = f"{self.base_url}/chat/completions"
+        request = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "Authorization": f"Bearer {self.api_key}",
+            },
+        )
+        body = ""
+        for attempt in range(2):
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout_s) as resp:
+                    body = resp.read().decode("utf-8")
+                break
+            except urllib.error.HTTPError as exc:
+                if attempt == 0 and exc.code in {408, 429, 500, 502, 503, 504}:
+                    continue
+                detail = exc.read().decode("utf-8", errors="replace")[:240]
+                raise VisionValidationError(f"{self.provider} HTTP {exc.code}: {detail}") from exc
+            except (urllib.error.URLError, TimeoutError, socket.timeout) as exc:
+                if attempt == 0:
+                    continue
+                raise VisionValidationError(f"{self.provider} request failed: {exc}") from exc
+        else:
+            raise VisionValidationError(f"{self.provider} request failed after retry")
+
+        try:
+            data = parse_chat_completion_body(body)
+        except (json.JSONDecodeError, VisionValidationError) as exc:
+            raise VisionValidationError(f"{self.provider} response parse failed: {exc}") from exc
+
+        full = message_content_from_completion(data)
+        return parse_vision_response(full)
+
+
+class FireworksVisionValidator(OpenAICompatibleVisionValidator):
+    """Fireworks AI Kimi (k2p5) vision via OpenAI-compatible chat completions."""
+
+    def __init__(
+        self,
+        api_key: str | None,
+        base_url: str = "https://api.fireworks.ai/inference/v1",
+        model: str | None = None,
+        timeout_s: float = 120.0,
+    ) -> None:
+        resolved_model = (model or "").strip() or "accounts/fireworks/models/kimi-k2p5"
+        super().__init__(
+            api_key=api_key,
+            base_url=base_url,
+            model=resolved_model,
+            provider="Fireworks",
+            timeout_s=timeout_s,
+        )
+        if not self.api_key:
+            raise VisionValidationError(
+                "Fireworks API key unavailable (set FIREWORKS_API_KEY — see Dino/scripts/proof/test-fireworks-kimi.ps1)"
+            )

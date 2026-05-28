@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace WorldSphereMod.Lighting
 {
@@ -12,8 +13,33 @@ namespace WorldSphereMod.Lighting
         {
             if (_sun == null) return;
             _sun.color = SunColor(t);
-            RenderSettings.ambientLight = AmbientColor(t);
+
+            // RenderSettings.ambientLight is IGNORED when ambientMode is
+            // Trilight or Skybox — writing it leaves entity shading frozen
+            // at neutral white. Drive the Trilight bands directly so the
+            // day/night curve actually modulates ambient SH lighting.
+            Color zenith = ZenithColor(t);
+            Color horizon = HorizonColor(t);
+            Color ground = new Color(horizon.r * 0.4f, horizon.g * 0.4f, horizon.b * 0.4f, 1f);
+            float intensity = Mathf.Lerp(0.10f, 0.50f, Mathf.Clamp01(SunColor(t).grayscale));
+
+            if (RenderSettings.ambientMode != AmbientMode.Trilight)
+            {
+                RenderSettings.ambientMode = AmbientMode.Trilight;
+            }
+            RenderSettings.ambientSkyColor = zenith;
+            RenderSettings.ambientEquatorColor = horizon;
+            RenderSettings.ambientGroundColor = ground;
+            RenderSettings.ambientIntensity = intensity;
         }
+
+        static readonly Color kZenithNight = new Color(0.05f, 0.07f, 0.18f);
+        static readonly Color kZenithDawn = new Color(0.18f, 0.22f, 0.35f);
+        static readonly Color kZenithNoon = new Color(0.35f, 0.5f, 0.85f);
+        static readonly Color kZenithDusk = new Color(0.14f, 0.11f, 0.24f);
+
+        public static Color ZenithColor(float t) =>
+            SampleSkyCurve(t, kZenithNight, kZenithDawn, kZenithNoon, kZenithDusk);
 
         public static Color SunColor(float t) =>
             SampleSkyCurve(t,

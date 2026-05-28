@@ -65,7 +65,11 @@ namespace WorldSphereMod.Voxel
         static readonly int _baseColorProp = Shader.PropertyToID("_BaseColor");
         static readonly int _colorPropUnlit = Shader.PropertyToID("_Color");
         static readonly int _emissionProp = Shader.PropertyToID("_EmissionColor");
-        static readonly UnityEngine.Color _bakeEmission = new UnityEngine.Color(0f, 0f, 0f, 1f);
+        static readonly UnityEngine.Color _bakeEmission = new UnityEngine.Color(0.15f, 0.15f, 0.15f, 1f);
+    // Scratch array for per-instance _EmissionColor so UNITY_ACCESS_INSTANCED_PROP
+    // reads the value correctly (SetColor alone writes a shared value that the
+    // instanced cbuffer ignores — falling back to the material default (0,0,0)).
+    static Vector4[] _emissionScratch = new Vector4[kBatch];
         const int kBatch = 1023;
         const float kDebugCubeSize = 0.5f;
         static bool UseBrg => Core.savedSettings != null && Core.savedSettings.UseBRG;
@@ -73,6 +77,16 @@ namespace WorldSphereMod.Voxel
         public static long FrameDrawCalls;
         public static long FrameInstances;
         public static long FrameBucketCount;
+        // Per-frame Submit/Flush counters for timing-bug diagnosis. Submit() bumps
+        // _submitCountThisFrame on every accepted submission (main-thread bucket
+        // add OR worker-thread queue enqueue). Flush() bumps _flushCountThisFrame
+        // each time it runs. VoxelFrameDriver.LateUpdate snapshots both into
+        // LastFrame* and resets the live counters so per-frame log lines can
+        // observe whether Submit and Flush happen on the same frame.
+        public static int _submitCountThisFrame;
+        public static int _flushCountThisFrame;
+        public static int LastFrameSubmitCount;
+        public static int LastFrameFlushCount;
         public static float InstancingEfficiency => FrameInstances > 0 ? (float)FrameBucketCount / FrameInstances : 0f;
         public static bool UseFallbackPath => _useFallbackPath;
 
@@ -102,6 +116,7 @@ namespace WorldSphereMod.Voxel
         static bool _verboseDrawLoggingArmed;
         static bool _verboseDrawLoggingConsumed;
         static bool _renderTargetLogged;
+        static bool _flushBucketDiagLogged;
         static bool _allCamerasLogged;
         static int _mainThreadId;
         static Mesh? _debugCubeMesh;
@@ -132,6 +147,9 @@ namespace WorldSphereMod.Voxel
                 return;
             }
 
+            // Unity overloads == to return true for destroyed objects, but C#
+            // null checks (and ?.) use ReferenceEquals which misses destroyed
+            // UnityEngine.Objects. Always use the == operator here.
             if (mesh == null || mat == null) return;
 
             // Empty-mesh guard ONLY: drop meshes with zero vertices (e.g. cache
@@ -150,11 +168,13 @@ namespace WorldSphereMod.Voxel
             if (_mainThreadId != 0 && Thread.CurrentThread.ManagedThreadId == _mainThreadId)
             {
                 AddToBucket(mesh, mat, matrix, tint);
+                Interlocked.Increment(ref _submitCountThisFrame);
                 return;
             }
 
             _pendingSubmissions.Enqueue(new SubmitRecord(mesh, mat, matrix, tint));
             Interlocked.Increment(ref _pendingSubmissionCount);
+            Interlocked.Increment(ref _submitCountThisFrame);
         }
 
         static void DrainPendingSubmissions()
@@ -186,6 +206,7 @@ namespace WorldSphereMod.Voxel
 
         public static void Flush(int layer = 0, ShadowCastingMode shadows = ShadowCastingMode.On, bool receive = true)
         {
+            Interlocked.Increment(ref _flushCountThisFrame);
             if (UseBrg && MeshInstanceBatcherBRG.TryFlush(layer, shadows, receive))
             {
                 return;
@@ -204,6 +225,25 @@ namespace WorldSphereMod.Voxel
             FrameInstances = 0;
             FrameBucketCount = 0;
 
+            // TEMPORARY DIAGNOSTIC: one-shot bucket inventory at Flush (gated by ProfilerDump)
+            if (!_flushBucketDiagLogged && _buckets.Count > 0 && Core.savedSettings.ProfilerDump)
+            {
+                _flushBucketDiagLogged = true;
+                int pendingDrained = Volatile.Read(ref _pendingSubmissionCount);
+                Debug.Log($"[WSM3D][DIAG-BATCHER] Flush bucket inventory: buckets={_buckets.Count} pendingSubmissions={pendingDrained} useFallback={_useFallbackPath} instancingBroken={_instancingErrorLogged}");
+                foreach (var diagKv in _buckets)
+                {
+                    string meshName = diagKv.Key.Mesh != null ? diagKv.Key.Mesh.name : "<null>";
+                    string matName = diagKv.Key.Material != null ? diagKv.Key.Material.name : "<null>";
+                    int count = diagKv.Value.Matrices.Count;
+                    Debug.Log($"[WSM3D][DIAG-BATCHER]   bucket mesh={meshName} mat={matName} instances={count}");
+                }
+            }
+
+            // Collect dead bucket keys for removal after iteration
+            // (can't modify dictionary during enumeration).
+            List<Key> _deadKeys = null;
+
             var bucketEnumerator = _buckets.GetEnumerator();
             while (bucketEnumerator.MoveNext())
             {
@@ -214,6 +254,19 @@ namespace WorldSphereMod.Voxel
                 Material material = key.Material;
                 int total = bucket.Matrices.Count;
                 FrameInstances += total;
+
+                // Skip buckets whose mesh or material was destroyed by Unity
+                // (e.g. VoxelMeshCache.Clear while submissions are in-flight).
+                // Unity == null returns true for destroyed objects; C# ?. does not.
+                if (mesh == null || material == null)
+                {
+                    bucket.Matrices.Clear();
+                    bucket.Colors.Clear();
+                    FrameBucketCount++;
+                    (_deadKeys ??= new List<Key>()).Add(key);
+                    continue;
+                }
+
                 if (_useFallbackPath)
                 {
                     DrawFallbackPath(key, bucket, total, resolvedLayer, renderCamera, shadows, receive);
@@ -249,13 +302,23 @@ namespace WorldSphereMod.Voxel
                     bucket.Block.Clear();
                     bucket.Block.SetVectorArray(_colorProp, bucket.ColScratch);
                     bucket.Block.SetVectorArray(_colorPropUnlit, bucket.ColScratch);
-                    bucket.Block.SetColor(_emissionProp, _bakeEmission);
+                    // Fill emission scratch array so UNITY_ACCESS_INSTANCED_PROP
+                    // reads the correct value. SetColor alone writes a shared
+                    // value that the per-instance cbuffer ignores, causing
+                    // _EmissionColor to fall back to the material default (0,0,0)
+                    // — which makes voxels invisible against dark backgrounds.
+                    if (_emissionScratch.Length < n)
+                        _emissionScratch = new Vector4[n];
+                    Vector4 emV = _bakeEmission;
+                    for (int ei = 0; ei < n; ei++)
+                        _emissionScratch[ei] = emV;
+                    bucket.Block.SetVectorArray(_emissionProp, _emissionScratch);
                     try
                     {
                         if (verboseDrawLogging)
                         {
                             Vector4 p = bucket.MatScratch[0].GetColumn(3);
-                            Debug.Log($"[WSM3D][DIAG] DrawMeshInstanced mesh={mesh?.name ?? "<null>"} material={material?.name ?? "<null>"} shader={material?.shader?.name ?? "<null>"} enableInstancing={(material != null && material.enableInstancing)} count={n} offset={offset} layer={resolvedLayer} shadows={shadows} receiveShadows={receive} firstPos=({p.x:F3}, {p.y:F3}, {p.z:F3}) fallback={_useFallbackPath}");
+                            Debug.Log($"[WSM3D][DIAG] DrawMeshInstanced mesh={SafeName(mesh)} material={SafeName(material)} shader={(material != null ? SafeName(material.shader) : "<null>")} enableInstancing={(material != null && material.enableInstancing)} count={n} offset={offset} layer={resolvedLayer} shadows={shadows} receiveShadows={receive} firstPos=({p.x:F3}, {p.y:F3}, {p.z:F3}) fallback={_useFallbackPath}");
                         }
 
                         Graphics.DrawMeshInstanced(
@@ -270,7 +333,7 @@ namespace WorldSphereMod.Voxel
                         if (!_instancingErrorLogged)
                         {
                             _instancingErrorLogged = true;
-                            string matName = material != null ? material.shader.name : "<null>";
+                            string matName = material != null ? SafeName(material) : "<null>";
                             Debug.LogError($"[WSM3D] DrawMeshInstanced rejected material; falling back to per-instance Graphics.DrawMesh. Voxel render perf is degraded but visible. material={matName}");
                         }
 
@@ -283,7 +346,7 @@ namespace WorldSphereMod.Voxel
                         if (!_instancingErrorLogged)
                         {
                             _instancingErrorLogged = true;
-                            string matName = material != null ? material.shader?.name : "<null>";
+                            string matName = material != null ? SafeName(material) : "<null>";
                             Debug.LogError($"[WSM3D] DrawMeshInstanced threw {ex.GetType().Name}; falling back to per-instance Graphics.DrawMesh. Voxel render perf is degraded but visible. material={matName}");
                         }
 
@@ -299,11 +362,15 @@ namespace WorldSphereMod.Voxel
                 FrameBucketCount++;
             }
 
-            float instancingEfficiency = FrameInstances > 0 ? ((float)FrameBucketCount / FrameInstances) : 0f;
-            if (FrameInstances > 0 && instancingEfficiency > 0.1f)
+            // Purge dead buckets whose mesh/material was destroyed, preventing
+            // unbounded growth of the _buckets dictionary with stale keys.
+            if (_deadKeys != null)
             {
-                Debug.LogWarning($"[WSM3D][DIAG] InstancingEfficiency={instancingEfficiency:F4} (FrameBucketCount={FrameBucketCount}, FrameInstances={FrameInstances}, useFallbackPath={_useFallbackPath})");
+                for (int di = 0; di < _deadKeys.Count; di++)
+                    _buckets.Remove(_deadKeys[di]);
             }
+
+            // InstancingEfficiency computed on-demand via property getter.
 
             if (verboseDrawLogging)
             {
@@ -313,23 +380,49 @@ namespace WorldSphereMod.Voxel
         }
 
         static int _fallbackDrawDiagFrames = 0;
+        /// <summary>Safe name accessor that handles destroyed Unity objects
+        /// (where ReferenceEquals is non-null but == null returns true).</summary>
+        static string SafeName(Object obj)
+        {
+            if (obj == null) return "<null>";
+            try { return obj.name; }
+            catch { return "<destroyed>"; }
+        }
+
+        // Reusable MPB for fallback path -- avoids per-instance allocation overhead.
+        static readonly MaterialPropertyBlock _fallbackBlock = new MaterialPropertyBlock();
+
         static void DrawFallbackPath(Key key, Bucket bucket, int total, int layer, Camera renderCamera, ShadowCastingMode shadows, bool receive, int start = 0)
         {
+            // Guard against destroyed Unity objects that passed through Submit
+            // before the mesh/material was destroyed (e.g. VoxelMeshCache.Clear).
+            if (key.Mesh == null || key.Material == null) return;
+
             int end = Mathf.Min(bucket.Matrices.Count, start + total);
-            if (_fallbackDrawDiagFrames < 5)
+            if (_fallbackDrawDiagFrames < 5 && Core.savedSettings.ProfilerDump)
             {
                 _fallbackDrawDiagFrames++;
                 Vector4 firstPos = bucket.Matrices.Count > start ? bucket.Matrices[start].GetColumn(3) : new Vector4(0,0,0,0);
-                Debug.Log($"[WSM3D][DIAG-FB] DrawFallbackPath entry frame={_fallbackDrawDiagFrames} mesh={key.Mesh?.name ?? "<null>"} material={key.Material?.name ?? "<null>"} bucket.Matrices.Count={bucket.Matrices.Count} start={start} total={total} end={end} firstPos=({firstPos.x:F2},{firstPos.y:F2},{firstPos.z:F2}) layer={layer}");
+                Debug.Log($"[WSM3D][DIAG-FB] DrawFallbackPath entry frame={_fallbackDrawDiagFrames} mesh={SafeName(key.Mesh)} material={SafeName(key.Material)} bucket.Matrices.Count={bucket.Matrices.Count} start={start} total={total} end={end} firstPos=({firstPos.x:F2},{firstPos.y:F2},{firstPos.z:F2}) layer={layer}");
             }
+
+            // Cache the last tint to avoid redundant MPB rebuilds when
+            // consecutive instances share the same color (common case).
+            Vector4 lastTint = new Vector4(-1f, -1f, -1f, -1f);
+            bool debugOutline = Core.savedSettings.DebugVoxelOutline;
+
             for (int i = start; i < end; i++)
             {
-                bucket.Block.Clear();
                 Vector4 tint = bucket.Colors[i];
-                bucket.Block.SetVector(_colorProp, tint);
-                bucket.Block.SetColor(_baseColorProp, tint);
-                bucket.Block.SetColor(_colorPropUnlit, tint);
-                bucket.Block.SetColor(_emissionProp, _bakeEmission);
+                if (tint != lastTint)
+                {
+                    _fallbackBlock.Clear();
+                    _fallbackBlock.SetVector(_colorProp, tint);
+                    _fallbackBlock.SetColor(_baseColorProp, tint);
+                    _fallbackBlock.SetColor(_colorPropUnlit, tint);
+                    _fallbackBlock.SetColor(_emissionProp, _bakeEmission);
+                    lastTint = tint;
+                }
                 Graphics.DrawMesh(
                     key.Mesh,
                     bucket.Matrices[i],
@@ -337,14 +430,14 @@ namespace WorldSphereMod.Voxel
                     layer,
                     null,
                     0,
-                    bucket.Block,
+                    _fallbackBlock,
                     shadows,
                     receive,
                     null,
                     LightProbeUsage.Off);
                 FrameDrawCalls++;
 
-                if (Core.savedSettings.DebugVoxelOutline)
+                if (debugOutline)
                 {
                     Vector4 p = bucket.Matrices[i].GetColumn(3);
                     Matrix4x4 debugTrs = Matrix4x4.TRS(
@@ -354,10 +447,10 @@ namespace WorldSphereMod.Voxel
                     Color debugTint = tint.w > 0f
                         ? new Color(tint.x, tint.y, tint.z, tint.w)
                         : new Color(1f, 0f, 1f, 1f);
-                    bucket.Block.Clear();
-                    bucket.Block.SetVector(_colorProp, debugTint);
-                    bucket.Block.SetColor(_baseColorProp, debugTint);
-                    bucket.Block.SetColor(_colorPropUnlit, debugTint);
+                    _fallbackBlock.Clear();
+                    _fallbackBlock.SetVector(_colorProp, debugTint);
+                    _fallbackBlock.SetColor(_baseColorProp, debugTint);
+                    _fallbackBlock.SetColor(_colorPropUnlit, debugTint);
                     Graphics.DrawMesh(
                         GetDebugCubeMesh(),
                         debugTrs,
@@ -365,12 +458,13 @@ namespace WorldSphereMod.Voxel
                         layer,
                         null,
                         0,
-                        bucket.Block,
+                        _fallbackBlock,
                         shadows,
                         receive,
                         null,
                         LightProbeUsage.Off);
                     FrameDrawCalls++;
+                    lastTint = new Vector4(-1f, -1f, -1f, -1f); // force MPB rebuild next iteration
                 }
             }
         }
@@ -436,7 +530,7 @@ namespace WorldSphereMod.Voxel
 
         static void LogAllCameras()
         {
-            if (_allCamerasLogged) return;
+            if (_allCamerasLogged || !Core.savedSettings.ProfilerDump) return;
             _allCamerasLogged = true;
             var cameras = Camera.allCameras;
             for (int i = 0; i < cameras.Length; i++)
@@ -454,7 +548,7 @@ namespace WorldSphereMod.Voxel
 
         static void LogRenderTarget(Camera cam, int requestedLayer, int resolvedLayer, ShadowCastingMode shadows, bool receive)
         {
-            if (_renderTargetLogged) return;
+            if (_renderTargetLogged || !Core.savedSettings.ProfilerDump) return;
             _renderTargetLogged = true;
             string camName = cam != null ? cam.name : "<null>";
             int camLayer = cam != null ? cam.gameObject.layer : -1;
@@ -473,14 +567,22 @@ namespace WorldSphereMod.Voxel
             _buckets.Clear();
             _useFallbackPath = false;
             _instancingErrorLogged = false;
+            _standardInstancingAttempted = false;
             _verboseDrawLoggingArmed = false;
             _verboseDrawLoggingConsumed = false;
             _renderTargetLogged = false;
+            _flushBucketDiagLogged = false;
             _allCamerasLogged = false;
             FrameDrawCalls = 0;
             FrameInstances = 0;
             FrameBucketCount = 0;
+            Interlocked.Exchange(ref _submitCountThisFrame, 0);
+            Interlocked.Exchange(ref _flushCountThisFrame, 0);
+            LastFrameSubmitCount = 0;
+            LastFrameFlushCount = 0;
         }
+
+        static bool _standardInstancingAttempted;
 
         static bool CanUseInstancedDraw(Material material, out string reason)
         {
@@ -503,18 +605,20 @@ namespace WorldSphereMod.Voxel
                 return false;
             }
 
+            // Standard shader CAN support GPU instancing when enableInstancing is true
+            // and the runtime has INSTANCING_ON. The previous unconditional block was
+            // forcing every draw through per-instance Graphics.DrawMesh fallback,
+            // causing 700ms+ frames. Now we let it through -- if DrawMeshInstanced
+            // actually throws, the catch block in Flush sets _useFallbackPath.
             if (material.shader != null &&
                 material.shader.name.StartsWith("Standard", System.StringComparison.Ordinal))
             {
-                if (!material.IsKeywordEnabled("INSTANCING_ON"))
+                if (!_standardInstancingAttempted)
                 {
+                    _standardInstancingAttempted = true;
+                    // Enable the INSTANCING_ON keyword that Standard shader needs
                     material.EnableKeyword("INSTANCING_ON");
-                }
-
-                if (!material.IsKeywordEnabled("INSTANCING_ON"))
-                {
-                    reason = $"[WSM3D] DrawMeshInstanced blocked: Standard material '{material.name}' does not expose INSTANCING_ON.";
-                    return false;
+                    Debug.Log($"[WSM3D][PERF] Allowing Standard shader instancing (enableInstancing={material.enableInstancing})");
                 }
             }
 

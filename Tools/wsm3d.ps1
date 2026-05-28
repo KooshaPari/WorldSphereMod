@@ -15,7 +15,7 @@
   ./wsm3d.ps1 render-budget -DryRun
   ./wsm3d.ps1 settings get -Key VoxelEntities
   ./wsm3d.ps1 settings set -Key VoxelEntities -Value true
-  ./wsm3d.ps1 toggle -Phase VoxelEntities
+  ./wsm3d.ps1 toggle VoxelEntities
   ./wsm3d.ps1 relaunch
   ./wsm3d.ps1 status -Json
   ./wsm3d.ps1 journey verify -Id smoke-test-phase1
@@ -40,22 +40,52 @@ $script:PhenotypeJourneyRepo = "C:/Users/koosh/Dino/tools/phenotype-journeys"
 $script:PhenotypeJourneyCache = Join-Path $RepoRoot "tools/.cache/phenotype-journeys"
 $script:BridgePort = 8766
 $script:BridgeHealthUrl = "http://127.0.0.1:8766/health"
+function Import-VisionEnvFile {
+    param([string]$FileName)
+    $envFile = Join-Path $script:ToolsDir $FileName
+    if (-not (Test-Path -LiteralPath $envFile)) { return }
+    Get-Content -LiteralPath $envFile | ForEach-Object {
+        if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
+            Set-Item -Path "env:$($matches[1].Trim())" -Value $matches[2].Trim()
+        }
+    }
+}
+
+function Import-VisionEnv {
+    Import-VisionEnvFile "omniroute-vision.env"
+    Import-VisionEnvFile "fireworks-vision.env"
+    if (-not $env:FIREWORKS_API_KEY) {
+        $userFw = [Environment]::GetEnvironmentVariable("FIREWORKS_API_KEY", "User")
+        if ($userFw) { $env:FIREWORKS_API_KEY = $userFw }
+    }
+}
+
+function Get-DefaultPlaycuaVisionBackend {
+    $explicit = if ($env:PLAYCUA_VISION_BACKEND) { $env:PLAYCUA_VISION_BACKEND.Trim().ToLowerInvariant() } else { "" }
+    if ($explicit -in @("fireworks", "omniroute", "anthropic", "off")) { return $explicit }
+    if ($env:FIREWORKS_API_KEY) { return "fireworks" }
+    if ($env:OMNROUTE_API_KEY) { return "omniroute" }
+    if ($env:ANTHROPIC_API_KEY) { return "anthropic" }
+    return "off"
+}
+
+Import-VisionEnv
 $script:OmniRouteBaseUrl = if ($env:OMNROUTE_BASE_URL) { $env:OMNROUTE_BASE_URL.TrimEnd('/') } else { "http://127.0.0.1:20128/v1" }
 $script:GitSubmodulePaths = @("External/Compound-Spheres")
 $script:LiveVerifyReportPath = Join-Path $RepoRoot "Tools/.reports/live-verify-latest.json"
 
 # Phase defaults from SavedSettings.cs (also used by safe-min preset)
 $script:PhaseDefaults = @{
-    "VoxelEntities"       = $false
+    "VoxelEntities"       = $true
     "ProceduralBuildings" = $false
-    "CrossedQuadFoliage"  = $true
+    "CrossedQuadFoliage"  = $false
     "MeshWater"           = $false
     "HighShadows"         = $false
     "SkeletalAnimation"   = $false
-    "WorldspaceUI"        = $true
+    "WorldspaceUI"        = $false
     "DayNightCycle"       = $false
     "PostFX"              = $false
-    "ParticleEffects"     = $true
+    "ParticleEffects"     = $false
 }
 
 # Phase slug to camelCase mapping
@@ -70,6 +100,10 @@ $script:PhaseMap = @{
     "day_night_cycle"     = "DayNightCycle"
     "post_fx"             = "PostFX"
     "particle_effects"    = "ParticleEffects"
+    "ssao_enabled"        = "SSAOEnabled"
+    "ssgi_enabled"        = "SSGIEnabled"
+    "bloom_enabled"       = "BloomEnabled"
+    "aces_tonemapping"    = "ACESTonemapping"
 }
 
 # === Helpers ===
@@ -212,8 +246,182 @@ function Test-BridgeHealthy {
     }
 }
 
+function Get-BridgeHealth {
+    param([string]$Url = $script:BridgeHealthUrl)
+
+    try {
+        return Invoke-RestMethod -Uri $Url -Method Get -TimeoutSec 8
+    } catch {
+        return $null
+    }
+}
+
+function Invoke-PlaycuaBootstrapSaveLoad {
+    param(
+        [ValidateSet("fireworks", "omniroute", "anthropic", "off")]
+        [string]$VisionBackend = "off"
+    )
+
+    $bootstrap = Join-Path $RepoRoot "Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml"
+    if (-not (Test-Path -LiteralPath $bootstrap)) {
+        Write-Warn "PlayCUA bootstrap scenario missing: $bootstrap"
+        return $false
+    }
+
+    $python = Resolve-PythonCommand
+    $playcuaMain = Join-Path $RepoRoot "Tools/wsm3d-playcua/main.py"
+    $reportDir = Join-Path $RepoRoot "Tools/wsm3d-playcua/.reports"
+    if (-not (Test-Path -LiteralPath $reportDir)) {
+        New-Item -ItemType Directory -Force -Path $reportDir | Out-Null
+    }
+    $report = Join-Path $reportDir "bootstrap-save-load.json"
+    $pyArgs = @($playcuaMain, $bootstrap, "--report", $report, "--vision-backend", $VisionBackend)
+
+    Write-Info "playcua bootstrap: bridge-save-load-smoke (isWorld3D=false) ..."
+    & $python @pyArgs
+    return ($LASTEXITCODE -eq 0)
+}
+
+function Wait-BridgeWorld3D {
+    param([int]$WaitSeconds = 180)
+
+    $deadline = (Get-Date).AddSeconds($WaitSeconds)
+    while ((Get-Date) -lt $deadline) {
+        $health = Get-BridgeHealth
+        if ($health -and [bool]$health.isWorld3D) { return $health }
+        Start-Sleep -Seconds 5
+    }
+    return Get-BridgeHealth
+}
+
+function Invoke-BridgeRelaunchAndBootstrap3D {
+    param(
+        [ValidateSet("fireworks", "omniroute", "anthropic", "off")]
+        [string]$BootstrapVisionBackend = "off",
+        [int]$SettleSeconds = 30,
+        [int]$BridgeWaitMinutes = 5,
+        [int]$World3DWaitSeconds = 180
+    )
+
+    Write-Info "Relaunch + bootstrap 3D (save2 smoke if isWorld3D=false) ..."
+    Invoke-Relaunch -NoBuild
+    $deadline = (Get-Date).AddMinutes($BridgeWaitMinutes)
+    while ((Get-Date) -lt $deadline) {
+        if (Test-BridgeHealthy) { break }
+        Start-Sleep -Seconds 6
+    }
+    if (-not (Test-BridgeHealthy)) {
+        return Get-BridgeHealth
+    }
+
+    Start-Sleep -Seconds $SettleSeconds
+    $health = Get-BridgeHealth
+    if ($health -and -not [bool]$health.isWorld3D) {
+        $null = Invoke-PlaycuaBootstrapSaveLoad -VisionBackend $BootstrapVisionBackend
+        $health = Wait-BridgeWorld3D -WaitSeconds $World3DWaitSeconds
+    }
+    return $health
+}
+
+function Ensure-BridgeWorld3DBootstrapped {
+    param(
+        [ValidateSet("fireworks", "omniroute", "anthropic", "off")]
+        [string]$BootstrapVisionBackend = "off",
+        [int]$World3DWaitSeconds = 180
+    )
+
+    $health = Get-BridgeHealth
+    if ($health -and [bool]$health.isWorld3D) {
+        return $health
+    }
+
+    $null = Invoke-PlaycuaBootstrapSaveLoad -VisionBackend $BootstrapVisionBackend
+    return Wait-BridgeWorld3D -WaitSeconds $World3DWaitSeconds
+}
+
+function Ensure-BridgeReady {
+    param(
+        [int]$WaitSeconds = 90,
+        [switch]$RelaunchIfDown
+    )
+
+    $deadline = (Get-Date).AddSeconds($WaitSeconds)
+    while ((Get-Date) -lt $deadline) {
+        if (Test-BridgeHealthy) { return $true }
+        Start-Sleep -Seconds 5
+    }
+
+    if (-not $RelaunchIfDown) { return $false }
+
+    Write-Warn "Bridge down — relaunching WorldBox (NoBuild)..."
+    Invoke-Relaunch -NoBuild
+    $deadline = (Get-Date).AddMinutes(5)
+    while ((Get-Date) -lt $deadline) {
+        if (Test-BridgeHealthy) { return $true }
+        Start-Sleep -Seconds 6
+    }
+    return $false
+}
+
+function Test-FireworksReachable {
+    param(
+        [string]$BaseUrl = $(if ($env:FIREWORKS_BASE_URL) { $env:FIREWORKS_BASE_URL.TrimEnd('/') } else { "https://api.fireworks.ai/inference/v1" }),
+        [string]$Model = $(if ($env:FIREWORKS_VISION_MODEL) { $env:FIREWORKS_VISION_MODEL } else { "accounts/fireworks/models/kimi-k2p5" })
+    )
+    if (-not $env:FIREWORKS_API_KEY) { return $false }
+    try {
+        $body = @{
+            model       = $Model
+            max_tokens  = 8
+            temperature = 0
+            messages    = @(@{ role = "user"; content = "ok" })
+        } | ConvertTo-Json -Compress
+        $headers = @{
+            Authorization = "Bearer $($env:FIREWORKS_API_KEY)"
+            "Content-Type" = "application/json"
+        }
+        $null = Invoke-WebRequest -Uri "$BaseUrl/chat/completions" -Method Post -Headers $headers -Body $body -TimeoutSec 20 -UseBasicParsing
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+function Test-KooshasLaptopOnline {
+    param([string]$Hostname = "kooshas-laptop")
+
+    try {
+        $tsStatus = & tailscale status 2>&1 | Out-String
+        $escaped = [regex]::Escape($Hostname)
+        if ($tsStatus -match "(?m)^[^\r\n]*\b$escaped\b[^\r\n]*\boffline\b") {
+            return $false
+        }
+        if ($tsStatus -match "(?m)^[^\r\n]*\b$escaped\b") {
+            return $true
+        }
+        return $null
+    } catch {
+        return $null
+    }
+}
+
+function Test-OmniRoutePeerReachable {
+    param([string]$BaseUrl = $script:OmniRouteBaseUrl)
+
+    $laptopOnline = Test-KooshasLaptopOnline
+    if ($laptopOnline -eq $false) {
+        throw "kooshas-laptop offline on Tailscale — start laptop + OmniRoute before vision probes"
+    }
+}
+
 function Test-OmniRouteReachable {
     param([string]$BaseUrl = $script:OmniRouteBaseUrl)
+
+    try {
+        Test-OmniRoutePeerReachable -BaseUrl $BaseUrl
+    } catch {
+        return $false
+    }
 
     $modelsUrl = if ($BaseUrl -match "/v1/?$") {
         ($BaseUrl.TrimEnd("/")) + "/models"
@@ -227,6 +435,98 @@ function Test-OmniRouteReachable {
             $headers["Authorization"] = "Bearer $($env:OMNROUTE_API_KEY)"
         }
         $null = Invoke-RestMethod -Uri $modelsUrl -Method Get -Headers $headers -TimeoutSec 8
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+function ConvertFrom-OmniRouteSseChat {
+    param([string]$Raw)
+
+    $content = [System.Text.StringBuilder]::new()
+    foreach ($line in ($Raw -split "(`r`n|`n)")) {
+        $t = $line.Trim()
+        if (-not $t.StartsWith('data:')) { continue }
+        $payload = $t.Substring(5).Trim()
+        if ($payload -eq '[DONE]') { break }
+        try {
+            $chunk = $payload | ConvertFrom-Json
+            $choice = @($chunk.choices) | Select-Object -First 1
+            if ($choice.delta.content) { [void]$content.Append([string]$choice.delta.content) }
+            if ($choice.message.content) { return [string]$choice.message.content }
+        } catch {
+            # ignore malformed SSE lines
+        }
+    }
+    $built = $content.ToString()
+    if ([string]::IsNullOrWhiteSpace($built)) {
+        throw 'SSE stream had no content deltas'
+    }
+    return $built
+}
+
+function Get-OmniRouteChatReplyText {
+    param($Response)
+
+    if ($null -eq $Response) { throw 'null chat response' }
+    if ($Response -is [string]) {
+        if ($Response -match 'data:\s*\{') {
+            return ConvertFrom-OmniRouteSseChat -Raw $Response
+        }
+        throw "unexpected string chat response: $($Response.Substring(0, [Math]::Min(200, $Response.Length)))"
+    }
+    if ($Response.choices -and @($Response.choices).Count -gt 0) {
+        $msg = $Response.choices[0].message
+        if ($msg -and $msg.content) { return [string]$msg.content }
+    }
+    throw 'empty choices in chat response'
+}
+
+function Invoke-OmniRouteChatProbe {
+    param(
+        [string]$BaseUrl = $script:OmniRouteBaseUrl,
+        [string]$ApiKey = $env:OMNROUTE_API_KEY,
+        [string]$ModelId,
+        [string]$Prompt = 'Reply with exactly: vision-ok',
+        [int]$MaxTokens = 24,
+        [int]$TimeoutSec = 0
+    )
+
+    if (-not $ApiKey) { throw 'OMNROUTE_API_KEY not set' }
+    if (-not $ModelId) {
+        if ($env:OMNROUTE_VISION_COMBO) { $ModelId = $env:OMNROUTE_VISION_COMBO }
+        elseif ($env:OMNROUTE_VISION_MODEL) { $ModelId = $env:OMNROUTE_VISION_MODEL }
+        else { $ModelId = 'wsm3d-vision-frontier' }
+    }
+    $base = $BaseUrl.TrimEnd('/')
+    if ($TimeoutSec -le 0) {
+        $TimeoutSec = if ($base -match '^https://') { 120 } else { 30 }
+    }
+    $body = @{
+        model       = $ModelId
+        max_tokens  = $MaxTokens
+        temperature = 0
+        stream      = $false
+        messages    = @(@{ role = 'user'; content = $Prompt })
+    } | ConvertTo-Json -Depth 5
+    $chat = Invoke-RestMethod -Uri "$base/chat/completions" -Method Post -Headers @{
+        Authorization  = "Bearer $ApiKey"
+        'Content-Type' = 'application/json'
+    } -Body $body -TimeoutSec $TimeoutSec
+    return Get-OmniRouteChatReplyText -Response $chat
+}
+
+function Test-OmniRouteVisionReady {
+    param(
+        [string]$BaseUrl = $script:OmniRouteBaseUrl,
+        [int]$ChatTimeoutSec = 20
+    )
+
+    if (-not $env:OMNROUTE_API_KEY) { return $false }
+    if ((Test-KooshasLaptopOnline) -eq $false) { return $false }
+    try {
+        $null = Invoke-OmniRouteChatProbe -BaseUrl $BaseUrl -TimeoutSec $ChatTimeoutSec
         return $true
     } catch {
         return $false
@@ -689,13 +989,10 @@ function Invoke-Install {
     )
 
     Write-Info "Installing WorldSphereMod3D..."
-    # $args is a PowerShell auto-variable; using it as a local clashed and
-    # caused the splatted args to bind into install.ps1's first positional
-    # ($WorldBoxPath). Use a distinct name + explicit splat.
-    $installArgs = @()
-    if ($NoBuild) { $installArgs += "-SkipBuild" }
+    $installParams = @{}
+    if ($NoBuild) { $installParams["SkipBuild"] = $true }
 
-    & (Join-Path $ToolsDir "install.ps1") @installArgs
+    & (Join-Path $ToolsDir "install.ps1") @installParams
     Write-Success "Installation complete."
 
     if ($Launch) {
@@ -703,22 +1000,63 @@ function Invoke-Install {
     }
 }
 
+function Get-WorldBoxProcesses {
+    $names = @('worldbox', 'WorldBox')
+    $found = @()
+    foreach ($name in $names) {
+        $found += @(Get-Process -Name $name -ErrorAction SilentlyContinue)
+    }
+    return $found | Sort-Object -Property Id -Unique
+}
+
+function Wait-WorldBoxExit {
+    param([int]$MaxSeconds = 45)
+
+    $deadline = (Get-Date).AddSeconds($MaxSeconds)
+    while ((Get-Date) -lt $deadline) {
+        if (-not (Get-WorldBoxProcesses)) {
+            return $true
+        }
+        foreach ($proc in Get-WorldBoxProcesses) {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+        }
+        Start-Sleep -Seconds 2
+    }
+    return -not (Get-WorldBoxProcesses)
+}
+
 function Invoke-Launch {
+    if (Get-WorldBoxProcesses) {
+        Write-Warn "WorldBox already running; skipping launch to avoid duplicate-instance modal."
+        return
+    }
+
+    $exe = Join-Path $WorldBoxPath "worldbox.exe"
     Write-Info "Launching WorldBox..."
-    Start-Process "steam://rungameid/1206560"
+    if (Test-Path -LiteralPath $exe) {
+        Start-Process -FilePath $exe -WorkingDirectory $WorldBoxPath | Out-Null
+    } else {
+        Start-Process "steam://rungameid/1206560" | Out-Null
+    }
     Write-Success "WorldBox launched."
 }
 
 function Invoke-Kill {
-    $proc = Get-Process worldbox -ErrorAction SilentlyContinue
-    if (-not $proc) {
+    $procs = Get-WorldBoxProcesses
+    if (-not $procs -or $procs.Count -eq 0) {
         Write-Warn "WorldBox not running."
         return
     }
 
-    Write-Warn "Killing WorldBox process..."
-    Stop-Process -InputObject $proc -Force
-    Write-Success "WorldBox killed."
+    Write-Warn ("Killing {0} WorldBox process(es)..." -f $procs.Count)
+    foreach ($proc in $procs) {
+        Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+    }
+    if (Wait-WorldBoxExit) {
+        Write-Success "WorldBox killed."
+    } else {
+        Write-Warn "WorldBox may still be running after kill timeout."
+    }
 }
 
 function Invoke-Relaunch {
@@ -726,8 +1064,15 @@ function Invoke-Relaunch {
 
     Write-Info "Relaunching: kill + install + launch..."
     Invoke-Kill
+    if (-not (Wait-WorldBoxExit)) {
+        throw "WorldBox did not exit after kill; close duplicate-instance dialogs and retry."
+    }
     Start-Sleep -Seconds 2
-    Invoke-Install -NoBuild:$NoBuild -Launch
+    $installParams = @{
+        Launch = $true
+    }
+    if ($NoBuild) { $installParams["NoBuild"] = $true }
+    Invoke-Install @installParams
 }
 
 function Invoke-Log {
@@ -1402,6 +1747,29 @@ function Invoke-Doctor {
             }
     }
 
+    if (Test-FireworksReachable) {
+        $fwModel = if ($env:FIREWORKS_VISION_MODEL) { $env:FIREWORKS_VISION_MODEL } else { "accounts/fireworks/models/kimi-k2p5" }
+        $checks += New-DoctorCheck -Id "fireworks" -Status "ok" -Required $false -Optional $true `
+            -Message "Fireworks Kimi vision reachable" `
+            -Details @{ model = $fwModel; default_backend = (Get-DefaultPlaycuaVisionBackend) }
+    } elseif ($env:FIREWORKS_API_KEY) {
+        $hint = if ($env:FIREWORKS_API_KEY -like 'fpk_*') {
+            "FIREWORKS_API_KEY looks like a Fire Pass key (fpk_*); use a Fireworks inference API key for chat/completions."
+        } else {
+            "Deploy accounts/fireworks/models/kimi-k2p5 or check FIREWORKS_VISION_MODEL."
+        }
+        $checks += New-DoctorCheck -Id "fireworks" -Status "skip" -Required $false -Optional $true `
+            -Message "FIREWORKS_API_KEY set but chat/completions probe failed" `
+            -Details @{
+                remediation = $hint
+                doc = "Tools/fireworks-vision.env.example"
+            }
+    } else {
+        $checks += New-DoctorCheck -Id "fireworks" -Status "skip" -Required $false -Optional $true `
+            -Message "Fireworks not configured (optional; uses User-scope FIREWORKS_API_KEY from Dino runbook)" `
+            -Details @{ remediation = "Set FIREWORKS_API_KEY (User env) or copy Tools/fireworks-vision.env.example." }
+    }
+
     if (Test-OmniRouteReachable) {
         $checks += New-DoctorCheck -Id "omniroute" -Status "ok" -Required $false -Optional $true `
             -Message "OmniRoute reachable" `
@@ -1411,7 +1779,7 @@ function Invoke-Doctor {
             -Message "OmniRoute not reachable (optional for vision)" `
             -Details @{
                 base_url = $script:OmniRouteBaseUrl
-                remediation = "Start OmniRoute locally or set OMNROUTE_BASE_URL; required only for -VisionBackend omniroute."
+                remediation = "Start OmniRoute locally or set OMNROUTE_BASE_URL; use -VisionBackend fireworks when FIREWORKS_API_KEY is set."
             }
     }
 
@@ -1679,10 +2047,24 @@ function Resolve-PythonCommand {
     throw "Python not found on PATH (required for playcua)."
 }
 
-function Invoke-PlaycuaRunAll {
+function Get-PlaycuaScenarioFiles {
+    param([string]$Filter = "*")
+
+    $scenarioRoot = Join-Path $RepoRoot "Tools/wsm3d-playcua/sample-scenarios"
+    if (-not (Test-Path -LiteralPath $scenarioRoot)) {
+        throw "PlayCUA sample-scenarios directory not found at $scenarioRoot"
+    }
+
+    return @(Get-ChildItem -Path $scenarioRoot -Filter $Filter -File | Sort-Object Name)
+}
+
+function Invoke-PlaycuaScenarios {
     param(
-        [ValidateSet("omniroute", "anthropic", "off")]
-        [string]$VisionBackend
+        [Parameter(Mandatory = $true)]
+        [System.IO.FileInfo[]]$Scenarios,
+        [ValidateSet("fireworks", "omniroute", "anthropic", "off")]
+        [string]$VisionBackend,
+        [string]$ArtifactSubdir = "run-all-artifacts"
     )
 
     $python = Resolve-PythonCommand
@@ -1691,45 +2073,99 @@ function Invoke-PlaycuaRunAll {
         throw "Missing Tools/wsm3d-playcua/main.py"
     }
 
-    $scenarioRoot = Join-Path $RepoRoot "Tools/wsm3d-playcua/sample-scenarios"
-    if (-not (Test-Path -LiteralPath $scenarioRoot)) {
-        throw "PlayCUA sample-scenarios directory not found at $scenarioRoot"
+    if (-not $Scenarios -or $Scenarios.Count -eq 0) {
+        throw "No PlayCUA scenarios to run."
     }
 
-    $scenarios = @(Get-ChildItem -Path $scenarioRoot -Filter "*.yaml" -File | Sort-Object Name)
-    if ($scenarios.Count -eq 0) {
-        throw "No YAML scenarios found under $scenarioRoot"
-    }
-
-    $artifactRoot = Join-Path $RepoRoot "Tools/wsm3d-playcua/.reports/run-all-artifacts"
+    $artifactRoot = Join-Path $RepoRoot "Tools/wsm3d-playcua/.reports/$ArtifactSubdir"
     if (-not (Test-Path -LiteralPath $artifactRoot)) {
         New-Item -ItemType Directory -Force -Path $artifactRoot | Out-Null
     }
 
     $failed = @()
-    foreach ($scenario in $scenarios) {
-        $scenarioReport = Join-Path $artifactRoot ("playcua-" + $scenario.BaseName + ".json")
-        $pyArgs = @(
-            $playcuaMain,
-            $scenario.FullName,
-            "--report", $scenarioReport
-        )
-        if ($PSBoundParameters.ContainsKey("VisionBackend")) {
-            $pyArgs += @("--vision-backend", $(if ($VisionBackend) { $VisionBackend } else { "off" }))
-        }
+    $playcuaBootstrapped = $false
+    $bootstrapVision = if ($PSBoundParameters.ContainsKey("VisionBackend")) { $VisionBackend } else { "off" }
+    Push-Location $RepoRoot
+    try {
+        foreach ($scenario in $Scenarios) {
+            if (-not (Test-BridgeHealthy)) {
+                Write-Warn "Bridge down before $($scenario.Name) — relaunch + bootstrap 3D ..."
+                $null = Invoke-BridgeRelaunchAndBootstrap3D -BootstrapVisionBackend $bootstrapVision -SettleSeconds 30 -BridgeWaitMinutes 5 -World3DWaitSeconds 120
+            } elseif (-not $playcuaBootstrapped) {
+                $health = Get-BridgeHealth
+                if ($health -and -not [bool]$health.isWorld3D) {
+                    $null = Invoke-PlaycuaBootstrapSaveLoad -VisionBackend $bootstrapVision
+                    $null = Wait-BridgeWorld3D -WaitSeconds 180
+                }
+                $playcuaBootstrapped = $true
+            }
 
-        Write-Info "playcua run-all: $($scenario.Name) ..."
-        & $python @pyArgs
-        if ($LASTEXITCODE -ne 0) {
-            $failed += $scenario.Name
+            $scenarioReport = Join-Path $artifactRoot ("playcua-" + $scenario.BaseName + ".json")
+            $pyArgs = @(
+                $playcuaMain,
+                $scenario.FullName,
+                "--report", $scenarioReport
+            )
+            if ($PSBoundParameters.ContainsKey("VisionBackend")) {
+                $pyArgs += @("--vision-backend", $(if ($VisionBackend) { $VisionBackend } else { "off" }))
+                if ($VisionBackend -eq 'omniroute') {
+                    $pyArgs += @('--omniroute-timeout', '300')
+                }
+            }
+
+            Write-Info "playcua: $($scenario.Name) ..."
+            $maxAttempts = 2
+            $scenarioOk = $false
+            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+                if ($attempt -gt 1) {
+                    Write-Info "playcua retry $($scenario.Name) (attempt $attempt/$maxAttempts) ..."
+                    if (-not (Test-BridgeHealthy)) {
+                        Write-Warn "Bridge down before retry of $($scenario.Name) — relaunch + bootstrap 3D ..."
+                        $null = Invoke-BridgeRelaunchAndBootstrap3D -BootstrapVisionBackend $bootstrapVision -SettleSeconds 30 -BridgeWaitMinutes 5 -World3DWaitSeconds 120
+                    } else {
+                        $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend $bootstrapVision
+                    }
+                    Start-Sleep -Seconds 3
+                }
+                & $python @pyArgs
+                if ($LASTEXITCODE -eq 0) {
+                    $scenarioOk = $true
+                    break
+                }
+            }
+            if (-not $scenarioOk) {
+                $failed += $scenario.Name
+            }
         }
+    } finally {
+        Pop-Location
     }
 
     if ($failed.Count -gt 0) {
-        throw "playcua run-all failed for: $($failed -join ', ')"
+        throw "playcua failed for: $($failed -join ', ')"
     }
 
-    Write-Success "playcua run-all passed $($scenarios.Count) scenario(s)."
+    Write-Success "playcua passed $($Scenarios.Count) scenario(s)."
+}
+
+function Invoke-PlaycuaRunBridge {
+    param(
+        [ValidateSet("fireworks", "omniroute", "anthropic", "off")]
+        [string]$VisionBackend
+    )
+
+    $scenarios = Get-PlaycuaScenarioFiles -Filter "bridge-*.yaml"
+    Invoke-PlaycuaScenarios -Scenarios $scenarios -VisionBackend $VisionBackend -ArtifactSubdir "run-bridge-artifacts"
+}
+
+function Invoke-PlaycuaRunAll {
+    param(
+        [ValidateSet("fireworks", "omniroute", "anthropic", "off")]
+        [string]$VisionBackend
+    )
+
+    $scenarios = Get-PlaycuaScenarioFiles -Filter "*.yaml"
+    Invoke-PlaycuaScenarios -Scenarios $scenarios -VisionBackend $VisionBackend -ArtifactSubdir "run-all-artifacts"
 }
 
 function Invoke-SetupPhase5 {
@@ -1824,6 +2260,61 @@ function Invoke-HooksInstall {
     }
 }
 
+function Invoke-Diag {
+    Write-Info "Querying bridge diagnostics endpoints..."
+
+    $endpoints = @(
+        @{ path = "/health"; name = "Health" }
+        @{ path = "/telemetry"; name = "Telemetry" }
+        @{ path = "/diag/render_stats"; name = "Render Stats" }
+        @{ path = "/diag/emit_status"; name = "Emit Status" }
+    )
+
+    $baseUrl = "http://127.0.0.1:$($script:BridgePort)"
+    $results = @()
+
+    foreach ($endpoint in $endpoints) {
+        $url = $baseUrl + $endpoint.path
+        Write-Info "Fetching $($endpoint.name) from $url..."
+
+        try {
+            $response = Invoke-RestMethod -Uri $url -Method Get -TimeoutSec 8
+            $results += [PSCustomObject]@{
+                endpoint = $endpoint.path
+                name = $endpoint.name
+                status = "ok"
+                data = $response
+            }
+            Write-Success "  $($endpoint.name) received"
+        } catch {
+            $results += [PSCustomObject]@{
+                endpoint = $endpoint.path
+                name = $endpoint.name
+                status = "error"
+                error = $_.Exception.Message
+            }
+            Write-Warn "  $($endpoint.name) failed: $($_.Exception.Message)"
+        }
+    }
+
+    Write-Host ""
+    Write-Host "Bridge Diagnostics" -ForegroundColor Cyan
+    Write-Host "=================" -ForegroundColor Cyan
+    Write-Host ""
+
+    foreach ($result in $results) {
+        Write-Host "$($result.name) ($($result.endpoint))" -ForegroundColor Cyan
+        if ($result.status -eq "ok") {
+            Write-Host ($result.data | ConvertTo-Json -Depth 10)
+        } else {
+            Write-Host "Error: $($result.error)" -ForegroundColor Red
+        }
+        Write-Host ""
+    }
+
+    Write-Success "Diagnostics complete."
+}
+
 function Show-Help {
     Write-Host @"
 WorldSphereMod3D CLI — Command Surface
@@ -1876,8 +2367,13 @@ Commands:
       Patch one setting. Value is parsed to match the field type.
       Refuses to write while WorldBox is running unless -Force is supplied.
 
-  toggle -Phase <name>
-      Flip a phase flag on/off. Name can be camelCase (VoxelEntities) or snake_case (voxel_entities).
+  toggle [-Phase] <name>
+      Flip a phase or post-FX flag on/off. Legacy toggle -Phase <name> still works. Name can be
+      camelCase (VoxelEntities, BloomEnabled) or snake_case (voxel_entities, bloom_enabled).
+
+  diag
+      Query bridge diagnostics endpoints: /health, /telemetry, /diag/render_stats, /diag/emit_status.
+      Outputs JSON from each endpoint. Requires bridge running on 127.0.0.1:8766.
 
   status [-Json]
       Print build state, game running, log mtime, and last live-verify test counts when
@@ -1903,11 +2399,14 @@ Commands:
   journey verify -Id <id>|<manifest-path> [-Live]
       Verify a manifest with phenotype-journey. Defaults to mock mode (--mock).
 
-  playcua run-all [-VisionBackend omniroute|anthropic|off]
+  playcua run-all [-VisionBackend fireworks|omniroute|anthropic|off]
       Run every Tools/wsm3d-playcua/sample-scenarios/*.yaml via python main.py.
       Requires bridge on 127.0.0.1:8766. Writes per-scenario JSON under
       Tools/wsm3d-playcua/.reports/run-all-artifacts/. Omit -VisionBackend to use
       main.py defaults (OMNROUTE_API_KEY / ANTHROPIC_API_KEY env).
+
+  playcua run-bridge [-VisionBackend fireworks|omniroute|anthropic|off]
+      Run only bridge-*.yaml PlayCUA scenarios (smoke + vision gate without phase YAMLs).
 
   watch [-Launch] [-Filter <pattern>]
       Watch WorldSphereMod/Code/ for changes (default filter: *.cs). On file change
@@ -1957,7 +2456,8 @@ Examples:
   wsm3d screenshot phase 1 -Name before -WindowOnly
   wsm3d screenshot phase 2 -Name buildings -WindowOnly
   wsm3d journey capture -Id sample-journey -NonInteractive
-  wsm3d toggle -Phase voxel_entities
+  wsm3d toggle voxel_entities
+  wsm3d toggle BloomEnabled
   wsm3d phases enable-all
   wsm3d phases preset safe-min
   wsm3d status -Json
@@ -1974,6 +2474,10 @@ Examples:
 }
 
 # === Dispatcher ===
+if ($MyInvocation.InvocationName -eq '.') {
+    return
+}
+
 $command = if ($args.Count -gt 0) { $args[0] } else { "" }
 $commandArgs = @(if ($args.Count -gt 1) { $args[1..($args.Count - 1)] })
 
@@ -2137,8 +2641,14 @@ try {
             $params = @{}
             if ($commandArgs -contains "-Phase") {
                 $params["Phase"] = $commandArgs[$commandArgs.IndexOf("-Phase") + 1]
+            } elseif ($commandArgs.Count -gt 0 -and -not $commandArgs[0].StartsWith("-")) {
+                $params["Phase"] = $commandArgs[0]
             }
             Invoke-Toggle @params
+        }
+
+        "diag" {
+            Invoke-Diag
         }
 
         "status" {
@@ -2263,7 +2773,7 @@ try {
 
         "playcua" {
             if ($commandArgs.Count -eq 0) {
-                Write-Error-Custom "playcua requires 'run-all' subcommand"
+                Write-Error-Custom "playcua requires 'run-all' or 'run-bridge' subcommand"
                 Show-Help
                 exit 1
             }
@@ -2277,6 +2787,14 @@ try {
                         $params["VisionBackend"] = $subArgs[$subArgs.IndexOf("-VisionBackend") + 1]
                     }
                     Invoke-PlaycuaRunAll @params
+                }
+
+                "run-bridge" {
+                    $params = @{}
+                    if ($subArgs -contains "-VisionBackend") {
+                        $params["VisionBackend"] = $subArgs[$subArgs.IndexOf("-VisionBackend") + 1]
+                    }
+                    Invoke-PlaycuaRunBridge @params
                 }
 
                 default {

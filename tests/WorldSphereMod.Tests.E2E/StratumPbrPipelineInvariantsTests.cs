@@ -48,8 +48,8 @@ public class StratumPbrPipelineInvariantsTests
             "Stratum PBR material contract requires _MetallicGlossMap");
         shader.Should().Contain("_HeightMap",
             "optional height map slot must be declared for phase-2 parallax work");
-        shader.Should().Contain("Fallback \"WSM3D/OpaqueVertexColor\"",
-            "non-PBR packs must fall back to the existing vertex-color path");
+        shader.Should().Contain("Fallback \"Diffuse\"",
+            "bundle-compatible fallback prevents variant stripping (was WSM3D/OpaqueVertexColor)");
     }
 
     [Fact]
