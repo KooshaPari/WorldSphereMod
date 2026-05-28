@@ -386,7 +386,7 @@ namespace WorldSphereMod.Voxel
             if (key.Mesh == null || key.Material == null) return;
 
             int end = Mathf.Min(bucket.Matrices.Count, start + total);
-            if (_fallbackDrawDiagFrames < 5)
+            if (_fallbackDrawDiagFrames < 5 && Core.savedSettings.ProfilerDump)
             {
                 _fallbackDrawDiagFrames++;
                 Vector4 firstPos = bucket.Matrices.Count > start ? bucket.Matrices[start].GetColumn(3) : new Vector4(0,0,0,0);
@@ -517,7 +517,7 @@ namespace WorldSphereMod.Voxel
 
         static void LogAllCameras()
         {
-            if (_allCamerasLogged) return;
+            if (_allCamerasLogged || !Core.savedSettings.ProfilerDump) return;
             _allCamerasLogged = true;
             var cameras = Camera.allCameras;
             for (int i = 0; i < cameras.Length; i++)
@@ -535,7 +535,7 @@ namespace WorldSphereMod.Voxel
 
         static void LogRenderTarget(Camera cam, int requestedLayer, int resolvedLayer, ShadowCastingMode shadows, bool receive)
         {
-            if (_renderTargetLogged) return;
+            if (_renderTargetLogged || !Core.savedSettings.ProfilerDump) return;
             _renderTargetLogged = true;
             string camName = cam != null ? cam.name : "<null>";
             int camLayer = cam != null ? cam.gameObject.layer : -1;
