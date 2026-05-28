@@ -188,9 +188,15 @@ try {
                 $bootstrapVision = if ($Vision -and $omnirouteProbeOk) { $VisionBackend } else { 'off' }
                 $null = Invoke-BridgeRelaunchAndBootstrap3D -BootstrapVisionBackend $bootstrapVision -SettleSeconds 30 -BridgeWaitMinutes 5 -World3DWaitSeconds 120
             }
-            $vb = if ($Vision) {
-                if ($omnirouteProbeOk) { $VisionBackend } else { 'off' }
-            } else { 'off' }
+            $visionReady = $false
+            if ($Vision) {
+                $visionReady = Test-OmniRouteVisionReady
+                if (-not $visionReady -and $omnirouteProbeOk) {
+                    $omnirouteProbeOk = $false
+                    Write-Host 'omniroute unreachable (laptop offline or chat failed) — PlayCUA vision off for this attempt' -ForegroundColor Yellow
+                }
+            }
+            $vb = if ($Vision -and $visionReady) { $VisionBackend } else { 'off' }
             Write-Host "playcua run-all VisionBackend=$vb" -ForegroundColor Gray
             $playcuaExit = 0
             try {

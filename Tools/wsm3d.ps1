@@ -517,6 +517,22 @@ function Invoke-OmniRouteChatProbe {
     return Get-OmniRouteChatReplyText -Response $chat
 }
 
+function Test-OmniRouteVisionReady {
+    param(
+        [string]$BaseUrl = $script:OmniRouteBaseUrl,
+        [int]$ChatTimeoutSec = 20
+    )
+
+    if (-not $env:OMNROUTE_API_KEY) { return $false }
+    if ((Test-KooshasLaptopOnline) -eq $false) { return $false }
+    try {
+        $null = Invoke-OmniRouteChatProbe -BaseUrl $BaseUrl -TimeoutSec $ChatTimeoutSec
+        return $true
+    } catch {
+        return $false
+    }
+}
+
 function Get-GitSubmoduleDoctorRows {
     $rows = @()
 
