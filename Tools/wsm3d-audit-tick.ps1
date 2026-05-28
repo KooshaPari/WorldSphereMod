@@ -104,8 +104,7 @@ if (-not $SkipOffline) {
         Push-Location $RepoRoot
         dotnet restore WorldSphereMod.sln -v q | Out-Null
         $testOut = dotnet test WorldSphereMod.sln --no-restore -v q 2>&1 | Out-String
-        $testExitCode = $LASTEXITCODE
-        $failed = [regex]::Matches($testOut, 'Failed:\s+(\d+)') | ForEach-Object { [int]$_.Groups[1].Value } | Measure-Object -Maximum | Select-Object -ExpandProperty Maximum
+        $failed = [regex]::Matches($testOut, 'Failed:\s+(\d+)') | ForEach-Object { [int]$_.Groups[1].Value } | Measure-Object -Sum | Select-Object -ExpandProperty Sum
         if ($null -eq $failed) { $failed = 0 }
         if ($testExitCode -ne 0 -or $failed -gt 0) {
             Add-Stage $report 'dotnet-test' 'failed' @{ failed = $failed; exitCode = $testExitCode; tail = ($testOut -split "`n" | Select-Object -Last 12) }
