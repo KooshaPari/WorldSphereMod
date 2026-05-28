@@ -2371,6 +2371,10 @@ Commands:
       Flip a phase or post-FX flag on/off. Legacy toggle -Phase <name> still works. Name can be
       camelCase (VoxelEntities, BloomEnabled) or snake_case (voxel_entities, bloom_enabled).
 
+  diag
+      Query bridge diagnostics endpoints: /health, /telemetry, /diag/render_stats, /diag/emit_status.
+      Outputs JSON from each endpoint. Requires bridge running on 127.0.0.1:8766.
+
   status [-Json]
       Print build state, game running, log mtime, and last live-verify test counts when
       Tools/.reports/live-verify-latest.json exists. Use -Json for machine-readable output.
