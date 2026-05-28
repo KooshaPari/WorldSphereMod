@@ -65,6 +65,20 @@ if (-not $SkipBuild) {
     }
 }
 
+# --- Wipe stale upstream-named folder to avoid GUID collision ---
+# The fork's mod.json GUID is `worldsphere3d.fork`. If a previous install
+# (or a sibling clone of upstream) left a `Mods/WorldSphereMod` folder with
+# the same GUID, NML logs "Repeat Mod" and may load the wrong one. Always
+# nuke the upstream-named folder before installing our `WorldSphereMod3D`.
+$staleUpstreamDst = Join-Path $WorldBoxPath "Mods/WorldSphereMod"
+if ((Test-Path $staleUpstreamDst) -and ($InstallFolderName -ne "WorldSphereMod")) {
+    Write-Host "[install] removing stale upstream-named folder at $staleUpstreamDst (GUID collision guard)" -ForegroundColor DarkYellow
+    Remove-Item -Recurse -Force $staleUpstreamDst -ErrorAction SilentlyContinue
+    if (Test-Path $staleUpstreamDst) {
+        throw "Could not remove stale $staleUpstreamDst. Close WorldBox and retry."
+    }
+}
+
 # --- Wipe prior install (retry loop for Windows lock / antivirus contention) ---
 if (Test-Path $modDst) {
     Write-Host "[install] removing prior install at $modDst" -ForegroundColor DarkGray
