@@ -65,8 +65,11 @@ namespace WorldSphereMod.Water
             // UNITY_DEFINE_INSTANCED_PROP), enableInstancing=true + a future
             // shader change to per-instance buffers would silently zero these and
             // render water black. Pushing through MPB stays correct in both modes.
-            Color waterShallowColor = new Color(0.22f, 0.65f, 0.70f, 0.75f);
-            Color waterDeepColor = new Color(0.08f, 0.22f, 0.45f, 0.90f);
+            // High-contrast shallow/deep so depth gradient is unmistakable in-game.
+            // Previous values (0.22/0.65/0.70 vs 0.08/0.22/0.45) blended into a flat
+            // mid-blue at strategy-view altitude; user reported water as "flat blue".
+            Color waterShallowColor = new Color(0.40f, 0.70f, 0.85f, 0.55f);
+            Color waterDeepColor = new Color(0.01f, 0.05f, 0.14f, 0.96f);
             Color waterFoamColor = new Color(0.92f, 0.95f, 1.00f, 1f);
             var mpb = new MaterialPropertyBlock();
             mpb.SetColor("_Color", waterShallowColor);
@@ -213,9 +216,9 @@ namespace WorldSphereMod.Water
             }
         }
 
-        void LateUpdate()
+        void Update()
         {
-            _waveTime += Time.deltaTime;
+            _waveTime = Time.time;
             ApplyWaveProfile();
         }
 
@@ -234,10 +237,7 @@ namespace WorldSphereMod.Water
 
             // Write to the per-renderer instance material so we never mutate the shared template.
             if (_instanceMaterial == null) return;
-            if (_instanceMaterial.HasProperty(WaveTimeId))
-            {
-                _instanceMaterial.SetFloat(WaveTimeId, _waveTime);
-            }
+            _instanceMaterial.SetFloat(WaveTimeId, _waveTime);
             if (_instanceMaterial.HasProperty(WaveAmpId))
             {
                 _instanceMaterial.SetVector(WaveAmpId, BaseWaveAmp * ampScale);
@@ -252,7 +252,9 @@ namespace WorldSphereMod.Water
             }
             if (_instanceMaterial.HasProperty(WaveAmplitudeId))
             {
-                _instanceMaterial.SetFloat(WaveAmplitudeId, 0.05f * ampScale);
+                // Visible Gerstner displacement: 0.05 was sub-pixel at strategy-view
+                // altitude; 0.25 base puts crests at ~0.27-0.45 m which reads clearly.
+                _instanceMaterial.SetFloat(WaveAmplitudeId, 0.25f * ampScale);
             }
         }
 
@@ -352,7 +354,9 @@ namespace WorldSphereMod.Water
             int deepColorId = Shader.PropertyToID("_DeepColor");
             if (material.HasProperty(deepColorId))
             {
-                material.SetColor(deepColorId, new Color(0.08f, 0.22f, 0.45f, 0.90f));
+                // Near-black deep blue; combined with shallow (0.40,0.70,0.85) this
+                // produces a visible shoreline-to-deepwater gradient on the sphere.
+                material.SetColor(deepColorId, new Color(0.05f, 0.15f, 0.25f, 0.92f));
             }
 
             if (isUrpLit)

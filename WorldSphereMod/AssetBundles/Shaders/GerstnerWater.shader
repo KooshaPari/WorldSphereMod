@@ -20,12 +20,12 @@ Shader "WSM3D/GerstnerWater"
     Properties
     {
         _Color ("Shallow Color", Color) = (0.22, 0.65, 0.70, 0.75)
-        _DeepColor ("Deep Color", Color) = (0.04, 0.12, 0.30, 0.95)
+        _DeepColor ("Deep Color", Color) = (0.01, 0.05, 0.14, 0.96)
         _Foam ("Foam Color", Color) = (0.92, 0.95, 1.00, 1)
         _WaterDepth ("Water Depth", Float) = 0
         _MaxDepth ("Max Depth", Float) = 6
         _WaveTime ("Wave Time", Float) = 0
-        _WaveAmplitude ("Wave Amplitude", Range(0, 1)) = 0.05
+        _WaveAmplitude ("Wave Amplitude", Range(0, 1)) = 0.3
         _WaveSteepness ("Wave Steepness", Range(0, 1)) = 0.35
         _WaveDirX ("Wave Dir X", Float) = 0.7
         _WaveDirZ ("Wave Dir Z", Float) = 0.7
