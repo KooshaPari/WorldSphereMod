@@ -258,14 +258,16 @@ namespace WorldSphereMod.Terrain
             bool wrapped = Core.Sphere.IsWrapped;
 
             // Collect the set of tiles that need smooth geometry: every tile touching
-            // a cliff edge plus its immediate neighbors for smooth falloff.
+            // a cliff edge plus neighbors within SmoothRadius for a wide transition
+            // zone that hides the blocky terrain underneath.
+            const int SmoothRadius = 3;
             HashSet<long> smoothTileSet = new HashSet<long>();
             for (int i = 0; i < quads.Count; i++)
             {
                 CliffQuad q = quads[i];
-                for (int dy = -1; dy <= 1; dy++)
+                for (int dy = -SmoothRadius; dy <= SmoothRadius; dy++)
                 {
-                    for (int dx = -1; dx <= 1; dx++)
+                    for (int dx = -SmoothRadius; dx <= SmoothRadius; dx++)
                     {
                         int tx = q.X + dx;
                         int ty = q.Y + dy;
@@ -291,9 +293,9 @@ namespace WorldSphereMod.Terrain
             List<Color32> colors = new List<Color32>(tileCount * vertsPerTile);
             List<int> triangles = new List<int>(tileCount * trisPerTile);
 
-            // Small height offset so the smooth overlay sits just above the flat terrain
-            // and avoids z-fighting.
-            const float HeightBias = 0.05f;
+            // Height offset so the smooth overlay sits clearly above the flat blocky
+            // terrain, fully hiding cube edges instead of clipping through them.
+            const float HeightBias = 0.15f;
 
             foreach (long key in smoothTileSet)
             {
@@ -655,12 +657,14 @@ namespace WorldSphereMod.Terrain
             }
             catch { }
 
-            // Slight emission so slope quads are visible even when scene
-            // lighting is minimal (same rationale as WaterSurface fallback).
+            // OpaqueVertexColor is unlit (LightMode=Always), so emission is
+            // unnecessary — the shader outputs vertex_color * _Color + _EmissionColor
+            // directly. A non-zero emission tints the biome colors gray. Keep it at
+            // zero so vertex colors are the sole albedo source.
             material.EnableKeyword("_EMISSION");
             if (material.HasProperty("_EmissionColor"))
             {
-                material.SetColor("_EmissionColor", new Color(0.15f, 0.15f, 0.15f, 1f));
+                material.SetColor("_EmissionColor", Color.black);
             }
 
             _material = material;
