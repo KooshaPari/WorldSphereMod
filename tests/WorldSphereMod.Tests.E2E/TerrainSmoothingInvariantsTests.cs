@@ -160,19 +160,27 @@ public sealed class TerrainSmoothingInvariantsTests
     }
 
     [Fact]
-    public void Core_Sphere_BlendBiomeColor_samples_cardinal_neighbors()
+    public void Core_Sphere_BlendBiomeColor_samples_weighted_neighbors()
     {
         var core = ReadSource(CoreRelative);
         var blendBody = ExtractMethodBody(core, "static Color32 BlendBiomeColor(int index, Color32 fallback)");
 
-        blendBody.Should().Contain("for (int dir = 0; dir < 4; dir++)",
-            "biome blend must iterate exactly the 4 cardinal neighbors");
-        blendBody.Should().Contain("TrySampleBaseColor",
-            "neighbor samples must reuse the base (composed map-layer) color, not texture averages");
-        blendBody.Should().Contain("nTile.data.tile_id == centerBiomeId",
-            "same-biome neighbors must be skipped so interior detail stays crisp");
-        blendBody.Should().Contain("diffNeighbors",
-            "blend strength must scale with the count of differing cardinal neighbors");
+        blendBody.Should().Contain("const int radius = 3;",
+            "biome blending must use a fixed three-tile sampling radius");
+        blendBody.Should().Contain("for (int dy = -radius; dy <= radius; dy++)",
+            "biome blend must scan rows inside the sampling radius");
+        blendBody.Should().Contain("for (int dx = -radius; dx <= radius; dx++)",
+            "biome blend must scan columns inside the sampling radius");
+        blendBody.Should().Contain("float distance = Mathf.Sqrt((dx * dx) + (dy * dy));",
+            "sample weights must be distance-based, not cardinal-only");
+        blendBody.Should().Contain("if (distance > radius)",
+            "samples outside the circular radius must be skipped");
+        blendBody.Should().Contain("float weight = 1f - (distance / (radius + 1f));",
+            "blend strength must decay smoothly as distance increases");
+        blendBody.Should().Contain("if (sample.data.tile_id != center.data.tile_id)",
+            "different-biome samples must be boosted to soften boundaries");
+        blendBody.Should().Contain("totalWeight += weight;",
+            "neighbor contributions must accumulate into a normalized weighted average");
 
         var sampleBody = ExtractMethodBody(core, "static bool TrySampleBaseColor(int x, int y, out Color32 color, out WorldTile tile)");
         sampleBody.Should().Contain("Core.Sphere.IsWrapped",
