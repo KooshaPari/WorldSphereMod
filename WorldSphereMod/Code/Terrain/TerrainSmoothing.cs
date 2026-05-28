@@ -131,7 +131,15 @@ namespace WorldSphereMod.Terrain
                 return;
             }
 
-            Transform? capsule = Core.Sphere.CenterCapsule;
+            // CenterCapsule can throw Transform.GetChild IndexOutOfRange during async
+            // Manager init (TOCTOU race). Catch and retry next redraw — repeatedly
+            // logging the same stack trace every frame floods Player.log.
+            Transform? capsule;
+            try { capsule = Core.Sphere.CenterCapsule; }
+            catch (System.Exception)
+            {
+                return;
+            }
             if (capsule == null || capsule.parent == null)
             {
                 return;
@@ -396,6 +404,29 @@ namespace WorldSphereMod.Terrain
 
             _mesh.SetVertices(vertices);
             _mesh.SetTriangles(triangles, 0);
+
+            // Defensive vertex-color guard: if SetColors is called with an empty or
+            // mismatched-length array, Unity falls back to mesh.colors = (0,0,0,0)
+            // for every vertex, which the OpaqueVertexColor shader multiplies into
+            // a black output. Pad with opaque white if the buffer is short, and
+            // re-saturate alpha so no vertex ships with a=0.
+            if (colors.Count != vertices.Count)
+            {
+                Debug.LogWarning($"[WSM3D] MountainSlopeSmoothing color/vertex mismatch ({colors.Count} vs {vertices.Count}); padding with white.");
+                while (colors.Count < vertices.Count)
+                {
+                    colors.Add(new Color32(255, 255, 255, 255));
+                }
+                if (colors.Count > vertices.Count)
+                {
+                    colors.RemoveRange(vertices.Count, colors.Count - vertices.Count);
+                }
+            }
+            for (int i = 0; i < colors.Count; i++)
+            {
+                Color32 c = colors[i];
+                if (c.a == 0) colors[i] = new Color32(c.r, c.g, c.b, 255);
+            }
             _mesh.SetColors(colors);
 
             // Analytic normals: compute per-vertex normals from the grid structure

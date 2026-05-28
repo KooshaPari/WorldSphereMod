@@ -17,28 +17,48 @@ namespace WorldSphereMod.Water
         {
             bool now = Core.IsWorld3D && Core.savedSettings.MeshWater;
             if (now == _lastMeshWater) return;
-            _lastMeshWater = now;
             if (now)
             {
-                WaterMaskBuffer.RebuildMask();
-                Transform? capsule = Core.Sphere.CenterCapsule;
-                if (capsule != null && capsule.parent != null)
+                // Lifecycle race fix: do NOT latch _lastMeshWater = now BEFORE Create().
+                // CenterCapsule can throw (Transform.GetChild TOCTOU during async Manager init);
+                // if we latch first and Create throws, every subsequent tick short-circuits on
+                // (now == _lastMeshWater) and the water surface is never built. Latch only on
+                // success so the next tick retries.
+                Transform? capsule;
+                try { capsule = Core.Sphere.CenterCapsule; }
+                catch (System.Exception ex)
                 {
-                    WaterSurface? surface = WaterSurface.Create(capsule.parent);
-                    if (surface != null)
-                    {
-                        LogResolvedShader(surface, "UpdateLifecycle");
-                    }
-                    else
-                    {
-                        Debug.LogWarning("[WSM3D] WaterSurface.Create failed; no material/shader resolved at runtime.");
-                    }
+                    Debug.LogWarning($"[WSM3D] WaterRender.UpdateLifecycle: CenterCapsule unavailable ({ex.GetType().Name}); will retry next frame.");
+                    return;
+                }
+                if (capsule == null || capsule.parent == null)
+                {
+                    // Manager not ready yet — retry next tick.
+                    return;
+                }
+                WaterMaskBuffer.RebuildMask();
+                WaterSurface? surface;
+                try { surface = WaterSurface.Create(capsule.parent); }
+                catch (System.Exception ex)
+                {
+                    Debug.LogWarning($"[WSM3D] WaterSurface.Create threw {ex.GetType().Name}: {ex.Message}; will retry next frame.");
+                    return;
+                }
+                if (surface != null)
+                {
+                    LogResolvedShader(surface, "UpdateLifecycle");
+                    _lastMeshWater = true;
+                }
+                else
+                {
+                    Debug.LogWarning("[WSM3D] WaterSurface.Create failed; no material/shader resolved at runtime. Will retry next frame.");
                 }
             }
             else
             {
                 WaterSurface.Destroy();
                 WaterMaskBuffer.Clear();
+                _lastMeshWater = false;
             }
         }
 
