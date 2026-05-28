@@ -389,6 +389,11 @@ namespace WorldSphereMod.Bridge
                         WriteJson(context.Response, InvokeOnMainThread(BuildRenderStatsPayload));
                         return;
                     }
+                    if (string.Equals(path, "/diag/full_dump", StringComparison.OrdinalIgnoreCase))
+                    {
+                        WriteJson(context.Response, InvokeOnMainThread(BuildFullDumpPayload));
+                        return;
+                    }
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && path.StartsWith("/settings/", StringComparison.OrdinalIgnoreCase))
                 {
@@ -1284,6 +1289,253 @@ namespace WorldSphereMod.Bridge
                 frameMs = Time.unscaledDeltaTime * 1000f,
                 frameCount = Time.frameCount
             };
+        }
+
+        object BuildFullDumpPayload()
+        {
+            object settings;
+            try
+            {
+                string settingsJson = JsonConvert.SerializeObject(Core.savedSettings ?? new SavedSettings());
+                settings = JsonConvert.DeserializeObject(settingsJson);
+            }
+            catch (Exception ex) { settings = new { error = ex.Message }; }
+
+            object telemetry = BuildTelemetryPayload();
+            object renderStats = BuildRenderStatsPayload();
+            object emitStatus = BuildEmitStatusPayload();
+            object voxelStats = null;
+            try { voxelStats = BuildVoxelStatsPayload(); } catch { }
+            object voxelQueue = null;
+            try { voxelQueue = BuildVoxelQueuePayload(); } catch { }
+            object memory = null;
+            try { memory = BuildMemoryPayload(); } catch { }
+
+            var loadedShaders = new List<object>();
+            try
+            {
+                foreach (KeyValuePair<string, Shader> kv in Core.Sphere.LoadedShaders)
+                {
+                    Shader sh = kv.Value;
+                    loadedShaders.Add(new
+                    {
+                        key = kv.Key,
+                        name = sh != null ? sh.name : null,
+                        supported = sh != null && sh.isSupported,
+                        renderQueue = sh != null ? sh.renderQueue : -1,
+                        passCount = sh != null ? sh.passCount : 0
+                    });
+                }
+            }
+            catch { }
+
+            var materials = new List<object>();
+            try
+            {
+                Material voxelMat = WorldSphereMod.Voxel.VoxelRender._material;
+                if (voxelMat != null) materials.Add(DescribeMaterial("voxel", voxelMat));
+            }
+            catch { }
+            try
+            {
+                Material[] all = Resources.FindObjectsOfTypeAll<Material>();
+                int sampled = 0;
+                for (int i = 0; i < all.Length && sampled < 32; i++)
+                {
+                    Material m = all[i];
+                    if (m == null || m.shader == null) continue;
+                    string sname = m.shader.name ?? string.Empty;
+                    if (sname.IndexOf("OpaqueVertexColor", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        sname.IndexOf("VoxelLit", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        sname.IndexOf("GerstnerWater", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        sname.IndexOf("WSM3D", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        materials.Add(DescribeMaterial("scan", m));
+                        sampled++;
+                    }
+                }
+            }
+            catch { }
+
+            object cameraState = null;
+            try
+            {
+                Camera cam = Camera.main;
+                if (cam != null)
+                {
+                    Transform t = cam.transform;
+                    cameraState = new
+                    {
+                        position = PodVector3(t.position),
+                        forward = PodVector3(t.forward),
+                        up = PodVector3(t.up),
+                        rotationEuler = PodVector3(t.eulerAngles),
+                        fieldOfView = cam.fieldOfView,
+                        orthographic = cam.orthographic,
+                        orthographicSize = cam.orthographicSize,
+                        nearClip = cam.nearClipPlane,
+                        farClip = cam.farClipPlane,
+                        clearFlags = cam.clearFlags.ToString(),
+                        backgroundColor = new { r = cam.backgroundColor.r, g = cam.backgroundColor.g, b = cam.backgroundColor.b, a = cam.backgroundColor.a },
+                        cullingMask = cam.cullingMask,
+                        depth = cam.depth,
+                        renderingPath = cam.renderingPath.ToString(),
+                        allowHDR = cam.allowHDR,
+                        allowMSAA = cam.allowMSAA
+                    };
+                }
+            }
+            catch (Exception ex) { cameraState = new { error = ex.Message }; }
+
+            object renderSettings = null;
+            try
+            {
+                renderSettings = new
+                {
+                    ambientMode = RenderSettings.ambientMode.ToString(),
+                    ambientLight = new { r = RenderSettings.ambientLight.r, g = RenderSettings.ambientLight.g, b = RenderSettings.ambientLight.b, a = RenderSettings.ambientLight.a },
+                    ambientIntensity = RenderSettings.ambientIntensity,
+                    ambientSkyColor = new { r = RenderSettings.ambientSkyColor.r, g = RenderSettings.ambientSkyColor.g, b = RenderSettings.ambientSkyColor.b },
+                    ambientEquatorColor = new { r = RenderSettings.ambientEquatorColor.r, g = RenderSettings.ambientEquatorColor.g, b = RenderSettings.ambientEquatorColor.b },
+                    ambientGroundColor = new { r = RenderSettings.ambientGroundColor.r, g = RenderSettings.ambientGroundColor.g, b = RenderSettings.ambientGroundColor.b },
+                    fog = RenderSettings.fog,
+                    fogMode = RenderSettings.fogMode.ToString(),
+                    fogColor = new { r = RenderSettings.fogColor.r, g = RenderSettings.fogColor.g, b = RenderSettings.fogColor.b, a = RenderSettings.fogColor.a },
+                    fogDensity = RenderSettings.fogDensity,
+                    fogStartDistance = RenderSettings.fogStartDistance,
+                    fogEndDistance = RenderSettings.fogEndDistance,
+                    skybox = RenderSettings.skybox != null ? RenderSettings.skybox.name : null,
+                    sun = RenderSettings.sun != null ? RenderSettings.sun.name : null,
+                    defaultReflectionMode = RenderSettings.defaultReflectionMode.ToString(),
+                    reflectionIntensity = RenderSettings.reflectionIntensity,
+                    haloStrength = RenderSettings.haloStrength,
+                    flareStrength = RenderSettings.flareStrength
+                };
+            }
+            catch (Exception ex) { renderSettings = new { error = ex.Message }; }
+
+            object qualitySettings = null;
+            try
+            {
+                qualitySettings = new
+                {
+                    currentLevel = QualitySettings.GetQualityLevel(),
+                    currentLevelName = QualitySettings.names != null && QualitySettings.GetQualityLevel() < QualitySettings.names.Length ? QualitySettings.names[QualitySettings.GetQualityLevel()] : null,
+                    shadows = QualitySettings.shadows.ToString(),
+                    shadowResolution = QualitySettings.shadowResolution.ToString(),
+                    shadowDistance = QualitySettings.shadowDistance,
+                    shadowCascades = QualitySettings.shadowCascades,
+                    pixelLightCount = QualitySettings.pixelLightCount,
+                    antiAliasing = QualitySettings.antiAliasing,
+                    vSyncCount = QualitySettings.vSyncCount,
+                    realtimeReflectionProbes = QualitySettings.realtimeReflectionProbes
+                };
+            }
+            catch (Exception ex) { qualitySettings = new { error = ex.Message }; }
+
+            object screenInfo = null;
+            try
+            {
+                screenInfo = new
+                {
+                    width = Screen.width,
+                    height = Screen.height,
+                    fullScreen = Screen.fullScreen,
+                    fullScreenMode = Screen.fullScreenMode.ToString(),
+                    dpi = Screen.dpi,
+                    currentResolution = new { w = Screen.currentResolution.width, h = Screen.currentResolution.height, refreshRate = Screen.currentResolution.refreshRate }
+                };
+            }
+            catch { }
+
+            object timeInfo = null;
+            try
+            {
+                timeInfo = new
+                {
+                    frameCount = Time.frameCount,
+                    time = Time.time,
+                    unscaledTime = Time.unscaledTime,
+                    realtimeSinceStartup = Time.realtimeSinceStartup,
+                    deltaTime = Time.deltaTime,
+                    unscaledDeltaTime = Time.unscaledDeltaTime,
+                    timeScale = Time.timeScale,
+                    fixedDeltaTime = Time.fixedDeltaTime,
+                    captureFramerate = Time.captureFramerate
+                };
+            }
+            catch { }
+
+            object gpuInfo = null;
+            try
+            {
+                gpuInfo = new
+                {
+                    deviceName = SystemInfo.graphicsDeviceName,
+                    deviceVendor = SystemInfo.graphicsDeviceVendor,
+                    deviceVersion = SystemInfo.graphicsDeviceVersion,
+                    deviceType = SystemInfo.graphicsDeviceType.ToString(),
+                    shaderLevel = SystemInfo.graphicsShaderLevel,
+                    memoryMB = SystemInfo.graphicsMemorySize,
+                    supportsComputeShaders = SystemInfo.supportsComputeShaders,
+                    supportsInstancing = SystemInfo.supportsInstancing,
+                    supportsAsyncCompute = SystemInfo.supportsAsyncCompute,
+                    maxTextureSize = SystemInfo.maxTextureSize
+                };
+            }
+            catch { }
+
+            return new
+            {
+                ok = true,
+                generatedAtUtc = DateTime.UtcNow.ToString("yyyyMMddTHHmmssfff'Z'", CultureInfo.InvariantCulture),
+                frameCount = Time.frameCount,
+                bridgePort = _boundPort,
+                isWorld3D = _cachedIsWorld3D,
+                settings,
+                telemetry,
+                renderStats,
+                emitStatus,
+                voxelStats,
+                voxelQueue,
+                memory,
+                loadedShaders,
+                materials,
+                camera = cameraState,
+                renderSettings,
+                qualitySettings,
+                screen = screenInfo,
+                time = timeInfo,
+                gpu = gpuInfo
+            };
+        }
+
+        static object DescribeMaterial(string tag, Material m)
+        {
+            try
+            {
+                Shader sh = m.shader;
+                var keywords = new List<string>();
+                try { string[] sk = m.shaderKeywords; if (sk != null) keywords.AddRange(sk); } catch { }
+                return new
+                {
+                    tag,
+                    name = m.name,
+                    shader = sh != null ? sh.name : null,
+                    shaderSupported = sh != null && sh.isSupported,
+                    renderQueue = m.renderQueue,
+                    enableInstancing = m.enableInstancing,
+                    passCount = m.passCount,
+                    globalIlluminationFlags = m.globalIlluminationFlags.ToString(),
+                    doubleSidedGI = m.doubleSidedGI,
+                    shaderKeywords = keywords,
+                    color = m.HasProperty("_Color") ? (object)new { r = m.GetColor("_Color").r, g = m.GetColor("_Color").g, b = m.GetColor("_Color").b, a = m.GetColor("_Color").a } : null
+                };
+            }
+            catch (Exception ex)
+            {
+                return new { tag, error = ex.Message };
+            }
         }
 
         static string FindSavePath(int slot)
