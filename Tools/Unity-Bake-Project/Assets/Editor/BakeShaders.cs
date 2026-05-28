@@ -163,30 +163,28 @@ public static class BakeShaders
                 Debug.LogError("[WSM3D-Bake] SVC: shader not found at " + rel);
                 continue;
             }
-            // Pin no-keyword variants for common BRP pass types so variant stripping
-            // cannot drop shaders used by forward/always/vertex paths.
-            foreach (var passType in new[]
-            {
-                PassType.Normal,
-                PassType.ForwardBase,
-                PassType.ForwardAdd,
-                PassType.Vertex,
-                PassType.VertexLM,
-            })
+            // Add variants for multiple pass types to preserve all passes during stripping.
+            // Critical for multi-pass shaders like BrpBloom (4 passes: threshold, blur_h, blur_v, composite).
+            var passTypes = new[] { PassType.Normal, PassType.ForwardBase, PassType.ForwardAdd, PassType.Deferred };
+            int variantCount = 0;
+            foreach (var passType in passTypes)
             {
                 try
                 {
                     var variant = new ShaderVariantCollection.ShaderVariant(shader, passType);
                     if (!svc.Contains(variant))
+                    {
                         svc.Add(variant);
+                        variantCount++;
+                    }
                 }
-                catch (System.ArgumentException)
+                catch
                 {
-                    // shader does not declare this pass type — skip silently.
+                    // Pass type not valid for this shader, skip silently
                 }
             }
             added++;
-            Debug.Log("[WSM3D-Bake] SVC +variant: " + shader.name);
+            Debug.Log($"[WSM3D-Bake] SVC +{variantCount} variants: {shader.name}");
         }
 
         EditorUtility.SetDirty(svc);
