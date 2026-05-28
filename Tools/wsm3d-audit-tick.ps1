@@ -104,6 +104,7 @@ if (-not $SkipOffline) {
         Push-Location $RepoRoot
         dotnet restore WorldSphereMod.sln -v q | Out-Null
         $testOut = dotnet test WorldSphereMod.sln --no-restore -v q 2>&1 | Out-String
+        $testExitCode = $LASTEXITCODE
         $failed = [regex]::Matches($testOut, 'Failed:\s+(\d+)') | ForEach-Object { [int]$_.Groups[1].Value } | Measure-Object -Sum | Select-Object -ExpandProperty Sum
         if ($null -eq $failed) { $failed = 0 }
         if ($testExitCode -ne 0 -or $failed -gt 0) {
@@ -129,7 +130,8 @@ if (-not $SkipOffline) {
 try {
     Push-Location $RepoRoot
     $doc = pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') doctor 2>&1 | Out-String
-    $docOk = $doc -match '\[OK\] All required checks passed' -or $doc -match 'Required checks passed with'
+    $docExit = $LASTEXITCODE
+    $docOk = ($docExit -eq 0)
     if ($docOk) {
         Add-Stage $report 'doctor' 'passed' @{ optionalWarnings = ($doc -match '\[WARN\]') }
         Write-TickLog 'doctor OK' 'OK'
