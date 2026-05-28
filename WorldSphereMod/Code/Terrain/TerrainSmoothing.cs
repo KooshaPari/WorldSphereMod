@@ -675,6 +675,13 @@ namespace WorldSphereMod.Terrain
             }
             catch { }
 
+            // Belt+suspenders: force _MainTex to a white pixel texture.
+            // The shader declares _MainTex = "white" {} which should map
+            // to Unity's built-in 4x4 white texture, but some runtimes
+            // leave it null — producing tex2D() = (0,0,0,0) which kills
+            // the albedo channel.  VoxelRender has the same guard.
+            material.SetTexture("_MainTex", Texture2D.whiteTexture);
+
             // OpaqueVertexColor is unlit (LightMode=Always): output =
             // vertex_color * _Color * tex + _EmissionColor.  WorldBox scenes
             // have no directional/ambient light, and many mountain biome
@@ -687,8 +694,25 @@ namespace WorldSphereMod.Terrain
                 material.SetColor("_EmissionColor", new Color(0.15f, 0.15f, 0.15f, 1f));
             }
 
+            // If we fell through to Standard shader (LIT), the emission
+            // floor of 0.15 is insufficient — Standard computes lighting
+            // and without directional/ambient light, albedo contributes ~0.
+            // Boost emission to 1.0 so the mesh is clearly visible.
+            if (shader.name == "Standard" || shader.name.Contains("Standard"))
+            {
+                if (material.HasProperty("_EmissionColor"))
+                {
+                    material.SetColor("_EmissionColor", new Color(1.0f, 1.0f, 1.0f, 1f));
+                }
+                material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                Debug.LogWarning("[WSM3D] Mountain slope using Standard shader fallback — emission boosted to 1.0 for visibility.");
+            }
+
             _material = material;
-            Debug.Log($"[WSM3D] Mountain slope material created: shader='{shader.name}' instancing={material.enableInstancing}");
+            Debug.Log($"[WSM3D] Mountain slope material created: shader='{shader.name}' " +
+                $"_Color={(material.HasProperty("_Color") ? material.GetColor("_Color").ToString() : "N/A")} " +
+                $"_EmissionColor={(material.HasProperty("_EmissionColor") ? material.GetColor("_EmissionColor").ToString() : "N/A")} " +
+                $"instancing={material.enableInstancing}");
             return true;
 
         }

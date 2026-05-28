@@ -280,12 +280,31 @@ namespace WorldSphereMod.Water
                 return false;
             }
 
+            // Detect shader fallback: if GerstnerWater's main pass failed to
+            // compile, Unity silently activates the Fallback "Diffuse" shader.
+            // Diffuse is LIT and renders black in WorldBox's unlit scene.
+            // The passCount heuristic: GerstnerWater has 1 pass, Diffuse has 2+.
+            Debug.Log($"[WSM3D] Water shader: name='{s.name}' supported={s.isSupported} passCount={s.passCount}");
+            if (s.passCount == 0)
+            {
+                Debug.LogError("[WSM3D] GerstnerWater shader has 0 passes — bundle asset is corrupted. Water disabled.");
+                return false;
+            }
+
             Material m = new Material(s) { name = "WSM3D.Water" };
             m.enableInstancing = true;
             // GerstnerWater may not have #pragma multi_compile_instancing;
             // instancing is nice-to-have, not load-bearing.  Always configure
             // the material so water is visible.
             ConfigureWaterMaterial(m, waterTint, baseColorId, colorId, smoothnessId, metallicId, surfaceTypeId, alphaClipId, emissionId);
+
+            // Diagnostic: dump all material color properties to catch
+            // mis-set tints that produce black output.
+            Debug.Log($"[WSM3D] Water material final: shader='{m.shader.name}' " +
+                $"_Color={(m.HasProperty(colorId) ? m.GetColor(colorId).ToString() : "N/A")} " +
+                $"_DeepColor={(m.HasProperty("_DeepColor") ? m.GetColor("_DeepColor").ToString() : "N/A")} " +
+                $"renderQueue={m.renderQueue}");
+
             _material = m;
             Debug.Log($"[WSM3D] Water material resolved via '{s.name}' (bundled transparent blue, instancing={m.enableInstancing})");
             return true;
