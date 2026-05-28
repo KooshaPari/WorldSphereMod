@@ -430,7 +430,7 @@ namespace WorldSphereMod.Voxel
 
                     float worldX = (x - sprite.pivot.x) / ppu;
                     float worldZ = (y - sprite.pivot.y) / ppu;
-                    float noise = Mathf.PerlinNoise(worldX * 0.22f + 0.13f, worldZ * 0.22f + 0.73f);
+                    float noise = Tools.PerlinNoiseCached(worldX * 0.22f + 0.13f, worldZ * 0.22f + 0.73f);
                     float depthScale = Mathf.Lerp(minDepthScale, maxDepthScale, noise);
                     int columnDepth = Mathf.Clamp(Mathf.RoundToInt(depth * depthScale), 1, depth);
                     int zStart = Mathf.Clamp(Mathf.FloorToInt((depth - columnDepth) * 0.5f), 0, depth - columnDepth);
@@ -756,7 +756,7 @@ namespace WorldSphereMod.Voxel
                     {
                         float worldX = (x - sprite.pivot.x) / ppu;
                         float worldZ = (y - sprite.pivot.y) / ppu;
-                        float noise = Mathf.PerlinNoise(worldX * 0.22f + 0.13f, worldZ * 0.22f + 0.73f);
+                        float noise = Tools.PerlinNoiseCached(worldX * 0.22f + 0.13f, worldZ * 0.22f + 0.73f);
                         // Luminance: brighter / more saturated pixels extrude deeper
                         float lum = (c.r * 0.299f + c.g * 0.587f + c.b * 0.114f) / 255f;
                         float combined = noise * 0.6f + lum * 0.4f;

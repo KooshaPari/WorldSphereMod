@@ -18,6 +18,8 @@ namespace WorldSphereMod
     {
         [ThreadStatic]
         static Dictionary<Vector2Int, float>? _tileHeightSmoothCache;
+        static readonly Dictionary<int, float> _perlinNoiseCache = new Dictionary<int, float>(4096);
+        const float PerlinNoiseQuantization = 1024f;
 
         public static float GetHeight(this Actor Actor)
         {
@@ -31,7 +33,32 @@ namespace WorldSphereMod
         {
             float tX = x / width;
             float tY = y / height;
-            return Mathf.PerlinNoise(tX * Scale, tY * Scale) + 0.5f;
+            return PerlinNoiseCached(tX * Scale, tY * Scale) + 0.5f;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float PerlinNoiseCached(float x, float y)
+        {
+            int key = QuantizePerlinKey(x, y);
+            if (_perlinNoiseCache.TryGetValue(key, out float cachedNoise))
+            {
+                return cachedNoise;
+            }
+
+            float noise = Mathf.PerlinNoise(x, y);
+            _perlinNoiseCache[key] = noise;
+            return noise;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static int QuantizePerlinKey(float x, float y)
+        {
+            int qx = Mathf.RoundToInt(x * PerlinNoiseQuantization);
+            int qy = Mathf.RoundToInt(y * PerlinNoiseQuantization);
+            unchecked
+            {
+                return (qx * 397) ^ qy;
+            }
         }
         public static T[] ExpandArray<T>(T[] Array, int NewLength)
         {
