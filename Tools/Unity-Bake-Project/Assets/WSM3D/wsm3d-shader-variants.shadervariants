@@ -28,16 +28,40 @@ ShaderVariantCollection:
       variants:
       - keywords: 
         passType: 0
+      - keywords: 
+        passType: 1
+      - keywords: 
+        passType: 2
+      - keywords: 
+        passType: 4
+      - keywords: 
+        passType: 5
   - first: {fileID: 4800000, guid: e2dc4eb810266fa498500c68fe27b76c, type: 3}
     second:
       variants:
       - keywords: 
         passType: 0
+      - keywords: 
+        passType: 1
+      - keywords: 
+        passType: 2
+      - keywords: 
+        passType: 4
+      - keywords: 
+        passType: 5
   - first: {fileID: 4800000, guid: f689cff8059f78048a2d9a94c0d21940, type: 3}
     second:
       variants:
       - keywords: 
         passType: 0
+      - keywords: 
+        passType: 1
+      - keywords: 
+        passType: 2
+      - keywords: 
+        passType: 4
+      - keywords: 
+        passType: 5
   - first: {fileID: 4800000, guid: 20ac1a39eaee92c44b5cc2d5bd1f1df1, type: 3}
     second:
       variants:
@@ -58,3 +82,11 @@ ShaderVariantCollection:
       variants:
       - keywords: 
         passType: 0
+      - keywords: 
+        passType: 1
+      - keywords: 
+        passType: 2
+      - keywords: 
+        passType: 4
+      - keywords: 
+        passType: 5

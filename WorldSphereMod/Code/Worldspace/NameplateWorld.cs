@@ -22,9 +22,6 @@ namespace WorldSphereMod.Worldspace
         static readonly Dictionary<Actor, NameplateText> _suppressedUpstream = new();
         static readonly Type? s_textMesh3DType = GetTextMesh3DType();
 
-        public const float kFadeNear = 10f;
-        public const float kFadeFar = 30f;
-
         public static NameplateWorld? Attach(Actor a, Transform rigRoot)
         {
             if (a == null || rigRoot == null) return null;
@@ -46,7 +43,8 @@ namespace WorldSphereMod.Worldspace
             // Keep the label anchored to the rig root so it inherits the same lifted
             // world-space transform as the voxel actor path.
             t.localPosition = Vector3.zero;
-            t.localScale = Vector3.one;
+            float baseScale = Core.savedSettings != null ? Core.savedSettings.NameplateBaseScale : 0.15f;
+            t.localScale = Vector3.one * baseScale;
 
             var np = go.AddComponent<NameplateWorld>();
             np.Actor = a;
@@ -122,12 +120,27 @@ namespace WorldSphereMod.Worldspace
             float d = Vector3.Distance(cam.transform.position, transform.position);
             transform.LookAt(cam.transform.position, Vector3.up);
 
+            // Phase 7 fix: labels were rendering huge because the rig sits at
+            // VoxelScaleMultiplier (~8x) world units AND distanceFactor grew with
+            // camera distance. At strategy-view distances (d > ~80) the label
+            // outgrew the actor head. Clamp the per-axis localScale to
+            // Min(1, cameraDistance / 100) so labels never exceed the rig's own
+            // mesh-unit scale, then keep a kBaseScale floor so close-up text is
+            // still legible. This replaces the previous linear-grow policy.
+            float baseScale = Core.savedSettings != null ? Core.savedSettings.NameplateBaseScale : 0.15f;
+            float divisor = Core.savedSettings != null ? Core.savedSettings.NameplateScaleDistanceDivisor : 100f;
+            float clamped = Mathf.Min(1f, d / divisor);
+            float effective = Mathf.Max(baseScale, clamped);
+            transform.localScale = Vector3.one * effective;
+
             ApplyFade(d);
         }
 
         void ApplyFade(float camDistance)
         {
-            float alpha = 1f - Mathf.InverseLerp(kFadeNear, kFadeFar, camDistance);
+            float fadeNear = Core.savedSettings != null ? Core.savedSettings.NameplateFadeNear : 10f;
+            float fadeFar = Core.savedSettings != null ? Core.savedSettings.NameplateFadeFar : 30f;
+            float alpha = 1f - Mathf.InverseLerp(fadeNear, fadeFar, camDistance);
 
             if (_fallbackLabel != null)
             {

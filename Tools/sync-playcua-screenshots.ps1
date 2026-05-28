@@ -24,7 +24,7 @@ foreach ($src in $sources) {
         $phaseDir = $parts | Where-Object { $_ -match '^phase-' } | Select-Object -First 1
         if (-not $phaseDir) { return }
         $slug = if ($parts.Count -gt 1) { [System.IO.Path]::GetFileNameWithoutExtension($parts[-1]) } else { 'capture' }
-        $phaseNum = if ($phaseDir -match 'phase-(\d+)') { $Matches[1] } elseif ($phaseDir -match 'phase-(\d+)b') { $Matches[1] + 'b' } else { 'x' }
+        $phaseNum = if ($phaseDir -match 'phase-(\d+)b') { $Matches[1] + 'b' } elseif ($phaseDir -match 'phase-(\d+)') { $Matches[1] } else { 'x' }
         $outName = "phase-$phaseNum-$slug.png"
         $outPath = Join-Path $Dest $outName
         Copy-Item -LiteralPath $_.FullName -Destination $outPath -Force

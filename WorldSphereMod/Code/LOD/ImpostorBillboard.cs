@@ -28,6 +28,11 @@ namespace WorldSphereMod.LOD
         static Material? _material;
         static bool _materialAttempted;
         static bool _materialDebugLogged;
+        // Per-texture material cache. WorldBox sprite atlases share Texture2D
+        // across hundreds of sprites, so material count stays small (one per
+        // atlas page) while every impostor samples the correct atlas region
+        // via the mesh UVs that BuildQuad bakes from sprite.uv.
+        static readonly Dictionary<int, Material> _materialsByTexture = new Dictionary<int, Material>();
         static readonly int _colorId = Shader.PropertyToID("_Color");
         static readonly int _baseColorId = Shader.PropertyToID("_BaseColor");
         static readonly int _mainTexId = Shader.PropertyToID("_MainTex");
@@ -95,7 +100,7 @@ namespace WorldSphereMod.LOD
                 }
                 else
                 {
-                    ConfigureImpostorMaterial(mat, shader.name);
+                    ConfigureImpostorMaterial(mat, shader.name, null);
                     _material = mat;
                     LogImpostorMaterialPassDetails(_material, shader.name);
                     return _material;
@@ -104,6 +109,42 @@ namespace WorldSphereMod.LOD
 
             Debug.LogWarning("[WSM3D] ImpostorBillboard material resolution failed; impostor rendering will stay sprite-only.");
             return null;
+        }
+
+        /// <summary>
+        /// Per-sprite material variant. The previous singleton-material path
+        /// bound Texture2D.whiteTexture to _MainTex, which rendered every
+        /// impostor as a solid white billboard (Phase 10 eval finding). This
+        /// overload returns a Material whose _MainTex/_BaseMap point at the
+        /// sprite's actual atlas texture. Cached per Texture2D so atlas
+        /// pages share a single Material across hundreds of sprites.
+        /// </summary>
+        public static Material? GetMaterial(Sprite sprite)
+        {
+            if (sprite == null) return GetMaterial();
+            Texture2D? tex = sprite.texture;
+            if (tex == null) return GetMaterial();
+
+            int texKey = tex.GetInstanceID();
+            if (_materialsByTexture.TryGetValue(texKey, out var cached) && cached != null)
+            {
+                if (MeshInstanceBatcher.UseFallbackPath && cached.enableInstancing)
+                {
+                    cached.enableInstancing = false;
+                }
+                return cached;
+            }
+
+            // Ensure the singleton resolves the shader chain; we clone it so
+            // every atlas page shares the same shader + state config.
+            var template = GetMaterial();
+            if (template == null) return null;
+
+            var variant = new Material(template) { name = "WSM3D.Impostor." + tex.name };
+            variant.enableInstancing = template.enableInstancing;
+            ConfigureImpostorMaterial(variant, template.shader != null ? template.shader.name : "<unknown>", tex);
+            _materialsByTexture[texKey] = variant;
+            return variant;
         }
 
         static void LogImpostorMaterialPassDetails(Material material, string shaderName)
@@ -141,7 +182,7 @@ namespace WorldSphereMod.LOD
             return Quaternion.LookRotation(toCam, Vector3.up);
         }
 
-        static void ConfigureImpostorMaterial(Material material, string shaderName)
+        static void ConfigureImpostorMaterial(Material material, string shaderName, Texture? spriteTexture)
         {
             if (material == null) return;
 
@@ -151,14 +192,22 @@ namespace WorldSphereMod.LOD
             material.SetColor(_colorId, Color.white);
             material.SetColor(_baseColorId, Color.white);
 
+            // Bind the actual sprite atlas page when available. The previous
+            // Texture2D.whiteTexture binding (Phase 10 eval) made every
+            // impostor billboard a solid white quad regardless of which
+            // actor or building it represented. The atlas-region UVs baked
+            // into the impostor quad by BuildQuad sample the correct sub-
+            // rect, so a single material per atlas page textures every
+            // impostor that shares that page.
+            Texture textureToBind = (Texture?)spriteTexture ?? (Texture)Texture2D.whiteTexture;
             try
             {
-                material.SetTexture(_mainTexId, Texture2D.whiteTexture);
+                material.SetTexture(_mainTexId, textureToBind);
             }
             catch { }
             try
             {
-                material.SetTexture(_baseMapId, Texture2D.whiteTexture);
+                material.SetTexture(_baseMapId, textureToBind);
             }
             catch { }
 
@@ -178,8 +227,9 @@ namespace WorldSphereMod.LOD
             // visible regardless of scene lighting.
             try
             {
+                float emissionMultiplier = WorldSphereMod.Core.savedSettings != null ? WorldSphereMod.Core.savedSettings.ImpostorEmissionMultiplier : 1.5f;
                 material.EnableKeyword("_EMISSION");
-                material.SetColor("_EmissionColor", new Color(1.5f, 1.5f, 1.5f, 1f));
+                material.SetColor("_EmissionColor", new Color(emissionMultiplier, emissionMultiplier, emissionMultiplier, 1f));
                 material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
             }
             catch { }
@@ -232,6 +282,11 @@ namespace WorldSphereMod.LOD
             _material = null;
             _materialAttempted = false;
             _materialDebugLogged = false;
+            foreach (var m in _materialsByTexture.Values)
+            {
+                if (m != null) Object.DestroyImmediate(m);
+            }
+            _materialsByTexture.Clear();
         }
 
         static Mesh BuildQuad(Sprite sprite)

@@ -47,25 +47,51 @@ try {
     }
 
     function Import-DoAllVisionEnv {
-        $envFile = Join-Path $RepoRoot 'Tools/omniroute-vision.env'
-        if (Test-Path -LiteralPath $envFile) {
-            Get-Content -LiteralPath $envFile | ForEach-Object {
-                if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
-                    Set-Item -Path "env:$($matches[1].Trim())" -Value $matches[2].Trim()
+        foreach ($fileName in @('omniroute-vision.env', 'fireworks-vision.env')) {
+            $envFile = Join-Path $RepoRoot "Tools/$fileName"
+            if (Test-Path -LiteralPath $envFile) {
+                Get-Content -LiteralPath $envFile | ForEach-Object {
+                    if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
+                        Set-Item -Path "env:$($matches[1].Trim())" -Value $matches[2].Trim()
+                    }
                 }
             }
         }
-        if ($Vision) {
-            $env:PLAYCUA_VISION_BACKEND = $VisionBackend
+    }
+
+    function Import-DoAllVisionEnv {
+        Import-DoAllVisionEnvFile "omniroute-vision.env"
+        Import-DoAllVisionEnvFile "fireworks-vision.env"
+        if (-not $env:FIREWORKS_API_KEY) {
+            $userFw = [Environment]::GetEnvironmentVariable("FIREWORKS_API_KEY", "User")
+            if ($userFw) { $env:FIREWORKS_API_KEY = $userFw }
         }
     }
 
+    function Get-DefaultPlaycuaVisionBackend {
+        $explicit = if ($env:PLAYCUA_VISION_BACKEND) { $env:PLAYCUA_VISION_BACKEND.Trim().ToLowerInvariant() } else { "" }
+        if ($explicit -in @("fireworks", "omniroute", "anthropic", "off")) { return $explicit }
+        if ($env:FIREWORKS_API_KEY) { return "fireworks" }
+        if ($env:OMNROUTE_API_KEY) { return "omniroute" }
+        if ($env:ANTHROPIC_API_KEY) { return "anthropic" }
+        return "off"
+    }
+
     Import-DoAllVisionEnv
+    if ($PSBoundParameters.ContainsKey('VisionBackend')) {
+        $env:PLAYCUA_VISION_BACKEND = $VisionBackend
+    }
+    $visionBackendResolved = if ($Vision) { Get-DefaultPlaycuaVisionBackend } else { 'off' }
     $omnirouteProbeOk = $true
 
     Write-Host '=== do-all: audit-tick (offline + live) ===' -ForegroundColor Cyan
     # Offline tests first (no game required)
-    pwsh (Join-Path $RepoRoot 'Tools/wsm-live-verify.ps1') 2>&1 | Out-Null
+    pwsh (Join-Path $RepoRoot 'Tools/wsm-live-verify.ps1') | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        Add-DoAllStage 'initial-offline-verify' 'failed' @{ exitCode = $LASTEXITCODE }
+        throw 'Initial offline verify failed'
+    }
+    Add-DoAllStage 'initial-offline-verify' 'passed' @{}
 
     function Wait-BridgeReady {
         param([int]$MaxMinutes = 5)
@@ -81,19 +107,6 @@ try {
         return $health
     }
 
-    function Wait-World3D {
-        param([int]$MaxSeconds = 180)
-        $deadline = (Get-Date).AddSeconds($MaxSeconds)
-        while ((Get-Date) -lt $deadline) {
-            try {
-                $h = Invoke-RestMethod -Uri 'http://127.0.0.1:8766/health' -TimeoutSec 4
-                if ($h.isWorld3D) { return $h }
-            } catch {}
-            Start-Sleep -Seconds 5
-        }
-        try { return Invoke-RestMethod -Uri 'http://127.0.0.1:8766/health' -TimeoutSec 4 } catch { return $null }
-    }
-
     if (-not $SkipRelaunch) {
         Write-Host '=== do-all: relaunch ===' -ForegroundColor Cyan
         pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') relaunch -NoBuild | Out-Host
@@ -101,30 +114,50 @@ try {
         $health = Wait-BridgeReady -MaxMinutes 8
         if (-not $health -or -not $health.bridgeAlive) {
             Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge not up after relaunch (8m)' }
+            $report.durationMs = [math]::Round(((Get-Date) - $started).TotalMilliseconds, 0)
+            $report.finishedAt = (Get-Date).ToUniversalTime().ToString('o')
+            $report.summaryLine = Get-DoAllSummaryLine -Report $report
+            $report | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $ReportPath -Encoding utf8
             throw 'Bridge did not become reachable after relaunch (waited 8m)'
         }
         Add-DoAllStage 'bridge-wait' 'passed' @{ isWorld3D = [bool]$health.isWorld3D }
 
-        if (-not $health.isWorld3D) {
-            Write-Host '=== do-all: bootstrap save2 (bridge-save-load-smoke) ===' -ForegroundColor Cyan
-            $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend off
-            $health = Get-BridgeHealth
+            if (-not $health.isWorld3D) {
+                Write-Host '=== do-all: bootstrap save2 (bridge-save-load-smoke) ===' -ForegroundColor Cyan
+                $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend off
+                $health = Get-BridgeHealth
+            }
+        } else {
+            $health = Wait-BridgeReady -MaxMinutes 2
+            if (-not $health -or -not $health.bridgeAlive) {
+                Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge down' }
+                throw 'Bridge not reachable (use relaunch or start WorldBox)'
+            }
+            if (-not $health.isWorld3D) {
+                $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend off
+                $health = Get-BridgeHealth
+            }
         }
     } else {
         $health = Wait-BridgeReady -MaxMinutes 2
         if (-not $health -or -not $health.bridgeAlive) {
             Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge down' }
+            $report.durationMs = [math]::Round(((Get-Date) - $started).TotalMilliseconds, 0)
+            $report.finishedAt = (Get-Date).ToUniversalTime().ToString('o')
+            $report.summaryLine = Get-DoAllSummaryLine -Report $report
+            $report | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $ReportPath -Encoding utf8
             throw 'Bridge not reachable (use relaunch or start WorldBox)'
         }
         if (-not $health.isWorld3D) {
-            $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend off
-            $health = Get-BridgeHealth
+            $bootstrap = Join-Path $RepoRoot 'Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml'
+            python (Join-Path $RepoRoot 'Tools/wsm3d-playcua/main.py') $bootstrap --vision-backend off 2>&1 | Out-Null
+            $health = Wait-World3D -MaxSeconds 180
         }
     }
 
     $offlineVerifyDone = $false
     if (-not $SkipLive) {
-        if ($Vision -and $env:OMNROUTE_BASE_URL -and $env:OMNROUTE_API_KEY) {
+        if ($visionBackendResolved -eq 'omniroute' -and $env:OMNROUTE_BASE_URL -and $env:OMNROUTE_API_KEY) {
             Write-Host "=== do-all: omniroute probe ($($env:OMNROUTE_BASE_URL)) ===" -ForegroundColor Cyan
             try {
                 Test-OmniRoutePeerReachable -BaseUrl $env:OMNROUTE_BASE_URL.TrimEnd('/')
@@ -175,28 +208,31 @@ try {
 
         Write-Host '=== do-all: journey mock ===' -ForegroundColor Cyan
         pwsh (Join-Path $RepoRoot 'Tools/verify-journeys.ps1') | Out-Host
-        if ($LASTEXITCODE -ne 0) { Add-DoAllStage 'journey-mock' 'failed' @{ exitCode = $LASTEXITCODE } }
+        if ($LASTEXITCODE -ne 0) {
+            Add-DoAllStage 'journey-mock' 'failed' @{ exitCode = $LASTEXITCODE }
+            throw "Journey mock verification failed (exit code $LASTEXITCODE)"
+        }
         else { Add-DoAllStage 'journey-mock' 'passed' @{} }
 
-        Write-Host '=== do-all: playcua run-all (retries=$PlaycuaRetries) ===' -ForegroundColor Cyan
+        Write-Host "=== do-all: playcua run-all (retries=$PlaycuaRetries) ===" -ForegroundColor Cyan
         $attempt = 0
         $runOk = $false
         while ($attempt -lt $PlaycuaRetries -and -not $runOk) {
             $attempt++
             if ($attempt -gt 1) {
-                Write-Host "playcua retry $attempt/$PlaycuaRetries — relaunch + bootstrap between attempts" -ForegroundColor Yellow
-                $bootstrapVision = if ($Vision -and $omnirouteProbeOk) { $VisionBackend } else { 'off' }
-                $null = Invoke-BridgeRelaunchAndBootstrap3D -BootstrapVisionBackend $bootstrapVision -SettleSeconds 30 -BridgeWaitMinutes 5 -World3DWaitSeconds 120
-            }
-            $visionReady = $false
-            if ($Vision) {
-                $visionReady = Test-OmniRouteVisionReady
-                if (-not $visionReady -and $omnirouteProbeOk) {
-                    $omnirouteProbeOk = $false
-                    Write-Host 'omniroute unreachable (laptop offline or chat failed) — PlayCUA vision off for this attempt' -ForegroundColor Yellow
+                Write-Host "playcua retry $attempt/$PlaycuaRetries — relaunch between attempts" -ForegroundColor Yellow
+                pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') relaunch -NoBuild | Out-Null
+                $retryHealth = Wait-BridgeReady -MaxMinutes 5
+                if ($retryHealth -and $retryHealth.bridgeAlive -and -not $retryHealth.isWorld3D) {
+                    $bootstrap = Join-Path $RepoRoot 'Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml'
+                    python (Join-Path $RepoRoot 'Tools/wsm3d-playcua/main.py') $bootstrap --vision-backend off 2>&1 | Out-Null
                 }
+                Start-Sleep -Seconds 30
+                $null = Wait-World3D -MaxSeconds 120
             }
-            $vb = if ($Vision -and $visionReady) { $VisionBackend } else { 'off' }
+            $vb = if ($visionBackendResolved -eq 'omniroute') {
+                if ($omnirouteProbeOk) { 'omniroute' } else { 'off' }
+            } else { $visionBackendResolved }
             Write-Host "playcua run-all VisionBackend=$vb" -ForegroundColor Gray
             $playcuaExit = 0
             try {
@@ -212,11 +248,11 @@ try {
             Add-DoAllStage 'playcua-run-all' 'passed' @{
                 attempts       = $attempt
                 visionBackend  = $vb
-                visionDegraded = [bool]($Vision -and -not $omnirouteProbeOk)
+                visionDegraded = [bool]($Vision -and $vb -eq 'off')
             }
             pwsh (Join-Path $RepoRoot 'Tools/sync-playcua-screenshots.ps1') | Out-Host
             $liveArgs = @('-Live', '-SkipOffline')
-            if ($Vision -and $omnirouteProbeOk) { $liveArgs += '-Vision' }
+            if ($vb -ne 'off') { $liveArgs += '-Vision' }
             pwsh (Join-Path $RepoRoot 'Tools/wsm-live-verify.ps1') @liveArgs 2>&1 | Out-Host
             if ($LASTEXITCODE -ne 0) {
                 Add-DoAllStage 'live-verify-live' 'failed' @{ exitCode = $LASTEXITCODE }
@@ -249,7 +285,9 @@ try {
         else { Add-DoAllStage 'live-verify-offline' 'passed' @{} }
     }
 
-    & (Join-Path $RepoRoot 'Tools/wsm3d-audit-tick.ps1') -Quiet | Out-Null
+    $auditArgs = @('-Quiet')
+    if ($SkipLive) { $auditArgs += '-SkipLive' }
+    & (Join-Path $RepoRoot 'Tools/wsm3d-audit-tick.ps1') @auditArgs | Out-Null
 
     $report.durationMs = [math]::Round(((Get-Date) - $started).TotalMilliseconds, 0)
     $report.finishedAt = (Get-Date).ToUniversalTime().ToString('o')
@@ -263,6 +301,15 @@ try {
         Write-Host $report.summaryLine -ForegroundColor Green
     }
     if (-not $report.overallOk) { exit 1 }
+} catch {
+    $report.durationMs = [math]::Round(((Get-Date) - $started).TotalMilliseconds, 0)
+    $report.finishedAt = (Get-Date).ToUniversalTime().ToString('o')
+    $report.summaryLine = Get-DoAllSummaryLine -Report $report
+    $report.error = $_.Exception.Message
+    $report | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $ReportPath -Encoding utf8
+    Write-Host "do-all failed: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "do-all report: $ReportPath" -ForegroundColor Gray
+    exit 1
 } finally {
     Pop-Location
 }

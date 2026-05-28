@@ -150,4 +150,28 @@ public class SsaoPostFxInvariantsTests
         ssgi.Should().Contain("internal static void BuildKernelStatic()",
             "SSGI must expose static kernel builder for stack init");
     }
+
+    [Fact]
+    public void Phase9_post_fx_shader_fallback_chains_follow_cache_find_resources_order()
+    {
+        var ssao = ReadSourceFile("WorldSphereMod/Code/PostFx/ScreenSpaceAO.cs");
+        ssao.Should().Contain("Core.Sphere.LoadedShaders.TryGetValue(\"ScreenSpaceAO\"");
+        ssao.Should().Contain("Shader.Find(\"WSM3D/ScreenSpaceAO\")");
+        ssao.Should().Contain("Resources.LoadAsync<Shader>(ShaderResourcePath)");
+
+        var ssgi = ReadSourceFile("WorldSphereMod/Code/PostFx/ScreenSpaceGI.cs");
+        ssgi.Should().Contain("Core.Sphere.LoadedShaders.TryGetValue(\"ScreenSpaceGI\"");
+        ssgi.Should().Contain("Shader.Find(\"WSM3D/ScreenSpaceGI\")");
+        ssgi.Should().Contain("Resources.LoadAsync<Shader>(ShaderResourcePath)");
+
+        var lut = ReadSourceFile("WorldSphereMod/Code/Lighting/ColorGradingLUT.cs");
+        lut.Should().Contain("Core.Sphere.LoadedShaders.TryGetValue(\"ColorGradingLUT\"");
+        lut.Should().Contain("Shader.Find(\"WSM3D/ColorGradingLUT\")");
+        lut.Should().Contain("Resources.LoadAsync<Shader>(LutShaderResourcePath)");
+
+        var postStack = ReadSourceFile("WorldSphereMod/Code/PostFx/WSM3DPostStack.cs");
+        postStack.Should().Contain("Core.Sphere.LoadedShaders.TryGetValue(cacheKey");
+        postStack.Should().Contain("Shader.Find(\"WSM3D/\" + cacheKey)");
+        postStack.Should().Contain("Resources.Load<Shader>(resourcePath)");
+    }
 }

@@ -50,7 +50,11 @@ Write-Host "SSH probe via $SshTarget (OmniRoute on laptop loopback)" -Foreground
 if ($UseTailscaleSsh) {
     tailscale ssh $SshTarget "bash -lc $(($remoteScript -replace '"', '\"'))"
 } else {
-    ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 $SshTarget "bash -lc '$($remoteScript -replace "'", "'\"'\"'")'"
+    # Shell-escape single quotes in the heredoc so bash -lc receives them correctly.
+    # PS parser cannot handle '\"'\"' inside a double-quoted interpolation directly;
+    # use a variable for the replacement string instead.
+    $shellEscapedScript = $remoteScript -replace "'", "'`"'`"'"
+    ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 $SshTarget "bash -lc '$shellEscapedScript'"
 }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Host "SSH probe finished (check output above for models + chat JSON)" -ForegroundColor Green

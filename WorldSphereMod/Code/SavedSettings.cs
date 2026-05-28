@@ -31,6 +31,14 @@ public class SavedSettings
         }
         public float TileHeight = 1;
         public float BuildingSize = 0.5f;
+        public float CameraDefaultStrategyZoomHeight = 10f;
+        public float CameraMinSurfaceDistance = 1f;
+        public float CameraMaxSurfaceDistance = 60f;
+        public float CameraNearClipPlane = 0.5f;
+        public float CameraFarClipRadiusMultiplier = 4f;
+        public float CameraFarClipPadding = 500f;
+        public float CameraTouchDragThreshold = 0.1f;
+        public float CameraTouchZoomThreshold = 20f;
         // Default to flat (0) — sphere/cylindrical (1) causes GPU hangs on
         // large maps until sphere-mode performance is resolved.
         public int CurrentShape = 0;
@@ -108,6 +116,13 @@ public class SavedSettings
         public bool WorldspaceUI = false;
         // Phase 7: optional worldspace 3D text labels instead of upstream NameplateText.
         public bool WorldspaceLabel3D = false;
+        public float NameplateFadeNear = 10f;
+        public float NameplateFadeFar = 30f;
+        public float NameplateReferenceDistance = 10f;
+        public float NameplateMinScale = 0.25f;
+        public float NameplateMaxScale = 4f;
+        public float NameplateBaseScale = 0.15f;
+        public float NameplateScaleDistanceDivisor = 100f;
         // Phase 8: Day/night cycle + procedural sky + fog.
         public bool DayNightCycle = false;
         public float FogDensity = 0.05f;
@@ -145,6 +160,8 @@ public class SavedSettings
         // instances, visible units, voxel cache size, shape, and isWorld3D.
         // Toggle in-game with F8. Default off; opt-in for debugging only.
         public bool DebugHUDVisible = false;
+        public bool DebugSpriteRendererSuppression = false;
+        public float ImpostorEmissionMultiplier = 1.5f;
 
         // Per-frame building render budget: process at most this many buildings
         // per frame, cycling through the full visible set across frames.

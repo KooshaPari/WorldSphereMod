@@ -648,7 +648,10 @@ def _execute_scenario(
                 details["settle_frames"] = settle_frames
                 details["settle_fps"] = settle_fps
                 bridge_timeout = float(raw_step.get("bridge_wait_seconds", 90))
-                details["bridge_alive"] = _wait_bridge_alive(client, bridge_timeout)
+                bridge_alive = _wait_bridge_alive(client, bridge_timeout)
+                details["bridge_alive"] = bridge_alive
+                if not bridge_alive:
+                    ok = False
         elif action == "wait_n_frames":
             frames = int(raw_step.get("frames", raw_step.get("count", 0)))
             fps = float(raw_step.get("fps", raw_step.get("frame_rate", 30)))

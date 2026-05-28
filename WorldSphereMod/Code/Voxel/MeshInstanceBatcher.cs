@@ -77,6 +77,16 @@ namespace WorldSphereMod.Voxel
         public static long FrameDrawCalls;
         public static long FrameInstances;
         public static long FrameBucketCount;
+        // Per-frame Submit/Flush counters for timing-bug diagnosis. Submit() bumps
+        // _submitCountThisFrame on every accepted submission (main-thread bucket
+        // add OR worker-thread queue enqueue). Flush() bumps _flushCountThisFrame
+        // each time it runs. VoxelFrameDriver.LateUpdate snapshots both into
+        // LastFrame* and resets the live counters so per-frame log lines can
+        // observe whether Submit and Flush happen on the same frame.
+        public static int _submitCountThisFrame;
+        public static int _flushCountThisFrame;
+        public static int LastFrameSubmitCount;
+        public static int LastFrameFlushCount;
         public static float InstancingEfficiency => FrameInstances > 0 ? (float)FrameBucketCount / FrameInstances : 0f;
         public static bool UseFallbackPath => _useFallbackPath;
 
@@ -158,11 +168,13 @@ namespace WorldSphereMod.Voxel
             if (_mainThreadId != 0 && Thread.CurrentThread.ManagedThreadId == _mainThreadId)
             {
                 AddToBucket(mesh, mat, matrix, tint);
+                Interlocked.Increment(ref _submitCountThisFrame);
                 return;
             }
 
             _pendingSubmissions.Enqueue(new SubmitRecord(mesh, mat, matrix, tint));
             Interlocked.Increment(ref _pendingSubmissionCount);
+            Interlocked.Increment(ref _submitCountThisFrame);
         }
 
         static void DrainPendingSubmissions()
@@ -194,6 +206,7 @@ namespace WorldSphereMod.Voxel
 
         public static void Flush(int layer = 0, ShadowCastingMode shadows = ShadowCastingMode.On, bool receive = true)
         {
+            Interlocked.Increment(ref _flushCountThisFrame);
             if (UseBrg && MeshInstanceBatcherBRG.TryFlush(layer, shadows, receive))
             {
                 return;
@@ -212,8 +225,8 @@ namespace WorldSphereMod.Voxel
             FrameInstances = 0;
             FrameBucketCount = 0;
 
-            // TEMPORARY DIAGNOSTIC: one-shot bucket inventory at Flush
-            if (!_flushBucketDiagLogged && _buckets.Count > 0)
+            // TEMPORARY DIAGNOSTIC: one-shot bucket inventory at Flush (gated by ProfilerDump)
+            if (!_flushBucketDiagLogged && _buckets.Count > 0 && Core.savedSettings.ProfilerDump)
             {
                 _flushBucketDiagLogged = true;
                 int pendingDrained = Volatile.Read(ref _pendingSubmissionCount);
@@ -386,7 +399,7 @@ namespace WorldSphereMod.Voxel
             if (key.Mesh == null || key.Material == null) return;
 
             int end = Mathf.Min(bucket.Matrices.Count, start + total);
-            if (_fallbackDrawDiagFrames < 5)
+            if (_fallbackDrawDiagFrames < 5 && Core.savedSettings.ProfilerDump)
             {
                 _fallbackDrawDiagFrames++;
                 Vector4 firstPos = bucket.Matrices.Count > start ? bucket.Matrices[start].GetColumn(3) : new Vector4(0,0,0,0);
@@ -517,7 +530,7 @@ namespace WorldSphereMod.Voxel
 
         static void LogAllCameras()
         {
-            if (_allCamerasLogged) return;
+            if (_allCamerasLogged || !Core.savedSettings.ProfilerDump) return;
             _allCamerasLogged = true;
             var cameras = Camera.allCameras;
             for (int i = 0; i < cameras.Length; i++)
@@ -535,7 +548,7 @@ namespace WorldSphereMod.Voxel
 
         static void LogRenderTarget(Camera cam, int requestedLayer, int resolvedLayer, ShadowCastingMode shadows, bool receive)
         {
-            if (_renderTargetLogged) return;
+            if (_renderTargetLogged || !Core.savedSettings.ProfilerDump) return;
             _renderTargetLogged = true;
             string camName = cam != null ? cam.name : "<null>";
             int camLayer = cam != null ? cam.gameObject.layer : -1;
@@ -563,6 +576,10 @@ namespace WorldSphereMod.Voxel
             FrameDrawCalls = 0;
             FrameInstances = 0;
             FrameBucketCount = 0;
+            Interlocked.Exchange(ref _submitCountThisFrame, 0);
+            Interlocked.Exchange(ref _flushCountThisFrame, 0);
+            LastFrameSubmitCount = 0;
+            LastFrameFlushCount = 0;
         }
 
         static bool _standardInstancingAttempted;

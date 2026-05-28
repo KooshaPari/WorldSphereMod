@@ -36,6 +36,7 @@ public static class BakeShaders
             Path.Combine(repoRoot, "WorldSphereMod", "Resources", "Shaders", "BrpACES.shader"),
             Path.Combine(repoRoot, "WorldSphereMod", "Resources", "Shaders", "BrpBloom.shader"),
             Path.Combine(repoRoot, "WorldSphereMod", "Resources", "Shaders", "ScreenSpaceGI.shader"),
+            Path.Combine(repoRoot, "WorldSphereMod", "Resources", "Shaders", "FoliageWind.shader"),
         })
         {
             string fn = Path.GetFileName(src);
@@ -91,16 +92,45 @@ public static class BakeShaders
         {
             string platformDir = Path.Combine(outBase, folder);
             Directory.CreateDirectory(platformDir);
+
+            // Unity silently refuses to build an AssetBundle for a target whose
+            // BuildTargetGroup is not the currently-active one — the call returns
+            // null and no manifest is written. Switch the active target *first*
+            // so each platform actually produces output instead of being skipped.
+            // Without this, only the initially-active target (typically win)
+            // gets baked and linux/osx folders stay empty.
+            var targetGroup = BuildPipeline.GetBuildTargetGroup(target);
+            if (EditorUserBuildSettings.activeBuildTarget != target)
+            {
+                bool switched = EditorUserBuildSettings.SwitchActiveBuildTarget(targetGroup, target);
+                if (!switched)
+                {
+                    Debug.LogError($"[WSM3D-Bake] Could not switch active build target to {target}; skipping {folder}.");
+                    continue;
+                }
+                Debug.Log($"[WSM3D-Bake] switched active build target -> {target}");
+            }
+
             // Uncompressed + chunk-based + strict-mode tries to maximize bundle
             // compatibility across Unity versions. Bake target is Unity 6.3 but
             // WorldBox runs Unity 2022 — Unity normally refuses cross-version bundle
             // load. Uncompressed + ChunkBasedCompression sometimes works as a stop-gap.
-            BuildPipeline.BuildAssetBundles(
+            var manifest = BuildPipeline.BuildAssetBundles(
                 platformDir,
                 BuildAssetBundleOptions.UncompressedAssetBundle |
-                BuildAssetBundleOptions.ForceRebuildAssetBundle,
+                BuildAssetBundleOptions.ForceRebuildAssetBundle |
+                BuildAssetBundleOptions.StrictMode,
                 target);
-            Debug.Log($"[WSM3D-Bake] built wsm3d-shaders bundle for {target} -> {platformDir}");
+            if (manifest == null)
+            {
+                Debug.LogError($"[WSM3D-Bake] BuildAssetBundles returned null for {target} -> {platformDir}");
+                EditorApplication.Exit(1);
+                return;
+            }
+            else
+            {
+                Debug.Log($"[WSM3D-Bake] built wsm3d-shaders bundle for {target} -> {platformDir}");
+            }
         }
         Debug.Log("[WSM3D-Bake] All platforms done (shader-only bundle).");
     }
@@ -133,13 +163,28 @@ public static class BakeShaders
                 Debug.LogError("[WSM3D-Bake] SVC: shader not found at " + rel);
                 continue;
             }
-            // One no-keyword entry for the default forward pass (passType=Normal=0).
-            // This is the minimum needed to tell the stripping pipeline "keep this shader."
-            var variant = new ShaderVariantCollection.ShaderVariant(shader, PassType.Normal);
-            if (!svc.Contains(variant))
-                svc.Add(variant);
+            // Add variants for multiple pass types to preserve all passes during stripping.
+            // Critical for multi-pass shaders like BrpBloom (4 passes: threshold, blur_h, blur_v, composite).
+            var passTypes = new[] { PassType.Normal, PassType.ForwardBase, PassType.ForwardAdd, PassType.Deferred };
+            int variantCount = 0;
+            foreach (var passType in passTypes)
+            {
+                try
+                {
+                    var variant = new ShaderVariantCollection.ShaderVariant(shader, passType);
+                    if (!svc.Contains(variant))
+                    {
+                        svc.Add(variant);
+                        variantCount++;
+                    }
+                }
+                catch
+                {
+                    // Pass type not valid for this shader, skip silently
+                }
+            }
             added++;
-            Debug.Log("[WSM3D-Bake] SVC +variant: " + shader.name);
+            Debug.Log($"[WSM3D-Bake] SVC +{variantCount} variants: {shader.name}");
         }
 
         EditorUtility.SetDirty(svc);

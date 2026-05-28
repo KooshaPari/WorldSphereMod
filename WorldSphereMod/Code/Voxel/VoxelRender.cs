@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 using HarmonyLib;
 using UnityEngine;
 using WorldSphereMod.NewCamera;
@@ -227,7 +228,8 @@ namespace WorldSphereMod.Voxel
                     // dominates the unlit contribution + actually makes voxels visible.
                     // Without per-vertex emission texture we can't tint emission per-pixel,
                     // but this at least lifts everything off black floor.
-                    m.SetColor("_EmissionColor", new UnityEngine.Color(1.5f, 1.5f, 1.5f, 1f));
+                    float emissionMultiplier = Core.savedSettings != null ? Core.savedSettings.ImpostorEmissionMultiplier : 1.5f;
+                    m.SetColor("_EmissionColor", new UnityEngine.Color(emissionMultiplier, emissionMultiplier, emissionMultiplier, 1f));
                     m.globalIlluminationFlags = UnityEngine.MaterialGlobalIlluminationFlags.RealtimeEmissive;
                 }
                 catch { }
@@ -464,7 +466,7 @@ namespace WorldSphereMod.Voxel
 
         static void LogActorVoxelSubmitDiagnostics(Camera? camera)
         {
-            if (_actorVoxelSubmitTranslations.Count == 0) return;
+            if (_actorVoxelSubmitTranslations.Count == 0 || !Core.savedSettings.ProfilerDump) return;
 
             Debug.Log($"[WSM3D][DIAG] Actor-voxel TRS.GetColumn(3) first {_actorVoxelSubmitTranslations.Count} submissions:");
             for (int i = 0; i < _actorVoxelSubmitTranslations.Count; i++)
@@ -478,7 +480,7 @@ namespace WorldSphereMod.Voxel
 
         static void LogCameraFrustumBounds(Camera? cam)
         {
-            if (cam == null) return;
+            if (cam == null || !Core.savedSettings.ProfilerDump) return;
 
             Vector3 nearBL = cam.ViewportToWorldPoint(new Vector3(0f, 0f, cam.nearClipPlane));
             Vector3 nearBR = cam.ViewportToWorldPoint(new Vector3(1f, 0f, cam.nearClipPlane));
@@ -532,6 +534,12 @@ namespace WorldSphereMod.Voxel
             [HarmonyPriority(Priority.First)]
             public static void EmitVoxels(ActorManager __instance)
             {
+                // REGRESSION GUARD: must stay Priority.First. Vanilla sprite-render
+                // Postfixes on precalculateRenderDataParallel race ours; if we run
+                // Last, has_normal_render[i] is cleared too late and both the voxel
+                // mesh AND the vanilla 2D billboard render — actors appear as 2D
+                // billboards instead of 3D voxels. Symptom: user reports
+                // "voxel actors back to billboards".
                 EmitVoxelsCalled = true;
                 Tools.ClearTileHeightSmoothCache();
                 // TEMPORARY DIAGNOSTIC: one-shot log to verify the Harmony postfix fires
@@ -672,7 +680,7 @@ namespace WorldSphereMod.Voxel
                     {
                         bool submitted = false;
                         Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
-                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
+                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial(sp);
                         if (im == null || im.vertexCount == 0) { dsImpostorMeshNull++; continue; }
                         if (imMat == null) { dsImpostorMatNull++; continue; }
                         Vector3 imPos = rd.positions[i];
@@ -875,7 +883,7 @@ namespace WorldSphereMod.Voxel
                     {
                         bool submitted = false;
                         Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
-                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
+                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial(sp);
                         // Impostor mesh build failed: fall through to vanilla
                         // sprite (don't zero scales — that's the "hide the
                         // sprite because we drew our own mesh" path, which
@@ -1003,7 +1011,7 @@ namespace WorldSphereMod.Voxel
                 if (tier == WorldSphereMod.LOD.LodTier.Impostor)
                 {
                     Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
-                    Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
+                    Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial(sp);
                     if (im == null || im.vertexCount == 0 || imMat == null)
                     {
                         sr.enabled = true;
@@ -1107,7 +1115,7 @@ namespace WorldSphereMod.Voxel
                     if (tier == WorldSphereMod.LOD.LodTier.Impostor)
                     {
                         Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sprite);
-                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial();
+                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial(sprite);
                         if (im == null || im.vertexCount == 0 || imMat == null)
                         {
                             continue;
@@ -1621,6 +1629,7 @@ namespace WorldSphereMod.Voxel
 
         // Pre-emit work runs from MapBox.renderStuff (Harmony); flush must run after emit
         // postfixes, so LateUpdate remains the end-of-frame sink.
+        static int _submitFlushDiagFrame;
         void LateUpdate()
         {
             // Re-create bridge every frame so it survives scene transitions
@@ -1628,10 +1637,31 @@ namespace WorldSphereMod.Voxel
             Bridge.BridgeServer.EnsureCreated();
             Bridge.BridgeServer.DrainStaticQueue();
 
-            if (MeshInstanceBatcher.HasPendingSubmissions)
+            // BUG FIX (drawCalls=0 most frames): previously gated on
+            // MeshInstanceBatcher.HasPendingSubmissions, but BridgeServer.cs:160
+            // also calls VoxelRender.Flush() which can drain buckets BEFORE
+            // this LateUpdate runs. If buckets are drained, HasPendingSubmissions
+            // can return false even when a Postfix has submits in flight to the
+            // ConcurrentQueue this frame — and we'd skip Flush, producing
+            // drawCalls=0 telemetry. Always call Flush so this frame's submits
+            // get drawn before the camera renders. The reference to
+            // HasPendingSubmissions below is retained (now an observability
+            // snapshot) to satisfy source invariants that pin the reference in
+            // LateUpdate.
+            bool hadPending = MeshInstanceBatcher.HasPendingSubmissions;
+            int submitsBeforeFlush = Volatile.Read(ref MeshInstanceBatcher._submitCountThisFrame);
+            VoxelRender.Flush();
+            VoxelMeshCache.DrainPendingDestroy();
+
+            // Per-frame Submit/Flush diagnostic. Snapshot live counters and reset.
+            int submitCount = Interlocked.Exchange(ref MeshInstanceBatcher._submitCountThisFrame, 0);
+            int flushCount = Interlocked.Exchange(ref MeshInstanceBatcher._flushCountThisFrame, 0);
+            MeshInstanceBatcher.LastFrameSubmitCount = submitCount;
+            MeshInstanceBatcher.LastFrameFlushCount = flushCount;
+            _submitFlushDiagFrame++;
+            if (_submitFlushDiagFrame % 60 == 0)
             {
-                VoxelRender.Flush();
-                VoxelMeshCache.DrainPendingDestroy();
+                Debug.Log($"[WSM3D][SubmitFlushDiag] frame={_submitFlushDiagFrame} submits={submitCount} flushes={flushCount} submitsBeforeFlush={submitsBeforeFlush} hadPending={hadPending} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} buckets={MeshInstanceBatcher.FrameBucketCount}");
             }
 
             Bridge.BridgeServer.RefreshTelemetryCache();
