@@ -66,11 +66,17 @@ namespace WorldSphereMod
                 ApplySchemaVersionMigration(loadedData);
                 loadedData.Version = SettingsVersion;
                 savedSettings = loadedData;
+                // Temporary override (see comment below at normal-load path).
+                savedSettings.SkeletalAnimation = false;
                 LogPhaseFlagDefaults(savedSettings);
                 SaveSettings();
                 return true;
             }
             savedSettings = loadedData;
+            // Temporary override: the game's save/load cycle can flip SkeletalAnimation
+            // back to true even though our code default is false. Force it off after every
+            // load until Phase 6 is stable and we promote the default to true.
+            savedSettings.SkeletalAnimation = false;
             LogPhaseFlagDefaults(savedSettings);
             return true;
         }
@@ -548,7 +554,7 @@ namespace WorldSphereMod
             public static float Radius => Manager.Radius;
             public static int Width => Manager.Rows;
             public static int Height => Manager.Cols;
-            public static Transform CenterCapsule => Manager.transform.GetChild(0);
+            public static Transform CenterCapsule => Manager.transform.childCount > 0 ? Manager.transform.GetChild(0) : null;
             public static bool Exists => Manager != null;
             public static float HeightMult = 0;
             public static bool PerlinNoise = true;
