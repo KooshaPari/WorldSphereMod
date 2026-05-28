@@ -348,6 +348,14 @@ namespace WorldSphereMod.Effects
                     return false;
                 }
 
+                // Phase 5: when the real sun is casting cascaded shadows AND voxel entities
+                // are rendered, the legacy flat sprite shadow produces a double-shadow artifact.
+                // Suppress it so only the GPU shadow map shadow is visible.
+                if (WorldSphereMod.Lighting.SunDriver.Active && Core.savedSettings.VoxelEntities)
+                {
+                    return false;
+                }
+
                 updateshadow(__instance);
                 return false;
             }
