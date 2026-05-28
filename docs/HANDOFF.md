@@ -2,7 +2,11 @@
 
 Canonical "next session starts here" doc for WorldSphereMod3D.
 
-**Last updated:** 2026-05-28 (8/8 runtime tests pass, 30 FPS, 46 voxel actors visible)
+**Last updated:** 2026-05-28 (`117746e` on `feat/phase-7-ui-kickoff`; `main` at `4efa128` after PR #7 squash-merge)
+
+**Active branch:** `feat/phase-7-ui-kickoff` — Phase 7 worldspace UI kickoff ([`docs/phases/phase-7-worldspace-ui.md`](phases/phase-7-worldspace-ui.md)). Synced with `origin/main` after [PR #7](https://github.com/KooshaPari/WorldSphereMod/pull/7) landed (`4efa128` — automation, PlayCUA gates, live-verify harness).
+
+**Latest `do-all-latest` (desk, vision off):** PlayCUA **passed on 1st attempt** (`run-all`, `-VisionBackend off`); **`live-verify-live`** and **`audit-tick`** stages failed. OmniRoute funnel (`https://omniroute-a6e82363-1.tail2b570.ts.net/v1`) often times out from the desk — use `-SkipLive` / vision-off PlayCUA for laptop-only loops; see [OmniRoute (kooshas-laptop)](#omniroute-kooshas-laptop). Report: `Tools/.reports/do-all-latest.json`.
 
 Recent validation:
 
@@ -27,8 +31,9 @@ CI builds only the Unity-free API project (see `docs/ci-mod-compile-gap.md`).
 
 | Thing | Location |
 |---|---|
-| Active branch | `claude/research-ultraplan-fork-DdgI5` |
-| Open PR (#7) | https://github.com/KooshaPari/WorldSphereMod/pull/7 — **OPEN** — automation + phase gates (`do-all`, bridge recovery, PlayCUA 13/13) |
+| Active branch | `feat/phase-7-ui-kickoff` — Phase 7 worldspace UI ([`docs/phases/phase-7-worldspace-ui.md`](phases/phase-7-worldspace-ui.md)) |
+| Merged PR (#7) | https://github.com/KooshaPari/WorldSphereMod/pull/7 — **MERGED** → `main` @ `4efa128` (automation, PlayCUA gates, live-verify harness) |
+| Integration branch | `claude/research-ultraplan-fork-DdgI5` (historical; merge topic worktrees here before `main`) |
 | Release tag (remote) | **`v2.0.0-beta.6`** — [release](https://github.com/KooshaPari/WorldSphereMod/releases/tag/v2.0.0-beta.6) |
 | Offline test matrix | **525 pass / 3 skip** (528 total) — Unit 154 (+ 3 skip), Integration 69, E2E 301 pass / 1 skip (302 total, NML compat) |
 | Cold-start orientation | `CLAUDE.md` |
@@ -235,9 +240,29 @@ Short form:
 - **PlayCUA sample scenarios (live runs)** — 13 YAML files in `Tools/wsm3d-playcua/sample-scenarios/` (see list below). E2E guards in `PlaycuaSampleScenarioInvariantsTests.cs`; OmniRoute vision steps need a running game + bridge (`127.0.0.1:8766`).
 - **OmniRoute API key** (optional) — for PlayCUA screenshot vision via `OMNROUTE_API_KEY` + `OMNROUTE_VISION_COMBO` (or `ANTHROPIC_API_KEY` fallback). Journey mock and offline live-verify gate work without either.
 
+## Phase 7 branch goals (`feat/phase-7-ui-kickoff`)
+
+Kickoff doc: [`docs/phases/phase-7-worldspace-ui.md`](phases/phase-7-worldspace-ui.md). Architecture reference: [`docs/phase7-architecture.md`](phase7-architecture.md), evaluation: [`docs/phase7-evaluation.md`](phase7-evaluation.md).
+
+1. Wire `WorldUIRenderer` + nameplate/HP/damage/faction path per kickoff (world-space canvas + batcher quads; LOD-tier culling).
+2. Prove `WorldspaceUI` / `WorldspaceLabel3D` toggles in-game and via PlayCUA (`phase-7-worldspace-ui.yaml`).
+3. Flip phase-7 defaults only after smoke + refreshed screenshots (`sync-playcua-screenshots.ps1`).
+
+**Next commands (from repo root):**
+
+```powershell
+git fetch origin main
+dotnet test tests/WorldSphereMod.Tests.E2E --filter "FullyQualifiedName~Worldspace"
+pwsh Tools/wsm3d.ps1 install
+pwsh Tools/wsm3d.ps1 playcua run Tools/wsm3d-playcua/sample-scenarios/phase-7-worldspace-ui.yaml -VisionBackend off
+pwsh Tools/do-all.ps1 -SkipLive -PlaycuaRetries 1    # offline + playcua; no funnel
+pwsh Tools/sync-playcua-screenshots.ps1
+```
+
 ## Recommended next steps
 
-1. **Visual verification with populated world** — automation passes (`pwsh Tools/do-all.ps1` → 13/13 after retry, journey mock 20/20, offline tests 525 pass / 3 skip). Sync captures: `pwsh Tools/sync-playcua-screenshots.ps1` (see [Screenshot sync workflow](#screenshot-sync-workflow) below). Human still judges kingdom/actor visuals in-game.
+1. **Phase 7 implementation** — follow kickoff FRs; keep `WorldspaceUI` / `WorldspaceLabel3D` default-off until PlayCUA + human smoke pass.
+2. **Visual verification with populated world** — latest desk `do-all`: PlayCUA 13/13 @1× with vision off; fix `live-verify-live` + `audit-tick` before claiming full green. Sync captures: `pwsh Tools/sync-playcua-screenshots.ps1` (see [Screenshot sync workflow](#screenshot-sync-workflow) below). Human still judges kingdom/actor visuals in-game.
 2. Smoke-test Phase 2 procedural buildings the same way Phase 1 was proven: toggle `ProceduralBuildings`, capture screenshots, and diff against canonical output.
 3. **Shader bundle rebake — DONE (2026-05-26).** Headless: `pwsh Tools/bake-shaders.ps1` (optional `-UnityExe` when Hub auto-detect fails). Log: `Tools/bake-shaders.log`. Manifest: 10 shaders in `WorldSphereMod/AssetBundles/win/wsm3d-shaders.manifest`. **Human gate:** confirm in-game `LoadedShaders[count=3]` and phase visuals before adding names to `SafeShaders` (see below).
 4. Implement ADR-0006 (Phase 6 Step 9 DrawProceduralIndirect skinning) — 2–3 day estimate if we decide to replace the visible skinned-mesh path with GPU-resident batching later.
@@ -303,7 +328,7 @@ Get-Content Tools/.reports/do-all-latest.json | ConvertFrom-Json
 Get-Content Tools/.reports/audit-tick-latest.json | ConvertFrom-Json
 ```
 
-**`do-all.ps1` stages:** (1) offline `wsm-live-verify.ps1`, (2) optional relaunch + bridge wait (5m) + `bridge-save-load-smoke` bootstrap when `isWorld3D=false`, (3) journey mock, (4) PlayCUA `run-all -VisionBackend off` with up to **3** full attempts (relaunch + 30s settle + `isWorld3D` wait between retries), (5) `sync-playcua-screenshots.ps1`, (6) `wsm-live-verify.ps1 -Live -SkipOffline`, (7) final offline verify, (8) quiet `wsm3d-audit-tick.ps1`. Writes `Tools/.reports/do-all-latest.json`.
+**`do-all.ps1` stages:** (1) offline `wsm-live-verify.ps1`, (2) optional relaunch + bridge wait (5m) + `bridge-save-load-smoke` bootstrap when `isWorld3D=false`, (3) journey mock, (4) PlayCUA `run-all` (default **`-VisionBackend off`** on desk; pass `-Vision` only when OmniRoute probe succeeds), up to **3** full attempts, (5) `sync-playcua-screenshots.ps1`, (6) `wsm-live-verify.ps1 -Live -SkipOffline`, (7) final offline verify, (8) quiet `wsm3d-audit-tick.ps1`. Writes `Tools/.reports/do-all-latest.json`. **Desk note:** funnel timeouts → vision off; PlayCUA can still pass while stages (6) and (8) fail.
 
 **`wsm3d-audit-tick.ps1` stages:** git/dirty check → `dotnet test` → `wsm3d doctor` → phase-*.png manifest gate → bridge `/health` (optional relaunch with **15m cooldown** via `-RelaunchIfBridgeDown`) → journey mock → PlayCUA `run-all` (**2** attempts, relaunch between) → screenshot sync. Writes `Tools/.reports/audit-tick-latest.json`; lists human blockers (screenshots, vision backend, shader log) without failing exit on those alone.
 
@@ -323,7 +348,7 @@ tailscale serve --bg http://127.0.0.1:20128
 # or configure OmniRoute to listen on 0.0.0.0:20128 (check OmniRoute docs)
 ```
 
-When chat probe fails, `do-all` runs PlayCUA with **vision off** (`visionDegraded: true`). If funnel is slow, raise probe timeout via HTTPS (see `verify-omniroute-remote.ps1`).
+When chat probe fails, `do-all` runs PlayCUA with **vision off** (`visionDegraded: true`). **Desk runs:** prefer `-SkipLive` or default vision-off `run-all`; funnel `https://omniroute-a6e82363-1.tail2b570.ts.net/v1` often times out even when `/models` responds. If funnel is slow, raise probe timeout via HTTPS (see `verify-omniroute-remote.ps1`) or use tailnet `http://100.112.14.98:20128/v1`. Local secrets: copy `Tools/omniroute-vision.env.example` → `Tools/omniroute-vision.env` (gitignored; never commit).
 
 ## Screenshot sync workflow
 
@@ -363,16 +388,16 @@ pwsh Tools/sync-playcua-screenshots.ps1
 
 When you need a release or handoff bundle, use the canonical checklist in [`docs/live-verification.md`](live-verification.md#canonical-live-proof-bundle). It is the single place that names the required live verifier command, `Tools/.reports/live-verify-latest.json`, PlayCUA artifacts, phase-preview SSIM fixtures, and the explicit skip/offline note when `live-playcua-ssim` does not run.
 
-## Recent commits (7 most recent)
+## Recent commits (7 most recent on `feat/phase-7-ui-kickoff`)
 
 ```
-c954af6 test: skip NML compat test (regex needs rewrite — 23k false positives)
-756342d fix(shaders): BRP fallbacks for bundle bake
-8c9e6d7 docs: HANDOFF do-all automation + PR hygiene
-b0b822e fix: null guard BeginCoroutine lambdas (SphereTiles array race)
-dde7e7f feat: Become3D on save load + NML compat test + codex work
-d1bbd81 chore: remove dead code in ShadowCascadeConfig
-f5546ff test(e2e): 5 new coverage tests — VoxelMeshCache, BuildingMeshGen, Tools, Batcher, TileMap
+117746e merge: sync origin/main after PR7 squash merge
+1d232e8 docs(phase7): scaffold phase-7 worldspace UI kickoff doc
+4efa128 WorldSphereMod3D: automation, PlayCUA gates, and live-verify harness (#7)
+0c1f11e test(playcua): run-all passes without OmniRoute; align E2E invariants
+5855111 fix(live-verify): bridge telemetry probe for PlayCUA drawCalls
+971b47e fix(bridge): VoxelFrameDriver on bridge host; wsm-live-verify -SkipOffline
+47484d6 fix(bridge): lastNonZeroDrawCalls telemetry and PlayCUA baseline checks
 ```
 
 ## Important caveats / non-obvious gotchas
@@ -441,10 +466,12 @@ git worktree remove "$env:USERPROFILE\.cursor\worktrees\WorldSphereMod\wt-<topic
 
 ## Branch / PR hygiene
 
-- Push to `claude/research-ultraplan-fork-DdgI5`, not `main`.
+- **Current work:** push to `feat/phase-7-ui-kickoff`, not `main`.
+- **PR #7** is **MERGED** on `main` @ `4efa128` — https://github.com/KooshaPari/WorldSphereMod/pull/7. This branch rebased/merged `origin/main` after that squash-merge.
 - Use `git push --no-recurse-submodules origin HEAD` (submodule pinned at `73a7b77`).
-- **PR #7** is OPEN, **MERGEABLE** (`aa98a0c`) — https://github.com/KooshaPari/WorldSphereMod/pull/7; repo CI gates green; **SonarCloud** fails externally (not blocking). CI ≠ in-game visual proof — desktop: `pwsh Tools/do-all.ps1`.
-- Pre-merge checklist: [`docs/MERGE_CHECKLIST.md`](MERGE_CHECKLIST.md).
+- Topic branches / worktrees still merge into `claude/research-ultraplan-fork-DdgI5` before `main` when batching automation fixes.
+- Post-merge / phase checklist: [`docs/MERGE_CHECKLIST.md`](MERGE_CHECKLIST.md).
 - One PR per phase; commits within a phase can be incremental.
 - After a phase is proven in actual WorldBox gameplay: flip its `SavedSettings` flag default,
   update the README phase table, update this doc's landed/runtime status row.
+- **Secrets:** `Tools/*-vision.env` and `Tools/.reports/` are gitignored — commit only `*.env.example` templates.

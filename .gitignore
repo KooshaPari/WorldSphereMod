@@ -42,6 +42,7 @@ Tools/.reports/
 Tools/wsm3d-playcua/__pycache__/
 Tools/wsm3d-playcua/.reports/
 artifacts/
+Tools/*-vision.env
 Tools/omniroute-vision.env
 Tools/fireworks-vision.env
 Tools/_probe_omniroute*.py
