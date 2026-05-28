@@ -1416,22 +1416,19 @@ namespace WorldSphereMod
                 }
             }
 
-            // ----------------------------------------------------------------
+            // ================================================================
+            // DO NOT ADD MORE — ADR-0013.
+            // GerstnerWater/ColorGradingLUT/etc have corrupt ManagedStream that
+            // crashes Unity NATIVELY on GetObject (try/catch cannot intercept).
+            // Only OpaqueVertexColor loads safely. Other consumers (water, LUT,
+            // postfx) must fall back to Shader.Find/Standard.
+            // ================================================================
             // Load only shaders that survive bundle deserialization with a
             // valid Shader.name. Corrupted assets return an empty name and are
             // rejected below so consumers can fall back cleanly.
-            // ----------------------------------------------------------------
             public static readonly string[] SafeShaders = new[]
             {
                 "OpaqueVertexColor",
-                "GerstnerWater",
-                "ColorGradingLUT",
-                "ProceduralSky",
-                "Impostor",
-                "ScreenSpaceAO",
-                "ScreenSpaceGI",
-                "BrpBloom",
-                "BrpACES",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look

@@ -269,20 +269,17 @@ public class VoxelPipelineRegressionTests
         for (int i = 0; i < entries.Count; i++)
             shaderNames[i] = entries[i].Groups["name"].Value;
 
+        // ADR-0013: ONLY OpaqueVertexColor loads safely from the wsm3d-shaders
+        // bundle. GerstnerWater/ColorGradingLUT/etc have corrupt ManagedStream
+        // blobs that crash Unity NATIVELY on GetObject (try/catch cannot
+        // intercept — Unity calls abort()). DO NOT expand this list.
         var expected = new[]
         {
             "OpaqueVertexColor",
-            "GerstnerWater",
-            "ColorGradingLUT",
-            "ProceduralSky",
-            "Impostor",
-            "ScreenSpaceAO",
-            "ScreenSpaceGI",
-            "BrpBloom",
-            "BrpACES",
         };
         shaderNames.Should().BeEquivalentTo(expected,
-            "SafeShaders must contain EXACTLY the runtime shader load set");
+            "SafeShaders must contain EXACTLY the single safe runtime shader " +
+            "(OpaqueVertexColor) — ADR-0013; any other entry crashes Unity natively");
 
         // The ADR-0013 reference must be present as a guard against uninformed edits
         source.Should().Contain("ADR-0013",
