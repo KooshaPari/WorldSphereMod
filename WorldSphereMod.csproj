@@ -93,6 +93,9 @@
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>$(WorldBoxManaged)/UnityEngine.CoreModule.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(WorldBoxManaged)/UnityEngine.IMGUIModule.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.InputLegacyModule">
       <HintPath>$(WorldBoxManaged)/UnityEngine.InputLegacyModule.dll</HintPath>
     </Reference>

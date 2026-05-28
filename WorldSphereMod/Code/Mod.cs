@@ -156,6 +156,10 @@ using WorldSphereMod;
             {
                 InitProfiler.Measure("EnsureCreated: RuntimeStatsOverlay", () => { try { WorldSphereMod.Worldspace.RuntimeStatsOverlay.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] RuntimeStatsOverlay FAILED: " + ex); } });
             }
+            // DebugHUD is always mounted (F8 toggles visibility); gated by
+            // DebugHUDVisible flag at OnGUI time, so the per-frame cost when
+            // hidden is one bool check.
+            InitProfiler.Measure("EnsureCreated: DebugHUD", () => { try { WorldSphereMod.UI.DebugHUD.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] DebugHUD FAILED: " + ex); } });
             InitProfiler.Measure("EnsureCreated: PhaseToast", () => { try { WorldSphereMod.Worldspace.PhaseToast.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] PhaseToast FAILED: " + ex); } });
             yield return null;
             InitProfiler.Measure("EnsureCreated: TimeOfDay", () => { try { WorldSphereMod.Lighting.TimeOfDay.EnsureCreated(); } catch (System.Exception ex) { Debug.LogError("[WSM3D] TimeOfDay FAILED: " + ex); } });

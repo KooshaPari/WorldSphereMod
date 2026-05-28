@@ -136,6 +136,11 @@ public class SavedSettings
         public float FoliageDensity = 1.0f;
         public bool ProfilerDump = false;
 
+        // In-game IMGUI HUD (top-left) showing FPS, frame ms, draw calls,
+        // instances, visible units, voxel cache size, shape, and isWorld3D.
+        // Toggle in-game with F8. Default off; opt-in for debugging only.
+        public bool DebugHUDVisible = false;
+
         // Per-frame building render budget: process at most this many buildings
         // per frame, cycling through the full visible set across frames.
         // 0 = unlimited (process all). Reduces per-frame cost from O(visible)
