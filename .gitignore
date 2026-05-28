@@ -36,6 +36,7 @@ Tools/**/target/
 
 # Tool session logs
 Tools/*.log
+Tools/**/*.log
 Tools/bake-shaders.log
 Tools/.reports/
 Tools/wsm3d-playcua/__pycache__/
