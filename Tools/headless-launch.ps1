@@ -103,8 +103,8 @@ function Wait-ForBridge {
 }
 
 function Test-SteamRunning {
-    $steam = Get-Process -Name "steam" -ErrorAction SilentlyContinue
-    return ($null -ne $steam -and $steam.Count -gt 0)
+    $steam = @(Get-Process -Name "steam" -ErrorAction SilentlyContinue)
+    return $steam.Count -gt 0
 }
 
 # ── Launch strategies ────────────────────────────────────────────────────

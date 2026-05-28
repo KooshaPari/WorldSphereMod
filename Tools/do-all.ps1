@@ -94,32 +94,38 @@ try {
         try { return Invoke-RestMethod -Uri 'http://127.0.0.1:8766/health' -TimeoutSec 4 } catch { return $null }
     }
 
-    if (-not $SkipRelaunch) {
-        Write-Host '=== do-all: relaunch ===' -ForegroundColor Cyan
-        pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') relaunch -NoBuild | Out-Host
-        Write-Host '=== do-all: wait bridge (up to 8m) ===' -ForegroundColor Cyan
-        $health = Wait-BridgeReady -MaxMinutes 8
-        if (-not $health -or -not $health.bridgeAlive) {
-            Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge not up after relaunch (8m)' }
-            throw 'Bridge did not become reachable after relaunch (waited 8m)'
-        }
-        Add-DoAllStage 'bridge-wait' 'passed' @{ isWorld3D = [bool]$health.isWorld3D }
+    $health = $null
+    if (-not $SkipLive) {
+        if (-not $SkipRelaunch) {
+            Write-Host '=== do-all: relaunch ===' -ForegroundColor Cyan
+            pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') relaunch -NoBuild | Out-Host
+            Write-Host '=== do-all: wait bridge (up to 8m) ===' -ForegroundColor Cyan
+            $health = Wait-BridgeReady -MaxMinutes 8
+            if (-not $health -or -not $health.bridgeAlive) {
+                Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge not up after relaunch (8m)' }
+                throw 'Bridge did not become reachable after relaunch (waited 8m)'
+            }
+            Add-DoAllStage 'bridge-wait' 'passed' @{ isWorld3D = [bool]$health.isWorld3D }
 
-        if (-not $health.isWorld3D) {
-            Write-Host '=== do-all: bootstrap save2 (bridge-save-load-smoke) ===' -ForegroundColor Cyan
-            $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend off
-            $health = Get-BridgeHealth
+            if (-not $health.isWorld3D) {
+                Write-Host '=== do-all: bootstrap save2 (bridge-save-load-smoke) ===' -ForegroundColor Cyan
+                $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend off
+                $health = Get-BridgeHealth
+            }
+        } else {
+            $health = Wait-BridgeReady -MaxMinutes 2
+            if (-not $health -or -not $health.bridgeAlive) {
+                Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge down' }
+                throw 'Bridge not reachable (use relaunch or start WorldBox)'
+            }
+            if (-not $health.isWorld3D) {
+                $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend off
+                $health = Get-BridgeHealth
+            }
         }
     } else {
-        $health = Wait-BridgeReady -MaxMinutes 2
-        if (-not $health -or -not $health.bridgeAlive) {
-            Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge down' }
-            throw 'Bridge not reachable (use relaunch or start WorldBox)'
-        }
-        if (-not $health.isWorld3D) {
-            $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend off
-            $health = Get-BridgeHealth
-        }
+        Write-Host '=== do-all: SkipLive — skipping relaunch/bridge/live stages ===' -ForegroundColor Cyan
+        Add-DoAllStage 'bridge-wait' 'skipped' @{ reason = 'SkipLive' }
     }
 
     $offlineVerifyDone = $false
@@ -175,8 +181,11 @@ try {
 
         Write-Host '=== do-all: journey mock ===' -ForegroundColor Cyan
         pwsh (Join-Path $RepoRoot 'Tools/verify-journeys.ps1') | Out-Host
-        if ($LASTEXITCODE -ne 0) { Add-DoAllStage 'journey-mock' 'failed' @{ exitCode = $LASTEXITCODE } }
-        else { Add-DoAllStage 'journey-mock' 'passed' @{} }
+        if ($LASTEXITCODE -ne 0) {
+            Add-DoAllStage 'journey-mock' 'failed' @{ exitCode = $LASTEXITCODE }
+            throw "journey mock failed (exit $LASTEXITCODE)"
+        }
+        Add-DoAllStage 'journey-mock' 'passed' @{}
 
         Write-Host '=== do-all: playcua run-all (retries=$PlaycuaRetries) ===' -ForegroundColor Cyan
         $attempt = 0
@@ -249,7 +258,14 @@ try {
         else { Add-DoAllStage 'live-verify-offline' 'passed' @{} }
     }
 
-    & (Join-Path $RepoRoot 'Tools/wsm3d-audit-tick.ps1') -Quiet | Out-Null
+    $auditArgs = @{ Quiet = $true }
+    if ($SkipLive) { $auditArgs['SkipLive'] = $true }
+    & (Join-Path $RepoRoot 'Tools/wsm3d-audit-tick.ps1') @auditArgs | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Add-DoAllStage 'audit-tick' 'failed' @{ exitCode = $LASTEXITCODE }
+    } else {
+        Add-DoAllStage 'audit-tick' 'passed' @{}
+    }
 
     $report.durationMs = [math]::Round(((Get-Date) - $started).TotalMilliseconds, 0)
     $report.finishedAt = (Get-Date).ToUniversalTime().ToString('o')
@@ -263,6 +279,15 @@ try {
         Write-Host $report.summaryLine -ForegroundColor Green
     }
     if (-not $report.overallOk) { exit 1 }
+} catch {
+    $report.durationMs = [math]::Round(((Get-Date) - $started).TotalMilliseconds, 0)
+    $report.finishedAt = (Get-Date).ToUniversalTime().ToString('o')
+    $report.summaryLine = Get-DoAllSummaryLine -Report $report
+    $report.error = $_.Exception.Message
+    $report | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $ReportPath -Encoding utf8
+    Write-Host "do-all failed: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "do-all report: $ReportPath" -ForegroundColor Gray
+    exit 1
 } finally {
     Pop-Location
 }

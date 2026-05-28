@@ -91,16 +91,45 @@ public static class BakeShaders
         {
             string platformDir = Path.Combine(outBase, folder);
             Directory.CreateDirectory(platformDir);
+
+            // Unity silently refuses to build an AssetBundle for a target whose
+            // BuildTargetGroup is not the currently-active one — the call returns
+            // null and no manifest is written. Switch the active target *first*
+            // so each platform actually produces output instead of being skipped.
+            // Without this, only the initially-active target (typically win)
+            // gets baked and linux/osx folders stay empty.
+            var targetGroup = BuildPipeline.GetBuildTargetGroup(target);
+            if (EditorUserBuildSettings.activeBuildTarget != target)
+            {
+                bool switched = EditorUserBuildSettings.SwitchActiveBuildTarget(targetGroup, target);
+                if (!switched)
+                {
+                    Debug.LogError($"[WSM3D-Bake] Could not switch active build target to {target}; skipping {folder}.");
+                    continue;
+                }
+                Debug.Log($"[WSM3D-Bake] switched active build target -> {target}");
+            }
+
             // Uncompressed + chunk-based + strict-mode tries to maximize bundle
             // compatibility across Unity versions. Bake target is Unity 6.3 but
             // WorldBox runs Unity 2022 — Unity normally refuses cross-version bundle
             // load. Uncompressed + ChunkBasedCompression sometimes works as a stop-gap.
-            BuildPipeline.BuildAssetBundles(
+            var manifest = BuildPipeline.BuildAssetBundles(
                 platformDir,
                 BuildAssetBundleOptions.UncompressedAssetBundle |
-                BuildAssetBundleOptions.ForceRebuildAssetBundle,
+                BuildAssetBundleOptions.ForceRebuildAssetBundle |
+                BuildAssetBundleOptions.StrictMode,
                 target);
-            Debug.Log($"[WSM3D-Bake] built wsm3d-shaders bundle for {target} -> {platformDir}");
+            if (manifest == null)
+            {
+                Debug.LogError($"[WSM3D-Bake] BuildAssetBundles returned null for {target} -> {platformDir}");
+                EditorApplication.Exit(1);
+                return;
+            }
+            else
+            {
+                Debug.Log($"[WSM3D-Bake] built wsm3d-shaders bundle for {target} -> {platformDir}");
+            }
         }
         Debug.Log("[WSM3D-Bake] All platforms done (shader-only bundle).");
     }
@@ -133,11 +162,21 @@ public static class BakeShaders
                 Debug.LogError("[WSM3D-Bake] SVC: shader not found at " + rel);
                 continue;
             }
-            // One no-keyword entry for the default forward pass (passType=Normal=0).
-            // This is the minimum needed to tell the stripping pipeline "keep this shader."
-            var variant = new ShaderVariantCollection.ShaderVariant(shader, PassType.Normal);
-            if (!svc.Contains(variant))
-                svc.Add(variant);
+            // Pin no-keyword variants for common BRP pass types so variant stripping
+            // cannot drop shaders used by forward/always/vertex paths.
+            foreach (var passType in new[]
+            {
+                PassType.Normal,
+                PassType.ForwardBase,
+                PassType.ForwardAdd,
+                PassType.Vertex,
+                PassType.VertexLM,
+            })
+            {
+                var variant = new ShaderVariantCollection.ShaderVariant(shader, passType);
+                if (!svc.Contains(variant))
+                    svc.Add(variant);
+            }
             added++;
             Debug.Log("[WSM3D-Bake] SVC +variant: " + shader.name);
         }
