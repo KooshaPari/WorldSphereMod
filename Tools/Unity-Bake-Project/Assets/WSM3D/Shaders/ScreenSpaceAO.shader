@@ -27,6 +27,7 @@ Shader "WSM3D/ScreenSpaceAO"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma target 3.0
             #include "UnityCG.cginc"
 
             sampler2D _MainTex;
@@ -66,7 +67,7 @@ Shader "WSM3D/ScreenSpaceAO"
                 o.uv = v.uv;
                 #if UNITY_UV_STARTS_AT_TOP
                 if (_MainTex_TexelSize.y < 0)
-                    o.uv.y = 1.0 - o.uv.y;
+                    o.uv = 1.0 - o.uv;
                 #endif
                 return o;
             }

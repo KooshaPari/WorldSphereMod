@@ -173,9 +173,16 @@ public static class BakeShaders
                 PassType.VertexLM,
             })
             {
-                var variant = new ShaderVariantCollection.ShaderVariant(shader, passType);
-                if (!svc.Contains(variant))
-                    svc.Add(variant);
+                try
+                {
+                    var variant = new ShaderVariantCollection.ShaderVariant(shader, passType);
+                    if (!svc.Contains(variant))
+                        svc.Add(variant);
+                }
+                catch (System.ArgumentException)
+                {
+                    // shader does not declare this pass type — skip silently.
+                }
             }
             added++;
             Debug.Log("[WSM3D-Bake] SVC +variant: " + shader.name);
