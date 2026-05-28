@@ -520,6 +520,35 @@ namespace WorldSphereMod.Voxel
 
                 if (completion.BuildFailed || completion.Mesh == null || completion.Mesh.vertexCount == 0)
                 {
+                    // Voxel build failed — fall back to a flat-sprite quad so the
+                    // actor at least shows its real sprite art instead of being
+                    // stuck on the dominant-color placeholder cube forever.
+                    Mesh fallbackMesh = BuildFlatSpriteMesh(completion.Sprite);
+                    if (fallbackMesh == null || fallbackMesh.vertexCount == 0)
+                    {
+                        if (fallbackMesh != null) Object.DestroyImmediate(fallbackMesh);
+                        continue;
+                    }
+
+                    lock (_lock)
+                    {
+                        if (_cache.TryGetValue(completion.Key, out Entry existingFb))
+                        {
+                            if (existingFb.Mesh != null && !IsAnyPlaceholderMesh(existingFb.Mesh))
+                            {
+                                _pendingDestroy.Enqueue(existingFb.Mesh);
+                            }
+                        }
+                        _cache[completion.Key] = new Entry { Mesh = fallbackMesh, Snapshot = null, LastFrame = _frame };
+                        if (completion.Sprite != null && !string.IsNullOrEmpty(completion.Sprite.name))
+                        {
+                            _nameToSpriteId[completion.Sprite.name] = completion.Key;
+                        }
+                        if (_cache.Count > Capacity) Evict();
+                    }
+
+                    Debug.LogWarning($"[WSM3D] Voxel build failed for sprite \"{(completion.Sprite != null ? completion.Sprite.name : "<null>")}\" — using flat-sprite fallback mesh.");
+                    drained++;
                     continue;
                 }
 
@@ -711,6 +740,103 @@ namespace WorldSphereMod.Voxel
 
             mesh.vertices = vertices;
             mesh.triangles = triangles;
+            mesh.colors32 = colors;
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        /// <summary>
+        /// Build a flat single-quad mesh, extruded 1 unit deep, sized to the
+        /// sprite's pixel dimensions (in local space matching SpriteVoxelizer
+        /// per-texel output where 1 unit = 1 texel). Used as a last-resort
+        /// fallback when the real voxel build fails so the actor still shows
+        /// its sprite art instead of a placeholder cube forever.
+        ///
+        /// UVs are set so the sprite's textureRect maps onto the front face;
+        /// the mesh also bakes per-vertex colors from the sprite's dominant
+        /// color so callers using vertex-color shaders still see something
+        /// reasonable. The sprite texture is exposed via the mesh name (the
+        /// Bridge/material wires _MainTex at draw time).
+        /// </summary>
+        public static Mesh BuildFlatSpriteMesh(Sprite sprite)
+        {
+            if (sprite == null) return null;
+
+            // Pixel-space size (matches per-texel voxelizer coordinates so this
+            // fallback drops into the same world-scale pipeline cleanly).
+            Rect r = sprite.textureRect;
+            float w = Mathf.Max(1f, r.width);
+            float h = Mathf.Max(1f, r.height);
+            float hx = w * 0.5f;
+            float hy = h * 0.5f;
+            const float depthHalf = 0.5f; // "1-deep" extrusion
+
+            string meshName = !string.IsNullOrEmpty(sprite.name)
+                ? $"WSM3D.Voxel.FlatSprite:{sprite.name}"
+                : "WSM3D.Voxel.FlatSprite";
+            var mesh = new Mesh { name = meshName };
+
+            // Front face (z = +depthHalf), back face (z = -depthHalf), plus
+            // a thin side ring so it isn't paper-thin from edge angles.
+            Vector3[] vertices =
+            {
+                // Front quad (faces +Z)
+                new Vector3(-hx, -hy,  depthHalf),
+                new Vector3( hx, -hy,  depthHalf),
+                new Vector3( hx,  hy,  depthHalf),
+                new Vector3(-hx,  hy,  depthHalf),
+                // Back quad (faces -Z)
+                new Vector3(-hx, -hy, -depthHalf),
+                new Vector3( hx, -hy, -depthHalf),
+                new Vector3( hx,  hy, -depthHalf),
+                new Vector3(-hx,  hy, -depthHalf),
+            };
+
+            int[] triangles =
+            {
+                // Front (CCW from +Z)
+                0, 2, 1, 0, 3, 2,
+                // Back (CCW from -Z)
+                4, 5, 6, 4, 6, 7,
+                // Sides
+                0, 1, 5, 0, 5, 4, // bottom
+                3, 7, 6, 3, 6, 2, // top
+                0, 4, 7, 0, 7, 3, // left
+                1, 2, 6, 1, 6, 5, // right
+            };
+
+            // Sprite UVs map textureRect onto the front face. Reuse the same
+            // UVs for the back so flipped views still show the sprite.
+            Texture tex = sprite.texture;
+            float texW = tex != null ? tex.width : 1f;
+            float texH = tex != null ? tex.height : 1f;
+            float u0 = r.x / texW;
+            float v0 = r.y / texH;
+            float u1 = (r.x + r.width) / texW;
+            float v1 = (r.y + r.height) / texH;
+
+            Vector2[] uvs =
+            {
+                new Vector2(u0, v0),
+                new Vector2(u1, v0),
+                new Vector2(u1, v1),
+                new Vector2(u0, v1),
+                new Vector2(u0, v0),
+                new Vector2(u1, v0),
+                new Vector2(u1, v1),
+                new Vector2(u0, v1),
+            };
+
+            // Vertex colors = dominant sprite color so shaders that multiply
+            // _MainTex by COLOR (or use COLOR only) still render something.
+            Color32 tint = GetDominantSpriteColor(sprite);
+            Color32[] colors = new Color32[vertices.Length];
+            for (int i = 0; i < colors.Length; i++) colors[i] = tint;
+
+            mesh.vertices = vertices;
+            mesh.triangles = triangles;
+            mesh.uv = uvs;
             mesh.colors32 = colors;
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
