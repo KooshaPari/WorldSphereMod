@@ -118,8 +118,7 @@ Shader "WSM3D/GerstnerWater"
                 fixed3 foamMixed = lerp(baseTint, _Foam.rgb, smoothstep(0.82, 0.98, i.foam));
                 float shoreFoam = 1.0 - smoothstep(0.0, max(_ShoreFoamWidth, 0.0001), depthFrac);
                 fixed3 foamColor = lerp(foamMixed, _Foam.rgb, shoreFoam);
-                fixed3 reflected = lerp(foamColor, skyReflection, saturate(fresnel));
-                fixed3 finalRgb = lerp(foamColor, reflected, saturate(fresnel));
+                fixed3 finalRgb = lerp(foamColor, skyReflection, saturate(fresnel));
                 finalRgb = lerp(finalRgb, _Foam.rgb, shoreFoam * 0.65);
 
                 return fixed4(finalRgb, baseAlpha);

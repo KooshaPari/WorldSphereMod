@@ -8,12 +8,6 @@ namespace WorldSphereMod.Water
         public static WaterSurface? Instance;
 
         static readonly int WaveTimeId = Shader.PropertyToID("_WaveTime");
-        static readonly int WaveAmpId = Shader.PropertyToID("_WaveAmp");
-        static readonly int WaveFreqId = Shader.PropertyToID("_WaveFreq");
-        static readonly int WaveSpeedId = Shader.PropertyToID("_WaveSpeed");
-        static readonly Vector4 BaseWaveAmp = new Vector4(0.04f, 0.025f, 0.015f, 0f);
-        static readonly Vector4 BaseWaveFreq = new Vector4(0.45f, 1.1f, 2.0f, 0f);
-        static readonly Vector4 BaseWaveSpeed = new Vector4(1.0f, 1.6f, 2.4f, 0f);
         static readonly int WaveAmplitudeId = Shader.PropertyToID("_WaveAmplitude");
         static readonly int SkyCubemapId = Shader.PropertyToID("_SkyCubemap");
         static readonly int ShoreFoamWidthId = Shader.PropertyToID("_ShoreFoamWidth");
@@ -29,6 +23,7 @@ namespace WorldSphereMod.Water
         static bool _materialAttempted;
         static bool _emissionDiagnosticsLogged;
         static Cubemap? _proceduralSkyCubemap;
+        static Texture2D? _proceduralNormalMap;
 
         MeshFilter? _filter;
         internal MeshRenderer? _renderer;
@@ -105,6 +100,8 @@ namespace WorldSphereMod.Water
             if (go != null) Object.Destroy(go);
             if (_proceduralSkyCubemap != null) Object.Destroy(_proceduralSkyCubemap);
             _proceduralSkyCubemap = null;
+            if (_proceduralNormalMap != null) Object.Destroy(_proceduralNormalMap);
+            _proceduralNormalMap = null;
             // Destroy the shared template too so a subsequent Create reallocates against the
             // current Unity state — otherwise a world reload that invalidates the shader would
             // resurface a stale Material handle.
@@ -241,18 +238,8 @@ namespace WorldSphereMod.Water
             // Write to the per-renderer instance material so we never mutate the shared template.
             if (_instanceMaterial == null) return;
             _instanceMaterial.SetFloat(WaveTimeId, _waveTime);
-            if (_instanceMaterial.HasProperty(WaveAmpId))
-            {
-                _instanceMaterial.SetVector(WaveAmpId, BaseWaveAmp * ampScale);
-            }
-            if (_instanceMaterial.HasProperty(WaveFreqId))
-            {
-                _instanceMaterial.SetVector(WaveFreqId, BaseWaveFreq * freqScale);
-            }
-            if (_instanceMaterial.HasProperty(WaveSpeedId))
-            {
-                _instanceMaterial.SetVector(WaveSpeedId, BaseWaveSpeed * speedScale);
-            }
+            // freqScale/speedScale reserved for future multi-octave shader extension.
+            _ = freqScale; _ = speedScale;
             if (_instanceMaterial.HasProperty(WaveAmplitudeId))
             {
                 // Visible Gerstner displacement: 0.05 was sub-pixel at strategy-view
@@ -278,7 +265,11 @@ namespace WorldSphereMod.Water
 
             if (_instanceMaterial.HasProperty(NormalMapId))
             {
-                _instanceMaterial.SetTexture(NormalMapId, Texture2D.normalTexture);
+                if (_proceduralNormalMap == null)
+                {
+                    _proceduralNormalMap = BuildProceduralNormalMap();
+                }
+                _instanceMaterial.SetTexture(NormalMapId, _proceduralNormalMap);
             }
         }
 
@@ -332,6 +323,71 @@ namespace WorldSphereMod.Water
 
             cubemap.Apply(false, false);
             return cubemap;
+        }
+
+        static Texture2D BuildProceduralNormalMap()
+        {
+            // 256x256 tiled Perlin-based ripple normal map. Texture2D.normalTexture
+            // (Unity's flat-blue placeholder) contributes zero ripple — see
+            // docs/phase4-evaluation.md issue #2.
+            const int size = 256;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, true, true)
+            {
+                name = "WSM3D.WaterNormalMap",
+                wrapMode = TextureWrapMode.Repeat,
+                filterMode = FilterMode.Bilinear,
+                anisoLevel = 4
+            };
+
+            // Sample a height field with 3 octaves of Mathf.PerlinNoise. Wrap by
+            // sampling at offset coordinates (256 + x) % 256 — Perlin isn't
+            // periodic, but at this scale the seam is below the ripple noise floor.
+            float[] heights = new float[size * size];
+            float[] freqs = { 0.06f, 0.13f, 0.27f };
+            float[] amps = { 1.0f, 0.55f, 0.28f };
+            float ampSum = 0f;
+            for (int i = 0; i < amps.Length; i++) ampSum += amps[i];
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float h = 0f;
+                    for (int o = 0; o < freqs.Length; o++)
+                    {
+                        h += Mathf.PerlinNoise(x * freqs[o] + o * 17.3f, y * freqs[o] + o * 31.7f) * amps[o];
+                    }
+                    heights[y * size + x] = h / ampSum;
+                }
+            }
+
+            Color[] pixels = new Color[size * size];
+            const float strength = 4.0f;
+            for (int y = 0; y < size; y++)
+            {
+                int yp = (y + 1) % size;
+                int ym = (y - 1 + size) % size;
+                for (int x = 0; x < size; x++)
+                {
+                    int xp = (x + 1) % size;
+                    int xm = (x - 1 + size) % size;
+                    float dx = (heights[y * size + xp] - heights[y * size + xm]) * strength;
+                    float dy = (heights[yp * size + x] - heights[ym * size + x]) * strength;
+                    Vector3 n = new Vector3(-dx, -dy, 1f).normalized;
+                    // Pack into Unity's normal map convention (DXT5nm-compatible RGBA32):
+                    // R = 1 (alpha-channel-X path placeholder), G = Y, A = X, B = Z.
+                    // UnpackNormal in CGINC reads X from A and Y from G.
+                    pixels[y * size + x] = new Color(
+                        1f,
+                        n.y * 0.5f + 0.5f,
+                        n.z * 0.5f + 0.5f,
+                        n.x * 0.5f + 0.5f);
+                }
+            }
+
+            tex.SetPixels(pixels);
+            tex.Apply(true, false);
+            return tex;
         }
 
         static bool EnsureMaterial()
