@@ -125,7 +125,7 @@ public sealed class LuminanceDepthInvariantsTests
 
         balloonBody.Should().Contain("ComputeManhattanDistanceToAir",
             "BuildBalloon must still run the existing DT path after the stub");
-        organicBody.Should().Contain("Mathf.PerlinNoise",
+        organicBody.Should().Contain("Tools.PerlinNoiseCached",
             "BuildOrganicBlob must still run the existing noise depth path after the stub");
         perTexelBody.Should().Contain("TryEmitTexelFace",
             "BuildPerTexel must still emit per-texel faces after the stub");
