@@ -40,6 +40,11 @@ namespace WorldSphereMod.Water
         readonly List<int> _trisScratch = new List<int>();
         readonly Dictionary<long, int> _cornerIndexScratch = new Dictionary<long, int>();
         readonly Dictionary<long, (float depthSum, int count)> _cornerDepthScratch = new Dictionary<long, (float, int)>();
+        // Per-corner shore flag. A corner is "shore" if any of the (up to 4)
+        // tiles touching it is non-water. Baked into vertex.color.G so the
+        // GerstnerWater shader can render depth-gradient foam without a
+        // screen-space depth buffer (built-in pipeline can't sample depth here).
+        readonly Dictionary<long, bool> _cornerShoreScratch = new Dictionary<long, bool>();
 
         public static WaterSurface? Create(Transform parent)
         {
@@ -128,14 +133,16 @@ namespace WorldSphereMod.Water
             var triangles = _trisScratch;
             var cornerIndex = _cornerIndexScratch;
             var cornerDepth = _cornerDepthScratch;
+            var cornerShore = _cornerShoreScratch;
             vertices.Clear();
             colors.Clear();
             triangles.Clear();
             cornerIndex.Clear();
             cornerDepth.Clear();
+            cornerShore.Clear();
             float sea = WaterMaskBuffer.SeaLevel;
 
-            int GetCorner(int cx, int cy, float tileDepth)
+            int GetCorner(int cx, int cy, float tileDepth, bool nearShore)
             {
                 int wx = ((cx % width) + width) % width;
                 long key = ((long)wx << 32) | (uint)cy;
@@ -147,12 +154,33 @@ namespace WorldSphereMod.Water
                 {
                     cornerDepth[key] = (tileDepth, 1);
                 }
+                // OR-accumulate the shore flag: any contributing water tile that
+                // touches land makes this corner part of the shore band.
+                if (nearShore)
+                {
+                    cornerShore[key] = true;
+                }
+                else if (!cornerShore.ContainsKey(key))
+                {
+                    cornerShore[key] = false;
+                }
                 if (cornerIndex.TryGetValue(key, out int idx)) return idx;
                 idx = vertices.Count;
                 vertices.Add(Core.Sphere.SpherePos(cx, cy, sea));
                 colors.Add(Color.black);
                 cornerIndex[key] = idx;
                 return idx;
+            }
+
+            bool TileIsLand(int tx, int ty)
+            {
+                if (ty < 0 || ty >= height) return true; // off-map = treat as shore
+                int wx = ((tx % width) + width) % width;
+                int neighborIndex = wx + ty * width;
+                if ((uint)neighborIndex >= (uint)tileCount) return true;
+                WorldTile neighbor = tiles[neighborIndex];
+                if (neighbor == null) return true;
+                return !WaterMaskBuffer.IsWater(neighbor.data.tile_id);
             }
 
             for (int i = 0; i < tileCount; i++)
@@ -165,10 +193,30 @@ namespace WorldSphereMod.Water
                 int x = t.x;
                 int y = t.y;
 
-                int i0 = GetCorner(x, y, depth);
-                int i1 = GetCorner(x + 1, y, depth);
-                int i2 = GetCorner(x + 1, y + 1, depth);
-                int i3 = GetCorner(x, y + 1, depth);
+                // Per-corner shore flag — a corner is shore if ANY of the 4
+                // tiles touching it is land. We compute this from the current
+                // tile's perspective: the (x,y) corner touches tiles at
+                // (x-1,y-1), (x,y-1), (x-1,y), (x,y); we already know (x,y)
+                // is water, so we sample the other three. Similarly for the
+                // other three corners.
+                bool landW  = TileIsLand(x - 1, y);
+                bool landE  = TileIsLand(x + 1, y);
+                bool landN  = TileIsLand(x, y + 1);
+                bool landS  = TileIsLand(x, y - 1);
+                bool landNW = TileIsLand(x - 1, y + 1);
+                bool landNE = TileIsLand(x + 1, y + 1);
+                bool landSW = TileIsLand(x - 1, y - 1);
+                bool landSE = TileIsLand(x + 1, y - 1);
+
+                bool shore00 = landW || landS || landSW; // corner (x,   y)
+                bool shore10 = landE || landS || landSE; // corner (x+1, y)
+                bool shore11 = landE || landN || landNE; // corner (x+1, y+1)
+                bool shore01 = landW || landN || landNW; // corner (x,   y+1)
+
+                int i0 = GetCorner(x,     y,     depth, shore00);
+                int i1 = GetCorner(x + 1, y,     depth, shore10);
+                int i2 = GetCorner(x + 1, y + 1, depth, shore11);
+                int i3 = GetCorner(x,     y + 1, depth, shore01);
 
                 triangles.Add(i0); triangles.Add(i1); triangles.Add(i2);
                 triangles.Add(i0); triangles.Add(i2); triangles.Add(i3);
@@ -183,7 +231,13 @@ namespace WorldSphereMod.Water
                 {
                     float avgDepth = d.depthSum / d.count;
                     float depthFrac = Mathf.Clamp01(avgDepth / safeMax);
-                    colors[idx] = new Color(depthFrac, depthFrac, depthFrac, 1f);
+                    bool isShore = cornerShore.TryGetValue(key, out bool shore) && shore;
+                    // R: depth fraction (drives shallow/deep tint).
+                    // G: shore proximity (1 at shore, 0 in open water) —
+                    //    GerstnerWater shader thresholds this via _ShoreFoamWidth
+                    //    to draw a depth-gradient foam band along coastlines.
+                    float shoreFrac = isShore ? 1f : 0f;
+                    colors[idx] = new Color(depthFrac, shoreFrac, depthFrac, 1f);
                 }
             }
 
@@ -192,15 +246,18 @@ namespace WorldSphereMod.Water
             if (colors.Count > 0)
             {
                 float minR = 1f, maxR = 0f, sumR = 0f;
+                int shoreCount = 0;
                 for (int ci = 0; ci < colors.Count; ci++)
                 {
                     float r = colors[ci].r;
                     if (r < minR) minR = r;
                     if (r > maxR) maxR = r;
                     sumR += r;
+                    if (colors[ci].g > 0.5f) shoreCount++;
                 }
                 Debug.Log($"[WSM3D] Water mesh: {vertices.Count} verts, {triangles.Count / 3} tris, " +
-                    $"maxDepth={maxDepth:F2}, depthFrac R range=[{minR:F3}, {maxR:F3}] avg={sumR / colors.Count:F3}");
+                    $"maxDepth={maxDepth:F2}, depthFrac R range=[{minR:F3}, {maxR:F3}] avg={sumR / colors.Count:F3}, " +
+                    $"shore corners={shoreCount}/{colors.Count} ({(100f * shoreCount / colors.Count):F1}%)");
             }
 
             _mesh.SetVertices(vertices);
