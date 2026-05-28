@@ -120,7 +120,7 @@ try {
 
     $offlineVerifyDone = $false
     if (-not $SkipLive) {
-        if ($Vision -and $env:OMNROUTE_BASE_URL -and $env:OMNROUTE_API_KEY) {
+        if ($Vision -and $VisionBackend -eq 'omniroute' -and $env:OMNROUTE_BASE_URL -and $env:OMNROUTE_API_KEY) {
             Write-Host "=== do-all: omniroute probe ($($env:OMNROUTE_BASE_URL)) ===" -ForegroundColor Cyan
             try {
                 Test-OmniRoutePeerReachable -BaseUrl $env:OMNROUTE_BASE_URL.TrimEnd('/')
@@ -193,15 +193,9 @@ try {
                 Start-Sleep -Seconds 30
                 $null = Wait-World3D -MaxSeconds 120
             }
-            $visionReady = $false
-            if ($Vision) {
-                $visionReady = Test-OmniRouteVisionReady
-                if (-not $visionReady -and $omnirouteProbeOk) {
-                    $omnirouteProbeOk = $false
-                    Write-Host 'omniroute unreachable (laptop offline or chat failed) — PlayCUA vision off for this attempt' -ForegroundColor Yellow
-                }
-            }
-            $vb = if ($Vision -and $visionReady) { $VisionBackend } else { 'off' }
+            $vb = if ($Vision) {
+                if ($VisionBackend -eq 'omniroute' -and -not $omnirouteProbeOk) { 'off' } else { $VisionBackend }
+            } else { 'off' }
             Write-Host "playcua run-all VisionBackend=$vb" -ForegroundColor Gray
             $playcuaExit = 0
             try {
@@ -221,7 +215,7 @@ try {
             }
             pwsh (Join-Path $RepoRoot 'Tools/sync-playcua-screenshots.ps1') | Out-Host
             $liveArgs = @('-Live', '-SkipOffline')
-            if ($Vision -and $omnirouteProbeOk) { $liveArgs += '-Vision' }
+            if ($Vision -and ($VisionBackend -ne 'omniroute' -or $omnirouteProbeOk)) { $liveArgs += '-Vision' }
             pwsh (Join-Path $RepoRoot 'Tools/wsm-live-verify.ps1') @liveArgs 2>&1 | Out-Host
             if ($LASTEXITCODE -ne 0) {
                 Add-DoAllStage 'live-verify-live' 'failed' @{ exitCode = $LASTEXITCODE }
