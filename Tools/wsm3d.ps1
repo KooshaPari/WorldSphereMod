@@ -495,9 +495,9 @@ function Invoke-OmniRouteChatProbe {
 
     if (-not $ApiKey) { throw 'OMNROUTE_API_KEY not set' }
     if (-not $ModelId) {
-        if ($env:OMNROUTE_VISION_MODEL) { $ModelId = $env:OMNROUTE_VISION_MODEL }
-        elseif ($env:OMNROUTE_VISION_COMBO) { $ModelId = $env:OMNROUTE_VISION_COMBO }
-        else { $ModelId = 'gemini/gemini-2.5-flash' }
+        if ($env:OMNROUTE_VISION_COMBO) { $ModelId = $env:OMNROUTE_VISION_COMBO }
+        elseif ($env:OMNROUTE_VISION_MODEL) { $ModelId = $env:OMNROUTE_VISION_MODEL }
+        else { $ModelId = 'wsm3d-vision-frontier' }
     }
     $base = $BaseUrl.TrimEnd('/')
     if ($TimeoutSec -le 0) {

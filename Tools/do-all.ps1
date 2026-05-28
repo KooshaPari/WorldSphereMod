@@ -136,7 +136,9 @@ try {
                 } catch {
                     Write-Host "omniroute /models slow or unavailable (continuing with chat probe): $($_.Exception.Message)" -ForegroundColor DarkYellow
                 }
-                $modelId = if ($env:OMNROUTE_VISION_MODEL) { $env:OMNROUTE_VISION_MODEL } else { 'gemini/gemini-2.5-flash' }
+                $modelId = if ($env:OMNROUTE_VISION_COMBO) { $env:OMNROUTE_VISION_COMBO }
+                elseif ($env:OMNROUTE_VISION_MODEL) { $env:OMNROUTE_VISION_MODEL }
+                else { 'wsm3d-vision-frontier' }
                 $txt = $null
                 if ($null -ne $modelCount -and $modelCount -gt 0) {
                     try {

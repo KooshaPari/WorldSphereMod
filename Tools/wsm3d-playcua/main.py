@@ -778,7 +778,8 @@ def _fireworks_model_from_env() -> str:
 
 
 def _omniroute_model_from_env() -> str:
-    return (os.getenv("OMNROUTE_VISION_MODEL") or os.getenv("OMNROUTE_VISION_COMBO") or "").strip()
+    # Prefer combo name — forwards multimodal payloads; bare model ids may drop images.
+    return (os.getenv("OMNROUTE_VISION_COMBO") or os.getenv("OMNROUTE_VISION_MODEL") or "").strip()
 
 
 def _create_vision_validator(args: argparse.Namespace) -> VisionValidatorProtocol | None:

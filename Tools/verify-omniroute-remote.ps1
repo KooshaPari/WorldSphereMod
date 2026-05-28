@@ -59,9 +59,9 @@ if ($ChatTimeoutSec -le 0) {
     $ChatTimeoutSec = if ($base -match '^https://') { 120 } else { 25 }
 }
 $headers = @{ Authorization = "Bearer $env:OMNROUTE_API_KEY" }
-$modelId = if ($env:OMNROUTE_VISION_MODEL) { $env:OMNROUTE_VISION_MODEL }
-elseif ($env:OMNROUTE_VISION_COMBO) { $env:OMNROUTE_VISION_COMBO }
-else { 'gemini/gemini-2.5-flash' }
+$modelId = if ($env:OMNROUTE_VISION_COMBO) { $env:OMNROUTE_VISION_COMBO }
+elseif ($env:OMNROUTE_VISION_MODEL) { $env:OMNROUTE_VISION_MODEL }
+else { 'wsm3d-vision-frontier' }
 
 Write-Host "OmniRoute probe: $base (model=$modelId)" -ForegroundColor Cyan
 
