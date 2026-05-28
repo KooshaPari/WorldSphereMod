@@ -85,6 +85,11 @@ try {
     $chat = Invoke-RestMethod -Uri "$base/chat/completions" -Method Post -Headers ($headers + @{
             'Content-Type' = 'application/json'
         }) -Body $body -TimeoutSec $ChatTimeoutSec
+    if (-not $chat.choices -or $chat.choices.Count -lt 1) {
+        $snippet = ($chat | ConvertTo-Json -Compress -Depth 4)
+        if ($snippet.Length -gt 240) { $snippet = $snippet.Substring(0, 240) + '…' }
+        throw "empty choices in response: $snippet"
+    }
     $txt = $chat.choices[0].message.content
     Write-Host "OK /chat/completions: $txt" -ForegroundColor Green
 } catch {

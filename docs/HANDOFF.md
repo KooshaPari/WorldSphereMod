@@ -313,7 +313,7 @@ Get-Content Tools/.reports/audit-tick-latest.json | ConvertFrom-Json
 
 ### OmniRoute (kooshas-laptop)
 
-`do-all.ps1 -Vision` uses OmniRoute from `Tools/omniroute-vision.env`. **Desk URL (direct tailnet):** `http://100.112.14.98:20128/v1` — OmniRoute’s pre-funnel address on **kooshas-laptop**. **Funnel** `https://omniroute-a6e82363.tail2b570.ts.net/v1` is optional when enabled; if funnel chat returns 502, stay on the tailnet IP. **Laptop setup:** [`Tools/setup-omniroute-laptop.md`](../Tools/setup-omniroute-laptop.md). **Desk check:** `pwsh Tools/verify-omniroute-remote.ps1`.
+`do-all.ps1 -Vision` uses OmniRoute from `Tools/omniroute-vision.env`. **Desk funnel:** `https://omniroute-a6e82363-1.tail2b570.ts.net/v1`. **Fallback tailnet (pre-funnel):** `http://100.112.14.98:20128/v1` on **kooshas-laptop**. After a DB wipe, refresh `OMNROUTE_API_KEY` in the local env file. **Laptop setup:** [`Tools/setup-omniroute-laptop.md`](../Tools/setup-omniroute-laptop.md). **Desk check:** `pwsh Tools/verify-omniroute-remote.ps1`.
 
 **Cursor on the laptop** can use `localhost:20128`; the **desk** must reach **`/chat/completions`**, not only `/models` (2214 models over Tailscale does *not* imply vision works). If desk gets **502** or timeout on chat while CC works locally, expose the API on the tailnet, e.g. on the laptop:
 
@@ -437,7 +437,7 @@ git worktree remove "$env:USERPROFILE\.cursor\worktrees\WorldSphereMod\wt-<topic
 
 **Merge order:** (1) merge each `wt/<topic>` → `claude/research-ultraplan-fork-DdgI5` and resolve conflicts; (2) checkout integration branch in main repo; (3) `pwsh Tools/do-all.ps1 -Vision`.
 
-**OmniRoute:** `-Vision` requires **kooshas-laptop** online on Tailscale (`http://100.112.14.98:20128/v1`). When the probe fails, PlayCUA runs with vision off and `Tools/.reports/do-all-latest.json` records `visionDegraded: true` (see [OmniRoute (kooshas-laptop)](#omniroute-kooshas-laptop)).
+**OmniRoute:** `-Vision` uses funnel `https://omniroute-a6e82363-1.tail2b570.ts.net/v1` or tailnet `http://100.112.14.98:20128/v1`. When the probe fails, PlayCUA runs with vision off (`visionDegraded: true`; see [OmniRoute (kooshas-laptop)](#omniroute-kooshas-laptop)).
 
 ## Branch / PR hygiene
 

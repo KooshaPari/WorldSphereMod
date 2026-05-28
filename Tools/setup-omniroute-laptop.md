@@ -7,10 +7,10 @@ Tailscale machine: **kooshas-laptop** (tailnet IP **`100.112.14.98`**). OmniRout
 Desk env (`Tools/omniroute-vision.env`):
 
 ```env
-OMNROUTE_BASE_URL=http://100.112.14.98:20128/v1
+OMNROUTE_BASE_URL=https://omniroute-a6e82363-1.tail2b570.ts.net/v1
 ```
 
-Optional funnel (when working): `https://omniroute-a6e82363.tail2b570.ts.net/v1` — do not use if `/chat/completions` returns 502.
+Fallback tailnet (pre-funnel): `http://100.112.14.98:20128/v1`. Legacy funnel host `omniroute-a6e82363` (no `-1`) may 502 — use **`-1`** hostname after funnel re-enable.
 
 After a **DB wipe**, regenerate **`OMNROUTE_API_KEY`** in OmniRoute and update the local env file. Verify from the desk: `pwsh Tools/verify-omniroute-remote.ps1` (both `/models` and `/chat/completions` must OK).
 
