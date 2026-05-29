@@ -6,12 +6,26 @@ using UnityEngine;
 namespace WorldSphereMod.Terrain
 {
     /// <summary>
-    /// Smooth interpolated terrain mesh overlay for height transitions.
-    /// Instead of flat billboard quads between height levels, this generates
-    /// a continuous height-interpolated mesh where each tile vertex height is
-    /// bilinearly blended from surrounding tile centers — like OptiFine smooth
-    /// terrain. The underlying tile data stays blocky; only the visual overlay
-    /// is smooth.
+    /// Smooth interpolated terrain mesh overlay for height transitions (FR-5.2).
+    /// This is a real surface mesh hugging the terrain — NOT a camera-facing
+    /// billboard and NOT hard stepped blocks. Every sub-vertex height is
+    /// bilinearly blended from the four interpolated tile corners, so cliffs and
+    /// ridges read as continuous slopes (like OptiFine smooth terrain). The
+    /// underlying tile data stays blocky; only the visual overlay is smooth.
+    ///
+    /// Acceptance contract — do not regress without re-reading FR-5.2:
+    ///   * SubDiv >= 3 so a slope reads as a gradient, not a stair-step.
+    ///   * Per-vertex normals are analytic (cross product of neighbor height
+    ///     deltas, see ComputeAnalyticNormals) so lighting shows the slope
+    ///     shape rather than a flat-shaded facet.
+    ///   * renderQueue = Geometry+1 so the overlay wins the depth tie against
+    ///     the base CompoundSphere terrain (no z-fighting).
+    ///   * Corner vertex colors are blended from the 4 adjacent biome colors
+    ///     with a per-channel brightness floor (CornerColor) so dark rock/
+    ///     volcanic biomes tint correctly instead of going black/neon.
+    ///   * The instanced OpaqueVertexColor material needs an explicit
+    ///     MaterialPropertyBlock (_Color/_EmissionColor); without it the
+    ///     per-instance constant buffer is zero -> the mesh renders pure black.
     /// </summary>
     public sealed class MountainSlopeSurface : MonoBehaviour
     {
