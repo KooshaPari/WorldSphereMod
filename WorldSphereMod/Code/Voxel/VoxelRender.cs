@@ -326,7 +326,8 @@ namespace WorldSphereMod.Voxel
 
                 // Cubemap probe hookup is best-effort: set only when the active
                 // scene skybox provides a true Cubemap texture directly.
-                if (RenderSettings.skybox != null && RenderSettings.skybox.mainTexture is Cubemap skyCubemap)
+                Material skybox = RenderSettings.skybox;
+                if (skybox != null && skybox.HasProperty("_MainTex") && skybox.mainTexture is Cubemap skyCubemap)
                 {
                     material.SetTexture(_cubemapId, skyCubemap);
                     Debug.Log("[WSM3D] Voxel material configured with skybox cubemap reflection probe.");
