@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Collections.Generic;
 using HarmonyLib;
 using UnityEngine;
 using WorldSphereMod.Foliage;
@@ -12,6 +13,28 @@ namespace WorldSphereMod.ProcGen
         static bool _firstBuildingPosLogged;
         // Per-frame budget cycling offset (same pattern as BuildingVoxelEmit).
         static int _budgetOffset;
+        static readonly Dictionary<int, BuildingRenderState> _lastRenderStateByBuildingId = new Dictionary<int, BuildingRenderState>(1024);
+
+        readonly struct BuildingRenderState
+        {
+            public readonly string AssetId;
+            public readonly int TileX;
+            public readonly int TileY;
+            public readonly float Height;
+
+            public BuildingRenderState(string assetId, int tileX, int tileY, float height)
+            {
+                AssetId = assetId;
+                TileX = tileX;
+                TileY = tileY;
+                Height = height;
+            }
+
+            public bool Matches(string assetId, int tileX, int tileY, float height)
+            {
+                return AssetId == assetId && TileX == tileX && TileY == tileY && Height == height;
+            }
+        }
 
         [Phase(nameof(SavedSettings.ProceduralBuildings))]
         [HarmonyPatch(typeof(BuildingManager), nameof(BuildingManager.precalculateRenderDataParallel))]
@@ -32,6 +55,7 @@ namespace WorldSphereMod.ProcGen
                 Stopwatch regularSw = new Stopwatch();
                 int impostorCount = 0;
                 int regularCount = 0;
+                Dictionary<int, Mesh> frameSpriteMeshCache = new Dictionary<int, Mesh>(128);
 
                 if (profile) totalSw.Start();
 
@@ -55,6 +79,18 @@ namespace WorldSphereMod.ProcGen
                     if (Constants.PerpBuildings.ContainsKey(b.asset.id)) continue;
 
                     Vector3 cullPos = rd.positions[i];
+                    Vector3 rawPos = rd.positions[i];
+                    int tileX = Mathf.RoundToInt(rawPos.x);
+                    int tileY = Mathf.RoundToInt(rawPos.y);
+                    float height = rawPos.z;
+                    int buildingId = b.GetHashCode();
+                    string assetId = b.asset.id;
+                    if (_lastRenderStateByBuildingId.TryGetValue(buildingId, out BuildingRenderState lastState) &&
+                        lastState.Matches(assetId, tileX, tileY, height))
+                    {
+                        continue;
+                    }
+
                     if (cullPos.z < Constants.ZDisplacement * 0.5f)
                     {
                         cullPos = cullPos.To3DTileHeight(false);
@@ -108,7 +144,7 @@ namespace WorldSphereMod.ProcGen
                             BuildingRules rules = BuildingRulesRegistry.Resolve(b.asset.id);
 
                             Vector3 pos = rd.positions[i];
-                            Vector3 rawPos = pos;
+                            rawPos = pos;
                             if (pos.z < Constants.ZDisplacement * 0.5f)
                             {
                                 pos = pos.To3DTileHeight(false);
@@ -145,25 +181,30 @@ namespace WorldSphereMod.ProcGen
                             {
                                 if (Core.savedSettings.BuildingStyleProcgen)
                                 {
-                                    LogFirstBuildingPos(rawPos, pos, scl);
-                                    Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
-                                    Mesh? m = ProcGenCache.GetOrGenerate(b.asset, rules);
-                                    if (m == null) continue;
-                                    if (VoxelRender.Submit(m, trs, Color.white))
+                                LogFirstBuildingPos(rawPos, pos, scl);
+                                Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
+                                Mesh? m = ProcGenCache.GetOrGenerate(b.asset, rules);
+                                if (m == null) continue;
+                                if (VoxelRender.Submit(m, trs, Color.white))
                                     {
                                         submitted = true;
                                     }
                                 }
                                 else
                                 {
-                                    LogFirstBuildingPos(rawPos, pos, scl);
-                                    Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
-                                    Mesh m = VoxelMeshCache.Get(sp);
-                                    if (m == null || m.vertexCount == 0) continue;
-                                    if (VoxelRender.Submit(m, trs, Color.white))
-                                    {
-                                        submitted = true;
-                                    }
+                                LogFirstBuildingPos(rawPos, pos, scl);
+                                Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
+                                int spriteId = sp.GetInstanceID();
+                                if (!frameSpriteMeshCache.TryGetValue(spriteId, out Mesh m))
+                                {
+                                    m = VoxelMeshCache.Get(sp);
+                                    frameSpriteMeshCache[spriteId] = m;
+                                }
+                                if (m == null || m.vertexCount == 0) continue;
+                                if (VoxelRender.Submit(m, trs, Color.white))
+                                {
+                                    submitted = true;
+                                }
                                 }
                             }
                         }
@@ -180,6 +221,7 @@ namespace WorldSphereMod.ProcGen
                     if (submitted)
                     {
                         rd.scales[i] = Vector3.zero;
+                        _lastRenderStateByBuildingId[buildingId] = new BuildingRenderState(assetId, tileX, tileY, height);
                     }
                 }
 
