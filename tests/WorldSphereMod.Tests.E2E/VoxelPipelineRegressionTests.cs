@@ -269,17 +269,26 @@ public class VoxelPipelineRegressionTests
         for (int i = 0; i < entries.Count; i++)
             shaderNames[i] = entries[i].Groups["name"].Value;
 
-        // ADR-0013: ONLY OpaqueVertexColor loads safely from the wsm3d-shaders
-        // bundle. GerstnerWater/ColorGradingLUT/etc have corrupt ManagedStream
-        // blobs that crash Unity NATIVELY on GetObject (try/catch cannot
-        // intercept — Unity calls abort()). DO NOT expand this list.
+        // ADR-0013 was resolved by the 2022.3.62f3 serialization fix: the full
+        // verified bundle set now loads with non-empty names. Keep this list in
+        // sync with Core.Sphere.SafeShaders.
         var expected = new[]
         {
             "OpaqueVertexColor",
+            "GerstnerWater",
+            "ProceduralSky",
+            "ScreenSpaceAO",
+            "ScreenSpaceGI",
+            "BrpBloom",
+            "BrpACES",
+            "ColorGradingLUT",
+            "FoliageWind",
+            "Impostor",
+            "StratumVoxelPBR",
         };
         shaderNames.Should().BeEquivalentTo(expected,
-            "SafeShaders must contain EXACTLY the single safe runtime shader " +
-            "(OpaqueVertexColor) — ADR-0013; any other entry crashes Unity natively");
+            "SafeShaders must contain the full verified runtime shader set " +
+            "from the 2022.3.62f3 bundle");
 
         // The ADR-0013 reference must be present as a guard against uninformed edits
         source.Should().Contain("ADR-0013",

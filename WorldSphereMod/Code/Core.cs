@@ -1423,17 +1423,25 @@ namespace WorldSphereMod
 
             // ================================================================
             // DO NOT ADD MORE — ADR-0013.
-            // GerstnerWater/ColorGradingLUT/etc have corrupt ManagedStream that
-            // crashes Unity NATIVELY on GetObject (try/catch cannot intercept).
-            // Only OpaqueVertexColor loads safely. Other consumers (water, LUT,
-            // postfx) must fall back to Shader.Find/Standard.
+            // Unity 2022.3.62f3 fixed the bundle serialization bug that used to
+            // produce empty-name shaders; ref docs/shader-serialization-fix.md.
             // ================================================================
             // Load only shaders that survive bundle deserialization with a
-            // valid Shader.name. Corrupted assets return an empty name and are
-            // rejected below so consumers can fall back cleanly.
+            // valid Shader.name. 62f3 made the full verified set safe; empty
+            // names are still rejected below so consumers can fall back cleanly.
             public static readonly string[] SafeShaders = new[]
             {
                 "OpaqueVertexColor",
+                "GerstnerWater",
+                "ProceduralSky",
+                "ScreenSpaceAO",
+                "ScreenSpaceGI",
+                "BrpBloom",
+                "BrpACES",
+                "ColorGradingLUT",
+                "FoliageWind",
+                "Impostor",
+                "StratumVoxelPBR",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look
