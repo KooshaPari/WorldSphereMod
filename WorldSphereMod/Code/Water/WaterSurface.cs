@@ -19,6 +19,16 @@ namespace WorldSphereMod.Water
         const float BobAmplitude = 0f;
         const float BobSpeed = 0.8f;
 
+        // Canonical shallow/deep water colors (RGBA). The A channel is the
+        // depth-driven opacity: shallow water is more see-through, deep water
+        // nearly opaque. RebuildMesh lerps these per-vertex by depth fraction
+        // and bakes the result into vertex.color so any vertex-color-aware
+        // shader renders a true shallow→deep gradient. The Standard-transparent
+        // fallback (which ignores vertex color) uses these same endpoints to
+        // pick a depth-representative base tint and an averaged alpha.
+        static readonly Color ShallowWater = new Color(0.30f, 0.60f, 0.75f, 0.55f);
+        static readonly Color DeepWater = new Color(0.04f, 0.12f, 0.22f, 0.85f);
+
         static Material? _material;
         static bool _materialAttempted;
         static bool _emissionDiagnosticsLogged;
@@ -64,11 +74,11 @@ namespace WorldSphereMod.Water
             // UNITY_DEFINE_INSTANCED_PROP), enableInstancing=true + a future
             // shader change to per-instance buffers would silently zero these and
             // render water black. Pushing through MPB stays correct in both modes.
-            // High-contrast shallow/deep so depth gradient is unmistakable in-game.
-            // Previous values (0.22/0.65/0.70 vs 0.08/0.22/0.45) blended into a flat
-            // mid-blue at strategy-view altitude; user reported water as "flat blue".
-            Color waterShallowColor = new Color(0.40f, 0.70f, 0.85f, 0.55f);
-            Color waterDeepColor = new Color(0.01f, 0.05f, 0.14f, 0.96f);
+            // Shallow/deep endpoints drive the depth gradient. Shared with the
+            // per-vertex bake in RebuildMesh and the Standard fallback tint so
+            // every render path agrees on the same shoreline-to-deepwater ramp.
+            Color waterShallowColor = ShallowWater;
+            Color waterDeepColor = DeepWater;
             Color waterFoamColor = new Color(0.92f, 0.95f, 1.00f, 1f);
             var mpb = new MaterialPropertyBlock();
             mpb.SetColor("_Color", waterShallowColor);
@@ -188,7 +198,14 @@ namespace WorldSphereMod.Water
                 {
                     float avgDepth = d.depthSum / d.count;
                     float depthFrac = Mathf.Clamp01(avgDepth / safeMax);
-                    colors[idx] = new Color(depthFrac, depthFrac, depthFrac, 1f);
+                    // Bake the actual shallow→deep gradient (color AND alpha) into
+                    // the vertex color rather than a grayscale depth fraction. A
+                    // vertex-color-aware shader can use this directly; the Standard
+                    // fallback ignores it but the data stays correct. Slight gamma
+                    // on depthFrac biases the gradient toward shallow so coastlines
+                    // read as bright blue and only true deep water goes dark.
+                    float t = Mathf.Pow(depthFrac, 0.7f);
+                    colors[idx] = Color.Lerp(ShallowWater, DeepWater, t);
                 }
             }
 
@@ -205,8 +222,13 @@ namespace WorldSphereMod.Water
                     sumR += r;
                 }
                 Debug.Log($"[WSM3D] Water mesh: {vertices.Count} verts, {triangles.Count / 3} tris, " +
-                    $"maxDepth={maxDepth:F2}, depthFrac R range=[{minR:F3}, {maxR:F3}] avg={sumR / colors.Count:F3}");
+                    $"maxDepth={maxDepth:F2}, vertex R range=[{minR:F3}, {maxR:F3}] avg={sumR / colors.Count:F3}");
             }
+
+            // Sanity: confirm the mesh plane sits at SeaLevel (sunk below shore by
+            // WaterMaskBuffer's -0.5 offset), not above the coastline. Vertices are
+            // placed via SpherePos(..., sea) so this should always match.
+            Debug.Log($"[WSM3D] Water mesh seated at SeaLevel={sea:F3} (TrueHeight(17)-0.5; below shore).");
 
             _mesh.SetVertices(vertices);
             _mesh.SetColors(colors);
@@ -435,7 +457,10 @@ namespace WorldSphereMod.Water
             if (_materialAttempted) return false;
             _materialAttempted = true;
 
-            Color waterTint = new Color(0.22f, 0.65f, 0.70f, 0.75f);
+            // Base tint for the flat Standard fallback (which can't sample
+            // per-vertex depth): a depth-representative midpoint of the
+            // shallow→deep gradient so a single surface still reads as water.
+            Color waterTint = Color.Lerp(ShallowWater, DeepWater, 0.5f);
             int surfaceTypeId = Shader.PropertyToID("_Surface");
             int alphaClipId = Shader.PropertyToID("_AlphaClip");
             int baseColorId = Shader.PropertyToID("_BaseColor");
@@ -550,9 +575,8 @@ namespace WorldSphereMod.Water
             int deepColorId = Shader.PropertyToID("_DeepColor");
             if (material.HasProperty(deepColorId))
             {
-                // Near-black deep blue; combined with shallow (0.40,0.70,0.85) this
-                // produces a visible shoreline-to-deepwater gradient on the sphere.
-                material.SetColor(deepColorId, new Color(0.05f, 0.15f, 0.25f, 0.92f));
+                // Deep-water endpoint of the gradient (matches DeepWater const).
+                material.SetColor(deepColorId, DeepWater);
             }
 
             if (isUrpLit)
@@ -617,21 +641,46 @@ namespace WorldSphereMod.Water
 
         static void SetStandardTransparentMode(Material material)
         {
-            // MeshWater creates blackworld when the Standard fallback uses Transparent queue:
-            // alpha-blended surfaces with waterTint alpha 0.55 and no real scene lighting
-            // blend toward black. Use opaque mode so the emission self-illumination dominates.
-            // _Mode=0 is Standard shader's Opaque mode — _Mode=3 (Transparent) was wrong here
-            // because it changes which shader passes are active, even when blend/queue are
-            // overridden to opaque values; the result is invisible geometry.
-            material.SetFloat("_Mode", 0f);
-            material.SetOverrideTag("RenderType", "Opaque");
-            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
-            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
-            material.SetInt("_ZWrite", 1);
+            // True alpha-blended transparent water on Unity's built-in Standard
+            // shader. Earlier this path forced opaque mode after a "blackworld"
+            // report, but that flattened the surface and killed the depth look.
+            // The black was caused by a near-zero base alpha combined with no
+            // scene lighting — fixed here by (a) a depth-representative base
+            // tint, (b) a healthy depth-driven alpha floor, and (c) emission so
+            // the surface stays readable even in WorldBox's nearly-unlit scene.
+            //
+            // Standard transparent mode requires _Mode=3 AND the matching
+            // keywords/queue, or the alpha pass never activates.
+            material.SetFloat("_Mode", 3f);
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            material.SetInt("_ZWrite", 0);
             material.DisableKeyword("_ALPHATEST_ON");
-            material.DisableKeyword("_ALPHABLEND_ON");
+            material.EnableKeyword("_ALPHABLEND_ON");
             material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            material.renderQueue = 2000;
+            material.renderQueue = 3000;
+
+            // Subtle specular: water is a smooth dielectric. Low metallic keeps
+            // the body color; high smoothness gives a tight, glossy sun/sky
+            // highlight without making the whole surface mirror-like.
+            int metallicId = Shader.PropertyToID("_Metallic");
+            int smoothnessId = Shader.PropertyToID("_Glossiness"); // Standard's smoothness slider
+            if (material.HasProperty(metallicId)) material.SetFloat(metallicId, 0.05f);
+            if (material.HasProperty(smoothnessId)) material.SetFloat(smoothnessId, 0.85f);
+            int glossMapScaleId = Shader.PropertyToID("_GlossMapScale");
+            if (material.HasProperty(glossMapScaleId)) material.SetFloat(glossMapScaleId, 0.85f);
+            material.EnableKeyword("_SPECULARHIGHLIGHTS_ON");
+
+            // Depth-driven base alpha: the gradient endpoints carry alpha
+            // (shallow 0.55 → deep 0.85). The flat Standard surface can't vary
+            // alpha per-vertex, so use the midpoint so shorelines stay see-
+            // through while open water reads as a solid body.
+            Color baseColor = material.HasProperty("_Color") ? material.color : ShallowWater;
+            float midAlpha = Mathf.Lerp(ShallowWater.a, DeepWater.a, 0.5f);
+            baseColor.a = midAlpha;
+            if (material.HasProperty("_Color")) material.SetColor("_Color", baseColor);
+            else material.color = baseColor;
         }
     }
 }
