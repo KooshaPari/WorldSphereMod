@@ -182,8 +182,24 @@ namespace WorldSphereMod.Voxel
 
             // Build the alpha mask. We treat any pixel with alpha > 16 as solid;
             // matches the threshold used elsewhere for WorldBox pixel art.
+            //
+            // VOLUME (not flat slab): instead of filling the full depth for every
+            // opaque texel, modulate per-column extrusion by a blend of pixel
+            // luminance (brighter/highlight pixels bulge out, dark/shadow pixels
+            // recede) and deterministic Perlin noise (breaks up the otherwise
+            // uniform front/back planes). Columns are centered on the mid-plane so
+            // both the front (+Z) and back (-Z) silhouettes round off, giving actors
+            // real 3D mass under the Phase 5 directional light instead of reading as
+            // a flat extruded card from any oblique angle. The greedy mesher then
+            // merges the resulting stepped surface into a compact rounded hull.
             bool[,,] solid = new bool[w, h, depth];
             Color32[,,] color = new Color32[w, h, depth];
+            float bppu = Mathf.Max(1f, sprite.pixelsPerUnit);
+            // Per-column depth envelope. Keep a solid floor so thin features never
+            // vanish, but let the body swell to full depth on bright interior pixels.
+            const float kMinDepthScale = 0.30f;
+            const float kMaxDepthScale = 1.00f;
+            float neutralLum = Core.savedSettings != null ? Mathf.Clamp01(Core.savedSettings.VoxelNeutralLuminance) : 0.5f;
             for (int y = 0; y < h; y++)
             {
                 int row = (y0 + y) * texW + x0;
@@ -192,13 +208,29 @@ namespace WorldSphereMod.Voxel
                     Color32 c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
                         ? ColorTonemap.Tonemap(tex[row + x])
                         : tex[row + x];
-                    if (c.a > 16)
+                    if (c.a <= 16)
                     {
-                        for (int z = 0; z < depth; z++)
-                        {
-                            solid[x, y, z] = true;
-                            color[x, y, z] = c;
-                        }
+                        continue;
+                    }
+
+                    // Rec.601 luminance; recenter around the configured neutral so a
+                    // flat-shaded sprite extrudes to roughly mid-depth rather than
+                    // collapsing or maxing out.
+                    float lum = (c.r * 0.299f + c.g * 0.587f + c.b * 0.114f) / 255f;
+                    float lumTerm = Mathf.Clamp01(0.5f + (lum - neutralLum));
+                    float worldX = (x - sprite.pivot.x) / bppu;
+                    float worldZ = (y - sprite.pivot.y) / bppu;
+                    float noise = Tools.PerlinNoiseCached(worldX * 0.22f + 0.13f, worldZ * 0.22f + 0.73f);
+                    float combined = lumTerm * 0.6f + noise * 0.4f;
+                    float depthScale = Mathf.Lerp(kMinDepthScale, kMaxDepthScale, combined);
+
+                    int columnDepth = Mathf.Clamp(Mathf.RoundToInt(depth * depthScale), 1, depth);
+                    int zStart = Mathf.Clamp((depth - columnDepth) / 2, 0, depth - columnDepth);
+                    int zEnd = zStart + columnDepth;
+                    for (int z = zStart; z < zEnd; z++)
+                    {
+                        solid[x, y, z] = true;
+                        color[x, y, z] = c;
                     }
                 }
             }
@@ -348,21 +380,29 @@ namespace WorldSphereMod.Voxel
             bool[,,] solid = new bool[w, h, depth];
             Color32[,,] color = new Color32[w, h, depth];
             int safeDepth = Mathf.Max(1, depth);
+            int zCenter = safeDepth / 2;
+            // Half-depth budget each way from the mid-plane. The deepest interior
+            // texel (distToAir == maxDist) should reach (nearly) full depth so the
+            // shape reads as a smoothly inflated balloon rather than an arbitrarily
+            // thick slab whose thickness depends on absolute sprite size.
+            float halfBudget = Mathf.Max(1f, (safeDepth - 1) * 0.5f);
+            float invMax = 1f / Mathf.Max(1, maxDist);
             for (int y = 0; y < h; y++)
             {
                 for (int x = 0; x < w; x++)
                 {
                     if (!solid2d[x, y]) continue;
 
-                    // FIXED dot-cloud failure mode: voxel at (x,y,z) opaque IFF
-                    // abs(z - zCenter) <= distToAir[x,y]. Result: silhouette (d=1)
-                    // is 3 voxels deep, body (d=N) is 2N+1 voxels deep — SOLID FILL,
-                    // interior voxels exist so outer shell emits a closed surface.
-                    // Force minimum d=2 for body pixels so silhouette isn't paper-thin.
-                    int d = Mathf.Max(2, distToAir[x, y]);
-                    int zCenter = safeDepth / 2;
-                    int zStart = Mathf.Max(0, zCenter - d);
-                    int zEnd = Mathf.Min(depth, zCenter + d + 1);
+                    // Closed solid fill centered on the mid-plane. Half-thickness grows
+                    // with sqrt(normalized distance-to-edge): sqrt gives the rounded
+                    // spherical-cap falloff of an inflated surface (linear distance reads
+                    // as a faceted cone). Silhouette texels (dist==1) keep a >=1 voxel
+                    // floor so the rim is never paper-thin; interior fills outward so the
+                    // greedy shell stays watertight.
+                    float t = Mathf.Clamp01(distToAir[x, y] * invMax);
+                    int half = Mathf.Max(1, Mathf.RoundToInt(halfBudget * Mathf.Sqrt(t)));
+                    int zStart = Mathf.Max(0, zCenter - half);
+                    int zEnd = Mathf.Min(depth, zCenter + half + 1);
 
                     for (int z = zStart; z < zEnd; z++)
                     {
@@ -440,10 +480,20 @@ namespace WorldSphereMod.Voxel
                         continue;
                     }
 
+                    // Organic blob = noise-dominant lumps with a gentle luminance bias.
+                    // Distinct from BuildPerTexel (luminance-dominant + mirrored back
+                    // half) and BuildBalloon (distance-transform rounded shell): here a
+                    // low-frequency lump field drives the silhouette so rock/cloud/tree
+                    // assets read as bulging masses, while a small luminance term nudges
+                    // lit faces outward. Two noise octaves keep the lumps from looking
+                    // like a regular ripple.
                     float worldX = (x - sprite.pivot.x) / ppu;
                     float worldZ = (y - sprite.pivot.y) / ppu;
-                    float noise = Tools.PerlinNoiseCached(worldX * 0.22f + 0.13f, worldZ * 0.22f + 0.73f);
-                    float depthScale = Mathf.Lerp(minDepthScale, maxDepthScale, noise);
+                    float n0 = Tools.PerlinNoiseCached(worldX * 0.22f + 0.13f, worldZ * 0.22f + 0.73f);
+                    float n1 = Tools.PerlinNoiseCached(worldX * 0.55f + 4.10f, worldZ * 0.55f + 2.90f);
+                    float lumb = (c.r * 0.299f + c.g * 0.587f + c.b * 0.114f) / 255f;
+                    float combined = (n0 * 0.6f + n1 * 0.25f + lumb * 0.15f);
+                    float depthScale = Mathf.Lerp(minDepthScale, maxDepthScale, Mathf.Clamp01(combined));
                     int columnDepth = Mathf.Clamp(Mathf.RoundToInt(depth * depthScale), 1, depth);
                     int zStart = Mathf.Clamp(Mathf.FloorToInt((depth - columnDepth) * 0.5f), 0, depth - columnDepth);
                     int zEnd = zStart + columnDepth;

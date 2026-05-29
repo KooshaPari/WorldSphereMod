@@ -78,7 +78,7 @@ namespace WorldSphereMod.ProcGen
             Color wallColor = SampleWallColor(pixels, w, bbox, stories);
             InferRoof(pixels, w, bbox, rules, wallColor, out RoofStyle roofStyle, out Color roofColor);
 
-            return BuildMesh(asset, halfX, halfZ, storyHeight, bbox, openings, pxToWorld, wallColor, roofColor, roofStyle, rules.PerpendicularRoof);
+            return BuildMesh(asset, pixels, w, halfX, halfZ, storyHeight, bbox, openings, pxToWorld, wallColor, roofColor, roofStyle, rules.PerpendicularRoof);
         }
 
         static Sprite? ResolveSprite(BuildingAsset asset)
@@ -254,6 +254,28 @@ namespace WorldSphereMod.ProcGen
                 int rh = maxYr - minYr + 1;
                 if (rw * rh < 4) continue;
 
+                int maxRowRun = 0;
+                int maxColRun = 0;
+                for (int y = minYr; y <= maxYr; y++)
+                {
+                    int run = 0;
+                    for (int x = minXr; x <= maxXr; x++)
+                    {
+                        if (dark[x, y]) { run++; if (run > maxRowRun) maxRowRun = run; }
+                        else run = 0;
+                    }
+                }
+                for (int x = minXr; x <= maxXr; x++)
+                {
+                    int run = 0;
+                    for (int y = minYr; y <= maxYr; y++)
+                    {
+                        if (dark[x, y]) { run++; if (run > maxColRun) maxColRun = run; }
+                        else run = 0;
+                    }
+                }
+                if (maxRowRun < 2 || maxColRun < 2) continue;
+
                 bool isDoor = rh > rw && rh >= 4;
                 bool isWindow = rw > rh && rh <= 6;
                 if (!isDoor && !isWindow) continue;
@@ -361,12 +383,13 @@ namespace WorldSphereMod.ProcGen
             color = new Color(sumR * invN, sumG * invN, sumB * invN, 1f);
 
             float coverage = (float)columnsWithRoof / Mathf.Max(1, bbox.width);
-            if (coverage < 0.6f)
+            if (coverage < 0.55f)
             {
                 style = RoofStyle.Flat;
                 return;
             }
 
+            float aspect = bbox.height > 0 ? (float)bbox.width / bbox.height : 1f;
             float mean = 0f;
             for (int i = 0; i < bbox.width; i++) mean += topRun[i];
             mean /= Mathf.Max(1, bbox.width);
@@ -379,9 +402,8 @@ namespace WorldSphereMod.ProcGen
             }
             variance /= Mathf.Max(1, bbox.width);
             float stddev = Mathf.Sqrt(variance);
-            float uniformity = mean > 0f ? stddev / mean : 1f;
+            float profile = mean > 0f ? stddev / mean : 1f;
 
-            // Center-vs-edge heuristic for hipped: middle third averages noticeably taller than edges.
             int third = Mathf.Max(1, bbox.width / 3);
             float edgeSum = 0f;
             int edgeN = 0;
@@ -395,11 +417,11 @@ namespace WorldSphereMod.ProcGen
             float edgeMean = edgeN > 0 ? edgeSum / edgeN : 0f;
             float centerMean = centerN > 0 ? centerSum / centerN : 0f;
 
-            if (uniformity < 0.35f)
+            if (aspect >= 1.35f || (profile < 0.28f && aspect >= 1.1f))
             {
                 style = RoofStyle.Gable;
             }
-            else if (centerMean > edgeMean * 1.4f && edgeMean > 0f)
+            else if (aspect <= 0.95f || centerMean > edgeMean * 1.25f)
             {
                 style = RoofStyle.Hipped;
             }
@@ -411,6 +433,12 @@ namespace WorldSphereMod.ProcGen
 
         static Color AverageColor(Color32[] px, int w, int x0, int y0, int rw, int rh)
         {
+            if (rw <= 0 || rh <= 0) return new Color(0.7f, 0.7f, 0.7f, 1f);
+            int h = (w > 0) ? px.Length / w : 0;
+            x0 = Mathf.Clamp(x0, 0, Mathf.Max(0, w - 1));
+            y0 = Mathf.Clamp(y0, 0, Mathf.Max(0, h - 1));
+            rw = Mathf.Clamp(rw, 1, Mathf.Max(1, w - x0));
+            rh = Mathf.Clamp(rh, 1, Mathf.Max(1, h - y0));
             float r = 0f, g = 0f, b = 0f;
             int count = 0;
             for (int yy = 0; yy < rh; yy++)
@@ -431,7 +459,7 @@ namespace WorldSphereMod.ProcGen
 
         enum Side { Front = 0, Right = 1, Back = 2, Left = 3 }
 
-        static Mesh BuildMesh(BuildingAsset asset, float halfX, float halfZ, float height,
+        static Mesh BuildMesh(BuildingAsset asset, Color32[] px, int w, float halfX, float halfZ, float height,
             RectInt bbox, List<DoorSpec> openings, float pxToWorld,
             Color wallColor, Color roofColor, RoofStyle roofStyle, bool perpendicularRoof)
         {
@@ -452,10 +480,10 @@ namespace WorldSphereMod.ProcGen
                 openingsBySide[(int)s].Add(o);
             }
 
-            EmitWall(Side.Front, halfX, halfZ, height, openingsBySide[0], bbox, pxToWorld, wallColor, verts, cols, tris);
-            EmitWall(Side.Right, halfX, halfZ, height, openingsBySide[1], bbox, pxToWorld, wallColor, verts, cols, tris);
-            EmitWall(Side.Back, halfX, halfZ, height, openingsBySide[2], bbox, pxToWorld, wallColor, verts, cols, tris);
-            EmitWall(Side.Left, halfX, halfZ, height, openingsBySide[3], bbox, pxToWorld, wallColor, verts, cols, tris);
+            EmitWall(Side.Front, halfX, halfZ, height, openingsBySide[0], bbox, pxToWorld, SampleWallFaceColor(px, w, bbox, Side.Front, wallColor), verts, cols, tris);
+            EmitWall(Side.Right, halfX, halfZ, height, openingsBySide[1], bbox, pxToWorld, SampleWallFaceColor(px, w, bbox, Side.Right, wallColor), verts, cols, tris);
+            EmitWall(Side.Back, halfX, halfZ, height, openingsBySide[2], bbox, pxToWorld, SampleWallFaceColor(px, w, bbox, Side.Back, wallColor), verts, cols, tris);
+            EmitWall(Side.Left, halfX, halfZ, height, openingsBySide[3], bbox, pxToWorld, SampleWallFaceColor(px, w, bbox, Side.Left, wallColor), verts, cols, tris);
 
             switch (roofStyle)
             {
@@ -478,6 +506,30 @@ namespace WorldSphereMod.ProcGen
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             return mesh;
+        }
+
+        static Color SampleWallFaceColor(Color32[] px, int w, RectInt bbox, Side side, Color fallback)
+        {
+            int bandY0 = bbox.yMin + Mathf.RoundToInt(bbox.height * 0.25f);
+            int bandY1 = bbox.yMin + Mathf.RoundToInt(bbox.height * 0.8f);
+            if (bandY1 <= bandY0) bandY1 = bandY0 + 1;
+            int bandX0 = bbox.xMin + Mathf.RoundToInt(bbox.width * 0.2f);
+            int bandX1 = bbox.xMin + Mathf.RoundToInt(bbox.width * 0.8f);
+            if (bandX1 <= bandX0) bandX1 = bandX0 + 1;
+
+            switch (side)
+            {
+                case Side.Front:
+                    return AverageColor(px, w, bandX0, bbox.yMin, bandX1 - bandX0, Mathf.Max(1, Mathf.RoundToInt(bbox.height * 0.18f)));
+                case Side.Back:
+                    return AverageColor(px, w, bandX0, bandY1 - Mathf.Max(1, Mathf.RoundToInt(bbox.height * 0.18f)), bandX1 - bandX0, Mathf.Max(1, Mathf.RoundToInt(bbox.height * 0.18f)));
+                case Side.Left:
+                    return AverageColor(px, w, bbox.xMin, bandY0, Mathf.Max(1, Mathf.RoundToInt(bbox.width * 0.18f)), bandY1 - bandY0);
+                case Side.Right:
+                    return AverageColor(px, w, bandX1 - Mathf.Max(1, Mathf.RoundToInt(bbox.width * 0.18f)), bandY0, Mathf.Max(1, Mathf.RoundToInt(bbox.width * 0.18f)), bandY1 - bandY0);
+                default:
+                    return fallback;
+            }
         }
 
         static Side PickSide(DoorSpec o, RectInt bbox)

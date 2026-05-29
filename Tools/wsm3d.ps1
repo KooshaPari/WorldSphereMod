@@ -5,7 +5,7 @@
 
 .DESCRIPTION
   One-file command dispatcher for WSM3D development. Routes to subcommands:
-    build, install, launch, kill, relaunch, log, profile, render-budget, screenshot, settings, toggle, status, doctor, validate, setup, submodule, journey, watch, help.
+    build, install, launch, kill, relaunch, log, profile, render-budget, screenshot, see, settings, toggle, status, doctor, validate, setup, submodule, journey, watch, help.
 
 .EXAMPLE
   ./wsm3d.ps1 build
@@ -819,6 +819,56 @@ namespace WSM3D {
     }
 }
 "@
+
+function Ensure-SeeInterop {
+    if ("WSM3D.SeeNative" -as [type]) {
+        return
+    }
+
+    Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+namespace WSM3D {
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+
+        public int Width => Right - Left;
+        public int Height => Bottom - Top;
+    }
+
+    public static class SeeNative {
+        [DllImport("user32.dll")]
+        public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [DllImport("user32.dll")]
+        public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool IsIconic(IntPtr hWnd);
+    }
+}
+"@
+}
+
+function Get-WorldBoxWindowHandle {
+    $proc = Get-Process worldbox -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $proc) {
+        throw "WorldBox not running."
+    }
+
+    $handle = [IntPtr]$proc.MainWindowHandle
+    if ($handle -eq [IntPtr]::Zero) {
+        throw "WorldBox window handle not available yet."
+    }
+
+    return $handle
+}
+"@
 }
 
 function Get-CaptureBounds {
@@ -1363,6 +1413,81 @@ function Invoke-Screenshot {
     $bmp.Save($Path)
     $bmp.Dispose()
     Write-Success "Screenshot saved to $Path"
+}
+
+function Invoke-See {
+    $scratchDir = Join-Path $RepoRoot "docs/journeys/scratch"
+    if (-not (Test-Path -LiteralPath $scratchDir)) {
+        New-Item -ItemType Directory -Force -Path $scratchDir | Out-Null
+    }
+
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $datedPath = Join-Path $scratchDir "seenow-$timestamp.png"
+    $stablePath = Join-Path $scratchDir "seenow.png"
+
+    try {
+        Ensure-SeeInterop
+        Add-Type -AssemblyName System.Drawing
+        $handle = Get-WorldBoxWindowHandle
+
+        if ([WSM3D.SeeNative]::IsIconic($handle)) {
+            throw "WorldBox is minimized. Restore the window before capturing."
+        }
+
+        $null = [WSM3D.SeeNative]::SetForegroundWindow($handle)
+        Start-Sleep -Milliseconds 300
+
+        $rect = New-Object WSM3D.RECT
+        if (-not [WSM3D.SeeNative]::GetWindowRect($handle, [ref]$rect)) {
+            throw "Unable to determine the WorldBox window bounds."
+        }
+
+        if ($rect.Width -le 0 -or $rect.Height -le 0) {
+            throw "WorldBox window bounds were empty."
+        }
+
+        $bmp = New-Object System.Drawing.Bitmap($rect.Width, $rect.Height)
+        try {
+            $graphics = [System.Drawing.Graphics]::FromImage($bmp)
+            try {
+                $graphics.CopyFromScreen(
+                    (New-Object System.Drawing.Point($rect.Left, $rect.Top)),
+                    [System.Drawing.Point]::Empty,
+                    (New-Object System.Drawing.Size($rect.Width, $rect.Height))
+                )
+            } finally {
+                $graphics.Dispose()
+            }
+
+            $bmp.Save($datedPath, [System.Drawing.Imaging.ImageFormat]::Png)
+            Copy-Item -LiteralPath $datedPath -Destination $stablePath -Force
+        } finally {
+            $bmp.Dispose()
+        }
+    } catch {
+        Write-Warn "System.Drawing capture failed: $($_.Exception.Message)"
+        try {
+            $body = @{
+                path = $stablePath
+            } | ConvertTo-Json -Compress
+            $response = Invoke-RestMethod -Uri "http://127.0.0.1:8766/actions/screenshot" -Method Post -ContentType "application/json" -Body $body -TimeoutSec 20
+            if ($response -and $response.path) {
+                $stablePath = $response.path
+            }
+            if (-not (Test-Path -LiteralPath $stablePath) -and (Test-Path -LiteralPath $datedPath)) {
+                Copy-Item -LiteralPath $datedPath -Destination $stablePath -Force
+            }
+        } catch {
+            throw "See capture failed via System.Drawing and bridge fallback: $($_.Exception.Message)"
+        }
+    }
+
+    if (Test-Path -LiteralPath $datedPath -and (Test-Path -LiteralPath $stablePath) -and $datedPath -ne $stablePath) {
+        Copy-Item -LiteralPath $stablePath -Destination $datedPath -Force
+    }
+
+    Write-Host $datedPath
+    Write-Host $stablePath
 }
 
 function Invoke-SettingsGet {
@@ -2360,6 +2485,10 @@ Commands:
       Phases 1-10 document before/after/closeup slugs in docs/smoke-test-phase*.md.
       Other phases accept any simple slug (e.g. before, after) matching phase-N-*.png.
 
+  see
+      Capture a WorldBox window screenshot to docs/journeys/scratch/seenow-<timestamp>.png
+      and overwrite docs/journeys/scratch/seenow.png with the latest capture.
+
   settings get [-Key <field>]
       Print all settings or one field as JSON. Field names are camelCase (e.g., VoxelEntities).
 
@@ -2595,6 +2724,10 @@ try {
                 }
                 Invoke-Screenshot @params
             }
+        }
+
+        "see" {
+            Invoke-See
         }
 
         "settings" {

@@ -8,6 +8,8 @@ namespace WorldSphereMod.Lighting
     {
         public static TimeOfDay? Instance;
         public static float Current = 11.0f / 24f;
+        // Standalone (no world_time) cadence: cycles/sec. 0.001 ≈ a 16-minute day.
+        // Effective speed is DaySpeed * day-length multiplier (see DayLengthScale).
         public float DaySpeed = 0.001f;
 
         FieldInfo? _wbTimeField;
@@ -17,6 +19,11 @@ namespace WorldSphereMod.Lighting
         float _lastWorldTimeSampleAt;
         float _worldTimeRate = 0.001f;
         const float _worldTimeLerpSpeed = 14f;
+        // Upper bound on the catch-up rate inferred from successive world_time
+        // samples. A world load / time-seek can jump world_time by an arbitrary
+        // amount in one frame; without a clamp the inferred rate explodes and
+        // the sun whips around the sky. 0.5 cycles/sec is fast but never a snap.
+        const float _maxWorldTimeRate = 0.5f;
 
         static readonly int _wsmFogDensity = Shader.PropertyToID("_WSM_FogDensity");
         static readonly int _wsmFogColor = Shader.PropertyToID("_WSM_FogColor");
