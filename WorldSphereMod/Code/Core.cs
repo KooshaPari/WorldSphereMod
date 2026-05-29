@@ -1029,13 +1029,16 @@ namespace WorldSphereMod
                 float cameraNear = CameraManager.MainCamera != null ? CameraManager.MainCamera.nearClipPlane : -1f;
                 float cameraFar = CameraManager.MainCamera != null ? CameraManager.MainCamera.farClipPlane : -1f;
                 string shape = IsWrapped ? "cylindrical" : "flat";
-                Debug.Log(
-                    $"{prefix} camera={cameraName} cameraPos={cameraPos} shape={shape} sphereCenter={centerPos} radius={radius:F3} " +
-                    $"cameraToOrigin={cameraDistance:F3} cameraToSurface={cameraToSurface:F3} cameraInsideSphere={cameraInside} " +
-                    $"cameraOrtho={cameraOrtho} cameraFov={cameraFov:F1} cameraNear={cameraNear:F2} cameraFar={cameraFar:F1} " +
-                    $"cameraLayerMask=0x{cameraMask:X8} managerLayer={managerLayer} " +
-                    $"meshBoundsLocal={meshBoundsLocal} tileBoundsWorld=({tileBoundsMin} -> {tileBoundsMax}) " +
-                    $"shader={shaderName} materialRenderQueue={renderQueue} materialPassCount={passCount} texturedTiles={texturedTiles}/{totalTiles}");
+                if (Core.savedSettings.ProfilerDump)
+                {
+                    Debug.Log(
+                        $"{prefix} camera={cameraName} cameraPos={cameraPos} shape={shape} sphereCenter={centerPos} radius={radius:F3} " +
+                        $"cameraToOrigin={cameraDistance:F3} cameraToSurface={cameraToSurface:F3} cameraInsideSphere={cameraInside} " +
+                        $"cameraOrtho={cameraOrtho} cameraFov={cameraFov:F1} cameraNear={cameraNear:F2} cameraFar={cameraFar:F1} " +
+                        $"cameraLayerMask=0x{cameraMask:X8} managerLayer={managerLayer} " +
+                        $"meshBoundsLocal={meshBoundsLocal} tileBoundsWorld=({tileBoundsMin} -> {tileBoundsMax}) " +
+                        $"shader={shaderName} materialRenderQueue={renderQueue} materialPassCount={passCount} texturedTiles={texturedTiles}/{totalTiles}");
+                }
             }
             public static Vector3 TilePosWithHeight(float X, float Y, float Z)
             {
