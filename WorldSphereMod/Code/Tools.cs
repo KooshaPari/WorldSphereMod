@@ -17,8 +17,122 @@ namespace WorldSphereMod
 {
     public static class Tools
     {
+        // Bounded LRU memo for GetTileHeightSmooth. Replaces the former periodic
+        // full-clear (which cold-missed EVERY entity at once on the clear frame —
+        // a ~1160ms precalc spike with ~531 buildings). An LRU that evicts only the
+        // single oldest entry on overflow keeps the cache permanently warm: lookups
+        // stay steady O(1) and recompute is amortised one-tile-at-a-time instead of
+        // en-masse. Staleness is moot — an evicted entry is simply recomputed on its
+        // next access. [ThreadStatic] so no locking under the parallel precalc passes.
+        const int TileHeightSmoothCacheCap = 8192;
         [ThreadStatic]
-        static Dictionary<Vector2Int, float>? _tileHeightSmoothCache;
+        static TileHeightSmoothLru? _tileHeightSmoothCache;
+
+        sealed class TileHeightSmoothLru
+        {
+            struct Node
+            {
+                public Vector2Int Key;
+                public float Value;
+                public int Prev;
+                public int Next;
+            }
+
+            readonly int _cap;
+            readonly Dictionary<Vector2Int, int> _index;
+            Node[] _nodes;
+            int _count;
+            int _head; // most-recently used
+            int _tail; // least-recently used (eviction target)
+            int _free; // free-list head, -1 if none
+
+            public TileHeightSmoothLru(int cap)
+            {
+                _cap = cap;
+                _index = new Dictionary<Vector2Int, int>(cap);
+                _nodes = new Node[cap];
+                _head = _tail = _free = -1;
+                _count = 0;
+            }
+
+            public bool TryGet(Vector2Int key, out float value)
+            {
+                if (_index.TryGetValue(key, out int i))
+                {
+                    MoveToFront(i);
+                    value = _nodes[i].Value;
+                    return true;
+                }
+                value = 0f;
+                return false;
+            }
+
+            public void Set(Vector2Int key, float value)
+            {
+                if (_index.TryGetValue(key, out int existing))
+                {
+                    _nodes[existing].Value = value;
+                    MoveToFront(existing);
+                    return;
+                }
+
+                int i;
+                if (_count >= _cap)
+                {
+                    // Evict the single least-recently-used entry and reuse its slot.
+                    i = _tail;
+                    _index.Remove(_nodes[i].Key);
+                    Unlink(i);
+                    _count--;
+                }
+                else if (_free != -1)
+                {
+                    i = _free;
+                    _free = _nodes[i].Next;
+                }
+                else
+                {
+                    i = _count;
+                }
+
+                _nodes[i].Key = key;
+                _nodes[i].Value = value;
+                _index[key] = i;
+                LinkAtFront(i);
+                _count++;
+            }
+
+            void Unlink(int i)
+            {
+                int prev = _nodes[i].Prev;
+                int next = _nodes[i].Next;
+                if (prev != -1) _nodes[prev].Next = next; else _head = next;
+                if (next != -1) _nodes[next].Prev = prev; else _tail = prev;
+            }
+
+            void LinkAtFront(int i)
+            {
+                _nodes[i].Prev = -1;
+                _nodes[i].Next = _head;
+                if (_head != -1) _nodes[_head].Prev = i;
+                _head = i;
+                if (_tail == -1) _tail = i;
+            }
+
+            void MoveToFront(int i)
+            {
+                if (_head == i) return;
+                Unlink(i);
+                LinkAtFront(i);
+            }
+
+            public void Clear()
+            {
+                _index.Clear();
+                _head = _tail = _free = -1;
+                _count = 0;
+            }
+        }
         static readonly Dictionary<int, float> _perlinNoiseCache = new Dictionary<int, float>(4096);
         const float PerlinNoiseQuantization = 1024f;
 
@@ -279,8 +393,8 @@ namespace WorldSphereMod
         public static float GetTileHeightSmooth(this Vector2 Pos)
         {
             Vector2Int pos = Pos.AsInt();
-            Dictionary<Vector2Int, float>? cache = _tileHeightSmoothCache;
-            if (cache != null && cache.TryGetValue(pos, out float cachedHeight))
+            TileHeightSmoothLru? cache = _tileHeightSmoothCache;
+            if (cache != null && cache.TryGet(pos, out float cachedHeight))
             {
                 return cachedHeight;
             }
@@ -307,8 +421,8 @@ namespace WorldSphereMod
                 }
             }
 
-            cache ??= _tileHeightSmoothCache = new Dictionary<Vector2Int, float>(1024);
-            cache[pos] = height;
+            cache ??= _tileHeightSmoothCache = new TileHeightSmoothLru(TileHeightSmoothCacheCap);
+            cache.Set(pos, height);
             return height;
         }
 
