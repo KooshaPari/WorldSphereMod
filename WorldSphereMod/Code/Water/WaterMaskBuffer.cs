@@ -1,3 +1,4 @@
+using System.Reflection;
 using UnityEngine;
 
 namespace WorldSphereMod.Water
@@ -45,14 +46,32 @@ namespace WorldSphereMod.Water
                 // shore — exclude it so the mesh doesn't overshoot the coast.
                 var tt = t.main_type;
                 bool isWater = tt != null
-                    && (tt.liquid || tt.ocean)
-                    && !tt.sand
-                    && !tt.ground
-                    && tileHeight <= SeaLevel;
+                    && (GetFlag(tt, "liquid") || GetFlag(tt, "ocean"))
+                    && !GetFlag(tt, "sand")
+                    && !GetFlag(tt, "ground");
                 IsWaterTile[idx] = isWater;
                 if (isWater && d > maxD) maxD = d;
             }
             _maxDepth = maxD;
+        }
+
+        static bool GetFlag(object tileType, string name)
+        {
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            var type = tileType.GetType();
+            var field = type.GetField(name, flags);
+            if (field != null && field.FieldType == typeof(bool))
+            {
+                return (bool)field.GetValue(tileType);
+            }
+
+            var property = type.GetProperty(name, flags);
+            if (property != null && property.PropertyType == typeof(bool))
+            {
+                return (bool)property.GetValue(tileType, null);
+            }
+
+            return false;
         }
 
         public static float DepthAt(int tileIndex)

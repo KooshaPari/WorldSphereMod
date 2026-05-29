@@ -69,8 +69,11 @@ namespace WorldSphereMod.Textures
             if (material == null || !_isLoaded) return;
             if (_mainAtlas != null)
             {
-                material.mainTexture = _mainAtlas;
-                material.SetTexture(_mainTexId, _mainAtlas);
+                if (material.HasProperty(_mainTexId))
+                {
+                    material.mainTexture = _mainAtlas;
+                    material.SetTexture(_mainTexId, _mainAtlas);
+                }
                 if (material.HasProperty(_baseMapId))
                 {
                     material.SetTexture(_baseMapId, _mainAtlas);
@@ -130,8 +133,17 @@ namespace WorldSphereMod.Textures
                 renderQueue = (int)UnityEngine.Rendering.RenderQueue.Geometry + 1
             };
 
-            material.SetTexture(_mainTexId, _mainAtlas);
-            material.SetTexture(_baseMapId, _mainAtlas);
+            if (material.HasProperty(_mainTexId))
+            {
+                material.mainTexture = _mainAtlas;
+                material.SetTexture(_mainTexId, _mainAtlas);
+            }
+
+            if (material.HasProperty(_baseMapId))
+            {
+                material.SetTexture(_baseMapId, _mainAtlas);
+            }
+
             material.SetColor(_colorId, Color.white);
             ApplyToMaterial(material);
             return material;

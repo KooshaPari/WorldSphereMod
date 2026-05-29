@@ -187,7 +187,14 @@ namespace WorldSphereMod.LOD
             if (material == null) return;
 
             material.enableInstancing = true;
+            // Task-mandated queue: render impostors one step after opaque
+            // geometry so they sort behind alpha-blended FX but with the
+            // voxel/proxy tiers. Alpha cutout (below) handles edge clipping;
+            // we intentionally do NOT bump to the AlphaTest queue (2450).
             material.renderQueue = (int)RenderQueue.Geometry + 1;
+            // TransparentCutout RenderType drives the URP/Standard fallback
+            // shaders down their alpha-test path so _Cutoff actually clips.
+            material.SetOverrideTag("RenderType", "TransparentCutout");
             material.SetInt(_cullId, (int)CullMode.Off);
             material.SetColor(_colorId, Color.white);
             material.SetColor(_baseColorId, Color.white);
@@ -211,10 +218,21 @@ namespace WorldSphereMod.LOD
             }
             catch { }
 
+            // Alpha-clip transparent sprite edges so impostors render as the
+            // actor silhouette, not an opaque rectangle (Phase 10 eval: the
+            // previous One/Zero opaque blend with Cutoff=0 drew the full quad
+            // including the sprite atlas's transparent padding). The bundled
+            // WSM3D/Impostor shader does clip(col.a - 0.5) + AlphaToMask, but
+            // the URP Unlit / Standard / Sprites-Default fallbacks need the
+            // _ALPHATEST_ON keyword + _Cutoff to enable the same cutout pass.
+            // Cutoff 0.5 keeps the opaque body while discarding the soft edge.
             material.DisableKeyword("_ALPHABLEND_ON");
             material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            material.DisableKeyword("_ALPHATEST_ON");
-            material.SetFloat(_cutoffId, 0f);
+            material.EnableKeyword("_ALPHATEST_ON");
+            material.SetFloat(_cutoffId, 0.5f);
+            // Opaque src/dst so the alpha-tested cutout writes solid pixels and
+            // depth; transparency is handled by clip(), not blending. Keeping
+            // ZWrite on lets impostors depth-sort against voxel-tier neighbours.
             material.SetInt(_srcBlendId, (int)BlendMode.One);
             material.SetInt(_dstBlendId, (int)BlendMode.Zero);
             material.SetInt(_zWriteId, 1);
@@ -234,10 +252,11 @@ namespace WorldSphereMod.LOD
             }
             catch { }
 
-            if (string.Equals(shaderName, "Sprites/Default", System.StringComparison.OrdinalIgnoreCase))
-            {
-                material.SetOverrideTag("RenderType", "Opaque");
-            }
+            // Sprites/Default has no _Cutoff; emulate the alpha cutout by
+            // keeping the TransparentCutout RenderType (set above) and leaving
+            // ZWrite on so the sprite shader still depth-writes its kept texels.
+            // (We no longer force RenderType=Opaque here — that re-introduced
+            // the opaque-rectangle bug for the Sprites/Default fallback.)
         }
 
         public static Mesh? GetOrCreate(Sprite sprite)

@@ -37,13 +37,31 @@ namespace WorldSphereMod
         {
             // Humanoid races
             ["human"] = RigType.Humanoid,
+            ["human_male"] = RigType.Humanoid,
+            ["human_female"] = RigType.Humanoid,
+            ["human_king"] = RigType.Humanoid,
+            ["human_queen"] = RigType.Humanoid,
             ["villager"] = RigType.Humanoid,
+            ["villager_male"] = RigType.Humanoid,
+            ["villager_female"] = RigType.Humanoid,
             ["swordsman"] = RigType.Humanoid,
+            ["swordsman_male"] = RigType.Humanoid,
+            ["swordsman_female"] = RigType.Humanoid,
             ["archer"] = RigType.Humanoid,
+            ["archer_male"] = RigType.Humanoid,
+            ["archer_female"] = RigType.Humanoid,
             ["mage"] = RigType.Humanoid,
+            ["mage_male"] = RigType.Humanoid,
+            ["mage_female"] = RigType.Humanoid,
             ["orc"] = RigType.Humanoid,
+            ["orc_male"] = RigType.Humanoid,
+            ["orc_female"] = RigType.Humanoid,
             ["elf"] = RigType.Humanoid,
+            ["elf_male"] = RigType.Humanoid,
+            ["elf_female"] = RigType.Humanoid,
             ["dwarf"] = RigType.Humanoid,
+            ["dwarf_male"] = RigType.Humanoid,
+            ["dwarf_female"] = RigType.Humanoid,
             ["goblin"] = RigType.Humanoid,
             ["skeleton"] = RigType.Humanoid,
             ["zombie"] = RigType.Humanoid,
@@ -52,6 +70,8 @@ namespace WorldSphereMod
             ["druid"] = RigType.Humanoid,
             ["king"] = RigType.Humanoid,
             ["warrior"] = RigType.Humanoid,
+            ["warrior_male"] = RigType.Humanoid,
+            ["warrior_female"] = RigType.Humanoid,
             ["plague_doctor"] = RigType.Humanoid,
             ["demon"] = RigType.Humanoid,
             ["angel"] = RigType.Humanoid,
@@ -59,17 +79,27 @@ namespace WorldSphereMod
             ["evilMage"] = RigType.Humanoid,
             // Quadruped animals
             ["wolf"] = RigType.Quadruped,
+            ["wolf_gray"] = RigType.Quadruped,
+            ["wolf_white"] = RigType.Quadruped,
             ["bear"] = RigType.Quadruped,
+            ["bear_black"] = RigType.Quadruped,
             ["horse"] = RigType.Quadruped,
+            ["horse_brown"] = RigType.Quadruped,
+            ["horse_white"] = RigType.Quadruped,
             ["cow"] = RigType.Quadruped,
+            ["cow_black"] = RigType.Quadruped,
+            ["cow_brown"] = RigType.Quadruped,
             ["sheep"] = RigType.Quadruped,
+            ["sheep_white"] = RigType.Quadruped,
             ["pig"] = RigType.Quadruped,
+            ["pig_pink"] = RigType.Quadruped,
             ["dog"] = RigType.Quadruped,
             ["cat"] = RigType.Quadruped,
             ["fox"] = RigType.Quadruped,
             ["deer"] = RigType.Quadruped,
             ["rabbit"] = RigType.Quadruped,
             ["chicken"] = RigType.Quadruped,
+            ["chicken_white"] = RigType.Quadruped,
             ["turtle"] = RigType.Quadruped,
             ["rhino"] = RigType.Quadruped,
             ["mammoth"] = RigType.Quadruped,
@@ -129,11 +159,11 @@ namespace WorldSphereMod
             }
 
             string lower = assetId.ToLowerInvariant();
+            if (MatchesAnyPrefix(lower, _humanoidPrefixes)) return RigType.Humanoid;
+            if (MatchesAnyPrefix(lower, _quadrupedPrefixes)) return RigType.Quadruped;
             if (MatchesAnyPrefix(lower, _birdPrefixes)) return RigType.Bird;
             if (MatchesAnyPrefix(lower, _insectPrefixes)) return RigType.Insect;
             if (MatchesAnyPrefix(lower, _snakePrefixes)) return RigType.Snake;
-            if (MatchesAnyPrefix(lower, _quadrupedPrefixes)) return RigType.Quadruped;
-            if (MatchesAnyPrefix(lower, _humanoidPrefixes)) return RigType.Humanoid;
 
             return RigType.Humanoid;
         }
@@ -142,7 +172,7 @@ namespace WorldSphereMod
         {
             foreach (string prefix in prefixes)
             {
-                if (lower.StartsWith(prefix) || lower.Contains("_" + prefix) || lower.Contains(prefix + "_"))
+                if (lower == prefix || lower.StartsWith(prefix + "_") || lower.EndsWith("_" + prefix))
                 {
                     return true;
                 }
