@@ -18,6 +18,7 @@ namespace WorldSphereMod.Lighting
         static Cubemap? _previousCustomReflection;
         static Material? _previousSkybox;
         static Material? _runtimeSkyboxMaterial;
+        static Cubemap? _proceduralFallbackCubemap;
         static AmbientMode _previousAmbientMode;
         static DefaultReflectionMode _previousDefaultReflectionMode;
         static float _previousReflectionIntensity;
@@ -83,30 +84,35 @@ namespace WorldSphereMod.Lighting
         System.Collections.IEnumerator ApplySkyboxCubemapAsync()
         {
             _loadInProgress = true;
-            ResourceRequest request = Resources.LoadAsync<Cubemap>(CubemapResourcePath);
-            yield return request;
-            Cubemap? skyCubemap = request.asset as Cubemap;
-            if (skyCubemap == null)
+            try
             {
-                Debug.LogWarning($"[WSM3D] Cubemap '{CubemapResourcePath}' not found in Resources; trying fallback paths.");
-                skyCubemap = Resources.Load<Cubemap>("Cubemap/sky_default");
-                skyCubemap ??= Resources.Load<Cubemap>("sky-default");
-            }
+                ResourceRequest request = Resources.LoadAsync<Cubemap>(CubemapResourcePath);
+                yield return request;
+                Cubemap? skyCubemap = request.asset as Cubemap;
+                if (skyCubemap == null)
+                {
+                    Debug.LogWarning($"[WSM3D] Cubemap '{CubemapResourcePath}' not found in Resources; trying fallback paths.");
+                    skyCubemap = Resources.Load<Cubemap>("Cubemap/sky_default");
+                    skyCubemap ??= Resources.Load<Cubemap>("sky-default");
+                }
 
-            // Validate the loaded asset is actually a Cubemap. Resources.Load
-            // can return a Texture2D if the asset was re-imported incorrectly,
-            // and assigning a non-cubemap to RenderSettings.customReflection
-            // throws ArgumentException and hangs the game (Responding=False).
-            if (skyCubemap != null && skyCubemap.dimension != UnityEngine.Rendering.TextureDimension.Cube)
-            {
-                Debug.LogError($"[WSM3D] CubemapLighting: loaded texture '{skyCubemap.name}' has dimension {skyCubemap.dimension}, expected Cube. Treating as missing.");
-                skyCubemap = null;
-            }
+                // Validate the loaded asset is actually a Cubemap. Resources.Load
+                // can return a Texture2D if the asset was re-imported incorrectly,
+                // and assigning a non-cubemap to RenderSettings.customReflection
+                // throws ArgumentException and hangs the game (Responding=False).
+                if (skyCubemap != null && skyCubemap.dimension != UnityEngine.Rendering.TextureDimension.Cube)
+                {
+                    Debug.LogError($"[WSM3D] CubemapLighting: loaded texture '{skyCubemap.name}' has dimension {skyCubemap.dimension}, expected Cube. Treating as missing.");
+                    skyCubemap = null;
+                }
 
-            if (skyCubemap == null)
-            {
-                Debug.Log("[WSM3D] CubemapLighting: no custom cubemap found, applying skybox-derived ambient + reflection mode.");
-                skyCubemap = CreateProceduralCubemap();
+                if (skyCubemap == null)
+                {
+                    Debug.Log("[WSM3D] CubemapLighting: no custom cubemap found, applying skybox-derived ambient + reflection mode.");
+                    skyCubemap = GetOrCreateProceduralCubemap();
+                }
+
+                Debug.Log($"[WSM3D] CubemapLighting loaded cubemap '{skyCubemap.name}' (dimension={skyCubemap.dimension}).");
                 CapturePreviousReflectionState();
                 CapturePreviousSkyboxState();
                 ApplyRuntimeSkybox(skyCubemap);
@@ -115,20 +121,11 @@ namespace WorldSphereMod.Lighting
                 RenderSettings.defaultReflectionMode = DefaultReflectionMode.Custom;
                 RenderSettings.reflectionIntensity = 0.3f;
                 _applied = true;
-                _loadInProgress = false;
-                yield break;
             }
-
-            Debug.Log($"[WSM3D] CubemapLighting loaded cubemap '{skyCubemap.name}' (dimension={skyCubemap.dimension}).");
-            CapturePreviousReflectionState();
-            CapturePreviousSkyboxState();
-            ApplyRuntimeSkybox(skyCubemap);
-            RenderSettings.customReflection = skyCubemap;
-            ApplyNeutralAmbient();
-            RenderSettings.defaultReflectionMode = DefaultReflectionMode.Custom;
-            RenderSettings.reflectionIntensity = 0.3f;
-            _applied = true;
-            _loadInProgress = false;
+            finally
+            {
+                _loadInProgress = false;
+            }
         }
 
         void RestoreRenderSettings()
@@ -147,8 +144,9 @@ namespace WorldSphereMod.Lighting
             // Cubemap. Assigning null or a non-cubemap texture triggers
             // ArgumentException ("RenderSettings.customReflection is currently
             // not referencing a cubemap") and hangs the game.
-            if (_previousCustomReflection != null &&
-                _previousCustomReflection.dimension == UnityEngine.Rendering.TextureDimension.Cube)
+            bool hasValidPreviousReflection = _previousCustomReflection != null &&
+                _previousCustomReflection.dimension == UnityEngine.Rendering.TextureDimension.Cube;
+            if (hasValidPreviousReflection)
             {
                 RenderSettings.customReflection = _previousCustomReflection;
             }
@@ -156,14 +154,14 @@ namespace WorldSphereMod.Lighting
             {
                 // Fall back to skybox reflection instead of setting a bad value.
                 RenderSettings.defaultReflectionMode = DefaultReflectionMode.Skybox;
+                try { RenderSettings.customReflection = null; } catch { }
             }
             RenderSettings.ambientMode = _previousAmbientMode;
             // Only restore the previous default reflection mode if we didn't
             // override it to Skybox above (i.e., the previous custom cubemap
             // was valid). When the previous mode was Custom but the cubemap is
             // null/invalid, forcing Custom would re-trigger the same error.
-            if (_previousCustomReflection != null &&
-                _previousCustomReflection.dimension == UnityEngine.Rendering.TextureDimension.Cube)
+            if (hasValidPreviousReflection)
             {
                 RenderSettings.defaultReflectionMode = _previousDefaultReflectionMode;
             }
@@ -263,6 +261,17 @@ namespace WorldSphereMod.Lighting
 
             cubemap.Apply(false, false);
             return cubemap;
+        }
+
+        static Cubemap GetOrCreateProceduralCubemap()
+        {
+            if (_proceduralFallbackCubemap != null)
+            {
+                return _proceduralFallbackCubemap;
+            }
+
+            _proceduralFallbackCubemap = CreateProceduralCubemap();
+            return _proceduralFallbackCubemap;
         }
     }
 }
