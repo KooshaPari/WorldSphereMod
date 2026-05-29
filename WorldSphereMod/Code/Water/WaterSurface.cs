@@ -28,6 +28,11 @@ namespace WorldSphereMod.Water
         // pick a depth-representative base tint and an averaged alpha.
         static readonly Color ShallowWater = new Color(0.30f, 0.60f, 0.75f, 0.55f);
         static readonly Color DeepWater = new Color(0.04f, 0.12f, 0.22f, 0.85f);
+        static readonly Vector2 WavePrimary = new Vector2(0.72f, 0.39f);
+        static readonly Vector2 WaveSecondary = new Vector2(0.23f, 0.88f);
+        const float FallbackWaveAmplitude = 0.018f;
+        const float FallbackWaveScale = 0.28f;
+        const float FallbackWaveSpeed = 0.7f;
 
         static Material? _material;
         static bool _materialAttempted;
@@ -41,6 +46,8 @@ namespace WorldSphereMod.Water
         Material? _instanceMaterial;   // per-renderer copy of _material; we own SetFloat on this
         Vector3 _baseLocalPosition;
         float _waveTime;
+        readonly List<Vector3> _baseVertices = new List<Vector3>();
+        readonly List<Vector3> _animatedVertices = new List<Vector3>();
 
         // Reusable scratch buffers for RebuildMesh. Cleared instead of freshly allocated each
         // rebuild — RebuildMesh runs on world load and on every tile change, so the dropped
@@ -235,6 +242,10 @@ namespace WorldSphereMod.Water
             _mesh.SetTriangles(triangles, 0);
             _mesh.RecalculateNormals();
             _mesh.RecalculateBounds();
+            _baseVertices.Clear();
+            _baseVertices.AddRange(vertices);
+            _animatedVertices.Clear();
+            _animatedVertices.AddRange(vertices);
             if (_instanceMaterial != null)
             {
                 _instanceMaterial.SetFloat("_WaterDepth", maxDepth);
@@ -245,8 +256,37 @@ namespace WorldSphereMod.Water
         void Update()
         {
             _waveTime = Time.time;
+            UpdateFallbackWaveMotion();
             ApplyWaveProfile();
             UpdateEnvironmentTextures();
+        }
+
+        void UpdateFallbackWaveMotion()
+        {
+            if (_mesh == null || _baseVertices.Count == 0) return;
+
+            float detail = Mathf.Clamp(Core.savedSettings.WaterDetail, 0f, 2f);
+            float detail01 = detail * 0.5f;
+            float amplitude = FallbackWaveAmplitude * Mathf.Lerp(0.85f, 1.35f, detail01);
+            float frequency = FallbackWaveScale * Mathf.Lerp(0.9f, 1.1f, detail01);
+            float speed = FallbackWaveSpeed * Mathf.Lerp(0.9f, 1.1f, detail01);
+
+            _animatedVertices.Clear();
+            for (int i = 0; i < _baseVertices.Count; i++)
+            {
+                Vector3 baseVertex = _baseVertices[i];
+                Vector3 radial = baseVertex.sqrMagnitude > 0.0001f ? baseVertex.normalized : Vector3.up;
+                float phase = baseVertex.x * WavePrimary.x + baseVertex.y * WavePrimary.y;
+                float phase2 = baseVertex.x * WaveSecondary.x - baseVertex.y * WaveSecondary.y;
+                float bob = Mathf.Sin((_waveTime * speed) + phase) * 0.65f +
+                            Mathf.Sin((_waveTime * speed * 1.37f) + phase2) * 0.35f;
+                float falloff = Mathf.Lerp(0.65f, 1f, Mathf.Clamp01(Mathf.Abs(baseVertex.z) / 10f));
+                _animatedVertices.Add(baseVertex + radial * (bob * amplitude * falloff));
+            }
+
+            _mesh.SetVertices(_animatedVertices);
+            _mesh.RecalculateNormals();
+            _mesh.RecalculateBounds();
         }
 
         void ApplyWaveProfile()
