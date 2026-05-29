@@ -89,10 +89,14 @@ namespace WorldSphereMod.Foliage
 
                 // Road remains a flat decal. Trees/bushes (.life) route through
                 // CrossedQuadMeshCache first when the CrossedQuadFoliage flag is on
-                // — that's the Phase 3 swaying-foliage path. If the cache cannot
-                // build a crossed-quad mesh this frame (per-frame budget exhausted,
-                // unreadable atlas, blank sprite), fall back to the OrganicBlob
-                // voxel pathway so the tile still renders something visible.
+                // — that's the Phase 3 swaying-foliage path.
+                //
+                // Important: a null return from GetOrBuild means the per-frame
+                // build budget was exhausted. That is a transient "skip and retry
+                // next frame" condition, not a signal to downgrade to voxel blobs.
+                // Only a real build failure (empty mesh / vertexCount == 0) falls
+                // back to OrganicBlob so we keep the crossed-quad look whenever the
+                // cache can still produce it.
                 bool crossedQuadPath = t.life && Core.savedSettings.CrossedQuadFoliage;
                 Mesh? mesh;
                 if (t.road)
@@ -102,13 +106,6 @@ namespace WorldSphereMod.Foliage
                 else if (crossedQuadPath)
                 {
                     // Crossed-quad is the authoritative .life path when the flag is on.
-                    // GetOrBuild returns null only when the per-frame build budget is
-                    // exhausted (CrossedQuadMesher.CanBuildThisFrame) — a transient
-                    // condition, NOT a reason to permanently downgrade the tile to a
-                    // voxel blob. Distinguish that from a genuine build failure (empty
-                    // mesh = blank/unreadable atlas frame): retry next frame on budget
-                    // exhaustion so the OrganicBlob fallback can't silently dominate
-                    // and replace the swaying-foliage look.
                     float swayAmp = 0.15f;
                     mesh = CrossedQuadMeshCache.GetOrBuild(sprite, BuildingShape.CrossedQuad, swayAmp, sprite.name);
                     if (mesh == null)
@@ -149,8 +146,7 @@ namespace WorldSphereMod.Foliage
                 Vector3 scale = Vector3.one;
                 if (crossedQuadPath)
                 {
-                    int seed = unchecked((pTile.pos.x * 73856093) ^ (pTile.pos.y * 19349663));
-                    float jitter01 = ((seed & 0x7fffffff) % 1000) / 1000f;
+                    float jitter01 = DeterministicJitter01(pTile.pos.x, pTile.pos.y);
                     CrossedQuadVariant variant = ResolveVariant(sprite.name);
                     float baseScale = VariantBaseScale(variant);
                     // ±18% size spread around the variant base.
@@ -179,8 +175,7 @@ namespace WorldSphereMod.Foliage
                 Color tint = SpriteAverageColorCache.Sample(sprite);
                 if (crossedQuadPath)
                 {
-                    int cseed = unchecked((pTile.pos.x * 83492791) ^ (pTile.pos.y * 521288629));
-                    float bri = 0.88f + 0.24f * (((cseed & 0x7fffffff) % 1000) / 1000f);
+                    float bri = 0.88f + 0.24f * DeterministicJitter01(pTile.pos.x + 17, pTile.pos.y - 31);
                     tint = new Color(
                         Mathf.Clamp01(tint.r * bri),
                         Mathf.Clamp01(tint.g * bri),
@@ -233,6 +228,20 @@ namespace WorldSphereMod.Foliage
                 case CrossedQuadVariant.Pine: return 1.05f;
                 case CrossedQuadVariant.Palm: return 1.18f;
                 default: return 1.0f;
+            }
+        }
+
+        static float DeterministicJitter01(int x, int y)
+        {
+            unchecked
+            {
+                int seed = (x * 73856093) ^ (y * 19349663);
+                seed ^= (seed >> 16);
+                seed *= unchecked((int)2246822519u);
+                seed ^= (seed >> 13);
+                seed *= unchecked((int)3266489917u);
+                seed ^= (seed >> 16);
+                return (seed & 0x7fffffff) / 2147483647f;
             }
         }
 
