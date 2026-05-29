@@ -26,6 +26,15 @@ namespace WorldSphereMod.Voxel
     /// </summary>
     public static class VoxelRender
     {
+        /// <summary>Phase 7: fired when worldspace UI detects HP loss on a visible actor.</summary>
+        public static event System.Action<Actor, int>? OnActorDamaged;
+
+        public static void NotifyActorDamaged(Actor actor, int damageAmount)
+        {
+            if (actor == null || damageAmount <= 0) return;
+            OnActorDamaged?.Invoke(actor, damageAmount);
+        }
+
         const float BuildingMaxScale = 3.0f;
         internal static Material? _material;
         static bool _materialAttempted;
@@ -1354,7 +1363,10 @@ namespace WorldSphereMod.Voxel
                     {
                         float avgFrameTime = _perfDeltaTimeSum / kPerfSampleWindowFrames;
                         float avgFps = avgFrameTime > 0f ? 1f / avgFrameTime : 0f;
-                        Debug.Log($"[WSM3D][Perf] frameDeltaMs={deltaTimePerf * 1000f:F2} avg60FrameDeltaMs={avgFrameTime * 1000f:F2} avg60Fps={avgFps:F1}");
+                        if (Core.savedSettings.ProfilerDump)
+                        {
+                            Debug.Log($"[WSM3D][Perf] frameDeltaMs={deltaTimePerf * 1000f:F2} avg60FrameDeltaMs={avgFrameTime * 1000f:F2} avg60Fps={avgFps:F1}");
+                        }
                         _perfFrameCounter = 0;
                         _perfDeltaTimeSum = 0f;
                     }
@@ -1515,7 +1527,10 @@ namespace WorldSphereMod.Voxel
             {
                 float avgFrameTime = _perfDeltaTimeSum / kPerfSampleWindowFrames;
                 float avgFps = avgFrameTime > 0f ? 1f / avgFrameTime : 0f;
-                Debug.Log($"[WSM3D][Perf] frameDeltaMs={deltaTime * 1000f:F2} avg60FrameDeltaMs={avgFrameTime * 1000f:F2} avg60Fps={avgFps:F1}");
+                if (Core.savedSettings.ProfilerDump)
+                {
+                    Debug.Log($"[WSM3D][Perf] frameDeltaMs={deltaTime * 1000f:F2} avg60FrameDeltaMs={avgFrameTime * 1000f:F2} avg60Fps={avgFps:F1}");
+                }
                 _perfFrameCounter = 0;
                 _perfDeltaTimeSum = 0f;
             }
@@ -1681,7 +1696,10 @@ namespace WorldSphereMod.Voxel
             _submitFlushDiagFrame++;
             if (_submitFlushDiagFrame % 60 == 0)
             {
-                Debug.Log($"[WSM3D][SubmitFlushDiag] frame={_submitFlushDiagFrame} submits={submitCount} flushes={flushCount} submitsBeforeFlush={submitsBeforeFlush} hadPending={hadPending} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} buckets={MeshInstanceBatcher.FrameBucketCount}");
+                if (Core.savedSettings.ProfilerDump)
+                {
+                    Debug.Log($"[WSM3D][SubmitFlushDiag] frame={_submitFlushDiagFrame} submits={submitCount} flushes={flushCount} submitsBeforeFlush={submitsBeforeFlush} hadPending={hadPending} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} buckets={MeshInstanceBatcher.FrameBucketCount}");
+                }
             }
 
             Bridge.BridgeServer.RefreshTelemetryCache();
