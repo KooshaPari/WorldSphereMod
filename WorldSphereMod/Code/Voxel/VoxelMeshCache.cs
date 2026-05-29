@@ -1174,7 +1174,10 @@ namespace WorldSphereMod.Voxel
             }
 
             int triCount = mesh.subMeshCount > 0 ? (int)(mesh.GetIndexCount(0) / 3) : 0;
-            Debug.Log($"[WSM3D] Voxelized sprite \"{sprite.name}\" style=\"{inflationStyle}\" -> {mesh.vertexCount} verts, {triCount} tris, bounds={mesh.bounds}");
+            if (Core.savedSettings.ProfilerDump)
+            {
+                Debug.Log($"[WSM3D] Voxelized sprite \"{sprite.name}\" style=\"{inflationStyle}\" -> {mesh.vertexCount} verts, {triCount} tris, bounds={mesh.bounds}");
+            }
         }
 
         static Mesh BuildVoxelMesh(Sprite sprite, int depth, out Mesh mesh)
@@ -1214,7 +1217,10 @@ namespace WorldSphereMod.Voxel
                 {
                     if (_diagnosedShapeHints.Add(key))
                     {
-                        Debug.Log($"[WSM3D][ShapeHintMap] sprite=\"{sprite.name}\" hint={shapeHint} bucket={inflationStyle}");
+                        if (Core.savedSettings.ProfilerDump)
+                        {
+                            Debug.Log($"[WSM3D][ShapeHintMap] sprite=\"{sprite.name}\" hint={shapeHint} bucket={inflationStyle}");
+                        }
                     }
                 }
             }
