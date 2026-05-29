@@ -123,6 +123,11 @@ public class SavedSettings
         public float NameplateMaxScale = 4f;
         public float NameplateBaseScale = 0.15f;
         public float NameplateScaleDistanceDivisor = 100f;
+        public float BadgeFadeNear = 10f;
+        public float BadgeFadeFar = 20f;
+        public int DamagePopPoolSize = 64;
+        public float DamagePopRiseHeight = 1.5f;
+        public float DamagePopDuration = 0.6f;
         // Phase 8: Day/night cycle + procedural sky + fog.
         public bool DayNightCycle = false;
         public float FogDensity = 0.05f;

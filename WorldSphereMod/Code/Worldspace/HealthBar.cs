@@ -11,6 +11,7 @@ namespace WorldSphereMod.Worldspace
     {
         internal Actor? Actor;
         bool _use3dMode;
+        bool _uiVisible = true;
 
         const float kFullLength = 1f;
         const float kThickness = 0.1f;
@@ -24,6 +25,16 @@ namespace WorldSphereMod.Worldspace
         static MethodInfo? _ratioMethod;
         static bool _ratioMethodResolved;
         static readonly Dictionary<System.Type, MemberInfo?> _healthBarMemberCache = new();
+
+        public void SetUiVisible(bool visible)
+        {
+            _uiVisible = visible;
+            if (!visible)
+            {
+                var renderer = GetComponent<MeshRenderer>();
+                if (renderer != null) renderer.enabled = false;
+            }
+        }
 
         public static HealthBar? Attach(Actor a, Transform rigRoot)
         {
@@ -95,7 +106,7 @@ namespace WorldSphereMod.Worldspace
 
         void LateUpdate()
         {
-            if (Actor == null) return;
+            if (!_uiVisible || Actor == null) return;
             float hp = GetHpRatio(Actor);
             hp = Mathf.Clamp01(hp);
 

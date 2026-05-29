@@ -17,6 +17,7 @@ namespace WorldSphereMod.Worldspace
         internal Actor? Actor;
         Text? _fallbackLabel;
         Component? _label3d;
+        bool _uiVisible = true;
 
         static Font? _labelFont;
         static readonly Dictionary<Actor, NameplateText> _suppressedUpstream = new();
@@ -115,6 +116,12 @@ namespace WorldSphereMod.Worldspace
             RestoreUpstreamNameplate(a);
         }
 
+        public void SetUiVisible(bool visible)
+        {
+            _uiVisible = visible;
+            SetLabelVisible(visible);
+        }
+
         public void Refresh(Vector3 worldPos, float camDistance)
         {
             ApplyFade(camDistance);
@@ -139,7 +146,7 @@ namespace WorldSphereMod.Worldspace
 
         void LateUpdate()
         {
-            if (Actor == null) return;
+            if (!_uiVisible || Actor == null) return;
             var cam = CameraManager.MainCamera;
             if (cam == null) return;
 
