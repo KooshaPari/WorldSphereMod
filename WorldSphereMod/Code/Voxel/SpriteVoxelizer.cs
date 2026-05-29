@@ -57,9 +57,25 @@ namespace WorldSphereMod.Voxel
             return cached;
         }
 
-        static Color32 SampleSpritePixel(Color32[] tex, int texW, int x0, int y0, int x, int y)
+        static void GetSpriteRectPixels(Sprite sprite, out int x0, out int y0, out int w, out int h)
         {
-            return tex[(y0 + y) * texW + (x0 + x)];
+            Rect r = sprite.textureRect;
+            x0 = Mathf.RoundToInt(r.x);
+            y0 = Mathf.RoundToInt(r.y);
+            w = Mathf.Max(1, Mathf.RoundToInt(r.width));
+            h = Mathf.Max(1, Mathf.RoundToInt(r.height));
+        }
+
+        static Color32 SampleSpritePixel(Color32[] tex, int texW, int texH, int x0, int y0, int x, int y)
+        {
+            int tx = x0 + x;
+            int ty = y0 + y;
+            if ((uint)tx >= (uint)texW || (uint)ty >= (uint)texH)
+            {
+                return new Color32(0, 0, 0, 0);
+            }
+
+            return tex[ty * texW + tx];
         }
 
         static float GetPerceivedLuminance(Color32 c)
@@ -199,14 +215,11 @@ namespace WorldSphereMod.Voxel
             // Read the sprite's rectangle out of its atlas. We don't use the
             // 8x8 fast-path here because actor sprites are typically larger;
             // PixelsFromSpriteAtlas is hardcoded to 8x8 in the upstream code.
-            Rect r = sprite.textureRect;
-            int w = Mathf.Max(1, (int)r.width);
-            int h = Mathf.Max(1, (int)r.height);
-            int x0 = (int)r.x;
-            int y0 = (int)r.y;
+            GetSpriteRectPixels(sprite, out int x0, out int y0, out int w, out int h);
             solidSw.Start();
             Color32[] tex = GetPixelsCached(sourceTexture);
             int texW = sourceTexture.width;
+            int texH = sourceTexture.height;
 
             // Build a 2D mask first so the extrusion depth can be derived from the
             // sprite's silhouette and luminance instead of being a flat full-depth slab.
@@ -216,7 +229,7 @@ namespace WorldSphereMod.Voxel
             {
                 for (int x = 0; x < w; x++)
                 {
-                    Color32 c = SampleSpritePixel(tex, texW, x0, y0, x, y);
+                    Color32 c = SampleSpritePixel(tex, texW, texH, x0, y0, x, y);
                     c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
                         ? ColorTonemap.Tonemap(c)
                         : c;
@@ -374,13 +387,10 @@ namespace WorldSphereMod.Voxel
                 return CreateEmpty();
             }
 
-            Rect r = sprite.textureRect;
-            int w = Mathf.Max(1, (int)r.width);
-            int h = Mathf.Max(1, (int)r.height);
-            int x0 = (int)r.x;
-            int y0 = (int)r.y;
+            GetSpriteRectPixels(sprite, out int x0, out int y0, out int w, out int h);
             Color32[] tex = GetPixelsCached(sprite.texture);
             int texW = sprite.texture.width;
+            int texH = sprite.texture.height;
 
             bool[,] solid2d = new bool[w, h];
             Color32[,] color2d = new Color32[w, h];
@@ -388,7 +398,7 @@ namespace WorldSphereMod.Voxel
             {
                 for (int x = 0; x < w; x++)
                 {
-                    Color32 c = SampleSpritePixel(tex, texW, x0, y0, x, y);
+                    Color32 c = SampleSpritePixel(tex, texW, texH, x0, y0, x, y);
                     c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
                         ? ColorTonemap.Tonemap(c)
                         : c;
@@ -470,13 +480,10 @@ namespace WorldSphereMod.Voxel
                 return CreateEmpty();
             }
 
-            Rect r = sprite.textureRect;
-            int w = Mathf.Max(1, (int)r.width);
-            int h = Mathf.Max(1, (int)r.height);
-            int x0 = (int)r.x;
-            int y0 = (int)r.y;
+            GetSpriteRectPixels(sprite, out int x0, out int y0, out int w, out int h);
             Color32[] tex = GetPixelsCached(sprite.texture);
             int texW = sprite.texture.width;
+            int texH = sprite.texture.height;
 
             bool[,,] solid = new bool[w, h, depth];
             Color32[,,] color = new Color32[w, h, depth];
@@ -488,7 +495,7 @@ namespace WorldSphereMod.Voxel
             {
                 for (int x = 0; x < w; x++)
                 {
-                    Color32 c = SampleSpritePixel(tex, texW, x0, y0, x, y);
+                    Color32 c = SampleSpritePixel(tex, texW, texH, x0, y0, x, y);
                     c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
                         ? ColorTonemap.Tonemap(c)
                         : c;
@@ -556,13 +563,10 @@ namespace WorldSphereMod.Voxel
                 return CreateEmpty();
             }
 
-            Rect r = sprite.textureRect;
-            int w = Mathf.Max(1, (int)r.width);
-            int h = Mathf.Max(1, (int)r.height);
-            int x0 = (int)r.x;
-            int y0 = (int)r.y;
+            GetSpriteRectPixels(sprite, out int x0, out int y0, out int w, out int h);
             Color32[] tex = GetPixelsCached(sprite.texture);
             int texW = sprite.texture.width;
+            int texH = sprite.texture.height;
 
             float cx = w * 0.5f;
             float cz = w * 0.5f;
@@ -787,13 +791,10 @@ namespace WorldSphereMod.Voxel
                 return CreateEmpty();
             }
 
-            Rect r = sprite.textureRect;
-            int w = Mathf.Max(1, (int)r.width);
-            int h = Mathf.Max(1, (int)r.height);
-            int x0 = (int)r.x;
-            int y0 = (int)r.y;
+            GetSpriteRectPixels(sprite, out int x0, out int y0, out int w, out int h);
             Color32[] tex = GetPixelsCached(sprite.texture);
             int texW = sprite.texture.width;
+            int texH = sprite.texture.height;
 
             bool[,] solid2d = new bool[w, h];
             Color32[,] color2d = new Color32[w, h];
@@ -814,7 +815,7 @@ namespace WorldSphereMod.Voxel
             {
                 for (int x = 0; x < w; x++)
                 {
-                    Color32 c = SampleSpritePixel(tex, texW, x0, y0, x, y);
+                    Color32 c = SampleSpritePixel(tex, texW, texH, x0, y0, x, y);
                     c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
                         ? ColorTonemap.Tonemap(c)
                         : c;
