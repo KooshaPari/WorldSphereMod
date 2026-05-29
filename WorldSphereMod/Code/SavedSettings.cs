@@ -89,7 +89,7 @@ public class SavedSettings
         // path instead of voxelizing building sprites directly.
         public bool BuildingStyleProcgen = false;
         // Phase 3: Crossed-quad foliage (vs. billboarded sprite top tiles).
-        public bool CrossedQuadFoliage = false;
+        public bool CrossedQuadFoliage = true;
         // ADR-0017 M0: continuous height-field mesh terrain (replaces per-tile quads).
         // Flat shape only. Default OFF until validated in-game.
         public bool UseHeightFieldTerrain = false;
@@ -185,7 +185,7 @@ public class SavedSettings
 
             s.VoxelEntities = true;
             s.ProceduralBuildings = false;
-            s.CrossedQuadFoliage = false;
+            s.CrossedQuadFoliage = true;
             s.BiomeBlending = false;
             s.MeshWater = false;
             s.WorldspaceHealth3D = false;
@@ -215,7 +215,7 @@ public class SavedSettings
 
             s.VoxelEntities = true;
             s.ProceduralBuildings = false;
-            s.CrossedQuadFoliage = false;
+            s.CrossedQuadFoliage = true;
             s.MeshWater = false;
             s.WorldspaceHealth3D = false;
             s.MountainSlopeSmoothing = false;

@@ -84,6 +84,8 @@ namespace WorldSphereMod
         static void ApplySchemaVersionMigration(SavedSettings loadedData)
         {
             SavedSettings.ApplyPhaseDefaults(loadedData);
+            loadedData.VoxelEntities = true;
+            loadedData.CrossedQuadFoliage = true;
 
             // Preserve the user's CurrentShape across version bumps.
             // Only phase boolean flags are reset — numeric/scale/shape
