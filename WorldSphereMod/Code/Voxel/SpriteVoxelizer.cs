@@ -57,6 +57,34 @@ namespace WorldSphereMod.Voxel
             return cached;
         }
 
+        static Color32 SampleSpritePixel(Color32[] tex, int texW, int x0, int y0, int x, int y)
+        {
+            return tex[(y0 + y) * texW + (x0 + x)];
+        }
+
+        static float GetPerceivedLuminance(Color32 c)
+        {
+            return (c.r * 0.299f + c.g * 0.587f + c.b * 0.114f) / 255f;
+        }
+
+        static int ComputeColumnDepth(Color32 c, int distToAir, int maxDist, int depth, float distanceWeight, float luminanceWeight, float neutralLuminance)
+        {
+            float lum = GetPerceivedLuminance(c);
+            float lumBias = Mathf.InverseLerp(neutralLuminance, 1f, lum);
+            float distBias = maxDist > 0 ? Mathf.Clamp01(distToAir / (float)maxDist) : 1f;
+            float combined = Mathf.Clamp01(distBias * distanceWeight + lumBias * luminanceWeight);
+            int minDepth = Mathf.Clamp(Mathf.CeilToInt(depth * 0.25f), 2, depth);
+            return Mathf.Clamp(Mathf.RoundToInt(Mathf.Lerp(minDepth, depth, combined)), 2, depth);
+        }
+
+        static float GetRoundedVolumeProfile(int z, int zStart, int zEnd)
+        {
+            int span = Mathf.Max(1, zEnd - zStart - 1);
+            float t = (z - zStart) / (float)span;
+            float centered = 1f - Mathf.Abs(t * 2f - 1f);
+            return Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(centered));
+        }
+
         /// <summary>Drop the per-texture pixel cache. Wire into world unload so stale atlas
         /// pixel arrays don't pin GC memory across sessions.</summary>
         public static void ClearPixelCache()
@@ -180,25 +208,55 @@ namespace WorldSphereMod.Voxel
             Color32[] tex = GetPixelsCached(sourceTexture);
             int texW = sourceTexture.width;
 
-            // Build the alpha mask. We treat any pixel with alpha > 16 as solid;
-            // matches the threshold used elsewhere for WorldBox pixel art.
-            bool[,,] solid = new bool[w, h, depth];
-            Color32[,,] color = new Color32[w, h, depth];
+            // Build a 2D mask first so the extrusion depth can be derived from the
+            // sprite's silhouette and luminance instead of being a flat full-depth slab.
+            bool[,] solid2d = new bool[w, h];
+            Color32[,] color2d = new Color32[w, h];
             for (int y = 0; y < h; y++)
             {
-                int row = (y0 + y) * texW + x0;
                 for (int x = 0; x < w; x++)
                 {
-                    Color32 c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
-                        ? ColorTonemap.Tonemap(tex[row + x])
-                        : tex[row + x];
+                    Color32 c = SampleSpritePixel(tex, texW, x0, y0, x, y);
+                    c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
+                        ? ColorTonemap.Tonemap(c)
+                        : c;
                     if (c.a > 16)
                     {
-                        for (int z = 0; z < depth; z++)
+                        solid2d[x, y] = true;
+                        color2d[x, y] = c;
+                    }
+                }
+            }
+
+            int maxDist;
+            int[,] distToAir = ComputeManhattanDistanceToAir(solid2d, out maxDist);
+
+            bool[,,] solid = new bool[w, h, depth];
+            Color32[,,] color = new Color32[w, h, depth];
+            int safeDepth = Mathf.Max(1, depth);
+            float neutralLuminance = Core.savedSettings != null ? Core.savedSettings.VoxelNeutralLuminance : 0.5f;
+            float shadowRecession = Core.savedSettings != null ? Mathf.Max(0.1f, Core.savedSettings.VoxelShadowRecession) : 1f;
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    if (!solid2d[x, y]) continue;
+
+                    Color32 c = color2d[x, y];
+                    int columnDepth = ComputeColumnDepth(c, distToAir[x, y], maxDist, depth, 0.55f, 0.45f * shadowRecession, neutralLuminance);
+                    int zCenter = safeDepth / 2;
+                    int zSpan = Mathf.Max(1, columnDepth / 2);
+                    int zStart = Mathf.Clamp(zCenter - zSpan, 0, depth - 1);
+                    int zEnd = Mathf.Clamp(zCenter + zSpan + 1, zStart + 1, depth);
+
+                    for (int z = zStart; z < zEnd; z++)
+                    {
+                        if (GetRoundedVolumeProfile(z, zStart, zEnd) <= 0f)
                         {
-                            solid[x, y, z] = true;
-                            color[x, y, z] = c;
+                            continue;
                         }
+                        solid[x, y, z] = true;
+                        color[x, y, z] = c;
                     }
                 }
             }
@@ -328,12 +386,12 @@ namespace WorldSphereMod.Voxel
             Color32[,] color2d = new Color32[w, h];
             for (int y = 0; y < h; y++)
             {
-                int row = (y0 + y) * texW + x0;
                 for (int x = 0; x < w; x++)
                 {
-                    Color32 c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
-                        ? ColorTonemap.Tonemap(tex[row + x])
-                        : tex[row + x];
+                    Color32 c = SampleSpritePixel(tex, texW, x0, y0, x, y);
+                    c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
+                        ? ColorTonemap.Tonemap(c)
+                        : c;
                     if (c.a > 16)
                     {
                         solid2d[x, y] = true;
@@ -354,18 +412,17 @@ namespace WorldSphereMod.Voxel
                 {
                     if (!solid2d[x, y]) continue;
 
-                    // FIXED dot-cloud failure mode: voxel at (x,y,z) opaque IFF
-                    // abs(z - zCenter) <= distToAir[x,y]. Result: silhouette (d=1)
-                    // is 3 voxels deep, body (d=N) is 2N+1 voxels deep — SOLID FILL,
-                    // interior voxels exist so outer shell emits a closed surface.
-                    // Force minimum d=2 for body pixels so silhouette isn't paper-thin.
-                    int d = Mathf.Max(2, distToAir[x, y]);
+                    int d = ComputeColumnDepth(color2d[x, y], distToAir[x, y], maxDist, depth, 0.7f, 0.3f, 0.45f);
                     int zCenter = safeDepth / 2;
                     int zStart = Mathf.Max(0, zCenter - d);
                     int zEnd = Mathf.Min(depth, zCenter + d + 1);
 
                     for (int z = zStart; z < zEnd; z++)
                     {
+                        if (GetRoundedVolumeProfile(z, zStart, zEnd) <= 0f)
+                        {
+                            continue;
+                        }
                         solid[x, y, z] = true;
                         color[x, y, z] = color2d[x, y];
                     }
@@ -429,12 +486,12 @@ namespace WorldSphereMod.Voxel
 
             for (int y = 0; y < h; y++)
             {
-                int row = (y0 + y) * texW + x0;
                 for (int x = 0; x < w; x++)
                 {
-                    Color32 c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
-                        ? ColorTonemap.Tonemap(tex[row + x])
-                        : tex[row + x];
+                    Color32 c = SampleSpritePixel(tex, texW, x0, y0, x, y);
+                    c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
+                        ? ColorTonemap.Tonemap(c)
+                        : c;
                     if (c.a <= 16)
                     {
                         continue;
@@ -450,6 +507,10 @@ namespace WorldSphereMod.Voxel
 
                     for (int z = zStart; z < zEnd; z++)
                     {
+                        if (GetRoundedVolumeProfile(z, zStart, zEnd) <= 0f)
+                        {
+                            continue;
+                        }
                         solid[x, y, z] = true;
                         color[x, y, z] = c;
                     }
@@ -734,16 +795,9 @@ namespace WorldSphereMod.Voxel
             Color32[] tex = GetPixelsCached(sprite.texture);
             int texW = sprite.texture.width;
 
-            bool[,,] solid = new bool[w, h, depth];
-            Color32[,,] color = new Color32[w, h, depth];
+            bool[,] solid2d = new bool[w, h];
+            Color32[,] color2d = new Color32[w, h];
             int backStart = depth > 1 ? depth / 2 : 0;
-            // Apply Perlin depth modulation to ALL voxelized sprites so the skinned
-            // actor path (which only ever calls BuildPerTexel) stops producing flat
-            // 2.5D extrusions. Same recipe as BuildOrganicBlob but applied here so
-            // ShapeHint routing no longer matters for the skinned path. Disable via
-            // VoxelColorTonemap-style toggle later if needed.
-            const float kMinDepthScale = 0.15f;
-            const float kMaxDepthScale = 1.00f;
             float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
             int[] depthScaleHistogram = null;
             bool logNoiseHistogram = false;
@@ -758,36 +812,61 @@ namespace WorldSphereMod.Voxel
             }
             for (int y = 0; y < h; y++)
             {
-                int row = (y0 + y) * texW + x0;
                 for (int x = 0; x < w; x++)
                 {
-                    Color32 c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
-                        ? ColorTonemap.Tonemap(tex[row + x])
-                        : tex[row + x];
+                    Color32 c = SampleSpritePixel(tex, texW, x0, y0, x, y);
+                    c = (Core.savedSettings != null && Core.savedSettings.VoxelColorTonemap)
+                        ? ColorTonemap.Tonemap(c)
+                        : c;
                     if (c.a > 16)
                     {
-                        float worldX = (x - sprite.pivot.x) / ppu;
-                        float worldZ = (y - sprite.pivot.y) / ppu;
-                        float noise = Tools.PerlinNoiseCached(worldX * 0.22f + 0.13f, worldZ * 0.22f + 0.73f);
-                        // Luminance: brighter / more saturated pixels extrude deeper
-                        float lum = (c.r * 0.299f + c.g * 0.587f + c.b * 0.114f) / 255f;
-                        float combined = noise * 0.6f + lum * 0.4f;
-                        float depthScale = Mathf.Lerp(kMinDepthScale, kMaxDepthScale, combined);
-                        int columnDepth = Mathf.Clamp(Mathf.RoundToInt(depth * depthScale), 2, depth);
-                        if (logNoiseHistogram)
-                        {
-                            int bin = Mathf.Clamp(Mathf.FloorToInt(depthScale * depthScaleHistogram.Length), 0, depthScaleHistogram.Length - 1);
-                            depthScaleHistogram[bin]++;
-                        }
-                        int zStart = Mathf.Clamp((depth - columnDepth) / 2, 0, depth - columnDepth);
-                        int zEnd = zStart + columnDepth;
+                        solid2d[x, y] = true;
+                        color2d[x, y] = c;
+                    }
+                }
+            }
 
-                        for (int z = zStart; z < zEnd; z++)
+            int maxDist;
+            int[,] distToAir = ComputeManhattanDistanceToAir(solid2d, out maxDist);
+
+            bool[,,] solid = new bool[w, h, depth];
+            Color32[,,] color = new Color32[w, h, depth];
+            int safeDepth = Mathf.Max(1, depth);
+            float neutralLuminance = Core.savedSettings != null ? Core.savedSettings.VoxelNeutralLuminance : 0.5f;
+            float shadowRecession = Core.savedSettings != null ? Mathf.Max(0.1f, Core.savedSettings.VoxelShadowRecession) : 1f;
+            const float kMinDepthScale = 0.15f;
+            const float kMaxDepthScale = 1.00f;
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    if (!solid2d[x, y]) continue;
+
+                    Color32 c = color2d[x, y];
+                    float worldX = (x - sprite.pivot.x) / ppu;
+                    float worldZ = (y - sprite.pivot.y) / ppu;
+                    float noise = Tools.PerlinNoiseCached(worldX * 0.22f + 0.13f, worldZ * 0.22f + 0.73f);
+                    float distBias = maxDist > 0 ? Mathf.Clamp01(distToAir[x, y] / (float)maxDist) : 1f;
+                    float combined = Mathf.Clamp01((noise * 0.45f) + (distBias * 0.35f) + (GetPerceivedLuminance(c) * 0.20f));
+                    float depthScale = Mathf.Lerp(kMinDepthScale, kMaxDepthScale, combined);
+                    int columnDepth = Mathf.Clamp(Mathf.RoundToInt(depth * depthScale * shadowRecession), 2, depth);
+                    if (logNoiseHistogram)
+                    {
+                        int bin = Mathf.Clamp(Mathf.FloorToInt(depthScale * depthScaleHistogram.Length), 0, depthScaleHistogram.Length - 1);
+                        depthScaleHistogram[bin]++;
+                    }
+                    int zStart = Mathf.Clamp((safeDepth - columnDepth) / 2, 0, depth - columnDepth);
+                    int zEnd = zStart + columnDepth;
+
+                    for (int z = zStart; z < zEnd; z++)
+                    {
+                        if (GetRoundedVolumeProfile(z, zStart, zEnd) <= 0f)
                         {
-                            int sampleX = depth <= 1 ? x : (z < backStart ? x : (w - 1 - x));
-                            solid[sampleX, y, z] = true;
-                            color[sampleX, y, z] = c;
+                            continue;
                         }
+                        int sampleX = depth <= 1 ? x : (z < backStart ? x : (w - 1 - x));
+                        solid[sampleX, y, z] = true;
+                        color[sampleX, y, z] = c;
                     }
                 }
             }
