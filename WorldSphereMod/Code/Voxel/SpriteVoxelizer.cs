@@ -57,6 +57,34 @@ namespace WorldSphereMod.Voxel
             return cached;
         }
 
+        static Color32 SampleSpritePixel(Color32[] tex, int texW, int x0, int y0, int x, int y)
+        {
+            return tex[(y0 + y) * texW + (x0 + x)];
+        }
+
+        static float GetPerceivedLuminance(Color32 c)
+        {
+            return (c.r * 0.299f + c.g * 0.587f + c.b * 0.114f) / 255f;
+        }
+
+        static int ComputeColumnDepth(Color32 c, int distToAir, int maxDist, int depth, float distanceWeight, float luminanceWeight, float neutralLuminance)
+        {
+            float lum = GetPerceivedLuminance(c);
+            float lumBias = Mathf.InverseLerp(neutralLuminance, 1f, lum);
+            float distBias = maxDist > 0 ? Mathf.Clamp01(distToAir / (float)maxDist) : 1f;
+            float combined = Mathf.Clamp01(distBias * distanceWeight + lumBias * luminanceWeight);
+            int minDepth = Mathf.Clamp(Mathf.CeilToInt(depth * 0.25f), 2, depth);
+            return Mathf.Clamp(Mathf.RoundToInt(Mathf.Lerp(minDepth, depth, combined)), 2, depth);
+        }
+
+        static float GetRoundedVolumeProfile(int z, int zStart, int zEnd)
+        {
+            int span = Mathf.Max(1, zEnd - zStart - 1);
+            float t = (z - zStart) / (float)span;
+            float centered = 1f - Mathf.Abs(t * 2f - 1f);
+            return Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(centered));
+        }
+
         /// <summary>Drop the per-texture pixel cache. Wire into world unload so stale atlas
         /// pixel arrays don't pin GC memory across sessions.</summary>
         public static void ClearPixelCache()
