@@ -226,8 +226,8 @@ public class SourceContentInvariantsTests
             "OnDestroy must not stop HTTP listener when a newer BridgeServer instance exists");
         bridgeServer.Should().Contain("if (_mainThreadId != 0 && Thread.CurrentThread.ManagedThreadId == _mainThreadId)",
             "InvokeOnMainThread must use the captured static main thread id");
-        bridgeServer.Should().Contain("WriteJson(context.Response, BuildHealthPayload());",
-            "/health must bypass InvokeOnMainThread so it can answer while Unity main-thread work is stalled");
+        bridgeServer.Should().Contain("ExecuteEndpoint(context, BuildHealthPayload)",
+            "/health must use a non-blocking handler (BuildHealthPayload reads cached flags, not InvokeOnMainThread)");
         bridgeServer.Should().Contain("bridgeAlive = true",
             "health payload must always expose a bridge-alive marker");
         bridgeServer.Should().Contain("listenerThreadAlive = _listenerThread != null && _listenerThread.IsAlive",
@@ -265,8 +265,8 @@ public class SourceContentInvariantsTests
         voxelRender.Should().MatchRegex(
             @"void LateUpdate\(\)[\s\S]*RefreshTelemetryCache\(\);",
             "LateUpdate must refresh telemetry every frame, not only when HasPendingSubmissions");
-        bridgeServer.Should().Contain("WriteJson(context.Response, BuildTelemetryPayload());",
-            "/telemetry must bypass InvokeOnMainThread so PlayCUA assert_telemetry does not get null");
+        bridgeServer.Should().Contain("ExecuteEndpoint(context, BuildTelemetryPayload)",
+            "/telemetry must use cached RefreshTelemetryCache payload without InvokeOnMainThread");
         bridgeServer.Should().Contain("drawCalls = _cachedDrawCalls",
             "telemetry must expose cached drawCalls for PlayCUA");
         bridgeServer.Should().Contain("lastNonZeroDrawCalls = _cachedLastNonZeroDrawCalls",

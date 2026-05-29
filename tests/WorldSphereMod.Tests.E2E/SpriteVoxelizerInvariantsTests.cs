@@ -39,7 +39,9 @@ public class SpriteVoxelizerInvariantsTests
             "unreadable sprite imports must fail closed instead of crashing the render path");
         source.Should().Contain("return CreateEmpty();",
             "the lower-level builders must return an empty mesh when the source texture cannot be used");
-        source.Should().Contain("ColorTonemap.Tonemap(tex[row + x])",
+        source.Should().Contain("Core.savedSettings.VoxelColorTonemap",
+            "tonemap must remain gated behind the VoxelColorTonemap saved setting");
+        source.Should().Contain("ColorTonemap.Tonemap(",
             "the optional tonemap must remain wired into the voxel sampling loop");
     }
 

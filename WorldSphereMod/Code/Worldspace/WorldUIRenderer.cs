@@ -10,9 +10,8 @@ namespace WorldSphereMod.Worldspace
     /// repositioned in <see cref="LateUpdate"/>. Nameplate/health-bar/selection/popup
     /// children attach to these rigs in Steps 2-6; this step only owns the rig graph.
     ///
-    /// Gated behind <see cref="SavedSettings.WorldspaceUI"/>. World-end teardown is a
-    /// follow-up — Step 2 will Postfix <c>MapBox.addClearWorld</c> to call
-    /// <see cref="OnWorldUnload"/>; until then static state persists across reloads.
+    /// Gated behind <see cref="SavedSettings.WorldspaceUI"/>. World-end teardown runs via
+    /// <see cref="WorldSphereMod.Voxel.WorldUnloadPatch"/> → <see cref="OnWorldUnload"/>.
     /// </summary>
     public sealed class WorldUIRenderer : MonoBehaviour
     {
