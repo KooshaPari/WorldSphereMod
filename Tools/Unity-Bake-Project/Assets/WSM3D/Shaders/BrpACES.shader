@@ -64,5 +64,5 @@ Shader "Hidden/WSM3D/BrpACES"
             ENDCG
         }
     }
-    Fallback "Unlit/Color"
+    Fallback Off
 }

@@ -202,5 +202,5 @@ Shader "Hidden/WSM3D/BrpBloom"
             ENDCG
         }
     }
-    Fallback "Unlit/Color"
+    Fallback Off
 }
