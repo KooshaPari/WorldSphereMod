@@ -33,67 +33,7 @@ namespace WorldSphereMod
         public static readonly ConcurrentDictionary<string, bool> PerpActors = new ConcurrentDictionary<string, bool>();
         public static readonly ConcurrentDictionary<string, bool> PerpBuildings = new ConcurrentDictionary<string, bool>();
         public static readonly ConcurrentDictionary<string, bool> PerpProjectiles = new ConcurrentDictionary<string, bool>();
-        public static readonly Dictionary<string, RigType> ActorRigTypes = new Dictionary<string, RigType>
-        {
-            // Humanoid races
-            ["human"] = RigType.Humanoid,
-            ["villager"] = RigType.Humanoid,
-            ["swordsman"] = RigType.Humanoid,
-            ["archer"] = RigType.Humanoid,
-            ["mage"] = RigType.Humanoid,
-            ["orc"] = RigType.Humanoid,
-            ["elf"] = RigType.Humanoid,
-            ["dwarf"] = RigType.Humanoid,
-            ["goblin"] = RigType.Humanoid,
-            ["skeleton"] = RigType.Humanoid,
-            ["zombie"] = RigType.Humanoid,
-            ["bandit"] = RigType.Humanoid,
-            ["necromancer"] = RigType.Humanoid,
-            ["druid"] = RigType.Humanoid,
-            ["king"] = RigType.Humanoid,
-            ["warrior"] = RigType.Humanoid,
-            ["plague_doctor"] = RigType.Humanoid,
-            ["demon"] = RigType.Humanoid,
-            ["angel"] = RigType.Humanoid,
-            ["whiteMage"] = RigType.Humanoid,
-            ["evilMage"] = RigType.Humanoid,
-            // Quadruped animals
-            ["wolf"] = RigType.Quadruped,
-            ["bear"] = RigType.Quadruped,
-            ["horse"] = RigType.Quadruped,
-            ["cow"] = RigType.Quadruped,
-            ["sheep"] = RigType.Quadruped,
-            ["pig"] = RigType.Quadruped,
-            ["dog"] = RigType.Quadruped,
-            ["cat"] = RigType.Quadruped,
-            ["fox"] = RigType.Quadruped,
-            ["deer"] = RigType.Quadruped,
-            ["rabbit"] = RigType.Quadruped,
-            ["chicken"] = RigType.Quadruped,
-            ["turtle"] = RigType.Quadruped,
-            ["rhino"] = RigType.Quadruped,
-            ["mammoth"] = RigType.Quadruped,
-            ["frog"] = RigType.Quadruped,
-            ["rat"] = RigType.Quadruped,
-            // Bird / flying
-            ["bird"] = RigType.Bird,
-            ["eagle"] = RigType.Bird,
-            ["seagull"] = RigType.Bird,
-            ["pigeon"] = RigType.Bird,
-            ["bat"] = RigType.Bird,
-            // Insect / flying invertebrates
-            ["butterfly"] = RigType.Insect,
-            ["bee"] = RigType.Insect,
-            ["firefly"] = RigType.Insect,
-            // Snake
-            ["snake"] = RigType.Snake,
-            // Special / rigless
-            ["sand_spider"] = RigType.None,
-            ["dragon"] = RigType.None,
-            ["crabzilla"] = RigType.None,
-            ["tumor"] = RigType.None,
-            ["ufo"] = RigType.None,
-        };
+        public static readonly Dictionary<string, RigType> ActorRigTypes = CreateActorRigTypes();
 
         public static void RegisterActorRig(string assetId, RigType rig)
         {
@@ -106,10 +46,30 @@ namespace WorldSphereMod
         }
 
         static readonly string[] _humanoidPrefixes = { "human", "elf", "orc", "dwarf", "goblin", "skeleton", "zombie", "bandit", "mage", "warrior", "king", "demon", "angel", "druid", "necromancer" };
-        static readonly string[] _quadrupedPrefixes = { "wolf", "bear", "horse", "cow", "sheep", "pig", "dog", "cat", "fox", "deer", "rabbit", "chicken", "turtle", "rhino", "mammoth", "frog", "rat", "fire_elemental_horse" };
-        static readonly string[] _birdPrefixes = { "bird", "eagle", "seagull", "pigeon", "bat" };
-        static readonly string[] _insectPrefixes = { "butterfly", "bee", "firefly" };
+        static readonly string[] _quadrupedPrefixes = { "wolf", "bear", "horse", "cow", "sheep", "pig", "dog", "cat", "fox", "deer", "rabbit", "lion", "turtle", "rhino", "mammoth", "frog", "rat", "fire_elemental_horse" };
+        static readonly string[] _birdPrefixes = { "bird", "eagle", "seagull", "pigeon", "bat", "crow", "owl", "chicken" };
+        static readonly string[] _insectPrefixes = { "butterfly", "bee", "fly", "firefly" };
         static readonly string[] _snakePrefixes = { "snake", "worm" };
+
+        static Dictionary<string, RigType> CreateActorRigTypes()
+        {
+            var rigTypes = new Dictionary<string, RigType>();
+            AddRigGroup(rigTypes, RigType.Humanoid, "human", "villager", "swordsman", "archer", "mage", "orc", "elf", "dwarf", "goblin", "skeleton", "zombie", "bandit", "necromancer", "druid", "king", "warrior", "plague_doctor", "demon", "angel", "whiteMage", "evilMage");
+            AddRigGroup(rigTypes, RigType.Quadruped, "wolf", "bear", "horse", "cow", "sheep", "pig", "dog", "cat", "fox", "deer", "rabbit", "lion", "turtle", "rhino", "mammoth", "frog", "rat");
+            AddRigGroup(rigTypes, RigType.Bird, "bird", "eagle", "seagull", "pigeon", "bat", "crow", "owl", "chicken");
+            AddRigGroup(rigTypes, RigType.Insect, "butterfly", "bee", "fly", "firefly");
+            AddRigGroup(rigTypes, RigType.Snake, "snake");
+            AddRigGroup(rigTypes, RigType.None, "sand_spider", "dragon", "crabzilla", "tumor", "ufo");
+            return rigTypes;
+        }
+
+        static void AddRigGroup(Dictionary<string, RigType> rigTypes, RigType rigType, params string[] assetIds)
+        {
+            foreach (string assetId in assetIds)
+            {
+                rigTypes[assetId] = rigType;
+            }
+        }
 
         public static RigType ResolveActorRig(string assetId)
         {
@@ -129,11 +89,11 @@ namespace WorldSphereMod
             }
 
             string lower = assetId.ToLowerInvariant();
+            if (MatchesAnyPrefix(lower, _humanoidPrefixes)) return RigType.Humanoid;
+            if (MatchesAnyPrefix(lower, _quadrupedPrefixes)) return RigType.Quadruped;
             if (MatchesAnyPrefix(lower, _birdPrefixes)) return RigType.Bird;
             if (MatchesAnyPrefix(lower, _insectPrefixes)) return RigType.Insect;
             if (MatchesAnyPrefix(lower, _snakePrefixes)) return RigType.Snake;
-            if (MatchesAnyPrefix(lower, _quadrupedPrefixes)) return RigType.Quadruped;
-            if (MatchesAnyPrefix(lower, _humanoidPrefixes)) return RigType.Humanoid;
 
             return RigType.Humanoid;
         }
