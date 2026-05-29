@@ -173,13 +173,40 @@ namespace WorldSphereMod.LOD
             }
         }
 
+        /// <summary>
+        /// Rotation that faces the impostor quad at the camera. Actors and
+        /// buildings are upright, so by default we use a Y-axis (cylindrical)
+        /// billboard: the quad rotates only about world-up to track the camera
+        /// horizontally and stays vertical. This avoids the "leaning" look a
+        /// full spherical billboard produces at strategy-zoom top-down angles
+        /// (Phase 10 eval). BuildQuad lays the verts in the +Y plane (origin at
+        /// the actor's feet), so a Y-only yaw keeps them standing on the ground.
+        ///
+        /// When the camera is nearly directly overhead the horizontal facing
+        /// vector degenerates, so we fall back to a full billboard so the quad
+        /// stays visible instead of collapsing to an edge-on sliver.
+        /// </summary>
         public static Quaternion GetFacingRotation(Vector3 worldPos)
         {
             Camera? cam = Camera.main;
             if (cam == null) return Quaternion.identity;
             Vector3 toCam = cam.transform.position - worldPos;
             if (toCam.sqrMagnitude < 0.000001f) return Quaternion.identity;
-            return Quaternion.LookRotation(toCam, Vector3.up);
+
+            // Project onto the horizontal plane for a Y-axis billboard.
+            Vector3 flat = new Vector3(toCam.x, 0f, toCam.z);
+            float flatSqr = flat.sqrMagnitude;
+            if (flatSqr < 0.0001f)
+            {
+                // Camera ~directly overhead: cylindrical facing is undefined,
+                // so present the quad face-on via a full spherical billboard.
+                return Quaternion.LookRotation(toCam.normalized, Vector3.up);
+            }
+
+            // The quad's front normal is +Z (verts span XY). LookRotation aims
+            // +Z at the camera; constraining the up vector to world-up keeps the
+            // billboard upright (Y-axis only).
+            return Quaternion.LookRotation(flat / Mathf.Sqrt(flatSqr), Vector3.up);
         }
 
         static void ConfigureImpostorMaterial(Material material, string shaderName, Texture? spriteTexture)
@@ -187,7 +214,14 @@ namespace WorldSphereMod.LOD
             if (material == null) return;
 
             material.enableInstancing = true;
+            // Task-mandated queue: render impostors one step after opaque
+            // geometry so they sort behind alpha-blended FX but with the
+            // voxel/proxy tiers. Alpha cutout (below) handles edge clipping;
+            // we intentionally do NOT bump to the AlphaTest queue (2450).
             material.renderQueue = (int)RenderQueue.Geometry + 1;
+            // TransparentCutout RenderType drives the URP/Standard fallback
+            // shaders down their alpha-test path so _Cutoff actually clips.
+            material.SetOverrideTag("RenderType", "TransparentCutout");
             material.SetInt(_cullId, (int)CullMode.Off);
             material.SetColor(_colorId, Color.white);
             material.SetColor(_baseColorId, Color.white);
@@ -211,10 +245,21 @@ namespace WorldSphereMod.LOD
             }
             catch { }
 
+            // Alpha-clip transparent sprite edges so impostors render as the
+            // actor silhouette, not an opaque rectangle (Phase 10 eval: the
+            // previous One/Zero opaque blend with Cutoff=0 drew the full quad
+            // including the sprite atlas's transparent padding). The bundled
+            // WSM3D/Impostor shader does clip(col.a - 0.5) + AlphaToMask, but
+            // the URP Unlit / Standard / Sprites-Default fallbacks need the
+            // _ALPHATEST_ON keyword + _Cutoff to enable the same cutout pass.
+            // Cutoff 0.5 keeps the opaque body while discarding the soft edge.
             material.DisableKeyword("_ALPHABLEND_ON");
             material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            material.DisableKeyword("_ALPHATEST_ON");
-            material.SetFloat(_cutoffId, 0f);
+            material.EnableKeyword("_ALPHATEST_ON");
+            material.SetFloat(_cutoffId, 0.5f);
+            // Opaque src/dst so the alpha-tested cutout writes solid pixels and
+            // depth; transparency is handled by clip(), not blending. Keeping
+            // ZWrite on lets impostors depth-sort against voxel-tier neighbours.
             material.SetInt(_srcBlendId, (int)BlendMode.One);
             material.SetInt(_dstBlendId, (int)BlendMode.Zero);
             material.SetInt(_zWriteId, 1);
@@ -234,10 +279,11 @@ namespace WorldSphereMod.LOD
             }
             catch { }
 
-            if (string.Equals(shaderName, "Sprites/Default", System.StringComparison.OrdinalIgnoreCase))
-            {
-                material.SetOverrideTag("RenderType", "Opaque");
-            }
+            // Sprites/Default has no _Cutoff; emulate the alpha cutout by
+            // keeping the TransparentCutout RenderType (set above) and leaving
+            // ZWrite on so the sprite shader still depth-writes its kept texels.
+            // (We no longer force RenderType=Opaque here — that re-introduced
+            // the opaque-rectangle bug for the Sprites/Default fallback.)
         }
 
         public static Mesh? GetOrCreate(Sprite sprite)
@@ -278,6 +324,13 @@ namespace WorldSphereMod.LOD
 
         public static void Reset()
         {
+            // Evict the per-sprite quad atlas as well as the materials. The
+            // baked-UV meshes reference sprite atlas sub-rects that are
+            // invalidated when the world (and its sprite/texture instances)
+            // reloads; leaving them cached leaked meshes and risked stale UVs
+            // sampling a recycled atlas page. Clear() also destroys the meshes
+            // and zeroes the hit/miss counters.
+            Clear();
             if (_material != null) Object.DestroyImmediate(_material);
             _material = null;
             _materialAttempted = false;
@@ -299,8 +352,30 @@ namespace WorldSphereMod.LOD
                 new Vector3(-hx, 0, 0), new Vector3(hx, 0, 0),
                 new Vector3(hx, h, 0), new Vector3(-hx, h, 0),
             };
-            Vector2[] uvs = sprite.uv;
-            if (uvs == null || uvs.Length != 4)
+            // Sample the sprite's atlas sub-rect. sprite.uv can't be used
+            // directly here: its vertex order is tied to Unity's packed sprite
+            // mesh (and is rotated for tightly-packed atlas sprites), so it
+            // doesn't line up with our fixed BL/BR/TR/TL quad winding and
+            // produced mis-sampled / sideways impostors. Instead derive the
+            // normalized sub-rect from textureRect over the atlas texture
+            // dimensions and map it explicitly to match the vertex order.
+            Vector2[] uvs;
+            Texture2D? tex = sprite.texture;
+            if (tex != null && tex.width > 0 && tex.height > 0)
+            {
+                Rect tr = sprite.textureRect;
+                float u0 = tr.x / tex.width;
+                float v0 = tr.y / tex.height;
+                float u1 = (tr.x + tr.width) / tex.width;
+                float v1 = (tr.y + tr.height) / tex.height;
+                // Vertex order: BL, BR, TR, TL  ->  matching atlas corners.
+                uvs = new Vector2[]
+                {
+                    new Vector2(u0, v0), new Vector2(u1, v0),
+                    new Vector2(u1, v1), new Vector2(u0, v1),
+                };
+            }
+            else
             {
                 uvs = new Vector2[] { new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1) };
             }
