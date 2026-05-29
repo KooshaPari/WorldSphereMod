@@ -389,9 +389,12 @@ namespace WorldSphereMod.Lighting
                 return;
             }
 
-            if (_skyMat.mainTexture != _skyCubemap)
+            if (!_usingVanillaShader && _skyMat.HasProperty("_MainTex"))
             {
-                _skyMat.mainTexture = _skyCubemap;
+                if (_skyMat.mainTexture != _skyCubemap)
+                {
+                    _skyMat.mainTexture = _skyCubemap;
+                }
             }
         }
 
