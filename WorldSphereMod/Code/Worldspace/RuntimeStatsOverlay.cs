@@ -82,9 +82,13 @@ namespace WorldSphereMod.Worldspace
 
         void LateUpdate()
         {
-            bool on = Core.savedSettings.ProfilerDump;
-            if (_canvasGO != null) _canvasGO.SetActive(on);
-            if (!on) return;
+            if (Core.savedSettings == null || !Core.savedSettings.ProfilerDump)
+            {
+                if (_canvasGO != null) _canvasGO.SetActive(false);
+                return;
+            }
+
+            if (_canvasGO != null) _canvasGO.SetActive(true);
 
             EnsureLabel();
             if (_label == null) return;
