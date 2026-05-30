@@ -50,6 +50,11 @@ namespace WorldSphereMod.Water
         // GerstnerWater shader can render depth-gradient foam without a
         // screen-space depth buffer (built-in pipeline can't sample depth here).
         readonly Dictionary<long, bool> _cornerShoreScratch = new Dictionary<long, bool>();
+        readonly Dictionary<long, (int cx, int cy)> _cornerXYScratch = new Dictionary<long, (int, int)>();
+        // Phase of the baked surface ripple; advanced by Update on a throttle so the static
+        // mesh gets occasional fake motion without the per-frame rebuild we deliberately removed.
+        float _wavePhase;
+        float _lastWaveBuild;
 
         public static WaterSurface? Create(Transform parent)
         {
@@ -72,8 +77,10 @@ namespace WorldSphereMod.Water
             // High-contrast shallow/deep so depth gradient is unmistakable in-game.
             // Previous values (0.22/0.65/0.70 vs 0.08/0.22/0.45) blended into a flat
             // mid-blue at strategy-view altitude; user reported water as "flat blue".
-            Color waterShallowColor = new Color(0.40f, 0.70f, 0.85f, 0.55f);
-            Color waterDeepColor = new Color(0.01f, 0.05f, 0.14f, 0.96f);
+            // Translucent teal shallow -> deep blue: terrain reads through (alpha<1) so water
+            // looks like liquid, not an opaque slab.
+            Color waterShallowColor = new Color(0.30f, 0.60f, 0.75f, 0.55f);
+            Color waterDeepColor = new Color(0.04f, 0.12f, 0.22f, 0.85f);
             Color waterFoamColor = new Color(0.92f, 0.95f, 1.00f, 1f);
             var mpb = new MaterialPropertyBlock();
             mpb.SetColor("_Color", waterShallowColor);
@@ -152,6 +159,11 @@ namespace WorldSphereMod.Water
             cornerDepth.Clear();
             float sea = WaterMaskBuffer.SeaLevel;
 
+            // Capture each corner's source (cx,cy) so the depth-resolution pass can re-place
+            // the vertex at a basin-conforming height (deep -> dip below sea, shallow -> at sea).
+            var cornerXY = _cornerXYScratch;
+            cornerXY.Clear();
+
             int GetCorner(int cx, int cy, float tileDepth)
             {
                 int wx = ((cx % width) + width) % width;
@@ -169,6 +181,7 @@ namespace WorldSphereMod.Water
                 vertices.Add(Core.Sphere.SpherePos(cx, cy, sea));
                 colors.Add(Color.black);
                 cornerIndex[key] = idx;
+                cornerXY[key] = (cx, cy);
                 return idx;
             }
 
@@ -201,6 +214,17 @@ namespace WorldSphereMod.Water
                     float avgDepth = d.depthSum / d.count;
                     float depthFrac = Mathf.Clamp01(avgDepth / safeMax);
                     colors[idx] = new Color(depthFrac, depthFrac, depthFrac, 1f);
+
+                    // Re-place the corner so the surface conforms to the basin instead of being a
+                    // flat plane floating over terrain: deep water dips a little below sea level,
+                    // shallow water rides right at it. A small sine ripple (in cx+cy+phase) adds
+                    // cheap fake motion so the slab doesn't read as a static solid.
+                    if (cornerXY.TryGetValue(key, out var xy))
+                    {
+                        float dip = depthFrac * 0.30f;
+                        float ripple = Mathf.Sin((xy.cx + xy.cy) * 0.6f + _wavePhase) * 0.06f;
+                        vertices[idx] = Core.Sphere.SpherePos(xy.cx, xy.cy, sea - dip + ripple);
+                    }
                 }
             }
 
@@ -235,8 +259,15 @@ namespace WorldSphereMod.Water
 
         void Update()
         {
-            // Rebuild only when water tiles actually changed; the wave motion is shader-driven
-            // and reuses the same mesh, so the static geometry never rebuilds per-frame.
+            // Rebuild when water tiles change, or on a slow throttle to advance the baked ripple
+            // so the Standard-fallback surface gets cheap motion (the real shader animates per-frame
+            // in-GPU; the fallback can't, so we re-bake the sine offset a few times a second).
+            if (Time.time - _lastWaveBuild > 0.4f)
+            {
+                _lastWaveBuild = Time.time;
+                _wavePhase += 0.45f;
+                _dirty = true;
+            }
             if (_dirty) RebuildMesh();
             _waveTime = Time.time;
             ApplyWaveProfile();
@@ -420,7 +451,8 @@ namespace WorldSphereMod.Water
             if (_materialAttempted) return false;
             _materialAttempted = true;
 
-            Color waterTint = new Color(0.22f, 0.65f, 0.70f, 0.75f);
+            // Shallow translucent teal; alpha<1 lets terrain show through (fluid, not slab).
+            Color waterTint = new Color(0.30f, 0.60f, 0.75f, 0.62f);
             int surfaceTypeId = Shader.PropertyToID("_Surface");
             int alphaClipId = Shader.PropertyToID("_AlphaClip");
             int baseColorId = Shader.PropertyToID("_BaseColor");
@@ -511,9 +543,8 @@ namespace WorldSphereMod.Water
             int deepColorId = Shader.PropertyToID("_DeepColor");
             if (material.HasProperty(deepColorId))
             {
-                // Near-black deep blue; combined with shallow (0.40,0.70,0.85) this
-                // produces a visible shoreline-to-deepwater gradient on the sphere.
-                material.SetColor(deepColorId, new Color(0.05f, 0.15f, 0.25f, 0.92f));
+                // Deep blue; with shallow (0.30,0.60,0.75) gives a shoreline->deepwater gradient.
+                material.SetColor(deepColorId, new Color(0.04f, 0.12f, 0.22f, 0.85f));
             }
 
             if (isUrpLit)
@@ -556,7 +587,9 @@ namespace WorldSphereMod.Water
             material.EnableKeyword("_EMISSION");
             if (material.HasProperty(emissionId))
             {
-                material.SetColor(emissionId, new Color(0.08f, 0.15f, 0.25f, 1f));
+                // Faint lift only: too-strong emission washes out the alpha blend and the
+                // water reads opaque again. Keep it dim so translucency dominates.
+                material.SetColor(emissionId, new Color(0.02f, 0.05f, 0.09f, 1f));
             }
 
             material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
@@ -578,21 +611,23 @@ namespace WorldSphereMod.Water
 
         static void SetStandardTransparentMode(Material material)
         {
-            // MeshWater creates blackworld when the Standard fallback uses Transparent queue:
-            // alpha-blended surfaces with waterTint alpha 0.55 and no real scene lighting
-            // blend toward black. Use opaque mode so the emission self-illumination dominates.
-            // _Mode=0 is Standard shader's Opaque mode — _Mode=3 (Transparent) was wrong here
-            // because it changes which shader passes are active, even when blend/queue are
-            // overridden to opaque values; the result is invisible geometry.
-            material.SetFloat("_Mode", 0f);
-            material.SetOverrideTag("RenderType", "Opaque");
-            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
-            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
-            material.SetInt("_ZWrite", 1);
+            // WHY: opaque fallback rendered water as a flat solid slab (a billboard) that
+            // occluded terrain — the user-reported "just another solid". Real liquid must be
+            // translucent so terrain reads through it. Drive the Standard shader's canonical
+            // Transparent setup (_Mode=3, SrcAlpha/OneMinusSrcAlpha, ZWrite off, queue 3000)
+            // and keep emission on so the surface stays bright instead of blending to black.
+            material.SetFloat("_Mode", 3f);
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            material.SetInt("_ZWrite", 0);
+            material.EnableKeyword("_ALPHABLEND_ON");
             material.DisableKeyword("_ALPHATEST_ON");
-            material.DisableKeyword("_ALPHABLEND_ON");
             material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            material.renderQueue = 2000;
+            material.renderQueue = 3000;
+            // Glassy water reads more like liquid than a matte slab.
+            int smoothId = Shader.PropertyToID("_Glossiness");
+            if (material.HasProperty(smoothId)) material.SetFloat(smoothId, 0.9f);
         }
     }
 }
