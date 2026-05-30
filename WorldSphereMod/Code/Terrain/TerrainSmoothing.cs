@@ -26,10 +26,10 @@ namespace WorldSphereMod.Terrain
         bool _dirty = true;
 
         // Frame-coalesced rebuild throttle. Brush tools dirty hundreds of tiles
-        // per frame; the slope mesh scans all 43k tiles (316²) for cliff quads
-        // each rebuild. Without throttling the game freezes for the entire brush
-        // stroke. Defer until brush goes quiet (no new dirty for QuietSec) OR
-        // we've been stalling for MaxStallSec. MinIntervalSec prevents
+        // per frame; the slope mesh rebuilds a full-terrain subdivided surface
+        // (~43k tiles, 316²) each rebuild. Without throttling the game freezes for
+        // the entire brush stroke. Defer until brush goes quiet (no new dirty for
+        // QuietSec) OR we've been stalling for MaxStallSec. MinIntervalSec prevents
         // back-to-back rebuilds when dirties trickle in.
         float _lastDirtyTime = -1f;
         float _lastRebuildTime = -1f;
@@ -39,17 +39,6 @@ namespace WorldSphereMod.Terrain
 
         // Subdivision level per tile edge for the smooth mesh (4 = 16 sub-quads per tile).
         const int SubDiv = 4;
-
-        struct CliffQuad
-        {
-            public int X;
-            public int Y;
-            public bool IsVertical;
-            public float HeightA;
-            public float HeightB;
-            public Color32 ColorA;
-            public Color32 ColorB;
-        }
 
         public static MountainSlopeSurface? Create(Transform parent)
         {
@@ -85,10 +74,10 @@ namespace WorldSphereMod.Terrain
                 MaterialPropertyBlock mpb = new MaterialPropertyBlock();
                 renderer.GetPropertyBlock(mpb);
                 mpb.SetColor("_Color", Color.white);
-                mpb.SetColor("_EmissionColor", new Color(0.15f, 0.15f, 0.15f, 1f));
+                mpb.SetColor("_EmissionColor", new Color(0.03f, 0.03f, 0.03f, 1f));
                 renderer.SetPropertyBlock(mpb);
                 if (Core.savedSettings != null && Core.savedSettings.ProfilerDump)
-                    Debug.Log("[WSM3D] Mountain slope MPB pushed _Color=white _EmissionColor=0.15.");
+                    Debug.Log("[WSM3D] Mountain slope MPB pushed _Color=white _EmissionColor=0.03.");
             }
             catch (System.Exception ex)
             {
@@ -366,42 +355,19 @@ namespace WorldSphereMod.Terrain
                 return;
             }
 
-            // Use DetectCliffQuads to identify tiles involved in height transitions.
-            // We then generate smooth interpolated geometry for those tiles and their
-            // immediate neighbors instead of flat billboard quads.
-            List<CliffQuad> quads = DetectCliffQuads(width, height);
-            if (quads.Count == 0)
-            {
-                return;
-            }
-
             bool wrapped = Core.Sphere.IsWrapped;
 
-            // Collect the set of tiles that need smooth geometry: every tile touching
-            // a cliff edge plus neighbors within SmoothRadius for a wide transition
-            // zone that hides the blocky terrain underneath.
-            const int SmoothRadius = 3;
-            HashSet<long> smoothTileSet = new HashSet<long>();
-            for (int i = 0; i < quads.Count; i++)
+            // FULL-terrain coverage: build smooth interpolated geometry for EVERY tile,
+            // not just cliff-adjacent ones. The prior cliff-only patchwork (DetectCliffQuads
+            // + SmoothRadius) produced a partial surface that read as a floating gray patch;
+            // the intended look is one continuous smoothed surface replacing the blocky cubes
+            // across the whole CompoundSphere.
+            List<long> smoothTileSet = new List<long>(width * height);
+            for (int ty = 0; ty < height; ty++)
             {
-                CliffQuad q = quads[i];
-                for (int dy = -SmoothRadius; dy <= SmoothRadius; dy++)
+                for (int tx = 0; tx < width; tx++)
                 {
-                    for (int dx = -SmoothRadius; dx <= SmoothRadius; dx++)
-                    {
-                        int tx = q.X + dx;
-                        int ty = q.Y + dy;
-                        if (ty < 0 || ty >= height) continue;
-                        if (wrapped)
-                        {
-                            tx = ((tx % width) + width) % width;
-                        }
-                        else
-                        {
-                            if (tx < 0 || tx >= width) continue;
-                        }
-                        smoothTileSet.Add((long)ty * width + tx);
-                    }
+                    smoothTileSet.Add((long)ty * width + tx);
                 }
             }
 
@@ -413,9 +379,10 @@ namespace WorldSphereMod.Terrain
             List<Color32> colors = new List<Color32>(tileCount * vertsPerTile);
             List<int> triangles = new List<int>(tileCount * trisPerTile);
 
-            // Height offset so the smooth overlay sits clearly above the flat blocky
-            // terrain, fully hiding cube edges instead of clipping through them.
-            const float HeightBias = 0.15f;
+            // Sit the smooth surface AT terrain height (tiny bias only to win the depth
+            // tie), so it reads as the terrain surface itself rather than a sheet hovering
+            // above the cubes.
+            const float HeightBias = 0.01f;
 
             foreach (long key in smoothTileSet)
             {
@@ -496,7 +463,7 @@ namespace WorldSphereMod.Terrain
 
             // Gated behind ProfilerDump: fires on every terrain-edit rebuild, flooding the viewport.
             if (Core.savedSettings != null && Core.savedSettings.ProfilerDump)
-                Debug.Log($"[WSM3D] MountainSlopeSmoothing rebuilt {quads.Count} cliff quads -> {smoothTileSet.Count} smooth tiles, {vertices.Count} verts.");
+                Debug.Log($"[WSM3D] MountainSlopeSmoothing rebuilt full terrain -> {smoothTileSet.Count} smooth tiles, {vertices.Count} verts.");
 
             _mesh.SetVertices(vertices);
             _mesh.SetTriangles(triangles, 0);
@@ -600,126 +567,6 @@ namespace WorldSphereMod.Terrain
             return normals;
         }
 
-        List<CliffQuad> DetectCliffQuads(int width, int height)
-        {
-            List<CliffQuad> quads = new List<CliffQuad>(Mathf.Max(width, 0) * Mathf.Max(height, 0));
-            bool wrapped = Core.Sphere.IsWrapped;
-
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-                    WorldTile tile = ResolveTile(x, y);
-                    if (tile == null)
-                    {
-                        continue;
-                    }
-
-                    float tileHeight = tile.TileHeight();
-                    Color32 tileColor = Core.Sphere.GetColor(tile.data.tile_id);
-
-                    int rightX = x + 1;
-                    if (wrapped || rightX < width)
-                    {
-                        int sampleX = wrapped ? rightX % width : rightX;
-                        WorldTile rightTile = ResolveTile(sampleX, y);
-                        if (rightTile != null)
-                        {
-                            float rightHeight = rightTile.TileHeight();
-                            if (Mathf.Abs(tileHeight - rightHeight) > 0.1f)
-                            {
-                                Color32 rightColor = Core.Sphere.GetColor(rightTile.data.tile_id);
-                                quads.Add(new CliffQuad
-                                {
-                                    X = x,
-                                    Y = y,
-                                    IsVertical = false,
-                                    HeightA = tileHeight,
-                                    HeightB = rightHeight,
-                                    ColorA = tileColor,
-                                    ColorB = rightColor,
-                                });
-                            }
-                        }
-                    }
-
-                    int upY = y + 1;
-                    if (upY < height)
-                    {
-                        WorldTile upTile = ResolveTile(x, upY);
-                        if (upTile != null)
-                        {
-                            float upHeight = upTile.TileHeight();
-                            if (Mathf.Abs(tileHeight - upHeight) > 0.1f)
-                            {
-                                Color32 upColor = Core.Sphere.GetColor(upTile.data.tile_id);
-                                quads.Add(new CliffQuad
-                                {
-                                    X = x,
-                                    Y = y,
-                                    IsVertical = true,
-                                    HeightA = tileHeight,
-                                    HeightB = upHeight,
-                                    ColorA = tileColor,
-                                    ColorB = upColor,
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-
-            return quads;
-        }
-
-        WorldTile ResolveTile(int x, int y)
-        {
-            if (World.world == null)
-            {
-                return null;
-            }
-
-            int width = MapBox.width;
-            int height = MapBox.height;
-            if (width <= 0 || height <= 0)
-            {
-                return null;
-            }
-
-            if (Core.Sphere.IsWrapped)
-            {
-                x = (int)Tools.MathStuff.Wrap(x, 0, width);
-            }
-            else
-            {
-                x = Mathf.Clamp(x, 0, width - 1);
-            }
-
-            y = Mathf.Clamp(y, 0, height - 1);
-            return World.world.GetTileSimple(x, y);
-        }
-
-        static Material? GetUnderlyingTerrainMaterial()
-        {
-            Material terrainMaterial = Core.Sphere.CompoundSphereMaterial;
-            if (terrainMaterial != null)
-            {
-                return terrainMaterial;
-            }
-
-            Transform? capsule = Core.Sphere.CenterCapsule;
-            if (capsule != null)
-            {
-                MeshRenderer? parentRenderer = capsule.parent?.GetComponentInChildren<MeshRenderer>();
-                if (parentRenderer != null && parentRenderer.sharedMaterial != null)
-                {
-                    return parentRenderer.sharedMaterial;
-                }
-            }
-
-            return null;
-        }
-
         static bool EnsureMaterial()
         {
             if (_material != null)
@@ -734,34 +581,10 @@ namespace WorldSphereMod.Terrain
 
             _materialAttempted = true;
 
-            // SKIP GetUnderlyingTerrainMaterial path — copying a vanilla terrain Material
-            // produces magenta-fallback meshes at runtime (user-confirmed screenshot).
-            // Resolve the bundled opaque vertex-color shader directly from the cache so
-            // slope quads use the same shader path as the working voxel meshes.
-            Shader? shader = null;
-            if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("OpaqueVertexColor", out var bundledShader) && bundledShader != null)
-            {
-                shader = bundledShader;
-                Debug.Log("[WSM3D] Mountain slope material resolved via Core.Sphere.LoadedShaders cache.");
-            }
-
-            if (shader == null)
-            {
-                shader = Shader.Find("WSM3D/OpaqueVertexColor");
-                if (shader != null)
-                {
-                    Debug.Log("[WSM3D] Mountain slope material resolved via Shader.Find('WSM3D/OpaqueVertexColor').");
-                }
-            }
-
-            if (shader == null)
-            {
-                shader = Shader.Find("Standard");
-                if (shader != null)
-                {
-                    Debug.Log("[WSM3D] Mountain slope material resolved via Standard fallback.");
-                }
-            }
+            // Route through Core.Sphere.ResolveShader: returns the bundled OpaqueVertexColor
+            // (same vertex-color path as the working voxel/terrain meshes) or Standard —
+            // NEVER Unlit/URP, which are stripped at 60f1 and rendered magenta/black.
+            Shader? shader = WorldSphereMod.Core.Sphere.ResolveShader("OpaqueVertexColor");
 
             if (shader == null)
             {
@@ -809,16 +632,15 @@ namespace WorldSphereMod.Terrain
             // the albedo channel.  VoxelRender has the same guard.
             material.SetTexture("_MainTex", Texture2D.whiteTexture);
 
-            // OpaqueVertexColor is unlit (LightMode=Always): output =
-            // vertex_color * _Color * tex + _EmissionColor.  WorldBox scenes
-            // have no directional/ambient light, and many mountain biome
-            // colors are dark browns/grays (RGB ≤ 0.15).  Without an emission
-            // floor the slope mesh is nearly black.  Match the voxel pipeline's
-            // brightness guard (0.15) so slopes stay visible.
+            // OpaqueVertexColor is unlit: output = vertex_color * _Color * tex + _EmissionColor.
+            // A 0.15 gray emission is ADDED to every vertex and desaturates the baked biome
+            // colors toward gray (the reported "dark gray" look). The CornerColor brightness
+            // guard already lifts dark biomes, so keep emission at a near-zero floor and let
+            // the per-vertex biome color be the dominant albedo.
             material.EnableKeyword("_EMISSION");
             if (material.HasProperty("_EmissionColor"))
             {
-                material.SetColor("_EmissionColor", new Color(0.15f, 0.15f, 0.15f, 1f));
+                material.SetColor("_EmissionColor", new Color(0.03f, 0.03f, 0.03f, 1f));
             }
 
             // If we fell through to Standard shader (LIT), the emission
