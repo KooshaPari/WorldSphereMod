@@ -116,7 +116,12 @@ namespace WorldSphereMod.Foliage
                 Vector2 pos2 = new Vector2(pTile.pos.x, pTile.pos.y);
                 Vector3 pos3 = Tools.To3DTileHeight(pos2);
                 Quaternion rot = Tools.GetRotation(pTile.pos);
-                Matrix4x4 trs = Matrix4x4.TRS(pos3, rot, Vector3.one);
+                // WHY: foliage meshes are built at raw sprite-pixel size; without the
+                // shared VoxelScaleMultiplier (8x) they render sub-pixel against the
+                // 8x-scaled 3D world and are effectively invisible (same fix as the
+                // actor/building/drop voxel paths in VoxelRender).
+                float foliageScale = Mathf.Max(1f, Core.savedSettings.VoxelScaleMultiplier);
+                Matrix4x4 trs = Matrix4x4.TRS(pos3, rot, Vector3.one * foliageScale);
 
                 if (!t.road && t.life && Core.savedSettings.CrossedQuadFoliage)
                 {

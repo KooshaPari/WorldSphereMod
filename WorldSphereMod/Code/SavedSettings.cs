@@ -89,7 +89,10 @@ public class SavedSettings
         // path instead of voxelizing building sprites directly.
         public bool BuildingStyleProcgen = false;
         // Phase 3: Crossed-quad foliage (vs. billboarded sprite top tiles).
-        public bool CrossedQuadFoliage = false;
+        // WHY default ON: the [Phase] gate skips the FoliageTileRender Harmony patch
+        // entirely when this is false, so trees fall through to vanilla 2D. Mirrors
+        // VoxelEntities=true so foliage renders 3D out-of-the-box like actors.
+        public bool CrossedQuadFoliage = true;
         // ADR-0017 M0: continuous height-field mesh terrain (replaces per-tile quads).
         // Flat shape only. Default OFF until validated in-game.
         public bool UseHeightFieldTerrain = false;
@@ -209,7 +212,7 @@ public class SavedSettings
 
             s.VoxelEntities = true;
             s.ProceduralBuildings = false;
-            s.CrossedQuadFoliage = false;
+            s.CrossedQuadFoliage = true; // WHY: gates the foliage patch; off = trees stay vanilla 2D
             s.MeshWater = false;
             s.WorldspaceHealth3D = false;
             s.MountainSlopeSmoothing = false;
