@@ -1440,6 +1440,35 @@ namespace WorldSphereMod
             // null for them unless they're also Always-Included.
             public static readonly System.Collections.Generic.Dictionary<string, UnityEngine.Shader> LoadedShaders =
                 new System.Collections.Generic.Dictionary<string, UnityEngine.Shader>();
+
+            // WorldBox's Unity 60f1 runtime ships a STRIPPED built-in shader set:
+            // every Unlit/* and Universal Render Pipeline/* probe returns null at
+            // runtime (confirmed live 2026-05-29), so those fallbacks produced the
+            // neon-magenta / NullReferenceException actors. The ONLY safe last
+            // resort is "Standard". Resolve a bundle shader by SafeShaders key,
+            // else fall back to Standard — NEVER to Unlit/* or URP/*.
+            public static UnityEngine.Shader ResolveShader(string bundleName)
+            {
+                if (!string.IsNullOrEmpty(bundleName)
+                    && LoadedShaders.TryGetValue(bundleName, out var bundled)
+                    && bundled != null)
+                {
+                    return bundled;
+                }
+                return UnityEngine.Shader.Find("Standard");
+            }
+
+            // True only when the named bundle shader actually deserialized and is
+            // GPU-supported (it made it into LoadedShaders). Feature paths that
+            // REQUIRE a bundle-only shader (MeshWater->GerstnerWater,
+            // HdrSkybox->ProceduralSky) gate on this and skip the bundle path
+            // entirely when it returns false — the degraded Standard path renders
+            // instead of reaching for a missing Unlit/URP shader.
+            public static bool HasBundleShader(string bundleName) =>
+                !string.IsNullOrEmpty(bundleName)
+                && LoadedShaders.TryGetValue(bundleName, out var sh)
+                && sh != null;
+
             public static SphereTile GetTile(int X, int Y)
             {
                 return Manager[X, Y];
