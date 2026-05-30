@@ -395,7 +395,7 @@ namespace WorldSphereMod.Voxel
             if (_material == null && !EnsureMaterial()) return false;
             _submitDiagCount++;
             // TEMPORARY DIAGNOSTIC: log first non-sanity-cube submit
-            if (!_submitDiagLogged && mesh != null && mesh.name != "WSM3D.SanityTestCube")
+            if (!_submitDiagLogged && Core.savedSettings.ProfilerDump && mesh != null && mesh.name != "WSM3D.SanityTestCube")
             {
                 _submitDiagLogged = true;
                 Debug.Log($"[WSM3D][DIAG-SUBMIT] First non-sanity Submit: mesh={mesh.name} verts={mesh.vertexCount} matName={_material?.name} trs.pos={trs.GetColumn(3)} tint={tint} totalSubmits={_submitDiagCount}");
@@ -415,7 +415,7 @@ namespace WorldSphereMod.Voxel
         public static void Flush()
         {
             // TEMPORARY DIAGNOSTIC: one-shot log to track Flush calls
-            if (!_flushDiagLogged)
+            if (!_flushDiagLogged && Core.savedSettings.ProfilerDump)
             {
                 _flushDiagLogged = true;
                 Debug.Log($"[WSM3D][DIAG-FLUSH] VoxelRender.Flush CALLED materialNull={_material == null} hasPending={MeshInstanceBatcher.HasPendingSubmissions} bucketCount={MeshInstanceBatcher.FrameBucketCount} instances={MeshInstanceBatcher.FrameInstances} drawCalls={MeshInstanceBatcher.FrameDrawCalls}");
@@ -527,7 +527,7 @@ namespace WorldSphereMod.Voxel
                 EmitVoxelsCalled = true;
                 Tools.ClearTileHeightSmoothCache();
                 // TEMPORARY DIAGNOSTIC: one-shot log to verify the Harmony postfix fires
-                if (!_emitDiagLogged)
+                if (!_emitDiagLogged && Core.savedSettings.ProfilerDump)
                 {
                     _emitDiagLogged = true;
                     bool matOk = EnsureMaterial();
@@ -733,7 +733,7 @@ namespace WorldSphereMod.Voxel
                     }
                 }
                 // DIAG-SUBMIT one-shot path report — answers "where did the meshOk actors go?"
-                if (!_emitDiagSawNonZero || _emitDiagFrameCounter < 3)
+                if (Core.savedSettings.ProfilerDump && (!_emitDiagSawNonZero || _emitDiagFrameCounter < 3))
                 {
                     _emitDiagFrameCounter++;
                     Debug.Log($"[WSM3D][DIAG-SUBMIT] EmitVoxels paths n={n} nullActor={dsNullActor} perpSkip={dsPerpSkipped} frustumFail={dsFrustumFail} frustumPass={LastFrustumCullerPassCount} | tier(Imp={dsTierImpostor} Proxy={dsTierProxy} Voxel={dsTierVoxel} Other={dsTierOther}) | skel(attempt={dsSkeletalAttempt} ok={dsSkeletalSubmitOk} fail={dsSkeletalSubmitFail}) | spriteNull={dsSpriteNull} | impostor(meshNull={dsImpostorMeshNull} matNull={dsImpostorMatNull} submit={dsImpostorSubmit}) | voxel(meshNull={dsVoxelMeshNull} attempt={dsVoxelSubmitAttempt} ok={dsVoxelSubmitOk} fail={dsVoxelSubmitFail}) | LastBatcherSubmitCount={LastBatcherSubmitCount} SkeletalAnimation={Core.savedSettings.SkeletalAnimation}");
@@ -814,7 +814,7 @@ namespace WorldSphereMod.Voxel
             [HarmonyPriority(Priority.First)]
             public static void EmitVoxels(BuildingManager __instance)
             {
-                if (!_buildingEmitDiagLogged)
+                if (!_buildingEmitDiagLogged && Core.savedSettings.ProfilerDump)
                 {
                     _buildingEmitDiagLogged = true;
                     int bldgCount = __instance._visible_buildings_count;
@@ -1249,7 +1249,7 @@ namespace WorldSphereMod.Voxel
         public static void TickPerFrame()
         {
             // TEMPORARY DIAGNOSTIC: one-shot log to verify TickPerFrame fires and check Harmony state
-            if (!_tickDiagLogged)
+            if (!_tickDiagLogged && Core.savedSettings != null && Core.savedSettings.ProfilerDump)
             {
                 _tickDiagLogged = true;
                 bool hasPatcher = Core.Patcher != null;
@@ -1278,7 +1278,7 @@ namespace WorldSphereMod.Voxel
                 Debug.Log($"[WSM3D][DIAG-TICK] VoxelFrameDriver.TickPerFrame FIRST CALL hasPatcher={hasPatcher} harmonyPatches=[{patchedMethods}] VoxelEntities={Core.savedSettings?.VoxelEntities} isWorld3D={Core.IsWorld3D} cacheSize={VoxelMeshCache.Count} pendingBuilds={VoxelMeshCache.PendingBuilds} queuedBuildsTotal={VoxelMeshCache.TotalBuilds}");
             }
 
-            if (!_tickPerfBreakdownLogged)
+            if (!_tickPerfBreakdownLogged && Core.savedSettings.ProfilerDump)
             {
                 _tickPerfBreakdownLogged = true;
                 var sw = Stopwatch.StartNew();
@@ -1485,7 +1485,8 @@ namespace WorldSphereMod.Voxel
             {
                 float avgFrameTime = _perfDeltaTimeSum / kPerfSampleWindowFrames;
                 float avgFps = avgFrameTime > 0f ? 1f / avgFrameTime : 0f;
-                Debug.Log($"[WSM3D][Perf] frameDeltaMs={deltaTime * 1000f:F2} avg60FrameDeltaMs={avgFrameTime * 1000f:F2} avg60Fps={avgFps:F1}");
+                if (Core.savedSettings.ProfilerDump)
+                    Debug.Log($"[WSM3D][Perf] frameDeltaMs={deltaTime * 1000f:F2} avg60FrameDeltaMs={avgFrameTime * 1000f:F2} avg60Fps={avgFps:F1}");
                 _perfFrameCounter = 0;
                 _perfDeltaTimeSum = 0f;
             }
@@ -1494,7 +1495,8 @@ namespace WorldSphereMod.Voxel
             if (_instancingTelemetryFrame >= 60)
             {
                 _instancingTelemetryFrame = 0;
-                Debug.Log($"[WSM3D][Telemetry] InstancingEfficiency={MeshInstanceBatcher.InstancingEfficiency:F4} FrameBucketCount={MeshInstanceBatcher.FrameBucketCount} FrameInstances={MeshInstanceBatcher.FrameInstances}");
+                if (Core.savedSettings.ProfilerDump)
+                    Debug.Log($"[WSM3D][Telemetry] InstancingEfficiency={MeshInstanceBatcher.InstancingEfficiency:F4} FrameBucketCount={MeshInstanceBatcher.FrameBucketCount} FrameInstances={MeshInstanceBatcher.FrameInstances}");
             }
 
             // Log-based telemetry every 10s — bypasses bridge for steady-state observability
@@ -1503,7 +1505,8 @@ namespace WorldSphereMod.Voxel
             if (now - _telemetryLastTime > 10f)
             {
                 _telemetryLastTime = now;
-                Debug.Log($"[WSM3D][Telemetry] frameMs={Time.unscaledDeltaTime * 1000:F2} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} cacheSize={VoxelMeshCache.Count} cacheHits={VoxelMeshCache.HitCount} cacheMisses={VoxelMeshCache.MissCount} submits={VoxelRender._submitDiagCount} gcMB={(System.GC.GetTotalMemory(false) / 1048576f):F1}");
+                if (Core.savedSettings.ProfilerDump)
+                    Debug.Log($"[WSM3D][Telemetry] frameMs={Time.unscaledDeltaTime * 1000:F2} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} cacheSize={VoxelMeshCache.Count} cacheHits={VoxelMeshCache.HitCount} cacheMisses={VoxelMeshCache.MissCount} submits={VoxelRender._submitDiagCount} gcMB={(System.GC.GetTotalMemory(false) / 1048576f):F1}");
                 VoxelRender._submitDiagCount = 0;
             }
 
@@ -1643,7 +1646,7 @@ namespace WorldSphereMod.Voxel
             MeshInstanceBatcher.LastFrameSubmitCount = submitCount;
             MeshInstanceBatcher.LastFrameFlushCount = flushCount;
             _submitFlushDiagFrame++;
-            if (_submitFlushDiagFrame % 60 == 0)
+            if (_submitFlushDiagFrame % 60 == 0 && Core.savedSettings.ProfilerDump)
             {
                 Debug.Log($"[WSM3D][SubmitFlushDiag] frame={_submitFlushDiagFrame} submits={submitCount} flushes={flushCount} submitsBeforeFlush={submitsBeforeFlush} hadPending={hadPending} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} buckets={MeshInstanceBatcher.FrameBucketCount}");
             }

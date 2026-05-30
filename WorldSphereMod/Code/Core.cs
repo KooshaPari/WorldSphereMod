@@ -907,13 +907,15 @@ namespace WorldSphereMod
                 }
 
                 long total = scaleMs + texMs + addedMs + colorMs;
-                if (total > 16)
+                if (total > 16 && Core.savedSettings != null && Core.savedSettings.ProfilerDump)
                 {
                     UnityEngine.Debug.LogWarning($"[WSM3D][PERF] RefreshSphere SLOW: {total}ms " +
                         $"(scales={scaleMs}ms tex={texMs}ms " +
                         $"added={addedMs}ms colors={colorMs}ms)");
                 }
-                LogDiagnostics("[WSM3D] RefreshSphere");
+                // LogDiagnostics walks every tile via reflection — only when profiling.
+                if (Core.savedSettings != null && Core.savedSettings.ProfilerDump)
+                    LogDiagnostics("[WSM3D] RefreshSphere");
             }
 
             public static bool HasPendingUpdates()

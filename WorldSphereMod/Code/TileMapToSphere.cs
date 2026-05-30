@@ -276,7 +276,7 @@ namespace WorldSphereMod.TileMapToSphere
             }
             long blendMs = sw.ElapsedMilliseconds;
             long total = zonesMs + finishMs + blendMs;
-            if (total > 16)
+            if (total > 16 && Core.savedSettings != null && Core.savedSettings.ProfilerDump)
             {
                 UnityEngine.Debug.LogWarning($"[WSM3D][PERF] Redraw3DTiles SLOW: {total}ms " +
                     $"(zones={zonesMs}ms/{zoneCount}zones tex={texQ} scale={scaleQ} color={colorQ} " +
@@ -407,7 +407,7 @@ namespace WorldSphereMod.TileMapToSphere
             long timerMs = frameSw.ElapsedMilliseconds;
 
             long totalFrame = spriteMs + precalcMs + redrawMs + debugMs + timerMs;
-            if (totalFrame > 16)
+            if (totalFrame > 16 && Core.savedSettings != null && Core.savedSettings.ProfilerDump)
             {
                 UnityEngine.Debug.LogWarning($"[WSM3D][PERF] render3DStuff SLOW: {totalFrame}ms " +
                     $"(sprite={spriteMs}ms precalc={precalcMs}ms redraw={redrawMs}ms debug={debugMs}ms " +
