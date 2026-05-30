@@ -56,12 +56,12 @@ public class InstallScriptInvariantsTests
         // must SKIP the DLL copy. $Tfm still defaults to net48 because
         // that's what dotnet build produces.
         var tfmDefault = Regex.Match(script, @"\$Tfm\s*=\s*""net48""");
-        var skipsCopy  = Regex.Match(script, @"skipping.*AssemblyName.*\.dll copy", RegexOptions.IgnoreCase);
-        var staleCleanup = Regex.Match(script, @"Remove-Item.*staleSelfDll", RegexOptions.IgnoreCase);
+        var skipsCopy  = Regex.Match(script, @"skipping.*\$AssemblyName\.dll copy", RegexOptions.IgnoreCase);
+        var staleCleanup = Regex.Match(script, @"foreach\s*\(\s*\$stalePath\s+in\s+@", RegexOptions.IgnoreCase);
 
         tfmDefault.Success.Should().BeTrue("install.ps1 must default $Tfm to net48 — that's what the csproj builds.");
         skipsCopy.Success.Should().BeTrue("install.ps1 must explicitly skip the WSM3D DLL copy to prevent NML CS0121 double-load.");
-        staleCleanup.Success.Should().BeTrue("install.ps1 must also remove any stale WSM3D DLL from a prior install — otherwise the regression persists silently.");
+        staleCleanup.Success.Should().BeTrue("install.ps1 must remove stale WSM3D DLL/PDB paths from a prior install.");
     }
 
     [Fact]
@@ -69,33 +69,21 @@ public class InstallScriptInvariantsTests
     {
         var script = ReadInstallScript();
 
-        // The install script must copy: Code, Assemblies, AssetBundles, GameResources, Locales, mod.json
-        var itemsPattern = @"\$items\s*=\s*@\(\s*""([^""]*)""\s*,\s*""([^""]*)""\s*,\s*""([^""]*)""\s*,\s*""([^""]*)""\s*,\s*""([^""]*)""\s*,\s*""([^""]*)""\s*\)";
-        var match = Regex.Match(script, itemsPattern);
+        // Default (Roslyn) install copies Code + payloads; -Precompiled omits Code/.
+        script.Should().MatchRegex(@"\$items\s*=\s*if\s*\(\s*\$Precompiled\s*\)",
+            "install.ps1 must branch $items on -Precompiled");
 
-        match.Success.Should().BeTrue(
-            "install.ps1 must define $items array with exactly 6 entries: Code, Assemblies, AssetBundles, GameResources, Locales, mod.json");
+        var sourceItems = Regex.Match(script,
+            @"else\s*\{\s*@\(\s*""Code""\s*,\s*""Assemblies""\s*,\s*""AssetBundles""\s*,\s*""GameResources""\s*,\s*""Locales""\s*,\s*""mod\.json""\s*\)",
+            RegexOptions.Singleline);
+        sourceItems.Success.Should().BeTrue(
+            "default install must copy Code, Assemblies, AssetBundles, GameResources, Locales, mod.json");
 
-        if (match.Success)
-        {
-            // Extract and verify the 6 entries.
-            var entries = new[]
-            {
-                match.Groups[1].Value.Trim(),
-                match.Groups[2].Value.Trim(),
-                match.Groups[3].Value.Trim(),
-                match.Groups[4].Value.Trim(),
-                match.Groups[5].Value.Trim(),
-                match.Groups[6].Value.Trim()
-            };
-
-            entries.Should().Contain("Code", "must include Code");
-            entries.Should().Contain("Assemblies", "must include Assemblies");
-            entries.Should().Contain("AssetBundles", "must include AssetBundles");
-            entries.Should().Contain("GameResources", "must include GameResources");
-            entries.Should().Contain("Locales", "must include Locales");
-            entries.Should().Contain("mod.json", "must include mod.json");
-        }
+        var precompiledItems = Regex.Match(script,
+            @"if\s*\(\s*\$Precompiled\s*\)\s*\{\s*@\(\s*""Assemblies""\s*,\s*""AssetBundles""\s*,\s*""GameResources""\s*,\s*""Locales""\s*,\s*""mod\.json""\s*\)",
+            RegexOptions.Singleline);
+        precompiledItems.Success.Should().BeTrue(
+            "precompiled install must omit Code/ and ship root DLL instead");
     }
 
     [Fact]
