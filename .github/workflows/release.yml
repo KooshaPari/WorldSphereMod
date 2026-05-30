@@ -60,7 +60,7 @@ jobs:
           extract_section() {
             local header="$1"
             awk -v header="$header" '
-              $0 == header { flag=1; next }
+              index($0, header) == 1 && (length($0) == length(header) || substr($0, length(header) + 1, 3) == " - ") { flag=1; next }
               flag && /^## \[/ { flag=0 }
               flag
             ' CHANGELOG.md | sed -e '/^$/d'
