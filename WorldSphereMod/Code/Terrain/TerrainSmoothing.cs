@@ -24,6 +24,8 @@ namespace WorldSphereMod.Terrain
         MeshRenderer? _renderer;
         Mesh? _mesh;
         bool _dirty = true;
+        // One-shot confirm log: true until the first build that emits real geometry.
+        bool _firstGeometryPending = true;
 
         // Frame-coalesced rebuild throttle. Brush tools dirty hundreds of tiles
         // per frame; the slope mesh rebuilds a full-terrain subdivided surface
@@ -498,6 +500,14 @@ namespace WorldSphereMod.Terrain
             Vector3[] normals = ComputeAnalyticNormals(vertices, tileCount, vertsPerTile);
             _mesh.SetNormals(new List<Vector3>(normals));
             _mesh.RecalculateBounds();
+
+            // One-shot UNGATED confirm so we can verify the slope mesh actually
+            // builds real geometry on world load (was silent → looked "never built").
+            if (_firstGeometryPending && vertices.Count > 0)
+            {
+                _firstGeometryPending = false;
+                Debug.Log($"[WSM3D] MountainSlope mesh built: {vertices.Count} verts, {triangles.Count / 3} tris across {tileCount} tiles.");
+            }
         }
 
         /// <summary>
