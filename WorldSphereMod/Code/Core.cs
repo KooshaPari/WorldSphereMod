@@ -1415,21 +1415,18 @@ namespace WorldSphereMod
             }
 
             // ----------------------------------------------------------------
-            // Load only shaders that survive bundle deserialization with a
-            // valid Shader.name. Corrupted assets return an empty name and are
-            // rejected below so consumers can fall back cleanly.
+            // ADR-0013: only OpaqueVertexColor survives the current 62f3-bake ->
+            // 60f1-runtime cross-version load. The full-set expansion re-crashes
+            // at runtime with 8x ManagedStream serialization-mismatch errors
+            // ("Read 6572 bytes but expected 6600") — VerifyBuiltBundle is a
+            // 62f3-EDITOR check, not a 60f1-RUNTIME check, so it false-positives.
+            // DO NOT expand this list until the bundle is baked with the EXACT
+            // runtime Unity version (2022.3.60f1). Until then, water/sky/postfx/
+            // foliage degrade to Standard via Core.Sphere.ResolveShader.
             // ----------------------------------------------------------------
             public static readonly string[] SafeShaders = new[]
             {
                 "OpaqueVertexColor",
-                "GerstnerWater",
-                "ColorGradingLUT",
-                "ProceduralSky",
-                "Impostor",
-                "ScreenSpaceAO",
-                "ScreenSpaceGI",
-                "BrpBloom",
-                "BrpACES",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look
