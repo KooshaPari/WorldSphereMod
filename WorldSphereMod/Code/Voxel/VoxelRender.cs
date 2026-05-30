@@ -100,33 +100,17 @@ namespace WorldSphereMod.Voxel
             }
             _materialAttempted = true;
 
+            // 60f1 ships a STRIPPED shader set: Particles/*, URP/*, Unlit/* all
+            // return null at runtime, so reaching for them produced null → magenta
+            // voxels. ResolveShader maps to "Standard" only — never Unlit/URP.
             string[] candidates =
             {
-                // Particle shaders can consume Mesh COLOR output when _VERTEX_COLOR_ON
-                // is enabled, so try them first for per-vertex tint fidelity.
-                "Particles/Standard Surface",
-                "Particles/Standard Unlit",
-                // URP variants are clean opaque fallbacks and avoid legacy sprite
-                // transparency ordering issues.
-                "Universal Render Pipeline/Simple Lit",
-                "Universal Render Pipeline/Lit",
-                "Universal Render Pipeline/Unlit",
-                "Universal Render Pipeline/Particles/Unlit",
-                // Legacy fallback path (if SRP fallback happens at runtime).
-                // Sprites/Default LAST -- it produces open-box 2.5D transparent
-                // rendering (single-sided faces, alpha-blended). c1abc6b promoted
-                // it to first hoping to get vertex colors through; user-reported
-                // regression was visible-only-front-faces. Standard back at higher
-                // priority despite black-output risk since the per-instance emission
-                // override (c7be9bd) + clamp (8ee4549) should mitigate.
-                "Unlit/Texture",
-                "Unlit/Color",
                 "Standard",
             };
             var shaderLookup = new Dictionary<string, Shader>();
             foreach (var name in candidates)
             {
-                Shader s = Shader.Find(name);
+                Shader s = WorldSphereMod.Core.Sphere.ResolveShader("");
                 shaderLookup[name] = s;
                 if (!_materialProbeLogged)
                 {

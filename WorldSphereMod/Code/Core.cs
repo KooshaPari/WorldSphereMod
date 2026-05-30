@@ -1097,7 +1097,7 @@ namespace WorldSphereMod
                 // instanced CompoundSphere shader reads StructuredBuffers that
                 // don't exist on a plain DrawMesh call.
                 Shader vcShader = Shader.Find("Sprites/Default");
-                if (vcShader == null) vcShader = Shader.Find("Unlit/Color");
+                if (vcShader == null) vcShader = ResolveShader("");
                 if (vcShader != null)
                 {
                     Material hfMat = new Material(vcShader)
@@ -1356,12 +1356,10 @@ namespace WorldSphereMod
                         // at origin.
                         if (fallback == null)
                         {
+                            // 60f1 strips Unlit/URP/Particles — only OpaqueVertexColor
+                            // (bundle), Sprites/Default and Standard survive at runtime.
                             string[] candidates =
                             {
-                                "Unlit/Color",
-                                "Unlit/Texture",
-                                "Universal Render Pipeline/Unlit",
-                                "Particles/Standard Unlit",
                                 "WSM3D/OpaqueVertexColor",
                                 "Sprites/Default",
                                 "Standard",

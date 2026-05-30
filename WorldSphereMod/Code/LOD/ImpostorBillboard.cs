@@ -70,23 +70,11 @@ namespace WorldSphereMod.LOD
             }
             if (shader == null)
             {
-                string[] candidates =
+                // 60f1 strips Unlit/URP — ResolveShader returns Standard, never null.
+                shader = WorldSphereMod.Core.Sphere.ResolveShader("Impostor");
+                if (shader != null)
                 {
-                    "Universal Render Pipeline/Unlit",
-                    "Universal Render Pipeline/Lit",
-                    "Universal Render Pipeline/Particles/Unlit",
-                    "Standard",
-                    "Sprites/Default",
-                };
-
-                foreach (var shaderName in candidates)
-                {
-                    shader = Shader.Find(shaderName);
-                    if (shader != null)
-                    {
-                        Debug.Log($"[WSM3D] Impostor material fallback shader resolved via Shader.Find('{shaderName}').");
-                        break;
-                    }
+                    Debug.Log($"[WSM3D] Impostor material fallback shader resolved via Core.Sphere.ResolveShader ('{shader.name}').");
                 }
             }
 

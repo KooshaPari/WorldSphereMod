@@ -22,6 +22,7 @@ namespace WorldSphereMod.Water
         static Material? _material;
         static bool _materialAttempted;
         static bool _emissionDiagnosticsLogged;
+        static bool _gerstnerGateLogged;
         static Cubemap? _proceduralSkyCubemap;
         static Texture2D? _proceduralNormalMap;
 
@@ -410,38 +411,39 @@ namespace WorldSphereMod.Water
             int metallicId = Shader.PropertyToID("_Metallic");
             int emissionId = Shader.PropertyToID("_EmissionColor");
 
-            Shader? s = null;
-            // MeshWater should only resolve through the bundled GerstnerWater
-            // shader now that the bundle fallback is fixed to Diffuse.
-            const bool kGerstnerKnownBroken = false;
-            if (!kGerstnerKnownBroken)
-            {
-                if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("GerstnerWater", out var bundledWater) && bundledWater != null)
-                {
-                    s = bundledWater;
-                    Debug.Log("[WSM3D] Water material resolved via Core.Sphere.LoadedShaders cache.");
-                }
-                if (s == null)
-                {
-                    s = Shader.Find("WSM3D/GerstnerWater");
-                    if (s != null) Debug.Log("[WSM3D] Water material resolved via Shader.Find('WSM3D/GerstnerWater').");
-                }
-            }
+            // MeshWater REQUIRES the bundle-only GerstnerWater shader. On 60f1 the
+            // bundle baked at 62f3 only deserializes OpaqueVertexColor, so gate on
+            // HasBundleShader: when GerstnerWater is absent at runtime, drop to the
+            // Standard-transparent degraded path instead of reaching for a missing
+            // shader (which gave a null/black surface + instability).
+            bool hasGerstner = WorldSphereMod.Core.Sphere.HasBundleShader("GerstnerWater");
+            Shader? s = hasGerstner
+                ? WorldSphereMod.Core.Sphere.LoadedShaders["GerstnerWater"]
+                : WorldSphereMod.Core.Sphere.ResolveShader("");
 
             if (s == null)
             {
-                Debug.LogWarning("[WSM3D] No bundled GerstnerWater shader found; water disabled.");
+                Debug.LogWarning("[WSM3D] Water: no usable shader (not even Standard); water disabled.");
                 return false;
+            }
+
+            bool degraded = !hasGerstner;
+            if (!_gerstnerGateLogged)
+            {
+                _gerstnerGateLogged = true;
+                if (degraded)
+                    Debug.Log("[WSM3D] MeshWater: GerstnerWater shader unavailable at runtime — using Standard degraded water.");
+                else
+                    Debug.Log("[WSM3D] Water material resolved via bundled GerstnerWater shader.");
             }
 
             // Detect shader fallback: if GerstnerWater's main pass failed to
             // compile, Unity silently activates the Fallback "Diffuse" shader.
             // Diffuse is LIT and renders black in WorldBox's unlit scene.
-            // The passCount heuristic: GerstnerWater has 1 pass, Diffuse has 2+.
             Debug.Log($"[WSM3D] Water shader: name='{s.name}' supported={s.isSupported} passCount={s.passCount}");
             if (s.passCount == 0)
             {
-                Debug.LogError("[WSM3D] GerstnerWater shader has 0 passes — bundle asset is corrupted. Water disabled.");
+                Debug.LogError("[WSM3D] Water shader has 0 passes — asset corrupted. Water disabled.");
                 return false;
             }
 
@@ -450,7 +452,7 @@ namespace WorldSphereMod.Water
             // GerstnerWater may not have #pragma multi_compile_instancing;
             // instancing is nice-to-have, not load-bearing.  Always configure
             // the material so water is visible.
-            ConfigureWaterMaterial(m, waterTint, baseColorId, colorId, smoothnessId, metallicId, surfaceTypeId, alphaClipId, emissionId);
+            ConfigureWaterMaterial(m, waterTint, baseColorId, colorId, smoothnessId, metallicId, surfaceTypeId, alphaClipId, emissionId, isUrpLit: false, shaderName: degraded ? "Standard" : s.name);
 
             // Diagnostic: dump all material color properties to catch
             // mis-set tints that produce black output.

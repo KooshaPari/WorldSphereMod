@@ -24,6 +24,7 @@ namespace WorldSphereMod.Lighting
         static Material? s_previousCameraSkybox;
         static bool s_previousCameraSkyboxCaptured;
         static bool s_overrodeGlobalSkybox;
+        static bool s_skyGateLogged;
 
         static readonly int _zenith = Shader.PropertyToID("_ZenithColor");
         static readonly int _horizon = Shader.PropertyToID("_HorizonColor");
@@ -74,6 +75,19 @@ namespace WorldSphereMod.Lighting
         static Shader? ResolveSkyShader(out bool isVanilla)
         {
             isVanilla = false;
+            // HdrSkybox REQUIRES the bundle-only ProceduralSky shader. On 60f1 the
+            // bundle only deserializes OpaqueVertexColor, so when ProceduralSky is
+            // absent we skip the bundle path and degrade to Unity's built-in
+            // Skybox/Procedural gradient — never reach for a missing URP/Unlit sky.
+            if (!s_skyGateLogged)
+            {
+                s_skyGateLogged = true;
+                if (!WorldSphereMod.Core.Sphere.HasBundleShader("ProceduralSky")
+                    && !WorldSphereMod.Core.Sphere.HasBundleShader("ContinuumSkybox"))
+                {
+                    Debug.Log("[WSM3D] HdrSkybox: ProceduralSky shader unavailable at runtime — using Skybox/Procedural degraded sky.");
+                }
+            }
             // First check Core.Sphere.LoadedShaders dict — that's the
             // direct reference stash from Core.LoadAssets. Shader.Find
             // does NOT see bundle-loaded shaders unless they're also
