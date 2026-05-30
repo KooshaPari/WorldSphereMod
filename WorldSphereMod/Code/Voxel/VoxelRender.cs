@@ -706,7 +706,9 @@ namespace WorldSphereMod.Voxel
                     Vector3 scl = rd.scales[i];
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
                     scl.z = scl.x;
-                    scl *= Core.savedSettings.VoxelScaleMultiplier;
+                    // WHY: actors use VoxelScaleMultiplier * ActorVoxelScaleFactor so they read
+                    // sprite-sized at zoom instead of 8x gigantic / camera-clipping when close.
+                    scl *= Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor;
                     // Lift the mesh CENTER up by half the world-space mesh height so the
                     // mesh BOTTOM sits ON the terrain surface instead of being embedded
                     // inside the terrain/water voxel cube (which sits at y~2-3, exactly
@@ -1006,7 +1008,8 @@ namespace WorldSphereMod.Voxel
                     }
 
                     Vector3 imPos = cullPos;
-                    float imScale = Mathf.Max(__instance._scale, 0.01f) * Core.savedSettings.VoxelScaleMultiplier;
+                    // WHY: drops share the actor scale factor so they aren't 8x oversized.
+                    float imScale = Mathf.Max(__instance._scale, 0.01f) * Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor;
                     Vector3 imScl = new Vector3(imScale, imScale, imScale);
                     Quaternion br = WorldSphereMod.LOD.ImpostorBillboard.GetFacingRotation(imPos);
                     MeshInstanceBatcher.Submit(im, imMat, Matrix4x4.TRS(imPos, br, imScl), tint);
@@ -1022,7 +1025,8 @@ namespace WorldSphereMod.Voxel
                 }
 
                 Vector3 pos = cullPos;
-                float scale = Mathf.Max(__instance._scale, 0.01f) * Core.savedSettings.VoxelScaleMultiplier;
+                // WHY: drops share the actor scale factor so they aren't 8x oversized.
+                float scale = Mathf.Max(__instance._scale, 0.01f) * Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor;
                 Vector3 scl = new Vector3(scale, scale, scale);
                 scl.z = scl.x;
                 float halfHeight = mesh.bounds.size.y * 0.5f * scl.y;

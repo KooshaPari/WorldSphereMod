@@ -182,8 +182,15 @@ namespace WorldSphereMod.Voxel
 
             // Build the alpha mask. We treat any pixel with alpha > 16 as solid;
             // matches the threshold used elsewhere for WorldBox pixel art.
+            // WHY (slab fix): the old loop filled EVERY column to full depth, producing a
+            // flat constant-thickness SLAB. Instead vary depth per column (Perlin + luminance)
+            // and center it, so the body is genuinely volumetric (rounded front-to-back).
+            // Same recipe as BuildPerTexel; floored at half-depth so no column is paper-thin.
             bool[,,] solid = new bool[w, h, depth];
             Color32[,,] color = new Color32[w, h, depth];
+            float ppuMask = Mathf.Max(1f, sprite.pixelsPerUnit);
+            const float kMinDepthScale = 0.60f;
+            const float kMaxDepthScale = 1.00f;
             for (int y = 0; y < h; y++)
             {
                 int row = (y0 + y) * texW + x0;
@@ -194,7 +201,16 @@ namespace WorldSphereMod.Voxel
                         : tex[row + x];
                     if (c.a > 16)
                     {
-                        for (int z = 0; z < depth; z++)
+                        float worldX = (x - sprite.pivot.x) / ppuMask;
+                        float worldZ = (y - sprite.pivot.y) / ppuMask;
+                        float noise = Tools.PerlinNoiseCached(worldX * 0.22f + 0.13f, worldZ * 0.22f + 0.73f);
+                        float lum = (c.r * 0.299f + c.g * 0.587f + c.b * 0.114f) / 255f;
+                        float combined = noise * 0.6f + lum * 0.4f;
+                        float depthScale = Mathf.Lerp(kMinDepthScale, kMaxDepthScale, combined);
+                        int columnDepth = Mathf.Clamp(Mathf.RoundToInt(depth * depthScale), Mathf.Max(2, depth / 2), depth);
+                        int zStart = Mathf.Clamp((depth - columnDepth) / 2, 0, depth - columnDepth);
+                        int zEnd = zStart + columnDepth;
+                        for (int z = zStart; z < zEnd; z++)
                         {
                             solid[x, y, z] = true;
                             color[x, y, z] = c;

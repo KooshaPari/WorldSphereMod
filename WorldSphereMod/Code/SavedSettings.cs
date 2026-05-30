@@ -75,6 +75,12 @@ public class SavedSettings
         // "auto" defers to AssetShapeRegistry per sprite name. See spec Known gaps.
         public string VoxelInflationStyle = "pertexel";
         public float VoxelScaleMultiplier = 8.0f;
+        // WHY: actor/drop voxel meshes are already sprite-sized in world units; the full 8x
+        // terrain VoxelScaleMultiplier made actors gigantic (clipping the camera at max zoom).
+        // Effective actor render scale = VoxelScaleMultiplier * ActorVoxelScaleFactor, giving
+        // a unit roughly a terrain-tile tall (~2uu) instead of 8uu. Decoupled so terrain/voxel
+        // meshes that depend on 8x are unaffected.
+        public float ActorVoxelScaleFactor = 0.25f;
         public bool DebugVoxelOutline = false;
         public bool DebugSanityCube = false;
         public bool DebugSpawnBuildings = false;
