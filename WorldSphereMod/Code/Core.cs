@@ -1109,7 +1109,57 @@ namespace WorldSphereMod
                     hf.SetMaterial(hfMat);
                 }
 
-                Debug.Log($"[WSM3D] HeightFieldRenderer configured: map={w}x{h} wrapped={wrapped}");
+                // Water now lives IN THE FORK as a corner-averaged sub-mesh at the
+                // water level (below sand) — no more main-mod billboard overlay.
+                // Sea level mirrors the retired WaterMaskBuffer: sink it 0.5 below
+                // the sea-reference height so water never clips above the shore.
+                // Heights are passed RAW (pre-HeightMult) because projectPosition
+                // applies HeightMult, matching the land sampleHeight units.
+                float seaLevel = Tools.TrueHeight(17) - 0.5f;
+                hf.ConfigureWater(
+                    sampleIsWater: (tx, ty) =>
+                    {
+                        int sx = wrapped ? ((tx % w) + w) % w : Mathf.Clamp(tx, 0, w - 1);
+                        int sy = Mathf.Clamp(ty, 0, h - 1);
+                        WorldTile tile = World.world.GetTileSimple(sx, sy);
+                        if (tile == null) return false;
+                        var tt = tile.main_type;
+                        if (tt == null) return false;
+                        // Open water only: liquid/ocean, not sand/ground shore, and at/below sea.
+                        return (tt.liquid || tt.ocean) && !tt.sand && !tt.ground
+                            && tile.TileHeight() <= seaLevel;
+                    },
+                    sampleWaterLevel: (tx, ty) => seaLevel,
+                    sampleSeabed: (tx, ty) =>
+                    {
+                        int sx = wrapped ? ((tx % w) + w) % w : Mathf.Clamp(tx, 0, w - 1);
+                        int sy = Mathf.Clamp(ty, 0, h - 1);
+                        WorldTile tile = World.world.GetTileSimple(sx, sy);
+                        return tile == null ? seaLevel : tile.TileHeight();
+                    }
+                );
+
+                // Translucent water material (alpha-blended) so terrain reads through.
+                Shader waterShader = ResolveShader("");
+                if (waterShader != null)
+                {
+                    Material waterMat = new Material(waterShader) { name = "WSM3D.HeightFieldWater" };
+                    if (waterMat.HasProperty("_Color"))
+                        waterMat.SetColor("_Color", new Color(0.20f, 0.45f, 0.65f, 0.70f));
+                    waterMat.color = new Color(0.20f, 0.45f, 0.65f, 0.70f);
+                    // Standard Transparent mode: ZWrite off, SrcAlpha/OneMinusSrcAlpha, queue 3000.
+                    if (waterMat.HasProperty("_Mode")) waterMat.SetFloat("_Mode", 3f);
+                    waterMat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                    waterMat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                    waterMat.SetInt("_ZWrite", 0);
+                    waterMat.EnableKeyword("_ALPHABLEND_ON");
+                    waterMat.DisableKeyword("_ALPHATEST_ON");
+                    waterMat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                    waterMat.renderQueue = 3000;
+                    hf.SetWaterMaterial(waterMat);
+                }
+
+                Debug.Log($"[WSM3D] HeightFieldRenderer configured: map={w}x{h} wrapped={wrapped} seaLevel={seaLevel:F2}");
             }
             static void CreateCachedColors()
             {
