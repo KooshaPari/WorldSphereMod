@@ -184,7 +184,7 @@ Register-ArgumentCompleter -Native -CommandName "wsm3d.ps1", "wsm3d" -ScriptBloc
             }
             elseif ($arg2 -eq "run-all") {
                 if ($arg3 -eq "-VisionBackend") {
-                    @("omniroute", "anthropic", "off") |
+                    @("fireworks", "omniroute", "anthropic", "off") |
                         Where-Object { $_ -like "$wordToComplete*" } |
                         ForEach-Object {
                             [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)

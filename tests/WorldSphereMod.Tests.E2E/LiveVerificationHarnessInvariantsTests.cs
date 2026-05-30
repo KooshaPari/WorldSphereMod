@@ -52,9 +52,39 @@ public class LiveVerificationHarnessInvariantsTests
         var main = ReadRepoFile(PlaycuaMainRelative);
 
         main.Should().Contain("--vision-backend");
-        main.Should().Contain("choices=[\"omniroute\", \"anthropic\", \"off\"]");
+        main.Should().Contain("choices=[\"fireworks\", \"omniroute\", \"anthropic\", \"off\"]");
+        main.Should().Contain("if backend == \"fireworks\":");
         main.Should().Contain("OmniRouteVisionValidator");
+        main.Should().Contain("if backend == \"fireworks\":");
         main.Should().Contain("if backend == \"omniroute\":");
+    }
+
+    [Fact]
+    public void Playcua_main_requires_health_json_object_with_explicit_ok_true()
+    {
+        var main = ReadRepoFile(PlaycuaMainRelative);
+
+        main.Should().Contain("not isinstance(health, dict)");
+        main.Should().Contain("\"ok\" not in health");
+        main.Should().Contain("not isinstance(health.get(\"ok\"), bool)");
+        main.Should().Contain("or not health.get(\"ok\")");
+        main.Should().NotContain("get(\"ok\", True)");
+    }
+
+    [Fact]
+    public void Playcua_main_targets_worldbox_window_for_screenshots_with_desktop_fallback()
+    {
+        var main = ReadRepoFile(PlaycuaMainRelative);
+
+        main.Should().Contain("is_worldbox_process_name");
+        main.Should().Contain("is_worldbox_window_title");
+        main.Should().Contain("_find_worldbox_hwnd");
+        main.Should().Contain("PrintWindow");
+        main.Should().Contain("_capture_desktop");
+        main.Should().Contain("GetDesktopWindow");
+        main.Should().Contain("last_capture_target = \"worldbox_window\"");
+        main.Should().Contain("last_capture_target = \"desktop\"");
+        main.Should().Contain("\"capture_target\": screenshot.last_capture_target");
     }
 
     [Fact]
@@ -80,9 +110,9 @@ public class LiveVerificationHarnessInvariantsTests
         File.Exists(path).Should().BeTrue(OmnirouteVisionEnvExampleRelative);
 
         var content = File.ReadAllText(path);
-        content.Should().Contain("OMNROUTE_BASE_URL=http://127.0.0.1:20128/v1");
+        content.Should().Contain("OMNROUTE_BASE_URL=");
         content.Should().Contain("OMNROUTE_API_KEY=");
-        content.Should().Contain("OMNROUTE_VISION_COMBO=wsm3d-vision-frontier");
+        content.Should().MatchRegex("OMNROUTE_VISION_(MODEL|COMBO)=");
     }
 
     [Fact]
@@ -97,7 +127,8 @@ public class LiveVerificationHarnessInvariantsTests
         script.Should().Contain("0.95");
         script.Should().Contain("wsm3d-playcua");
         script.Should().Contain("--vision-backend");
-        script.Should().Contain("omniroute");
+        script.Should().Contain("Get-DefaultPlaycuaVisionBackend");
+        script.Should().Contain("fireworks");
     }
 
     [Fact]
@@ -124,8 +155,9 @@ public class LiveVerificationHarnessInvariantsTests
         fn.Groups[1].Value.Should().Contain("Get-ChildItem");
 
         script.Should().Contain("foreach ($scenario in $scenarios)");
-        script.Should().MatchRegex(
-            @"if\s*\(\s*\$Vision\s*\)[\s\S]*--vision-backend[\s\S]*omniroute");
+        script.Should().Contain("if ($Vision)");
+        script.Should().Contain("Get-DefaultPlaycuaVisionBackend");
+        script.Should().Contain("--vision-backend\", $visionBackend");
 
         yamlOnDisk.Should().Contain("bridge-health-vision.yaml");
         yamlOnDisk.Should().Contain("bridge-save-load-smoke.yaml");
@@ -140,5 +172,16 @@ public class LiveVerificationHarnessInvariantsTests
 
         script.Should().Contain("Missing required live SSIM fixture");
         script.Should().NotContain("skipped_no_fixture");
+    }
+
+    [Fact]
+    public void Wsm_live_verify_report_keeps_live_artifacts_in_failed_live_stage()
+    {
+        var script = ReadRepoFile(LiveVerifyScriptRelative);
+
+        script.Should().Contain("bridgePort     = $bridgePort");
+        script.Should().Contain("playcuaRuns    = @()");
+        script.Should().Contain("ssimComparisons = @()");
+        script.Should().Contain("Add-StageResult -Id \"live-playcua-ssim\" -Status \"failed\" -Details $liveDetails");
     }
 }

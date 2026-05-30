@@ -62,12 +62,12 @@ public sealed class BuildingStyleProcgenInvariantsTests
     }
 
     [Fact]
-    public void SavedSettings_ProceduralBuildings_defaults_on_while_BuildingStyleProcgen_opt_in_off()
+    public void SavedSettings_ProceduralBuildings_defaults_off_while_BuildingStyleProcgen_opt_in_off()
     {
         var settings = ReadSource(SavedSettingsPath);
 
-        Regex.IsMatch(settings, @"public\s+bool\s+ProceduralBuildings\s*=\s*true")
-            .Should().BeTrue("Phase 2 proc buildings must default ON");
+        Regex.IsMatch(settings, @"public\s+bool\s+ProceduralBuildings\s*=\s*false")
+            .Should().BeTrue("Phase 2 proc buildings must default OFF");
         Regex.IsMatch(settings, @"public\s+bool\s+BuildingStyleProcgen\s*=\s*false")
             .Should().BeTrue("stylized procgen architecture path stays opt-in OFF by default");
     }

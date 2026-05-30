@@ -58,10 +58,10 @@ public class Wsm3dCliInvariantsTests
         var script = ReadWsm3dScript();
 
         script.Should().Contain("$script:PhaseDefaults = @{");
-        script.Should().Contain(@"""VoxelEntities""       = $false");
-        script.Should().Contain(@"""CrossedQuadFoliage""  = $true");
-        script.Should().Contain(@"""WorldspaceUI""        = $true");
-        script.Should().Contain(@"""ParticleEffects""     = $true");
+        script.Should().Contain(@"""VoxelEntities""       = $true");
+        script.Should().Contain(@"""CrossedQuadFoliage""  = $false");
+        script.Should().Contain(@"""WorldspaceUI""        = $false");
+        script.Should().Contain(@"""ParticleEffects""     = $false");
 
         var presetBlock = Regex.Match(
             script,
@@ -133,7 +133,9 @@ public class Wsm3dCliInvariantsTests
 
         script.Should().MatchRegex(@"""run-all""\s*\{");
         script.Should().Contain("Invoke-PlaycuaRunAll @params");
-        script.Should().Contain("playcua requires 'run-all' subcommand");
+        script.Should().Contain("playcua requires 'run-all' or 'run-bridge' subcommand");
+        script.Should().MatchRegex(@"""run-bridge""\s*\{");
+        script.Should().Contain("Invoke-PlaycuaRunBridge @params");
     }
 
     [Fact]
@@ -144,7 +146,7 @@ public class Wsm3dCliInvariantsTests
 
         completion.Should().Contain(@"""run-all""");
         completion.Should().Contain("-VisionBackend");
-        completion.Should().Contain(@"""omniroute"", ""anthropic"", ""off""");
+        completion.Should().Contain(@"""fireworks"", ""omniroute"", ""anthropic"", ""off""");
     }
 
     [Fact]
@@ -258,6 +260,28 @@ public class Wsm3dCliInvariantsTests
         script.Should().Contain("function Write-InstallFailureHint");
         script.Should().Contain("wsm3d.ps1 doctor");
         script.Should().Contain("Write-InstallFailureHint");
+    }
+
+    [Fact]
+    public void Wsm3d_install_and_relaunch_forward_NoBuild_as_named_SkipBuild()
+    {
+        var script = ReadWsm3dScript();
+
+        var installBlock = Regex.Match(
+            script,
+            @"function Invoke-Install[\s\S]*?function Invoke-Launch");
+        installBlock.Success.Should().BeTrue("Invoke-Install must exist before Invoke-Launch");
+        installBlock.Groups[0].Value.Should().Contain("$installParams[\"SkipBuild\"] = $true");
+        installBlock.Groups[0].Value.Should().Contain("& (Join-Path $ToolsDir \"install.ps1\") @installParams");
+
+        var relaunchBlock = Regex.Match(
+            script,
+            @"function Invoke-Relaunch[\s\S]*?function Invoke-Log");
+        relaunchBlock.Success.Should().BeTrue("Invoke-Relaunch must exist before Invoke-Log");
+        relaunchBlock.Groups[0].Value.Should().Contain("$installParams = @{");
+        relaunchBlock.Groups[0].Value.Should().Contain("Launch = $true");
+        relaunchBlock.Groups[0].Value.Should().Contain("$installParams[\"NoBuild\"] = $true");
+        relaunchBlock.Groups[0].Value.Should().Contain("Invoke-Install @installParams");
     }
 
     [Fact]

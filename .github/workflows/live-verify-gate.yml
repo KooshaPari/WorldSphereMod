@@ -2,6 +2,7 @@ name: live-verify-gate
 
 # Programmatic live-verification gate (offline only): dotnet test + journey mock verify.
 # Mirrors programmatic stages 1–2 of the local live-verify harness (no bridge / playcua / SSIM).
+# Full desktop harness (WorldBox + bridge + PlayCUA + SSIM): Tools/do-all.ps1 — manual only, not CI.
 
 on:
   workflow_dispatch:

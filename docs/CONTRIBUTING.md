@@ -80,12 +80,20 @@ new file under `docs/` (e.g. `docs/phase3-decompile-findings.md`) so the
 next contributor doesn't re-do the investigation. Reference the findings
 doc from the PR body.
 
-## 9. Contributor verification flow
+## 9. Review routing
+
+`.github/CODEOWNERS` now covers the main review routes for core mod code,
+the public API, tools, workflows, docs, journeys, tests, and release
+metadata. That gives us partial automated ownership routing for PRs, but
+it does not replace live proof, in-game smoke verification, or the deeper
+policy gates described in the rest of this guide.
+
+## 10. Contributor verification flow
 
 Run these in order before you push. They mirror what CI expects; details
 and gate names are in [`MERGE_CHECKLIST.md`](MERGE_CHECKLIST.md).
 
-### 9.1 Doctor (environment)
+### 10.1 Doctor (environment)
 
 Checks WorldBox path, .NET SDK, Python (PlayCUA), git submodules, and
 optional services (phenotype-journey, bridge, OmniRoute):
@@ -101,7 +109,7 @@ game is running or tools are built locally.
 
 Equivalent: `task doctor` or `/wsm-doctor` (see `.claude/commands/wsm-doctor.md`).
 
-### 9.2 Live-verify offline (CI-equivalent)
+### 10.2 Live-verify offline (CI-equivalent)
 
 Matches [`live-verify-gate.yml`](../.github/workflows/live-verify-gate.yml)
 stages 1–2: full `dotnet test` matrix + phenotype journey mock. No game,
@@ -112,7 +120,7 @@ pwsh Tools/wsm-live-verify.ps1
 pwsh Tools/wsm-live-verify.ps1 -ListScenarios   # enumerate PlayCUA scenarios for -Live
 ```
 
-- Offline matrix: **473 pass / 3 skip** (476 total) — Unit 151 (+ 3 skip), Integration 67, E2E 255 via `dotnet test`
+- Offline matrix: **486 pass / 3 skip** (489 total) — Unit 151 (+ 3 skip), Integration 69, E2E 266 via `dotnet test`
 - Report: `Tools/.reports/live-verify-latest.json`
 - Deep dive: [`live-verification.md`](live-verification.md); live proof bundle: [`#canonical-live-proof-bundle`](live-verification.md#canonical-live-proof-bundle)
 
@@ -120,7 +128,7 @@ Optional desktop proof (not required to merge): `pwsh Tools/wsm-live-verify.ps1 
 with WorldBox + mod installed and BridgeRPC on `127.0.0.1:8766`. See the
 [canonical live proof bundle](live-verification.md#canonical-live-proof-bundle).
 
-### 9.3 PlayCUA (agentic / live desktop)
+### 10.3 PlayCUA (agentic / live desktop)
 
 PlayCUA drives the running game via YAML scenarios (bridge health, toggles,
 telemetry, screenshots, optional vision). Use after install + launch when
@@ -144,7 +152,7 @@ Scenarios live under `Tools/wsm3d-playcua/sample-scenarios/` — see
 (catalog, vision gates, run matrix). Phase-specific in-game checklists:
 `docs/smoke-test-phase*.md`.
 
-### 9.4 Commit and PR conventions
+### 10.4 Commit and PR conventions
 
 | Rule | Detail |
 |------|--------|
@@ -154,7 +162,7 @@ Scenarios live under `Tools/wsm3d-playcua/sample-scenarios/` — see
 | **Traceability** | When a change satisfies a requirement, cite `FR-WSM-NNN` or `NFR-WSM-NNN` in the PR title or commit body (see [`PRD.md`](PRD.md)). |
 | **Journey-only work** | Follow [`journeys/CONTRIBUTING.md`](journeys/CONTRIBUTING.md) for manifest IDs, capture, and `phenotype-journey verify --mock`. |
 
-### 9.5 Pre-merge checklist
+### 10.5 Pre-merge checklist
 
 Before marking a PR ready or merging to `main`, walk
 [`MERGE_CHECKLIST.md`](MERGE_CHECKLIST.md): CI gate table, offline

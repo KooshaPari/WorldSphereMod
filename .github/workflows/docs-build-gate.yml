@@ -11,15 +11,15 @@ on:
   pull_request:
     paths:
       - "docs/**"
-      - "package.json"
-      - "package-lock.json"
+      - "docs/package.json"
+      - "docs/package-lock.json"
       - ".github/workflows/docs-build-gate.yml"
   push:
     branches: [main, "claude/**"]
     paths:
       - "docs/**"
-      - "package.json"
-      - "package-lock.json"
+      - "docs/package.json"
+      - "docs/package-lock.json"
       - ".github/workflows/docs-build-gate.yml"
 
 permissions:

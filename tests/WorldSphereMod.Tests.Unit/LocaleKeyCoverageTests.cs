@@ -119,8 +119,8 @@ public class LocaleKeyCoverageTests
         var buttonDataPattern = @"new\s+ButtonData\(\s*""([a-z_]+)""";
         var buttonMatches = Regex.Matches(phasesWindowBlock, buttonDataPattern);
 
-        buttonMatches.Should().HaveCount(20,
-            "WorldSphereTab 3D Phases window defines 19 phase toggles + sanity_cube debug toggle");
+        buttonMatches.Should().HaveCount(22,
+            "WorldSphereTab 3D Phases window defines 21 phase toggles + sanity_cube debug toggle");
 
         var expectedPhases = new[]
         {
@@ -138,6 +138,8 @@ public class LocaleKeyCoverageTests
             "color_grading_lut",
             "ssao_enabled",
             "ssgi_enabled",
+            "bloom_enabled",
+            "aces_tonemapping",
             "weather_rain",
             "weather_snow",
             "weather_lightning",
@@ -201,6 +203,8 @@ public class LocaleKeyCoverageTests
             "color_grading_lut",
             "ssao_enabled",
             "ssgi_enabled",
+            "bloom_enabled",
+            "aces_tonemapping",
             "weather_rain",
             "weather_snow",
             "weather_lightning",

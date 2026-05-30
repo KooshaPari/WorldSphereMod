@@ -1,0 +1,206 @@
+Shader "Hidden/WSM3D/BrpBloom"
+{
+    Properties
+    {
+        _MainTex ("Source", 2D) = "white" {}
+        _BloomTex ("Bloom", 2D) = "black" {}
+        _Threshold ("Threshold", Float) = 0.8
+        _Intensity ("Intensity", Float) = 0.5
+    }
+
+    SubShader
+    {
+        Cull Off ZWrite Off ZTest Always
+
+        // Pass 0: Threshold extract
+        Pass
+        {
+            Name "THRESHOLD"
+            Tags { "LightMode" = "Always" }
+
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma target 3.0
+            #include "UnityCG.cginc"
+
+            sampler2D _MainTex;
+            float4 _MainTex_TexelSize;
+            float _Threshold;
+
+            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; };
+
+            v2f vert(appdata v)
+            {
+                v2f o;
+                o.pos = UnityObjectToClipPos(v.vertex);
+                o.uv = v.uv;
+                #if UNITY_UV_STARTS_AT_TOP
+                if (_MainTex_TexelSize.y < 0)
+                    o.uv = 1.0 - o.uv;
+                #endif
+                return o;
+            }
+
+            fixed4 frag(v2f i) : SV_Target
+            {
+                float3 c = tex2D(_MainTex, i.uv).rgb;
+                float brightness = dot(c, float3(0.2126, 0.7152, 0.0722));
+                float contrib = max(0, brightness - _Threshold);
+                return fixed4(c * (contrib / max(brightness, 0.001)), 1);
+            }
+            ENDCG
+        }
+
+        // Pass 1: Gaussian blur (horizontal)
+        Pass
+        {
+            Name "BLUR_H"
+            Tags { "LightMode" = "Always" }
+
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma target 3.0
+            #include "UnityCG.cginc"
+
+            sampler2D _MainTex;
+            float4 _MainTex_TexelSize;
+
+            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; };
+
+            v2f vert(appdata v)
+            {
+                v2f o;
+                o.pos = UnityObjectToClipPos(v.vertex);
+                o.uv = v.uv;
+                #if UNITY_UV_STARTS_AT_TOP
+                if (_MainTex_TexelSize.y < 0)
+                    o.uv = 1.0 - o.uv;
+                #endif
+                return o;
+            }
+
+            float GetBlurWeight(int idx)
+            {
+                if (idx == 0) return 0.227027;
+                if (idx == 1) return 0.194594;
+                if (idx == 2) return 0.121622;
+                if (idx == 3) return 0.054054;
+                return 0.016216;
+            }
+
+            fixed4 frag(v2f i) : SV_Target
+            {
+                float2 texel = float2(_MainTex_TexelSize.x, 0);
+                float3 result = tex2D(_MainTex, i.uv).rgb * GetBlurWeight(0);
+                for (int j = 1; j < 5; j++)
+                {
+                    float w = GetBlurWeight(j);
+                    result += tex2D(_MainTex, i.uv + texel * j).rgb * w;
+                    result += tex2D(_MainTex, i.uv - texel * j).rgb * w;
+                }
+                return fixed4(result, 1);
+            }
+            ENDCG
+        }
+
+        // Pass 2: Gaussian blur (vertical)
+        Pass
+        {
+            Name "BLUR_V"
+            Tags { "LightMode" = "Always" }
+
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma target 3.0
+            #include "UnityCG.cginc"
+
+            sampler2D _MainTex;
+            float4 _MainTex_TexelSize;
+
+            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; };
+
+            v2f vert(appdata v)
+            {
+                v2f o;
+                o.pos = UnityObjectToClipPos(v.vertex);
+                o.uv = v.uv;
+                #if UNITY_UV_STARTS_AT_TOP
+                if (_MainTex_TexelSize.y < 0)
+                    o.uv = 1.0 - o.uv;
+                #endif
+                return o;
+            }
+
+            float GetBlurWeight(int idx)
+            {
+                if (idx == 0) return 0.227027;
+                if (idx == 1) return 0.194594;
+                if (idx == 2) return 0.121622;
+                if (idx == 3) return 0.054054;
+                return 0.016216;
+            }
+
+            fixed4 frag(v2f i) : SV_Target
+            {
+                float2 texel = float2(0, _MainTex_TexelSize.y);
+                float3 result = tex2D(_MainTex, i.uv).rgb * GetBlurWeight(0);
+                for (int j = 1; j < 5; j++)
+                {
+                    float w = GetBlurWeight(j);
+                    result += tex2D(_MainTex, i.uv + texel * j).rgb * w;
+                    result += tex2D(_MainTex, i.uv - texel * j).rgb * w;
+                }
+                return fixed4(result, 1);
+            }
+            ENDCG
+        }
+
+        // Pass 3: Composite (additive blend bloom onto source)
+        Pass
+        {
+            Name "COMPOSITE"
+            Tags { "LightMode" = "Always" }
+
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma target 3.0
+            #include "UnityCG.cginc"
+
+            sampler2D _MainTex;
+            sampler2D _BloomTex;
+            float4 _MainTex_TexelSize;
+            float _Intensity;
+
+            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; };
+
+            v2f vert(appdata v)
+            {
+                v2f o;
+                o.pos = UnityObjectToClipPos(v.vertex);
+                o.uv = v.uv;
+                #if UNITY_UV_STARTS_AT_TOP
+                if (_MainTex_TexelSize.y < 0)
+                    o.uv = 1.0 - o.uv;
+                #endif
+                return o;
+            }
+
+            fixed4 frag(v2f i) : SV_Target
+            {
+                float3 src = tex2D(_MainTex, i.uv).rgb;
+                float3 bloom = tex2D(_BloomTex, i.uv).rgb;
+                return fixed4(src + bloom * _Intensity, 1);
+            }
+            ENDCG
+        }
+    }
+    Fallback "Unlit/Color"
+}

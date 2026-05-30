@@ -1,8 +1,8 @@
 using System;
-using Object = UnityEngine.Object;
 using System.Collections.Generic;
 using UnityEngine;
 using WorldSphereMod.ProcGen;
+using Object = UnityEngine.Object;
 
 namespace WorldSphereMod.Foliage
 {

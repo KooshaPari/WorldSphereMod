@@ -11,6 +11,12 @@
     contributors don't have to set anything. Resolved with first-wins order.
   -->
 
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'WorldSphereAPI'">
+    <!-- WorldSphereMod.csproj shares this directory; isolate restore/build artifacts. -->
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)obj\WorldSphereAPI\</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)bin\WorldSphereAPI\</BaseOutputPath>
+  </PropertyGroup>
+
   <PropertyGroup>
     <WorldBoxPath Condition="'$(WorldBoxPath)' == '' AND '$(WORLDBOX_PATH)' != ''">$(WORLDBOX_PATH)</WorldBoxPath>
     <WorldBoxPath Condition="'$(WorldBoxPath)' == '' AND '$(OS)' == 'Windows_NT'">C:/Program Files (x86)/Steam/steamapps/common/worldbox</WorldBoxPath>

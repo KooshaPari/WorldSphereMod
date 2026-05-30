@@ -6,7 +6,7 @@ Single entry point for in-game smoke checklists, PlayCUA scenarios, journey mani
 
 | Gate | Scope | Command |
 |------|-------|---------|
-| **Offline gate** | **476 tests** (473 passed, 3 skipped) + journey mock (20 manifests) | `pwsh Tools/wsm-live-verify.ps1` |
+| **Offline gate** | **489 tests** (486 passed, 3 skipped) + journey mock (20 manifests) | `pwsh Tools/wsm-live-verify.ps1` |
 
 ---
 
@@ -38,6 +38,13 @@ Screenshot helper (game focused, writes `docs/screenshots/phase-<n>-<name>.png`)
 
 ```powershell
 pwsh Tools/wsm3d.ps1 screenshot phase <n> -Name <slug> -WindowOnly
+```
+
+Manual smoke orchestrator (install, launch, checklist, optional PlayCUA baselines):
+
+```powershell
+pwsh Tools/manual-smoke.ps1 -Phase 1 -Install -Launch -PlaycuaBaseline
+pwsh Tools/manual-smoke.ps1 -AllPhases -PlaycuaBaseline
 ```
 
 ---

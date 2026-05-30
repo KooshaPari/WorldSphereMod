@@ -1,6 +1,6 @@
 # Phase 9 in-game smoke test — checklist
 
-What to verify when you toggle `PostFX = true` and `ParticleEffects = true` for the first time.
+What to verify when you toggle `PostFX = true` and `ParticleEffects = true` for the first time. Phase 9 now uses the unified `WSM3DPostStack` BRP chain, so the smoke pass should show a single deterministic SSAO -> SSGI -> Bloom -> ACES -> LUT path instead of separate post-effect MonoBehaviours.
 
 **Agentic automation:** [`Tools/wsm3d-playcua/sample-scenarios/phase-9-postfx-particles.yaml`](../Tools/wsm3d-playcua/sample-scenarios/phase-9-postfx-particles.yaml) drives bridge `toggle_flag`, telemetry, and vision screenshot steps. Full programmatic + agentic gate order: [`docs/live-verification.md`](live-verification.md).
 
@@ -46,20 +46,22 @@ If any of those fail, Phase 0–8 plumbing has regressed. Don't proceed.
 
 | Check | Expected | Failure mode if broken |
 |---|---|---|
-| Post-processing visible | Bloom on bright areas, grading/vignette when pipeline present | Identical to OFF → `PostFX` didn't apply, or URP `Volume` types absent (built-in passes may still run) |
-| SSAO when `SSAOEnabled` on | Contact shading in crevices (subtle) | No AO → `ScreenSpaceAO` gated off or pipeline missing |
+| Post-processing visible | Deterministic SSAO -> SSGI -> Bloom -> ACES -> LUT chain; bright areas bloom, highlights roll off filmically, and LUT grading still applies | Identical to OFF -> `PostFX` did not attach `WSM3DPostStack` or `BrpBloom.shader` / `BrpACES.shader` failed to load |
+| SSAO when `SSAOEnabled` on | Contact shading in crevices (subtle) | No AO → SSAO pass gated off or unified stack input missing |
+| Bloom when `BloomEnabled` on | Soft halos and composite around bright emissive areas; default OFF for Phase 9 | No bloom → `BloomEnabled` false or `BrpBloom.shader` missing |
+| ACES when `ACESTonemapping` on | Filmic shoulder on bright sky / lights; default ON for Phase 9 | Harsh clipping or linear-looking highlights → `ACESTonemapping` false or `BrpACES.shader` missing |
 | Particle bursts on supported IDs | Pooled bursts on combat/effect hooks (5 IDs) | No particles → `ParticleEffects` false or effect ID unmapped |
 | `frameMs` acceptable on iGPU | Compare ON vs OFF if hitch | >50 ms sustained → disable `PostFX` for A/B |
 | Telemetry shows render work | Bridge `drawCalls > 0` after effects | `drawCalls=0` with scene visible → unrelated to FX gate |
-| No shader error banner | Clean UI, no red compile overlay | Console: `[WorldSphereMod3D]` + `PostFxController` errors |
+| No shader error banner | Clean UI, no red compile overlay | Console: `[WorldSphereMod3D]` + `WSM3DPostStack` errors |
 
 ## SSAO / SSGI knobs (optional)
 
-`SSAOEnabled` defaults **ON** with PostFX; `SSGIEnabled` defaults **OFF**. Toggle for A/B on integrated GPUs — not required to clear Phase 9.
+`SSAOEnabled` defaults **ON** with PostFX; `SSGIEnabled` defaults **OFF**; `BloomEnabled` defaults **OFF**; `ACESTonemapping` defaults **ON**. Toggle for A/B on integrated GPUs — not required to clear Phase 9.
 
 ## Multi-world session check (optional)
 
-`PostFxController` volume and particle pools may persist across reload without restart. Workaround: restart WorldBox between worlds during testing.
+`WSM3DPostStack` materials/temp render textures and particle pools must release across reload. Workaround for investigation only: restart WorldBox between worlds during testing.
 
 ## Capture screenshots
 
@@ -73,13 +75,13 @@ Link them in the Phase 9 PR body when marking ready for review. Diff optional ag
 
 ## What's expected to look bad
 
-- **URP vs built-in split.** `PostFxController` no-ops when URP types missing; built-in `OnRenderImage` passes may partially apply — see `docs/phase9-architecture.md`.
+- **Built-in post stack.** `WSM3DPostStack` in `WorldSphereMod/Code/PostFx/WSM3DPostStack.cs` is the primary runtime path. The reflective `PostFxController` URP volume path is retained for URP-capable builds, but is not required for current WorldBox smoke passes.
 - **Limited effect IDs.** Only five burst IDs wired; exotic spells may show vanilla FX only.
 - **iGPU cost.** Bloom pyramid ~2–3 ms at 1080p; acceptable to leave `PostFX` off on weak hardware.
 
 ## If something is broken
 
-- Check the WorldBox console (default toggle: backtick) for `[WorldSphereMod3D]` / `[PostFxController]` errors.
+- Check the WorldBox console (default toggle: backtick) for `[WorldSphereMod3D]` / `[WSM3DPostStack]` errors.
 - Check `<WorldBox>/output_log.txt` or NeoModLoader's compile-error log.
 - Toggle **Post FX** and **Particle Effects** OFF — unprocessed scene returns without restart.
 - Re-run the PlayCUA scenario or `pwsh Tools/wsm3d.ps1 journey verify -Id us-wsm-phase-9-postfx` (mock) for manifest drift.

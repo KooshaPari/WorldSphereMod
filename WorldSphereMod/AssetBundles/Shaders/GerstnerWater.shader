@@ -12,6 +12,9 @@
 //   _WaveSteepness   — wave shape sharpness (0 = sine, 1 = peaked)
 //   _WaveDirX/Z      — primary wave direction unit vector
 //   _Foam            — foam color (added near crests)
+//   _SkyCubemap      — reflection source (skybox cubemap or fallback)
+//   _ShoreFoamWidth  — shoreline foam width threshold
+//   _NormalMap       — ripple normal perturbation texture
 //
 // At runtime VoxelRender / WaterSurface resolves via Shader.Find("WSM3D/GerstnerWater").
 
@@ -19,23 +22,29 @@ Shader "WSM3D/GerstnerWater"
 {
     Properties
     {
-        _Color ("Water Tint", Color) = (0.15, 0.40, 0.55, 0.55)
-        _DeepColor ("Deep Color", Color) = (0.05, 0.20, 0.35, 1)
-        _Foam ("Foam Color", Color) = (1, 1, 1, 1)
+        _Color ("Shallow Color", Color) = (0.22, 0.65, 0.70, 0.75)
+        _DeepColor ("Deep Color", Color) = (0.01, 0.05, 0.14, 0.96)
+        _Foam ("Foam Color", Color) = (0.92, 0.95, 1.00, 1)
+        _SkyCubemap ("Sky Cubemap", Cube) = "" {}
+        _ShoreFoamWidth ("Shore Foam Width", Float) = 0.05
+        [Normal]_NormalMap ("Normal Map", 2D) = "bump" {}
+        _WaterDepth ("Water Depth", Float) = 0
+        _MaxDepth ("Max Depth", Float) = 6
         _WaveTime ("Wave Time", Float) = 0
-        _WaveAmplitude ("Wave Amplitude", Range(0, 1)) = 0.15
-        _WaveSteepness ("Wave Steepness", Range(0, 1)) = 0.4
+        _WaveAmplitude ("Wave Amplitude", Range(0, 1)) = 0.3
+        _WaveSteepness ("Wave Steepness", Range(0, 1)) = 0.35
         _WaveDirX ("Wave Dir X", Float) = 0.7
         _WaveDirZ ("Wave Dir Z", Float) = 0.7
-        _WaveLength ("Wave Length", Range(1, 50)) = 8
+        _WaveLength ("Wave Length", Range(1, 50)) = 10
     }
 
     SubShader
     {
-        Tags { "RenderType"="Opaque" "Queue"="Geometry" "IgnoreProjector"="True" }
+        Tags { "RenderType"="Transparent" "Queue"="Transparent" "IgnoreProjector"="True" }
         LOD 200
+        Blend SrcAlpha OneMinusSrcAlpha
         Cull Back
-        ZWrite On
+        ZWrite Off
 
         Pass
         {
@@ -47,10 +56,14 @@ Shader "WSM3D/GerstnerWater"
             #pragma fragment frag
             #include "UnityCG.cginc"
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; };
-            struct v2f { float4 pos : SV_POSITION; float3 worldPos : TEXCOORD0; float3 worldNormal : TEXCOORD1; float foam : TEXCOORD2; };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float4 color : COLOR; };
+            struct v2f { float4 pos : SV_POSITION; float3 worldPos : TEXCOORD0; float3 worldNormal : TEXCOORD1; float foam : TEXCOORD2; float depth : TEXCOORD3; };
 
             fixed4 _Color, _DeepColor, _Foam;
+            samplerCUBE _SkyCubemap;
+            sampler2D _NormalMap;
+            float _WaterDepth, _MaxDepth;
+            float _ShoreFoamWidth;
             float _WaveTime, _WaveAmplitude, _WaveSteepness, _WaveDirX, _WaveDirZ, _WaveLength;
 
             float3 GerstnerWave(float3 p, out float crestFactor)
@@ -80,20 +93,39 @@ Shader "WSM3D/GerstnerWater"
                 o.worldPos = worldPos;
                 o.worldNormal = mul((float3x3)unity_ObjectToWorld, v.normal);
                 o.foam = crest;
+                o.depth = v.color.r;
                 return o;
             }
 
             fixed4 frag(v2f i) : SV_Target
             {
                 float3 viewDir = normalize(_WorldSpaceCameraPos - i.worldPos);
-                float fresnel = pow(1 - saturate(dot(normalize(i.worldNormal), viewDir)), 3);
-                fixed3 baseTint = lerp(_DeepColor.rgb, _Color.rgb, fresnel);
-                fixed3 finalRgb = lerp(baseTint, _Foam.rgb, smoothstep(0.85, 0.99, i.foam));
-                return fixed4(finalRgb, 1.0);
+                float3 N = normalize(i.worldNormal);
+                float2 rippleUv = i.worldPos.xz * 0.08 + _WaveTime * 0.02;
+                float3 rippleSample = UnpackNormal(tex2D(_NormalMap, rippleUv));
+                N = normalize(N + float3(rippleSample.x, rippleSample.y, rippleSample.z * 0.35));
+
+                float fresnel = pow(1 - saturate(dot(N, viewDir)), 3);
+                float3 reflectionDir = reflect(-viewDir, N);
+                fixed3 skyReflection = texCUBE(_SkyCubemap, reflectionDir).rgb;
+
+                float depthFrac = saturate(i.depth);
+                fixed4 shallow = _Color;
+                fixed4 deep = _DeepColor;
+                fixed3 baseTint = lerp(shallow.rgb, deep.rgb, depthFrac);
+                float baseAlpha = lerp(shallow.a, deep.a, depthFrac);
+
+                fixed3 foamMixed = lerp(baseTint, _Foam.rgb, smoothstep(0.82, 0.98, i.foam));
+                float shoreFoam = 1.0 - smoothstep(0.0, max(_ShoreFoamWidth, 0.0001), depthFrac);
+                fixed3 foamColor = lerp(foamMixed, _Foam.rgb, shoreFoam);
+                fixed3 finalRgb = lerp(foamColor, skyReflection, saturate(fresnel));
+                finalRgb = lerp(finalRgb, _Foam.rgb, shoreFoam * 0.65);
+
+                return fixed4(finalRgb, baseAlpha);
             }
             ENDCG
         }
     }
 
-    Fallback "Transparent/Diffuse"
+    Fallback "Diffuse"
 }

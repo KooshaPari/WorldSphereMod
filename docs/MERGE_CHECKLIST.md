@@ -1,8 +1,14 @@
-# Merge checklist — PR #1 → `main`
+# Merge checklist — PR #7 (merged) + phase branches
 
-**PR:** [WorldSphereMod3D beta stabilization](https://github.com/KooshaPari/WorldSphereMod/pull/1) (`claude/research-ultraplan-fork-DdgI5`)
+**PR #7:** [WorldSphereMod3D: automation + phase gates](https://github.com/KooshaPari/WorldSphereMod/pull/7) — **MERGED** to `main` @ **`4efa128`** (2026-05-28 squash merge).
 
-Use this before merging [PR #1](https://github.com/KooshaPari/WorldSphereMod/pull/1) into `main`.
+**Active phase branch:** `feat/phase-7-ui-kickoff` — worldspace UI kickoff ([`docs/phases/phase-7-worldspace-ui.md`](phases/phase-7-worldspace-ui.md)). Handoff: [`docs/HANDOFF.md`](HANDOFF.md).
+
+---
+
+## PR #7 → `main` (historical — completed)
+
+Use this section as the record of gates that shipped in `4efa128`.
 
 ## CI gates (must be green on the PR)
 
@@ -18,17 +24,17 @@ Use this before merging [PR #1](https://github.com/KooshaPari/WorldSphereMod/pul
 
 **Nightly** ([`nightly.yml`](../.github/workflows/nightly.yml)) reuses `live-verify-gate` offline, then lint/stats extras — confirm on `main` after merge if the PR branch did not run it.
 
-**CI summary (all checks on this PR):** https://github.com/KooshaPari/WorldSphereMod/pull/1/checks
+**CI summary (all checks on this PR):** https://github.com/KooshaPari/WorldSphereMod/pull/7/checks
 
-### Current check status (2026-05-23, `b37a14c`)
+### Check status at merge (2026-05-28, `4efa128`)
 
-**PR #1:** OPEN, **MERGEABLE** — https://github.com/KooshaPari/WorldSphereMod/pull/1
+**PR #7:** **MERGED** — https://github.com/KooshaPari/WorldSphereMod/pull/7
 
 | Check | Blocking? | Status | Notes |
 |---|---|---|---|
 | `dotnet-build` | Yes | pass | [`build.yml`](../.github/workflows/build.yml) |
 | `dotnet format` | Yes | pass | [`lint-gate.yml`](../.github/workflows/lint-gate.yml) |
-| `dotnet-test / live verify (offline)` | Yes | pass | [`test-gate.yml`](../.github/workflows/test-gate.yml), [`live-verify-gate.yml`](../.github/workflows/live-verify-gate.yml) — **476 total / 473 passed / 0 failed** (Unit 151 + 3 skip, Integration 67, E2E 255) |
+| `dotnet-test / live verify (offline)` | Yes | pass | [`test-gate.yml`](../.github/workflows/test-gate.yml), [`live-verify-gate.yml`](../.github/workflows/live-verify-gate.yml) — **528 total / 525 passed / 3 skip** |
 | `journeys verify` | Yes | pass | [`journeys-gate.yml`](../.github/workflows/journeys-gate.yml) |
 | `VitePress build` | Yes | pass | [`docs-build-gate.yml`](../.github/workflows/docs-build-gate.yml) |
 | `docs npm audit` | Yes | pass | [`dependency-security-audit.yml`](../.github/workflows/dependency-security-audit.yml) |
@@ -36,21 +42,43 @@ Use this before merging [PR #1](https://github.com/KooshaPari/WorldSphereMod/pul
 | `journey-records cargo audit` | Yes | pass | same workflow |
 | `semgrep-cloud-platform/scan` | Advisory | pass | Semgrep Cloud |
 | Socket Security (PR + project) | Advisory | pass | socket.dev |
-| CodeRabbit | Advisory | pass | review skipped |
-| **Vercel** (GitHub status) | **No** | fail | [Free-tier deploy rate limit](https://vercel.com/koosha-paridehpours-projects?upgradeToPro=build-rate-limit) — retry ~24h or upgrade |
-| **Deploy Vercel Preview** | **No** | fail | Same quota (`api-deployments-free-per-day`); docs proof is **VitePress build** + GitHub Pages |
+| CodeRabbit | Advisory | pass | |
+| **Vercel** (GitHub status) | No | pass | Preview deploy green |
+| **Deploy Vercel Preview** | No | pass | |
+| **SonarCloud Code Analysis** | **No** | fail | External SonarCloud project — not a repo workflow gate |
+| Cursor Bugbot / Autofix | No | neutral / in progress | Advisory review bots |
 
-**Merge readiness:** all **blocking** repo gates green; Vercel preview/production failures are external quota only.
+**Merge readiness (at merge time):** all **blocking** repo gates green; SonarCloud external only. Desktop proof shipped with PR #7 tooling (`Tools/do-all.ps1`, `Tools/wsm3d-audit-tick.ps1`).
+
+## Post-merge desktop status (2026-05-28)
+
+Latest desk `do-all-latest` on `feat/phase-7-ui-kickoff` (after syncing `main`):
+
+| Stage | Status | Notes |
+|---|---|---|
+| Offline `wsm-live-verify` | pass | CI-equivalent |
+| PlayCUA `run-all` | pass @ 1× | `-VisionBackend off` (OmniRoute funnel timeout common) |
+| `live-verify-live` | fail | Re-run after bridge stable + populated world |
+| `audit-tick` | fail | Often coupled to live/vision; use `-SkipLive` for offline-only tick |
+
+**OmniRoute / laptop:** funnel `https://omniroute-a6e82363-1.tail2b570.ts.net/v1` or tailnet `http://100.112.14.98:20128/v1` — [`Tools/setup-omniroute-laptop.md`](../Tools/setup-omniroute-laptop.md), `pwsh Tools/verify-omniroute-remote.ps1`. Secrets in `Tools/omniroute-vision.env` (gitignored).
+
+**Next on phase branch:**
+
+```powershell
+pwsh Tools/do-all.ps1 -SkipLive
+pwsh Tools/wsm3d.ps1 playcua run Tools/wsm3d-playcua/sample-scenarios/phase-7-worldspace-ui.yaml -VisionBackend off
+git push --no-recurse-submodules origin feat/phase-7-ui-kickoff
+```
 
 ### Known / external check failures (not repo code)
 
 | Check | Status | Owner / action |
 |---|---|---|
-| **Vercel** (Preview + Production) | Failing | [Vercel build rate limit](https://vercel.com/koosha-paridehpours-projects?upgradeToPro=build-rate-limit) — retry after ~24h or upgrade plan. Docs deploy via GitHub Pages + `VitePress build` gate are green. |
-| **docs npm audit** | pass | Fixed in workflow: allow transitive moderate advisories when `via` is only allowlisted deps (`vite` → `vitepress`). |
-| **dotnet-test / live verify (offline)** | pass | Integration `skipped_no_fixture` + `verify-journeys.ps1` path fixes landed on branch. |
+| **SonarCloud Code Analysis** | Failing | [sonarcloud.io](https://sonarcloud.io) — third-party quality gate; triage in SonarCloud UI or ignore for merge if repo gates pass. |
+| **Cursor Bugbot Autofix** | In progress | Advisory; may complete after push. |
 
-Re-run failed workflows from the [PR Checks](https://github.com/KooshaPari/WorldSphereMod/pull/1/checks) tab after pushing fixes (Vercel only when quota resets).
+Re-run failed workflows from the [PR Checks](https://github.com/KooshaPari/WorldSphereMod/pull/7/checks) tab after pushing fixes.
 
 ## Live-verify offline (local, CI-equivalent)
 

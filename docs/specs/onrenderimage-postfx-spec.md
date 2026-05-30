@@ -5,26 +5,29 @@
 > `Camera.OnRenderImage` instead of relying on URP's `RendererFeature`
 > system that WorldBox doesn't expose.
 
-## Implementation status (2026-05-23)
+## Implementation status (2026-05-24)
 
-| Spec target | Shipped today | Notes |
+| Spec target | Shipped | Notes |
 |---|---|---|
-| `WSM3DPostStack` unified ping-pong chain | **Not shipped** | SSAO / SSGI / LUT are separate `MonoBehaviour` passes on `CameraManager.MainCamera`. |
-| SSAO via `OnRenderImage` + `ScreenSpaceAO.shader` | **Shipped** | `WorldSphereMod.PostFx.ScreenSpaceAO` — gated on `SSAOEnabled`, quality from `SSAOQuality`. |
-| SSGI via `OnRenderImage` | **Shipped** | `WorldSphereMod.PostFx.ScreenSpaceGI` — attach/detach via `SSGIEnabled`. |
-| LUT grade via `OnRenderImage` | **Shipped** | `WorldSphereMod.Lighting.ColorGradingLUT` — `ColorGradingLut` flag. |
-| Bloom + ACES in one stack | **Not shipped** | No BRP bloom/ACES materials in repo; chain ends at per-pass blits. |
-| `PostFX` master toggle → visible stack | **Partial** | `PostFxController` still targets URP `Volume` + `renderPostProcessing` (types usually absent in WB Managed/). Built-in passes ignore `PostFX` and use their own flags. |
+| `WSM3DPostStack` unified post stack | **Shipped** | Single `OnRenderImage` callback with deterministic SSAO→SSGI→Bloom→ACES→LUT pass order. |
+| SSAO via `OnRenderImage` + `ScreenSpaceAO.shader` | **Shipped** | Kernel/params shared from `ScreenSpaceAO.Kernel` into unified stack. |
+| SSGI via `OnRenderImage` | **Shipped** | Kernel/params shared from `ScreenSpaceGI.Kernel` into unified stack. |
+| LUT grade via `OnRenderImage` | **Shipped** | LUT texture + shader resolved in stack init. |
+| Bloom + ACES in one stack | **Shipped** | BRP shaders: `BrpBloom.shader` (threshold+blur+composite) + `BrpACES.shader` (filmic tonemap). |
+| `PostFX` master toggle → visible stack | **Shipped** | `PostFX` flag gates entire `WSM3DPostStack`; sub-passes gated by `SSAOEnabled`, `SSGIEnabled`, `BloomEnabled`, `ACESTonemapping`, `ColorGradingLut`. |
 
-**Runtime wiring today**
+The shared BRP post-processing stack has been extracted to
+`phenotype-postfx` (`C:/Users/koosh/Dev/phenotype-postfx`).
 
-- `Core.ApplyPhaseToggle` → `PostFxController.ApplySetting` (`PostFX`), `ScreenSpaceAO.ApplySetting` (`SSAOEnabled`), `ScreenSpaceGI.ApplySetting` (`SSGIEnabled`), `ColorGradingLUT.ApplySetting` (`ColorGradingLut`).
-- `VoxelRender.TickPerFrame` reconciles PostFX / SSAO / SSGI on change only; `EnsureCreated` retries late camera bind.
-- `Mod` world-init applies persisted SSAO after scene transitions.
+**Runtime wiring**
 
-**Gap vs this spec:** multiple `OnRenderImage` callbacks run in Unity script order (undefined relative order among SSAO, SSGI, LUT). Tier-2 work is to fold passes into `WSM3DPostStack` with ping-pong RTs and retire URP `PostFxController` for WorldBox.
+- `Core.ApplyPhaseToggle` → `WSM3DPostStack.ApplySetting` (`PostFX`), `WSM3DPostStack.RefreshMaterials` (sub-pass toggles).
+- `VoxelRender.TickPerFrame` reconciles PostFX / SSAO / SSGI via WSM3DPostStack on change only and no longer recreates legacy `ScreenSpaceAO` / `ScreenSpaceGI` components.
+- `Mod` world-init calls `WSM3DPostStack.EnsureCreated()` after scene transitions.
+- Legacy `ScreenSpaceAO`, `ScreenSpaceGI`, `ColorGradingLUT` MonoBehaviours auto-removed by `RemoveLegacyPasses()` on stack attach.
+- `PostFxController` (URP Volume path) remains for potential URP-capable builds but is no longer the primary runtime.
 
-**E2E guardrails:** `tests/WorldSphereMod.Tests.E2E/SsaoPostFxInvariantsTests.cs`, `OnRenderImagePostFxSpecInvariantsTests.cs`.
+**E2E guardrails:** `tests/WorldSphereMod.Tests.E2E/SsaoPostFxInvariantsTests.cs`, `OnRenderImagePostFxSpecInvariantsTests.cs`, `VoxelFrameDriverPostFxInvariantsTests.cs`.
 
 ## Goal
 
@@ -46,7 +49,8 @@ callbacks + the shipped shaders (`ScreenSpaceAO.shader`,
 
 `OnRenderImage` is the simplest BRP-compatible hook. Unity feeds the camera's
 output as the source texture; we apply zero+ passes by `Graphics.Blit` and
-write to the destination. Multi-pass chains require ping-pong RTs.
+write to the destination. This stack uses one reusable chain RT plus local
+temporary RTs for bloom.
 
 ## Architecture
 
@@ -57,7 +61,7 @@ Camera.OnRenderImage(src, dst)
 ┌────────────────────────────┐
 │ WSM3DPostStack             │
 │  - PreCheck flags          │
-│  - PingPong(src, dst)      │
+│  - Chain RT + local temps  │
 │                            │
 │  ┌───────────────────────┐ │
 │  │ SSAO pass             │ │ (if SSAOEnabled)

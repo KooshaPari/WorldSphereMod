@@ -297,8 +297,8 @@ public sealed class PlaycuaSampleScenarioInvariantsTests
         yaml.Should().Contain("name: bridge-save-load-smoke");
         yaml.Should().Contain("action: health", "pre- and post-reload health probes");
         yaml.Should().Contain("action: load_save");
-        yaml.Should().Contain("optional: true");
-        yaml.Should().Contain("MANUAL");
+        yaml.Should().Contain("settle_frames:");
+        yaml.Should().Contain("bridge_wait_seconds:");
         yaml.Should().Contain("action: assert_telemetry");
         yaml.Should().Contain("Post-reload");
     }

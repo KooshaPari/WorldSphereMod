@@ -49,6 +49,17 @@ public class LiveVerifyHarnessStructureTests
     }
 
     [Fact]
+    public void Live_verify_harness_requires_bridge_health_json_object_with_explicit_ok_true()
+    {
+        var script = HarnessScript;
+
+        script.Should().Contain("$ok = $response.ok");
+        script.Should().Contain("$ok -is [bool]");
+        script.Should().Contain("$ok -eq $true");
+        script.Should().NotContain("$response.ok -ne $false");
+    }
+
+    [Fact]
     public void Live_verify_harness_exposes_Live_Vision_and_Phase_parameters()
     {
         var script = HarnessScript;
@@ -68,6 +79,17 @@ public class LiveVerifyHarnessStructureTests
         script.Should().Contain("8766");
         script.Should().MatchRegex("wsm3d-playcua");
         script.Should().MatchRegex(@"wsm3d-capture|wsm3d\.ps1");
+    }
+
+    [Fact]
+    public void Live_verify_harness_preserves_live_report_artifacts_on_failure()
+    {
+        var script = HarnessScript;
+
+        script.Should().Contain("bridgePort     = $bridgePort");
+        script.Should().Contain("playcuaRuns    = @()");
+        script.Should().Contain("ssimComparisons = @()");
+        script.Should().Contain("Add-StageResult -Id \"live-playcua-ssim\" -Status \"failed\" -Details $liveDetails");
     }
 
     [Fact]
@@ -102,8 +124,9 @@ public class LiveVerifyHarnessStructureTests
     {
         var script = HarnessScript;
 
+        script.Should().Contain("Get-DefaultPlaycuaVisionBackend");
         script.Should().MatchRegex(
-            @"if\s*\(\s*\$Vision\s*\)[\s\S]*--vision-backend[\s\S]*omniroute",
-            "-Vision must forward --vision-backend omniroute to wsm3d-playcua");
+            @"if\s*\(\s*\$Vision\s*\)[\s\S]*Get-DefaultPlaycuaVisionBackend[\s\S]*--vision-backend",
+            "-Vision must resolve backend via Get-DefaultPlaycuaVisionBackend and forward --vision-backend to wsm3d-playcua");
     }
 }

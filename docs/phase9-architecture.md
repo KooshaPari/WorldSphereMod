@@ -7,11 +7,11 @@ Historical design-state snapshot; use `docs/HANDOFF.md` for current defaults.
 
 ## 1. Module Layout
 
-Four files under `WorldSphereMod/Code/Fx/` + a fifth driver.
+Four files under `WorldSphereMod/Code/Fx/` + the unified BRP post stack in `WorldSphereMod/Code/PostFx/`.
 
 - **`ParticleEffectLibrary.cs`** — data layer. `ParticleBurst` record, per-effect `ParticleSystem` prefab table, VFX Graph runtime capability probe. No Harmony / no Effects.cs deps.
 - **`DecalPool.cs`** — lifecycle layer. Three `DecalProjector` sub-pools (Footprint, Scorch, Blood), TTL expiry, `Tick()`.
-- **`PostFxController.cs`** — post-FX layer. Creates the global `Volume` + `VolumeProfile` at world init, toggles `renderPostProcessing` on the main camera's `UniversalAdditionalCameraData`, responds to `PostFX` setting changes.
+- **`WSM3DPostStack.cs`** — BRP post-FX layer at `WorldSphereMod/Code/PostFx/WSM3DPostStack.cs`. Owns SSAO, SSGI, bloom, ACES, and LUT in a single deterministic `OnRenderImage` ping-pong chain, destroys its created materials and temp RTs on teardown, and removes legacy `ScreenSpaceAO` / `ScreenSpaceGI` / `ColorGradingLUT` camera components on attach. Bloom and ACES are implemented by the shipped BRP shaders in `WorldSphereMod/Resources/Shaders/BrpBloom.shader` and `WorldSphereMod/Resources/Shaders/BrpACES.shader`.
 - **`EffectPatches9.cs`** — integration shim. All Harmony patches for this phase live here.
 - **`FxFrameDriver.cs`** — `MonoBehaviour`, drains pools in `LateUpdate`.
 
@@ -45,11 +45,12 @@ static class DecalPool
     static void Clear();
 }
 
-static class PostFxController
+sealed class WSM3DPostStack : MonoBehaviour
 {
-    static void Create();
+    static void EnsureCreated();
     static void Destroy();
     static void ApplySetting(bool enabled);
+    static void RefreshMaterials();
 }
 ```
 
@@ -92,23 +93,20 @@ static class PostFxController
 
 ---
 
-## 5. Post-FX Volume
+## 5. Post-FX Stack
 
-**Create.** Postfix on `Sphere.Begin`: instantiate `GameObject("WSM3D.PostFxVolume")`, add `Volume` (`isGlobal = true, weight = 1`), build `VolumeProfile` with three overrides:
-- `Bloom`: threshold 0.9, intensity 0.4, scatter 0.7. Subtle — avoids URP-bloom-soup.
-- `ColorAdjustments`: contrast 8, saturation 5. Warms midtones toward the WorldBox palette.
-- `Vignette`: intensity 0.25, smoothness 0.4.
+**Create.** Postfix on `Sphere.Begin`: attach `WSM3DPostStack` to `CameraManager.MainCamera`. The stack removes legacy `ScreenSpaceAO`, `ScreenSpaceGI`, and `ColorGradingLUT` components so there is only one `OnRenderImage` owner.
 
-**Camera.** Call `mainCamera.GetUniversalAdditionalCameraData()` (URP extension method — creates the component if absent; do NOT use `GetComponent<>` because the data may not exist yet). Set `renderPostProcessing = Core.savedSettings.PostFX`. `ApplySetting(bool)` toggles live without reload.
+**Camera.** `OnRenderImage` runs a deterministic SSAO -> SSGI -> Bloom -> ACES -> LUT chain with a ping-pong pair for intermediate blits. `ApplySetting(bool)` toggles live without reload; sub-pass flags call `RefreshMaterials()` so shader/material availability follows settings. `BloomEnabled` defaults false and `ACESTonemapping` defaults true, so the shipped baseline still has ACES filmic tonemapping even when bloom is opt-in. The BRP shaders live in `WorldSphereMod/Resources/Shaders/` as `BrpBloom.shader` and `BrpACES.shader`.
 
-**Gate.** `Create()` early-returns if `!PostFX`. Volume only instantiated on opt-in.
+**Gate.** `EnsureCreated()` early-returns if `!PostFX`. The component tears down owned materials and temp render textures when disabled or destroyed.
 
 ---
 
 ## 6. Wire-Up
 
 - **Driver.** `Mod.Init` adds `FxFrameDriver` via the same `AddComponent` guard pattern as `VoxelFrameDriver` (`Mod.cs:37-39`). `LateUpdate` calls `DecalPool.Tick()` + pool-reclaim for `ParticleEffectLibrary`.
-- **World lifecycle.** `EffectPatches9` Postfixes on `Sphere.Begin` (→ `DecalPool.Init`, `ParticleEffectLibrary.Init`, `PostFxController.Create`) and `Sphere.Finish` (→ `Clear`/`Destroy`). All gated `Core.IsWorld3D`.
+- **World lifecycle.** `EffectPatches9` Postfixes on `Sphere.Begin` (→ `DecalPool.Init`, `ParticleEffectLibrary.Init`, `WSM3DPostStack.EnsureCreated`) and `Sphere.Finish` (→ `Clear`/`Destroy`). All gated `Core.IsWorld3D`.
 - **Effect spawn.** Postfix on `BaseEffectController.GetObject` (`Effects.cs:182-204`): when `ParticleEffects && effectId in table`, `Fire` + suppress sprite.
 - **Decal hooks.** Postfix on `ExplosionFlash.start` → `Emit(Scorch, …, 30f)`. Postfix on `Actor.takeDamage` → `Emit(Blood, …, 20f)`. Footprint emit in the `ActorManager` Postfix.
 
@@ -118,7 +116,7 @@ static class PostFxController
 
 1. **VFX Graph availability.** URP decal output for VFX Graph is roadmap; Unity 2022.3 LTS ships without. Probe + `ParticleSystem` fallback covers this. VFX Graph assets can be added later without code change.
 2. **Decal pool perf on low-end GPUs.** 80 active projectors in dense combat may surface overdraw. Mitigations: hard pool cap with drop policy; `renderingLayerMask` restricting decals to terrain; profile before default-on.
-3. **Post-FX cost on integrated GPUs.** Bloom downsample/upsample pyramid ~2-3 ms on UHD 620 at 1080p. `PostFX` defaults false (`SavedSettings.cs:44`). Settings toggle exposes; Phase 10 can gate behind GPU tier check.
+3. **Post-FX cost on integrated GPUs.** Bloom downsample/upsample pyramid plus ACES/LUT compositing ~2-3 ms on UHD 620 at 1080p. `PostFX` defaults true in current Phase 9 settings, with `SSGIEnabled` still default-off, `BloomEnabled` default-off, and `ACESTonemapping` default-on (`SavedSettings.cs`). Phase 10 can still gate behind GPU tier check.
 4. **`UniversalAdditionalCameraData` null.** Use `GetUniversalAdditionalCameraData()` extension (auto-creates) not `GetComponent<>` (may be null).
 
 ---
@@ -127,7 +125,7 @@ static class PostFxController
 
 1. `fx: ParticleEffectLibrary — pool + burst table` — data layer only.
 2. `fx: DecalPool — three sub-pools, Tick() expiry` — smoke-test via debug key.
-3. `fx: PostFxController — Volume + profile + camera enable` — editor-visible.
+3. `fx: WSM3DPostStack — unified BRP post stack + camera enable` — editor-visible, lives in `WorldSphereMod/Code/PostFx/`.
 4. `fx: FxFrameDriver MonoBehaviour; Sphere.Begin/Finish lifecycle wire`.
 5. `fx: EffectPatches9 — 5 effect IDs route to ParticleEffectLibrary.Fire; sprite suppression` — visual test of fx_explosion_wave.
 6. `fx: scorch + blood decal hooks (ExplosionFlash + Actor.takeDamage)`.
@@ -140,8 +138,11 @@ static class PostFxController
 
 **New:**
 - `WorldSphereMod/Code/Fx/{ParticleEffectLibrary,DecalPool,PostFxController,EffectPatches9,FxFrameDriver}.cs`
+- `WorldSphereMod/Code/PostFx/WSM3DPostStack.cs`
 
 **Modify:**
+- `WorldSphereMod/Resources/Shaders/BrpBloom.shader` — BRP bloom chain used by `WSM3DPostStack`.
+- `WorldSphereMod/Resources/Shaders/BrpACES.shader` — BRP ACES tonemapper used by `WSM3DPostStack`.
 - `WorldSphereMod/Code/Mod.cs:37-39` — add `AddComponent<FxFrameDriver>` guard.
 - `WorldSphereMod/Code/Effects.cs:258-271` — `BaseEffect.deactivate` Postfix: re-enable sprite when ParticleEffects and effect-id in table. One line.
 - `WorldSphereMod/Code/SavedSettings.cs` — add `public bool ParticleEffects = false;`. (`PostFX` at line 44 already present.)

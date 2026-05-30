@@ -29,11 +29,11 @@ public sealed class SpriteVoxelDepthExtrusionTests
     }
 
     [Fact]
-    public void SavedSettings_defaults_VoxelSpriteDepth_to_three()
+    public void SavedSettings_defaults_VoxelSpriteDepth_to_eight()
     {
         var source = ReadSource(@"WorldSphereMod/Code/SavedSettings.cs");
-        Regex.IsMatch(source, @"public\s+int\s+VoxelSpriteDepth\s*=\s*3")
-            .Should().BeTrue("extrusion spec default depth is 3");
+        Regex.IsMatch(source, @"public\s+int\s+VoxelSpriteDepth\s*=\s*8")
+            .Should().BeTrue("extrusion spec default depth is 8");
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public sealed class SpriteVoxelDepthExtrusionTests
         source.Should().Contain("internal static int ResolveDepth(int depth)");
         source.Should().Contain("if (depth > 0) return depth");
         source.Should().Contain("Core.savedSettings.VoxelSpriteDepth");
-        source.Should().Contain("return configuredDepth > 0 ? configuredDepth : 3");
+        source.Should().Contain("return configuredDepth > 0 ? configuredDepth : DefaultDepth");
         Regex.IsMatch(source, @"public\s+static\s+Mesh\s+Build\(Sprite\s+sprite,\s*int\s+depth\s*=\s*-1\)")
             .Should().BeTrue("Build must accept unset depth via -1 default");
         Regex.IsMatch(source, @"depth\s*=\s*ResolveDepth\(depth\)")

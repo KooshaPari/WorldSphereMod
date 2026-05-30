@@ -160,28 +160,16 @@ public class SourceContentInvariantsTests
     }
 
     [Fact]
-    public void QuantumSprites_calculateactordata3D_keeps_transform_updates_but_skips_sprite_work_when_ignore_generic_render()
+    public void QuantumSprites_calculateactordata3D_keeps_parallel_transform_bookkeeping_only()
     {
         var quantumSprites = ReadSourceFile("WorldSphereMod/Code/QuantumSprites.cs");
-        var body = ExtractMethodBody(quantumSprites, "public static bool calculateactordata3D(ActorManager __instance)");
+        var body = ExtractMethodBody(quantumSprites, "public static void calculateactordata3D(ActorManager __instance)");
 
-        int updatePosIdx = body.IndexOf("updatePos()", StringComparison.Ordinal);
-        int getRotIdx = body.IndexOf("Get3DRot()", StringComparison.Ordinal);
-        int ignoreRenderIdx = body.IndexOf("ignore_generic_render", StringComparison.Ordinal);
-        int checkItemIdx = body.IndexOf("checkHasRenderedItem()", StringComparison.Ordinal);
-        int frameDataIdx = body.IndexOf("getAnimationFrameData()", StringComparison.Ordinal);
-
-        updatePosIdx.Should().BeGreaterThanOrEqualTo(0);
-        getRotIdx.Should().BeGreaterThan(updatePosIdx, "rotation must follow position update");
-        ignoreRenderIdx.Should().BeGreaterThan(getRotIdx, "renderability gate must come after transform bookkeeping");
-        checkItemIdx.Should().BeGreaterThan(ignoreRenderIdx, "item checks must be behind ignore_generic_render gate");
-
-        body.Should().Contain("bool tNeedFrameData = (tShouldRenderUnitShadows && tActor.show_shadow)",
-            "animation frame data should be lazy — only when shadows or held items need it");
-        body.Should().Contain("tNeedFrameData ? tActor.getAnimationFrameData() : null",
-            "getAnimationFrameData must not run unconditionally every actor");
-        frameDataIdx.Should().BeGreaterThan(checkItemIdx,
-            "lazy frame-data guard must appear after item gating is established");
+        body.Should().Contain("Parallel.For");
+        body.Should().Contain("updatePos()");
+        body.Should().Contain("Get3DRot()");
+        body.Should().NotContain("calculateMainSprite");
+        body.Should().NotContain("ignore_generic_render");
     }
 
     [Fact]
@@ -210,8 +198,10 @@ public class SourceContentInvariantsTests
             "backup ActorManager hook must drain bridge only — emit postfixes finish before LateUpdate flush");
 
         var survivalRunBody = ExtractMethodBody(bridgeTick, "public static void Run(bool runVoxelFrame)");
-        survivalRunBody.Should().Contain("if (!runVoxelFrame || !Core.IsWorld3D) return",
-            "backup drain must skip TickPerFrame so emit postfixes run before LateUpdate flush");
+        survivalRunBody.Should().Contain("if (!Core.IsWorld3D) return",
+            "non-3D worlds skip TickPerFrame while bridge queue drain still runs each hook");
+        survivalRunBody.Should().Contain("if (runVoxelFrame)",
+            "backup drain must gate TickPerFrame so emit postfixes run before LateUpdate flush");
         survivalRunBody.Should().Contain("VoxelFrameDriver.TickPerFrame()",
             "primary hook must still invoke pre-emit voxel work when runVoxelFrame is true");
 
@@ -236,6 +226,75 @@ public class SourceContentInvariantsTests
             "OnDestroy must not stop HTTP listener when a newer BridgeServer instance exists");
         bridgeServer.Should().Contain("if (_mainThreadId != 0 && Thread.CurrentThread.ManagedThreadId == _mainThreadId)",
             "InvokeOnMainThread must use the captured static main thread id");
+        bridgeServer.Should().Contain("WriteJson(context.Response, BuildHealthPayload());",
+            "/health must bypass InvokeOnMainThread so it can answer while Unity main-thread work is stalled");
+        bridgeServer.Should().Contain("bridgeAlive = true",
+            "health payload must always expose a bridge-alive marker");
+        bridgeServer.Should().Contain("listenerThreadAlive = _listenerThread != null && _listenerThread.IsAlive",
+            "health payload must stay on bridge-owned thread-safe state");
+        bridgeServer.Should().Contain("RefreshHealthCache()",
+            "health version/world flags must be cached on the main thread, not read from the listener thread");
+        bridgeServer.Should().Contain("version = _cachedHealthVersion",
+            "health must expose cached version for PlayCUA without blocking on Unity");
+        bridgeServer.Should().Contain("isWorld3D = _cachedIsWorld3D",
+            "health must expose cached isWorld3D for PlayCUA without blocking on Unity");
+        bridgeServer.Should().NotContain("WriteJson(context.Response, InvokeOnMainThread(BuildHealthPayload));",
+            "/health must not be serialized through the timeout-prone main-thread dispatcher");
+        bridgeServer.Should().Contain("public static void RefreshTelemetryCache()",
+            "telemetry cache must be callable after MeshInstanceBatcher.Flush");
+        bridgeServer.Should().Contain("UpdateSettingQueued(string key, string rawValue)",
+            "settings POST must keep the listener-thread entrypoint explicit");
+        var updateSettingBody = ExtractMethodBody(bridgeServer, "object UpdateSettingQueued(string key, string rawValue)");
+        updateSettingBody.Should().Contain("_mainThreadQueue.Enqueue(() =>",
+            "settings updates must enqueue Unity mutation and persistence work");
+        updateSettingBody.Should().Contain("Core.SaveSettings()",
+            "settings persistence must happen on the main thread queue");
+        int enqueueIndex = updateSettingBody.IndexOf("_mainThreadQueue.Enqueue(() =>", StringComparison.Ordinal);
+        int fieldSetIndex = updateSettingBody.IndexOf("field.SetValue(Core.savedSettings, parsed);", StringComparison.Ordinal);
+        int saveSettingsIndex = updateSettingBody.IndexOf("Core.SaveSettings();", StringComparison.Ordinal);
+        enqueueIndex.Should().BeGreaterThanOrEqualTo(0);
+        fieldSetIndex.Should().BeGreaterThan(enqueueIndex,
+            "savedSettings mutation must be deferred into the queued main-thread work");
+        saveSettingsIndex.Should().BeGreaterThan(enqueueIndex,
+            "settings persistence must be deferred into the queued main-thread work");
+        bridgeServer.Should().Contain("WorldSphereMod.Voxel.SanityTestCube.Reset();",
+            "bridge start/stop must reset probe state so live telemetry cannot reuse stale positions");
+        var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
+        voxelRender.Should().Contain("Bridge.BridgeServer.RefreshTelemetryCache()",
+            "telemetry must refresh after flush so drawCalls reflect the completed frame");
+        voxelRender.Should().MatchRegex(
+            @"void LateUpdate\(\)[\s\S]*RefreshTelemetryCache\(\);",
+            "LateUpdate must refresh telemetry every frame, not only when HasPendingSubmissions");
+        bridgeServer.Should().Contain("WriteJson(context.Response, BuildTelemetryPayload());",
+            "/telemetry must bypass InvokeOnMainThread so PlayCUA assert_telemetry does not get null");
+        bridgeServer.Should().Contain("drawCalls = _cachedDrawCalls",
+            "telemetry must expose cached drawCalls for PlayCUA");
+        bridgeServer.Should().Contain("lastNonZeroDrawCalls = _cachedLastNonZeroDrawCalls",
+            "telemetry must expose last non-zero drawCalls for between-frame PlayCUA checks");
+        bridgeServer.Should().Contain("EnsureVoxelFrameDriverOnBridgeHost()",
+            "bridge DDOL host must host VoxelFrameDriver so LateUpdate flush runs after scene transitions");
+        bridgeServer.Should().Contain("frameMs = _cachedFrameMs",
+            "telemetry must expose cached frameMs for PlayCUA");
+        bridgeServer.Should().NotContain("InvokeOnMainThread(BuildTelemetryPayload)",
+            "/telemetry must not block on the 5s main-thread dispatcher");
+    }
+
+    [Fact]
+    public void SanityTestCube_live_probe_refreshes_position_each_draw_and_keeps_normal_caching()
+    {
+        var cube = ReadSourceFile("WorldSphereMod/Code/Voxel/SanityTestCube.cs");
+
+        cube.Should().Contain("bool liveProbe = Bridge.BridgeServer.LiveTelemetryProbeEnabled");
+        cube.Should().Contain("TryEnsureProbePosition(bool liveProbe)");
+        cube.Should().Contain("ResolveLiveProbePosition()");
+        cube.Should().Contain("LastActorPos = ResolveLiveProbePosition();",
+            "live probe positioning must derive from current world state each draw");
+        cube.Should().Contain("if (_hasLastActorPos) return true;",
+            "normal DebugSanityCube behavior should still retain its first sampled position");
+        cube.Should().Contain("World.world != null && MapBox.width > 0 && MapBox.height > 0",
+            "live probe fallback should derive from the current world center when available");
+        cube.Should().Contain("Reset()",
+            "probe state must be reset when bridge telemetry starts or stops");
     }
 
     [Fact]

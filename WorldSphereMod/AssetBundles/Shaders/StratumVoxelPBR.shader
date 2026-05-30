@@ -83,5 +83,5 @@ Shader "WSM3D/StratumVoxelPBR"
         }
     }
 
-    Fallback "WSM3D/OpaqueVertexColor"
+    Fallback "Diffuse"
 }

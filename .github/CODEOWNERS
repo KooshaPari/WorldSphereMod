@@ -1,0 +1,28 @@
+# Repo-wide fallback
+* @KooshaPari
+
+# Core mod implementation
+/WorldSphereMod/Code/ @KooshaPari
+
+# Public API surface
+/WorldSphereAPI/ @KooshaPari
+
+# Build/install/tooling
+/Tools/ @KooshaPari
+
+# GitHub automation and workflow policy
+/.github/workflows/ @KooshaPari
+/.github/pull_request_template.md @KooshaPari
+
+# Documentation and journey artifacts
+/docs/ @KooshaPari
+/docs/journeys/ @KooshaPari
+
+# Automated verification
+/tests/ @KooshaPari
+
+# Release and distribution metadata
+/CHANGELOG.md @KooshaPari
+/RELEASING.md @KooshaPari
+/VERSION @KooshaPari
+/docs/release-notes/ @KooshaPari

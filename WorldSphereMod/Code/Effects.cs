@@ -191,7 +191,9 @@ namespace WorldSphereMod.Effects
             {
                 return data;
             }
-            return new EffectData(true, ShouldSeperateSprite(Effect));
+            data = new EffectData(true, ShouldSeperateSprite(Effect));
+            EffectDatas.Add(Effect.controller.asset.id, data);
+            return data;
         }
         //we should seperate the sprite if this a custom effect with custom code, otherwise no need.
         public static bool ShouldSeperateSprite(BaseEffect Effect)
@@ -342,6 +344,14 @@ namespace WorldSphereMod.Effects
             {
                 BaseEffect burstEffect = __instance.GetComponent<BaseEffect>();
                 if (burstEffect != null && WorldSphereMod.Fx.VoxelParticleBurst.IsActive(burstEffect))
+                {
+                    return false;
+                }
+
+                // Phase 5: when the real sun is casting cascaded shadows AND voxel entities
+                // are rendered, the legacy flat sprite shadow produces a double-shadow artifact.
+                // Suppress it so only the GPU shadow map shadow is visible.
+                if (WorldSphereMod.Lighting.SunDriver.Active && Core.savedSettings.VoxelEntities)
                 {
                     return false;
                 }
