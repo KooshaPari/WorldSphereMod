@@ -32,6 +32,10 @@ namespace WorldSphereMod.Water
         Material? _instanceMaterial;   // per-renderer copy of _material; we own SetFloat on this
         Vector3 _baseLocalPosition;
         float _waveTime;
+        // Dirty flag mirrors the terrain-smoothing fix: water terrain is static, so the
+        // full mesh rebuild must coalesce to actual water-tile changes instead of running
+        // every UpdateScale/UpdateBaseLayer postfix (which fire per-frame on camera zoom).
+        bool _dirty;
 
         // Reusable scratch buffers for RebuildMesh. Cleared instead of freshly allocated each
         // rebuild — RebuildMesh runs on world load and on every tile change, so the dropped
@@ -90,9 +94,8 @@ namespace WorldSphereMod.Water
             surface._instanceMaterial = renderer.material;
             surface._baseLocalPosition = go.transform.localPosition;
             surface.ApplyWaveProfile();
-            surface.RebuildMesh();
-
             Instance = surface;
+            surface.RebuildMesh();
             return surface;
         }
 
@@ -116,8 +119,16 @@ namespace WorldSphereMod.Water
             _materialAttempted = false;
         }
 
+        // Mark the cached mesh stale; the next Update coalesces all pending requests into
+        // one rebuild instead of rebuilding on every render postfix.
+        public static void RequestRebuild()
+        {
+            if (Instance != null) Instance._dirty = true;
+        }
+
         public void RebuildMesh()
         {
+            _dirty = false;
             if (_mesh == null) return;
             _mesh.Clear();
 
@@ -195,7 +206,8 @@ namespace WorldSphereMod.Water
 
             // Diagnose vertex color distribution (depth fraction stored in R channel).
             // If all R values are near 1.0, all water renders as _DeepColor (very dark).
-            if (colors.Count > 0)
+            // Gated behind ProfilerDump: this fired every rebuild and flooded the viewport.
+            if (colors.Count > 0 && Core.savedSettings != null && Core.savedSettings.ProfilerDump)
             {
                 float minR = 1f, maxR = 0f, sumR = 0f;
                 for (int ci = 0; ci < colors.Count; ci++)
@@ -223,6 +235,9 @@ namespace WorldSphereMod.Water
 
         void Update()
         {
+            // Rebuild only when water tiles actually changed; the wave motion is shader-driven
+            // and reuses the same mesh, so the static geometry never rebuilds per-frame.
+            if (_dirty) RebuildMesh();
             _waveTime = Time.time;
             ApplyWaveProfile();
             UpdateEnvironmentTextures();

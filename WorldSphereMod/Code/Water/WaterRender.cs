@@ -116,11 +116,9 @@ namespace WorldSphereMod.Water
             }
         }
 
-        // Tile-change invalidation. Full mask rebuild + full mesh rebuild on each
-        // UpdateBaseLayer postfix. Acceptable: UpdateBaseLayer fires on tile-edit
-        // events only (not per-frame), and mesh size is bounded by world dimensions
-        // (max ~256x256 quads). Per-tile dirty tracking deferred to Phase 4 polish
-        // when there is a measurable perf regression to justify the bookkeeping.
+        // Tile-change invalidation. UpdateBaseLayer/UpdateScale fire per-frame on camera
+        // zoom, so rebuilding inline rebuilt the static water mesh every frame; instead mark
+        // the mesh dirty and let WaterSurface.Update coalesce to one rebuild per change.
         [Phase(nameof(SavedSettings.MeshWater))]
         [HarmonyPatch(typeof(Core.Sphere), nameof(Core.Sphere.UpdateBaseLayer))]
         public static class UpdateBaseLayerPostfix
@@ -130,7 +128,7 @@ namespace WorldSphereMod.Water
             {
                 if (!Core.savedSettings.MeshWater || WaterSurface.Instance == null) return;
                 WaterMaskBuffer.RebuildMask();
-                WaterSurface.Instance.RebuildMesh();
+                WaterSurface.RequestRebuild();
             }
         }
 
@@ -143,7 +141,7 @@ namespace WorldSphereMod.Water
             {
                 if (!Core.savedSettings.MeshWater || WaterSurface.Instance == null) return;
                 WaterMaskBuffer.RebuildMask();
-                WaterSurface.Instance.RebuildMesh();
+                WaterSurface.RequestRebuild();
             }
         }
 
