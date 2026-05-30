@@ -248,10 +248,25 @@ namespace WorldSphereMod.TileMapToSphere
                 CheckColors(pZone);
             }
         }
+        // Per-frame wall-clock budget (ms) for draining the dirty-zone queue.
+        // After world-gen the ENTIRE map is dirty (all ~1024 zones / ~42k tiles),
+        // and draining it in a single frame previously cost 3+ seconds, freezing
+        // the game. We instead chunk the work across frames: drain dirty zones
+        // until the budget is exceeded, then stop. Remaining dirty zones persist
+        // in the TileQueue.DirtyZones sets (only processed zones are added to
+        // ClearList by checkZoneToRender, so Finish() only clears what we drained)
+        // and are picked up on subsequent frames. Visuals converge within a few
+        // frames while keeping each frame responsive (~8ms cap here, leaving
+        // headroom under the 16ms budget for the rest of render3DStuff).
+        const long RedrawBudgetMs = 8;
+        // Round-robin cursor so we don't keep re-scanning the same already-clean
+        // leading zones every frame when only later zones remain dirty.
+        static int _redrawZoneCursor;
         public static void Redraw3DTiles()
         {
             if (TextureQueue.Count == 0 && ScaleQueue.Count == 0 && ColorQueue.Count == 0)
             {
+                _redrawZoneCursor = 0;
                 return;
             }
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -259,10 +274,38 @@ namespace WorldSphereMod.TileMapToSphere
             int scaleQ = ScaleQueue.Count;
             int colorQ = ColorQueue.Count;
             int zoneCount = World.world.zone_camera._visible_zones.Count;
-            for (int iZone = 0; iZone < zoneCount; iZone++)
+            if (zoneCount == 0)
             {
-                TileZone tZone2 = World.world.zone_camera._visible_zones[iZone];
-                checkZoneToRender(tZone2);
+                _redrawZoneCursor = 0;
+            }
+            else
+            {
+                if (_redrawZoneCursor >= zoneCount)
+                {
+                    _redrawZoneCursor = 0;
+                }
+                int processed = 0;
+                int start = _redrawZoneCursor;
+                for (int offset = 0; offset < zoneCount; offset++)
+                {
+                    int iZone = (start + offset) % zoneCount;
+                    TileZone tZone2 = World.world.zone_camera._visible_zones[iZone];
+                    checkZoneToRender(tZone2);
+                    processed++;
+                    // Check the budget periodically (every 16 zones) so the clock
+                    // read itself isn't a per-zone cost, and only after we have
+                    // done some real work this frame.
+                    if ((processed & 15) == 0 && sw.ElapsedMilliseconds >= RedrawBudgetMs)
+                    {
+                        _redrawZoneCursor = (iZone + 1) % zoneCount;
+                        break;
+                    }
+                    if (offset == zoneCount - 1)
+                    {
+                        // Drained every visible zone within budget; reset cursor.
+                        _redrawZoneCursor = 0;
+                    }
+                }
             }
             long zonesMs = sw.ElapsedMilliseconds;
             sw.Restart();

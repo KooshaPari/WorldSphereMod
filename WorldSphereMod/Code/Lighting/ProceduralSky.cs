@@ -403,7 +403,14 @@ namespace WorldSphereMod.Lighting
                 return;
             }
 
-            if (_skyMat.mainTexture != _skyCubemap)
+            // Only assign mainTexture if the shader actually exposes a main
+            // texture property. The degraded 'Skybox/Procedural' fallback has
+            // neither '_MainTex' nor '_Tex', so assigning mainTexture there
+            // spams: "Material 'WSM3D.ProceduralSky' with Shader
+            // 'Skybox/Procedural' doesn't have a texture property '_Tex'".
+            // The custom baked-cubemap sky shader does have it.
+            if (_skyMat.mainTexture != _skyCubemap
+                && (_skyMat.HasProperty("_MainTex") || _skyMat.HasProperty("_Tex")))
             {
                 _skyMat.mainTexture = _skyCubemap;
             }
