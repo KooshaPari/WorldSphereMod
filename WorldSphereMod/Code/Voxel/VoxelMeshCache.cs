@@ -1109,6 +1109,8 @@ namespace WorldSphereMod.Voxel
         static void LogVoxelizedSprite(Sprite sprite, Mesh mesh, string inflationStyle)
         {
             if (sprite == null || mesh == null) return;
+            // Gated behind ProfilerDump: fires per unique sprite as entities stream into view, flooding the viewport.
+            if (Core.savedSettings == null || !Core.savedSettings.ProfilerDump) return;
             int key = sprite.GetInstanceID();
             lock (_lock)
             {
@@ -1151,12 +1153,16 @@ namespace WorldSphereMod.Voxel
                 : ResolveVoxelInflationStyle();
             if (sprite != null)
             {
-                int key = sprite.GetInstanceID();
-                lock (_lock)
+                // Gated behind ProfilerDump: fires per unique sprite as entities stream into view, flooding the viewport.
+                if (Core.savedSettings != null && Core.savedSettings.ProfilerDump)
                 {
-                    if (_diagnosedShapeHints.Add(key))
+                    int key = sprite.GetInstanceID();
+                    lock (_lock)
                     {
-                        Debug.Log($"[WSM3D][ShapeHintMap] sprite=\"{sprite.name}\" hint={shapeHint} bucket={inflationStyle}");
+                        if (_diagnosedShapeHints.Add(key))
+                        {
+                            Debug.Log($"[WSM3D][ShapeHintMap] sprite=\"{sprite.name}\" hint={shapeHint} bucket={inflationStyle}");
+                        }
                     }
                 }
             }

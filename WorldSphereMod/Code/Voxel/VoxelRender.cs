@@ -747,6 +747,7 @@ namespace WorldSphereMod.Voxel
 
             static void LogActorSubmitDiagnostic(string path, ref bool logged, Actor actor, Sprite? sprite, Vector3 beforeLift, Vector3 afterLift, Color tint)
             {
+                if (Core.savedSettings == null || !Core.savedSettings.ProfilerDump) return;
                 if (logged) return;
                 logged = true;
                 string assetId = actor != null && actor.asset != null ? actor.asset.id : "<null>";
@@ -765,6 +766,7 @@ namespace WorldSphereMod.Voxel
                 Vector3 rotation,
                 Vector3 scale)
             {
+                if (Core.savedSettings == null || !Core.savedSettings.ProfilerDump) return;
                 if (_actorVoxelColorSampleCount >= 3) return;
                 if (path != "voxel") return;
 
@@ -776,6 +778,7 @@ namespace WorldSphereMod.Voxel
 
             static void LogFirstActorPos(Vector3 rawPos, Vector3 liftedPos, Vector3 scl)
             {
+                if (Core.savedSettings == null || !Core.savedSettings.ProfilerDump) return;
                 if (_firstActorPosLogged) return;
                 _firstActorPosLogged = true;
                 Debug.Log($"[WSM3D] First-actor pos: raw={rawPos}, lifted={liftedPos}, scl={scl}");
@@ -916,7 +919,7 @@ namespace WorldSphereMod.Voxel
                     float bldHalfHeight = m.bounds.size.y * 0.5f * scl.y;
                     pos.y += bldHalfHeight;
                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
-                    if (!_buildingVoxelEmitSubmitLogged)
+                    if (!_buildingVoxelEmitSubmitLogged && Core.savedSettings != null && Core.savedSettings.ProfilerDump)
                     {
                         _buildingVoxelEmitSubmitLogged = true;
                         Debug.Log($"[WSM3D] BuildingVoxelEmit first submit mesh.bounds.size={m.bounds.size}, scaledBoundsSize={Vector3.Scale(m.bounds.size, scl)}");

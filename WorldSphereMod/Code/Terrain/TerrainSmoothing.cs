@@ -87,7 +87,8 @@ namespace WorldSphereMod.Terrain
                 mpb.SetColor("_Color", Color.white);
                 mpb.SetColor("_EmissionColor", new Color(0.15f, 0.15f, 0.15f, 1f));
                 renderer.SetPropertyBlock(mpb);
-                Debug.Log("[WSM3D] Mountain slope MPB pushed _Color=white _EmissionColor=0.15.");
+                if (Core.savedSettings != null && Core.savedSettings.ProfilerDump)
+                    Debug.Log("[WSM3D] Mountain slope MPB pushed _Color=white _EmissionColor=0.15.");
             }
             catch (System.Exception ex)
             {
@@ -97,6 +98,8 @@ namespace WorldSphereMod.Terrain
             // Full diagnostic dump at slope renderer creation. Captures every
             // angle of the "shader resolves but output is black" failure mode:
             // shader/material properties, lighting environment, layer/camera mask.
+            // Gated behind ProfilerDump: builds an expensive interpolated string.
+            if (Core.savedSettings != null && Core.savedSettings.ProfilerDump)
             try
             {
                 Material m = renderer.sharedMaterial;
@@ -491,7 +494,9 @@ namespace WorldSphereMod.Terrain
                 }
             }
 
-            Debug.Log($"[WSM3D] MountainSlopeSmoothing rebuilt {quads.Count} cliff quads -> {smoothTileSet.Count} smooth tiles, {vertices.Count} verts.");
+            // Gated behind ProfilerDump: fires on every terrain-edit rebuild, flooding the viewport.
+            if (Core.savedSettings != null && Core.savedSettings.ProfilerDump)
+                Debug.Log($"[WSM3D] MountainSlopeSmoothing rebuilt {quads.Count} cliff quads -> {smoothTileSet.Count} smooth tiles, {vertices.Count} verts.");
 
             _mesh.SetVertices(vertices);
             _mesh.SetTriangles(triangles, 0);

@@ -256,7 +256,7 @@ namespace WorldSphereMod.Voxel
                     logBuild = true;
                 }
             }
-            if (logBuild)
+            if (logBuild && Core.savedSettings != null && Core.savedSettings.ProfilerDump)
             {
                 Debug.Log($"[WSM3D][DIAG] BuildGreedy #{diagIndex}: sprite=\"{sprite.name}\" w={w} h={h} depth={depth} verts={mesh.vertexCount} tris={tris.Count / 3} bounds={mesh.bounds}");
             }
@@ -838,11 +838,12 @@ namespace WorldSphereMod.Voxel
                     shouldLog = true;
                 }
             }
-            if (shouldLog)
+            bool diagDump = Core.savedSettings != null && Core.savedSettings.ProfilerDump;
+            if (shouldLog && diagDump)
             {
                 Debug.Log($"[WSM3D][DIAG] BuildPerTexel #{diagIndex}: sprite=\"{sprite.name}\" w={w} h={h} depth={depth} verts={mesh.vertexCount} tris={tris.Count / 3} bounds={mesh.bounds}");
             }
-            if (logNoiseHistogram)
+            if (logNoiseHistogram && diagDump)
             {
                 Debug.Log($"[WSM3D][DIAG] BuildPerTexel depthScale histogram #{_buildPerTexelNoiseDiagCount}: sprite=\"{sprite.name}\" depth={depth} bins=[{string.Join(",", depthScaleHistogram)}]");
             }
