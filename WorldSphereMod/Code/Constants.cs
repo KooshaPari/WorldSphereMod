@@ -129,11 +129,13 @@ namespace WorldSphereMod
             }
 
             string lower = assetId.ToLowerInvariant();
+            // WHY: humanoid checked FIRST so human-shaped IDs win — previously bird/insect
+            // ran first and their short tokens (bat/bee) mis-rigged humans as birds/butterflies.
+            if (MatchesAnyPrefix(lower, _humanoidPrefixes)) return RigType.Humanoid;
+            if (MatchesAnyPrefix(lower, _quadrupedPrefixes)) return RigType.Quadruped;
             if (MatchesAnyPrefix(lower, _birdPrefixes)) return RigType.Bird;
             if (MatchesAnyPrefix(lower, _insectPrefixes)) return RigType.Insect;
             if (MatchesAnyPrefix(lower, _snakePrefixes)) return RigType.Snake;
-            if (MatchesAnyPrefix(lower, _quadrupedPrefixes)) return RigType.Quadruped;
-            if (MatchesAnyPrefix(lower, _humanoidPrefixes)) return RigType.Humanoid;
 
             return RigType.Humanoid;
         }
@@ -142,7 +144,12 @@ namespace WorldSphereMod
         {
             foreach (string prefix in prefixes)
             {
-                if (lower.StartsWith(prefix) || lower.Contains("_" + prefix) || lower.Contains(prefix + "_"))
+                // WHY: real prefix (StartsWith) or a "_"-delimited whole token, never a
+                // bare Contains — that matched "bat"/"bee" inside unrelated IDs and
+                // mis-rigged humans as birds/insects.
+                if (lower.StartsWith(prefix) ||
+                    lower.EndsWith("_" + prefix) ||
+                    lower.Contains("_" + prefix + "_"))
                 {
                     return true;
                 }

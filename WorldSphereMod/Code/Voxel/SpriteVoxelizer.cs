@@ -737,7 +737,10 @@ namespace WorldSphereMod.Voxel
             // 2.5D extrusions. Same recipe as BuildOrganicBlob but applied here so
             // ShapeHint routing no longer matters for the skinned path. Disable via
             // VoxelColorTonemap-style toggle later if needed.
-            const float kMinDepthScale = 0.15f;
+            // WHY: floor raised 0.15->0.60 — at 0.15 the typical body column was only
+            // 2 voxels of 8, a paper-thin central slab that reads flat from the 3D ISO
+            // camera. 0.60 keeps surface variation but guarantees real volume.
+            const float kMinDepthScale = 0.60f;
             const float kMaxDepthScale = 1.00f;
             float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
             int[] depthScaleHistogram = null;
@@ -768,7 +771,9 @@ namespace WorldSphereMod.Voxel
                         float lum = (c.r * 0.299f + c.g * 0.587f + c.b * 0.114f) / 255f;
                         float combined = noise * 0.6f + lum * 0.4f;
                         float depthScale = Mathf.Lerp(kMinDepthScale, kMaxDepthScale, combined);
-                        int columnDepth = Mathf.Clamp(Mathf.RoundToInt(depth * depthScale), 2, depth);
+                        // WHY: floor min column depth at half the volume so no body
+                        // column collapses to a thin slab regardless of noise/luminance.
+                        int columnDepth = Mathf.Clamp(Mathf.RoundToInt(depth * depthScale), Mathf.Max(2, depth / 2), depth);
                         if (logNoiseHistogram)
                         {
                             int bin = Mathf.Clamp(Mathf.FloorToInt(depthScale * depthScaleHistogram.Length), 0, depthScaleHistogram.Length - 1);
