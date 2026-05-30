@@ -1423,25 +1423,19 @@ namespace WorldSphereMod
 
             // ================================================================
             // DO NOT ADD MORE — ADR-0013.
-            // Unity 2022.3.62f3 fixed the bundle serialization bug that used to
-            // produce empty-name shaders; ref docs/shader-serialization-fix.md.
+            // ADR-0013: only OpaqueVertexColor survives the 62f3-bake->60f1-
+            // runtime cross-version load. The 11-shader expansion (commit that
+            // expanded it) re-crashed at runtime — VerifyBuiltBundle is a
+            // 62f3-editor check, NOT a 60f1-runtime check, so it false-positives.
+            // To load the other shaders we need either a genuine 60f1-baked
+            // bundle OR built-in-shader fallbacks. DO NOT expand without a real
+            // 60f1-runtime load test.
             // ================================================================
             // Load only shaders that survive bundle deserialization with a
-            // valid Shader.name. 62f3 made the full verified set safe; empty
-            // names are still rejected below so consumers can fall back cleanly.
+            // valid Shader.name.
             public static readonly string[] SafeShaders = new[]
             {
                 "OpaqueVertexColor",
-                "GerstnerWater",
-                "ProceduralSky",
-                "ScreenSpaceAO",
-                "ScreenSpaceGI",
-                "BrpBloom",
-                "BrpACES",
-                "ColorGradingLUT",
-                "FoliageWind",
-                "Impostor",
-                "StratumVoxelPBR",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look
