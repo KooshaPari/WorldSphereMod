@@ -238,6 +238,13 @@ namespace WorldSphereMod.Voxel
                 RenderTexture.ReleaseTemporary(fallbackRt);
             }
             snapshot = VoxelMeshCache.CreateSnapshot(sprite, mesh, verts, cols, tris);
+            // WHY: capture full CPU arrays NOW, before UploadMeshData(true) frees the
+            // readable copy, so the disk-cache save never reads the non-readable mesh
+            // (which floods Player.log with "isReadable is false" every frame).
+            snapshot.diskVertices = verts.ToArray();
+            snapshot.diskTriangles = tris.ToArray();
+            snapshot.diskColors = cols.ToArray();
+            snapshot.diskNormals = mesh.normals;
             bool logBuild = false;
             int diagIndex = 0;
             lock (_buildGreedyDiagLock)

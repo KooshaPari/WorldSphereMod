@@ -296,7 +296,10 @@ namespace WorldSphereMod.Water
 
         static Cubemap ResolveSkyCubemap()
         {
-            if (RenderSettings.skybox != null)
+            // WHY: HasProperty guard before GetTexture("_Tex") — the degraded
+            // Skybox/Procedural fallback (WSM3D.ProceduralSky) has no _Tex, and an
+            // unguarded read floods Player.log with "doesn't have a texture property" every frame.
+            if (RenderSettings.skybox != null && RenderSettings.skybox.HasProperty("_Tex"))
             {
                 Texture skyTex = RenderSettings.skybox.GetTexture("_Tex");
                 if (skyTex is Cubemap cubemap)
