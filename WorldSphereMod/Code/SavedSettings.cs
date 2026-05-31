@@ -191,6 +191,12 @@ public class SavedSettings
         public bool VoxelDiskCache = true;
         public int VoxelDiskCacheMaxSizeMB = 50;
 
+        // Input-capture substrate: passively record the user's in-game action stream
+        // (clicks->tool+tile, camera moves, world create/load, speed changes) to an
+        // append-only JSONL session log so flows can be replayed headlessly via the bridge.
+        // Default on for now (see docs/adr/ADR-input-capture-substrate.md).
+        public bool InputCaptureEnabled = true;
+
         public static void ApplyLightweightPreset(SavedSettings s)
         {
             if (s == null) throw new ArgumentNullException(nameof(s));

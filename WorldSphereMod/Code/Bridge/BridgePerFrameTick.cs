@@ -21,6 +21,11 @@ namespace WorldSphereMod.Bridge
             BridgeServer.DrainStaticQueue();
             WorldSphereMod.Voxel.MeshInstanceBatcher.SetMainThread();
 
+            // Passive camera-pan sampling for the input-capture substrate (debounced; no-op when
+            // capture disabled). Runs every frame on the main thread, before the 3D-only gate so
+            // 2D camera moves are captured too.
+            WorldSphereMod.Capture.CaptureCameraSampler.Tick();
+
             if (!Core.IsWorld3D) return;
 
             if (runVoxelFrame)

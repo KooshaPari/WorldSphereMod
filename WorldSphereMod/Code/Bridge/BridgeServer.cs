@@ -407,6 +407,24 @@ namespace WorldSphereMod.Bridge
                         WriteJson(context.Response, InvokeOnMainThread(BridgeActions.ListTools));
                         return;
                     }
+                    // Input-capture flow library: list recorded sessions + named flows.
+                    if (string.Equals(path, "/capture/list", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var flows = WorldSphereMod.Capture.FlowLibrary.List();
+                        WriteJson(context.Response, new { ok = true, root = WorldSphereMod.Capture.CaptureRecorder.CaptureRoot, count = flows.Count, flows });
+                        return;
+                    }
+                    if (string.Equals(path, "/capture/status", StringComparison.OrdinalIgnoreCase))
+                    {
+                        WriteJson(context.Response, new
+                        {
+                            ok = true,
+                            enabled = WorldSphereMod.Capture.CaptureRecorder.Enabled,
+                            session = WorldSphereMod.Capture.CaptureRecorder.SessionPath,
+                            events = WorldSphereMod.Capture.CaptureRecorder.EventCount,
+                        });
+                        return;
+                    }
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && path.StartsWith("/settings/", StringComparison.OrdinalIgnoreCase))
                 {
@@ -516,6 +534,25 @@ namespace WorldSphereMod.Bridge
                     string ux = context.Request.QueryString["x"] ?? string.Empty;
                     string uy = context.Request.QueryString["y"] ?? string.Empty;
                     WriteJson(context.Response, QueueAction("use_tool", () => BridgeActions.UseTool(id, ux, uy)));
+                    return;
+                }
+                // Input-capture replay: re-drive a recorded flow headlessly through the same
+                // main-thread BridgeActions path the live /actions/* routes use.
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/capture/replay", StringComparison.OrdinalIgnoreCase))
+                {
+                    string file = context.Request.QueryString["file"] ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(file)) { WriteJson(context.Response, new { ok = false, error = "missing_file" }, HttpStatusCode.BadRequest); return; }
+                    WriteJson(context.Response, QueueAction("capture_replay", () => WorldSphereMod.Capture.CaptureReplayer.ReplayFile(file)));
+                    return;
+                }
+                // Promote the current/last session (or a named source) into a named flow.
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/capture/save", StringComparison.OrdinalIgnoreCase))
+                {
+                    string name = context.Request.QueryString["name"] ?? string.Empty;
+                    string source = context.Request.QueryString["source"] ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(name)) { WriteJson(context.Response, new { ok = false, error = "missing_name" }, HttpStatusCode.BadRequest); return; }
+                    var (ok, savedPath, error) = WorldSphereMod.Capture.FlowLibrary.SaveAs(name, source);
+                    WriteJson(context.Response, ok ? (object)new { ok = true, name, path = savedPath } : new { ok = false, error, name }, ok ? HttpStatusCode.OK : HttpStatusCode.BadRequest);
                     return;
                 }
 
