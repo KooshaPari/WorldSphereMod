@@ -41,7 +41,16 @@ namespace WorldSphereMod.Foliage
         {
             try
             {
-                if (!Core.IsWorld3D || !Core.savedSettings.CrossedQuadFoliage) return true;
+                // VOXEL-OR-INVISIBLE (task #195 follow-up): once in 3D the deprecated
+                // vanilla 2D Tilemap billboard foliage must NEVER render. The voxel
+                // foliage path is the SOLE renderer — we deliberately do NOT consult
+                // CrossedQuadFoliage here. Re-enabling that runtime check (the old
+                // `|| !CrossedQuadFoliage return true` escape) let a stale persisted
+                // flag=false or an in-game toggle resurrect the deprecated crossed-quad/
+                // billboard 2D path; that fallback is removed. The [Phase] attribute
+                // still gates *patch installation* (default-on + version migration keep
+                // it installed), but the runtime path no longer falls back to vanilla 2D.
+                if (!Core.IsWorld3D) return true;
                 if (pTile == null || pTile.Type == null) return true;
 
                 TileTypeBase t = pTile.Type;

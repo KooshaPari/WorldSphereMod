@@ -34,7 +34,11 @@ namespace WorldSphereMod.Foliage
         [HarmonyPrefix]
         public static bool Prefix(TopTileType pTileTypeAsset, QuantumSpriteAsset pAsset, bool pTransparentBuildings, Material pMaterial)
         {
-            if (!Core.IsWorld3D || !Core.savedSettings.CrossedQuadFoliage) return true;
+            // VOXEL-OR-INVISIBLE: in 3D the deprecated vanilla wall billboard/quad path
+            // must never render. The 3D prism is the sole wall renderer; the runtime
+            // CrossedQuadFoliage check (which let flag=false fall back to the deprecated
+            // 2D wall quad) is removed. [Phase] still gates patch installation.
+            if (!Core.IsWorld3D) return true;
             if (pTileTypeAsset == null) return true;
             if (!pTileTypeAsset.wall) return true;
             if (pTileTypeAsset.animated_wall) return true;

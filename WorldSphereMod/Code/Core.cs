@@ -26,7 +26,12 @@ namespace WorldSphereMod
         public static class Core
     {
         public static SavedSettings savedSettings = new SavedSettings();
-        public static string SettingsVersion = "2.5";
+        // 2.6: force re-migration of stale JSON where CrossedQuadFoliage was toggled
+        // OFF (which used to resurrect the deprecated 2D billboard/crossed-quad foliage
+        // path). ApplyPhaseDefaults re-asserts CrossedQuadFoliage=true so the [Phase]
+        // gate installs the voxel foliage patches. The deprecated 2D fallback is also
+        // removed at runtime in FoliageTileRender/WallTileRender/CloudCrossedQuadRender.
+        public static string SettingsVersion = "2.6";
 
         public static Harmony Patcher;
         internal static bool ClearVoxelMeshCacheOnFirstFrame;
