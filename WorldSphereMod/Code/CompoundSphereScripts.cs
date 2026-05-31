@@ -1,4 +1,5 @@
 ﻿using CompoundSpheres;
+using CompoundSpheres.Gpu;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using UnityEngine;
@@ -83,6 +84,89 @@ namespace WorldSphereMod
         public static Color32 SphereTileColor(SphereTile SphereTile)
         {
             return Core.Sphere.GetColor(SphereTile.Index());
+        }
+
+        // -----------------------------------------------------------------
+        // GPU adapters (#199 Phase 2/3): the GPU manager's delegate surface is
+        // typed against GpuSphereTile / GpuSphereManager, not the CPU SphereTile.
+        // These mirror the CPU bodies above EXACTLY by re-deriving the same
+        // WorldBox lookups from the tile's grid coordinates (X,Y) — keeping a
+        // single source of truth for per-tile color/texture/scale/overlay.
+        // -----------------------------------------------------------------
+        private static WorldTile GpuWorldTile(GpuSphereTile t) => World.world.GetTileSimple(t.X, t.Y);
+
+        public static int GpuTileTexture(GpuSphereTile t)
+        {
+            WorldTile wt = GpuWorldTile(t);
+            return wt == null ? 0 : Core.Sphere.WorldTileTexture(wt);
+        }
+        public static float GpuTileHeight(GpuSphereTile t)
+        {
+            WorldTile tile = GpuWorldTile(t);
+            if (tile == null) return 0f;
+            float Height = Tools.TrueHeight(tile.GetHeight(), tile.main_type.render_z);
+            if (Core.Sphere.PerlinNoise)
+                Height *= Tools.PerlinNose(t.X, t.Y, t.Manager.Rows, t.Manager.Cols, 20);
+            return Height;
+        }
+        public static Vector3 GpuTileScaleFlat(GpuSphereTile t)
+        {
+            float Height = GpuTileHeight(t);
+            return new Vector3(1, 1, Height * Core.Sphere.HeightMult);
+        }
+        public static Vector3 GpuTileScaleCube(GpuSphereTile t)
+        {
+            float Height = GpuTileHeight(t);
+            return new Vector3(1, 1, Height * Core.Sphere.HeightMult);
+        }
+        public static Vector3 GpuTileScaleCylindrical(GpuSphereTile t)
+        {
+            float Height = GpuTileHeight(t);
+            return new Vector3(1, 1 + (Height * YConst), Height * Core.Sphere.HeightMult);
+        }
+        public static Vector3 GpuTileScaleForCurrentShape(GpuSphereTile t)
+        {
+            switch (t.Manager.Shape)
+            {
+                case TileShape.Flat: return GpuTileScaleFlat(t);
+                case TileShape.Cube: return GpuTileScaleCube(t);
+                default: return GpuTileScaleCylindrical(t);
+            }
+        }
+        public static Color32 GpuTileColor(GpuSphereTile t)
+        {
+            WorldTile wt = GpuWorldTile(t);
+            return wt == null ? new Color32(128, 128, 128, 255) : Core.Sphere.GetColor(wt.data.tile_id);
+        }
+        // GPU custom-buffer samplers are index-based (GetCustomData<T>(int Index)
+        // where Index is the buffer slot = X*Cols+Y), unlike the CPU
+        // CustomBufferData which receives the tile. The CPU SphereTileAddedColor
+        // keys GetAddedColor on Tile.Index() (== the tile's tile_id), so to mirror
+        // EXACTLY we resolve the same tile_id from the slot's grid coordinates.
+        public static Vector3 GpuTileAddedColor(int slot)
+        {
+            int cols = Core.Sphere.Height; // == Manager.Cols (shared grid dimension)
+            int x = cols > 0 ? slot / cols : 0;
+            int y = cols > 0 ? slot % cols : 0;
+            WorldTile wt = World.world.GetTileSimple(x, y);
+            if (wt == null) return Vector3.zero;
+            Color32 color = Core.Sphere.GetAddedColor(wt.data.tile_id);
+            return new Vector3(color.r, color.g, color.b) / 255;
+        }
+        public static CompoundSpheres.Gpu.DisplayMode GpuDisplayMode()
+        {
+            return World.world.quality_changer.isLowRes()
+                ? CompoundSpheres.Gpu.DisplayMode.ColorOnly
+                : CompoundSpheres.Gpu.DisplayMode.TextureOnly;
+        }
+        // Adapts the active CPU shape's RenderRange (out int Min,Max applied to
+        // rows) into the GPU camera-range delegate (out Range Rows, out Range Cols).
+        // Cols spans the full grid width; the GPU culler narrows columns per row.
+        public static void GpuCameraRange(GpuSphereManager mgr, out CompoundSpheres.Gpu.Range Rows, out CompoundSpheres.Gpu.Range Cols)
+        {
+            Core.Sphere.GetCamerRange(out int Min, out int Max);
+            Rows = new CompoundSpheres.Gpu.Range(Min, Max);
+            Cols = new CompoundSpheres.Gpu.Range(0, mgr.Cols);
         }
         public static Vector3 CartesianToFlat(SphereManager manager, float X, float Y, float Height = 0)
         {
@@ -193,9 +277,11 @@ namespace WorldSphereMod
             Quad.transform.parent = Manager.transform;
             Debug.Log($"[WSM3D][PERF] CompoundSphereScripts.FlatInitiation={sw.Elapsed.TotalMilliseconds:F3}ms");
         }
-        public static DisplayMode getdisplaymode(SphereManager _)
+        public static CompoundSpheres.DisplayMode getdisplaymode(SphereManager _)
         {
-            return World.world.quality_changer.isLowRes() ? DisplayMode.ColorOnly : DisplayMode.TextureOnly;
+            return World.world.quality_changer.isLowRes()
+                ? CompoundSpheres.DisplayMode.ColorOnly
+                : CompoundSpheres.DisplayMode.TextureOnly;
         }
         static float RangeMult => Core.savedSettings.RowRange;
         static float BaseRange => 4 - (1 / RangeMult);
