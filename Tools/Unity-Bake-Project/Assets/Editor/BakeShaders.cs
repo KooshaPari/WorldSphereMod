@@ -48,7 +48,43 @@ public static class BakeShaders
             string dst = Path.Combine(assetsShaderDir, fn);
             File.Copy(src, dst, overwrite: true);
         }
+        // P2: copy the GPU-compute keystone (CompoundSphereCompute.compute) from
+        // the Compound-Spheres submodule into the bake project so it ships in the
+        // wsm3d-shaders bundle. ManagerBase<T>.Init() loads its kernels at runtime
+        // via ComputeShader.FindKernel(...). The bake previously only globbed
+        // *.shader, leaving the compute kernel out of the bundle.
+        foreach (var src in new[]
+        {
+            Path.Combine(repoRoot, "External", "Compound-Spheres", "Default Assets", "CompoundSphereCompute.compute"),
+        })
+        {
+            if (!File.Exists(src))
+            {
+                Debug.LogWarning("[WSM3D-Bake] compute source missing, skipping: " + src);
+                continue;
+            }
+            string dst = Path.Combine(assetsShaderDir, Path.GetFileName(src));
+            File.Copy(src, dst, overwrite: true);
+            Debug.Log("[WSM3D-Bake] copied compute: " + Path.GetFileName(src));
+        }
         AssetDatabase.Refresh();
+
+        // Tag compute shaders into the same bundle as the surface shaders.
+        foreach (var path in Directory.GetFiles(assetsShaderDir, "*.compute"))
+        {
+            string crel = "Assets/" + Path.GetRelativePath(Application.dataPath, path).Replace('\\', '/');
+            AssetImporter cai = AssetImporter.GetAtPath(crel);
+            if (cai != null)
+            {
+                cai.assetBundleName = "wsm3d-shaders";
+                cai.SaveAndReimport();
+                Debug.Log("[WSM3D-Bake] tagged wsm3d-shaders (compute): " + crel);
+            }
+            else
+            {
+                Debug.LogError("[WSM3D-Bake] AssetImporter NULL for compute: " + crel);
+            }
+        }
 
         // Tag only the shader assets to the new bundle name.
         foreach (var path in Directory.GetFiles(assetsShaderDir, "*.shader"))
