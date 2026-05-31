@@ -65,12 +65,21 @@ namespace WorldSphereMod.Voxel
         static readonly int _baseColorProp = Shader.PropertyToID("_BaseColor");
         static readonly int _colorPropUnlit = Shader.PropertyToID("_Color");
         static readonly int _emissionProp = Shader.PropertyToID("_EmissionColor");
-        // WHY zero: OpaqueVertexColor does final = saturate(albedo + _EmissionColor),
-        // so any non-zero emission is ADDED to every pixel and washes the per-actor
-        // vertex colors toward gray/white. The shader is unlit (no light attenuation
-        // to compensate for), so vertex color must be the sole albedo. (Reverts a
-        // stray re-introduction of the 0.15 Standard-era floor; see commit cc7ca7f2.)
-        static readonly UnityEngine.Color _bakeEmission = new UnityEngine.Color(0f, 0f, 0f, 1f);
+        // WHY a small 0.15 floor (NOT zero, NOT 1.5): emission is a VISIBILITY
+        // GUARD for the Standard-shader fallback. Shaders frequently degrade to
+        // Standard at runtime (ADR-0013: only OpaqueVertexColor survives the
+        // 62f3-bake -> 60f1-runtime load; Core.Sphere.ResolveShader returns
+        // Shader.Find("Standard") otherwise). Standard is LIT and WorldBox scenes
+        // have no directional/ambient light, so albedo contributes ~0 and zero
+        // emission renders pure-black/invisible actors. 1.5 over-corrected and
+        // saturate-clamped everything to white (commit cc7ca7f2); 0.0 swung back
+        // to black under the Standard fallback. 0.15 is the balanced floor: barely
+        // perceptible under the unlit OpaqueVertexColor path (which already has a
+        // 0.4 ambient term and so doesn't need it) yet keeps Standard-fallback
+        // actors visible. (Restores the floor lost when TerrainSmoothing.cs — which
+        // carried the original 0.15 guard, commit 77661bc0 — was deleted in the
+        // f1b0ad9e lineage merge.)
+        static readonly UnityEngine.Color _bakeEmission = new UnityEngine.Color(0.15f, 0.15f, 0.15f, 1f);
     // Scratch array for per-instance _EmissionColor so UNITY_ACCESS_INSTANCED_PROP
     // reads the value correctly (SetColor alone writes a shared value that the
     // instanced cbuffer ignores — falling back to the material default (0,0,0)).

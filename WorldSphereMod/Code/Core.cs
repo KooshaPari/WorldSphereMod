@@ -889,11 +889,22 @@ namespace WorldSphereMod
 
             public static void RefreshSphere()
             {
-                // Snapshot whether any tile data actually changed BEFORE we drain
-                // the queues. The heightfield mesh rebuild is expensive (~1M verts
-                // on a 316² map at 43k tiles) — we must only invalidate it when
-                // real tile changes are pending, not on every 0.1s redraw tick.
-                bool hadDirtyTiles = Manager.HasDirtyTiles;
+                // Snapshot whether any HEIGHT-AFFECTING tile data changed BEFORE we
+                // drain the queues. The heightfield mesh rebuild is expensive (~1M
+                // verts on a 316² map at 43k tiles) — we must only invalidate it
+                // when terrain GEOMETRY actually changes.
+                //
+                // PERF (per-frame rebuild storm fix): we previously gated on
+                // HasDirtyTiles, which includes the COLOR + TEXTURE queues. On a
+                // live world the simulation (water flow, fire, lava, mob tints)
+                // re-enqueues color/texture updates for visible tiles EVERY frame,
+                // so HasDirtyTiles was effectively always true → MarkDirty every
+                // frame → a full ~5s geometry rebuild every frame = the storm seen
+                // in Player.log. Terrain SHAPE only changes when a tile's elevation
+                // (scale) changes, so gate the geometry rebuild on HasDirtyHeights
+                // (the scale queue) alone. Color churn no longer triggers a rebuild;
+                // it is consumed by RefreshColors into the GPU color buffer.
+                bool hadDirtyHeights = Manager.HasDirtyHeights;
 
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 _scalesDone = Manager.RefreshScales();
@@ -911,7 +922,7 @@ namespace WorldSphereMod
                 RefreshColors();
                 long colorMs = sw.ElapsedMilliseconds;
 
-                if (hadDirtyTiles && Manager.UseHeightFieldTerrain)
+                if (hadDirtyHeights && Manager.UseHeightFieldTerrain)
                 {
                     // Mirror ProfilerDump into the fork so the parallelized
                     // HeightField.Rebuild emits its Stopwatch breakdown ONLY when
@@ -1127,6 +1138,38 @@ namespace WorldSphereMod
                     {
                         color = Color.white,
                     };
+
+                    // BLACK-TERRAIN GUARD (restores commit 77661bc0, lost when
+                    // TerrainSmoothing.cs was deleted in the f1b0ad9e merge).
+                    // The land mesh carries per-vertex corner-averaged colors as its
+                    // sole albedo. Whatever shader we resolved samples _MainTex and
+                    // multiplies it into albedo:
+                    //   - Sprites/Default & WSM3D/OpaqueVertexColor: albedo = color * tex2D(_MainTex)
+                    //   - Standard (ResolveShader fallback, LIT): albedo *= _MainTex
+                    // All declare _MainTex = "white" {}, but some 60f1 runtimes leave
+                    // it NULL at runtime -> tex2D() = (0,0,0,0) -> albedo zeroed ->
+                    // the entire terrain surface renders BLACK. Force the built-in
+                    // white pixel so vertex colors survive. VoxelRender has the same guard.
+                    if (hfMat.HasProperty("_MainTex"))
+                        hfMat.SetTexture("_MainTex", Texture2D.whiteTexture);
+                    if (hfMat.HasProperty("_BaseMap"))
+                        hfMat.SetTexture("_BaseMap", Texture2D.whiteTexture);
+
+                    // Standard is LIT and WorldBox scenes have no directional/ambient
+                    // light, so even with albedo intact the surface reads near-black.
+                    // Add an emission floor so terrain is visible under the Standard
+                    // fallback. OpaqueVertexColor (unlit, own 0.4 ambient term) ignores
+                    // this gracefully; the 0.15 floor matches MeshInstanceBatcher._bakeEmission.
+                    if (hfMat.HasProperty("_EmissionColor"))
+                    {
+                        hfMat.EnableKeyword("_EMISSION");
+                        hfMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                        bool isStandard = vcShader.name != null && vcShader.name.Contains("Standard");
+                        hfMat.SetColor("_EmissionColor", isStandard
+                            ? new Color(0.6f, 0.6f, 0.6f, 1f)
+                            : new Color(0.15f, 0.15f, 0.15f, 1f));
+                    }
+
                     hf.SetMaterial(hfMat);
                 }
 
@@ -1502,9 +1545,11 @@ namespace WorldSphereMod
 
                     try
                     {
-                        // DO NOT ADD MORE SHADERS to SafeShaders — see ADR-0013.
-                        // The other 7 shaders in this bundle produce ManagedStream
-                        // errors that trigger Unity's native crash reporter.
+                        // ADR-0013 gate satisfied (60f1-matched bundle, 2026-05-31):
+                        // SafeShaders now carries the full postFX/sky/water/foliage
+                        // set. Each is loaded per-name in its own try/catch + an
+                        // isSupported gate below, so a single bad shader is skipped
+                        // without aborting the loop. Bulk LoadAllAssets stays OFF.
                         foreach (var shaderName in SafeShaders)
                         {
                             UnityEngine.Shader sh = null;
@@ -1698,18 +1743,36 @@ namespace WorldSphereMod
             }
 
             // ----------------------------------------------------------------
-            // ADR-0013: only OpaqueVertexColor survives the current 62f3-bake ->
-            // 60f1-runtime cross-version load. The full-set expansion re-crashes
-            // at runtime with 8x ManagedStream serialization-mismatch errors
-            // ("Read 6572 bytes but expected 6600") — VerifyBuiltBundle is a
-            // 62f3-EDITOR check, not a 60f1-RUNTIME check, so it false-positives.
-            // DO NOT expand this list until the bundle is baked with the EXACT
-            // runtime Unity version (2022.3.60f1). Until then, water/sky/postfx/
-            // foliage degrade to Standard via Core.Sphere.ResolveShader.
+            // ADR-0013 (gate now SATISFIED 2026-05-31): the historical
+            // ManagedStream serialization-mismatch crashes ("Read N bytes but
+            // expected M") were caused by a 62f3-baked bundle loaded under the
+            // 60f1 runtime. The bundle has now been re-baked with the EXACT
+            // runtime Unity version (2022.3.60f1 — see
+            // Tools/Unity-Bake-Project/ProjectSettings/ProjectVersion.txt), so
+            // the cross-patch-version mismatch no longer applies and the
+            // postFX/sky/water/foliage shaders are re-included.
+            //
+            // The bulk LoadAllAssets enumeration stays disabled (it can still
+            // trip Unity's native crash path); each shader below is loaded
+            // per-name via GetObject<Shader> inside its own try/catch + an
+            // isSupported gate, so any single shader that still fails to
+            // deserialize is skipped without taking the mod offline.
+            //
+            // If a runtime ManagedStream error reappears for a specific shader,
+            // remove ONLY that shader from this list (it is not 60f1-bundle
+            // compatible) — do NOT collapse back to OpaqueVertexColor-only.
             // ----------------------------------------------------------------
             public static readonly string[] SafeShaders = new[]
             {
                 "OpaqueVertexColor",
+                "GerstnerWater",
+                "ProceduralSky",
+                "ColorGradingLUT",
+                "ScreenSpaceAO",
+                "ScreenSpaceGI",
+                "BrpBloom",
+                "BrpACES",
+                "FoliageWind",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look
