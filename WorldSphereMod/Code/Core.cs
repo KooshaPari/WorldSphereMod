@@ -1574,12 +1574,12 @@ namespace WorldSphereMod
 
                     try
                     {
-                        // DO NOT ADD MORE SHADERS to SafeShaders — see ADR-0013.
-                        // Re-expanding to the full postFX set was re-verified live
-                        // on 2026-05-31 (60f1-matched bundle) and STILL produced
-                        // ManagedStream / "Mismatched serialization" crashes for
-                        // every shader except OpaqueVertexColor — the player
-                        // crashed. Only OpaqueVertexColor deserializes cleanly.
+                        // SafeShaders is the per-name allowlist (see ADR-0013 block
+                        // below). As of #204 it includes the postFX/sky set, loadable
+                        // now that the bundle is a valid 157KB bake (was an 80-byte
+                        // variant-stripped stub that crashed on deserialize). Each
+                        // load is guarded: empty-name / !isSupported / exceptions are
+                        // skipped so a bad asset degrades to Standard, never crashes.
                         foreach (var shaderName in SafeShaders)
                         {
                             UnityEngine.Shader sh = null;
@@ -1773,35 +1773,42 @@ namespace WorldSphereMod
             }
 
             // ----------------------------------------------------------------
-            // ADR-0013 — gate is STILL NOT satisfied (re-verified at runtime
-            // 2026-05-31). The bundle was re-baked with the matched runtime
-            // Unity version (2022.3.60f1 — see
-            // Tools/Unity-Bake-Project/ProjectSettings/ProjectVersion.txt) and
-            // SafeShaders was provisionally re-expanded to the full
-            // postFX/sky/water/foliage set, then verified live in WorldBox.
+            // ADR-0013 (UPDATED 2026-05-31, #204) — the ManagedStream / "Mismatched
+            // serialization in builtin class 'Shader'" crash was ROOT-CAUSED to the
+            // bake pipeline emitting a variant-STRIPPED 80-byte shader stub, NOT a
+            // patch-version mismatch. The earlier "re-bake with 60f1 didn't help"
+            // conclusion was against that stripped stub: the on-disk wsm3d-shaders
+            // bundle was only 80 bytes, so every Shader deserialized short and the
+            // accumulated native errors crashed the player. OpaqueVertexColor only
+            // survived because it is the simplest shader.
             //
-            // RESULT: every shader other than OpaqueVertexColor STILL failed
-            // with "Mismatched serialization in the builtin class 'Shader'.
-            // (Read N bytes but expected M bytes)" + "ManagedStream object must
-            // be readable", loaded with an empty name, and the accumulated
-            // native errors CRASHED the player (Unity crash handler intercept).
-            // So the 60f1 *editor* version match is NOT sufficient: these
-            // shaders remain serialization-incompatible with the 60f1 runtime
-            // (likely a deeper bake-pipeline / shader-variant issue, not a
-            // patch-version mismatch). OpaqueVertexColor is the ONLY shader
-            // that deserializes cleanly.
+            // The bake variant-stripping fix (commit b1882549) was then applied and
+            // the Unity GUI re-bake produced a VALID 157,360-byte wsm3d-shaders
+            // bundle (mtime 2026-05-31 02:44) with real serialized variants for all
+            // 14 assets (manifest lists BrpBloom/BrpACES/ColorGradingLUT/
+            // ScreenSpaceGI/ScreenSpaceAO/ProceduralSky + water/foliage/voxel).
             //
-            // DO NOT re-expand this list. Re-baking with a version-matched
-            // editor was tried and did not help. The next thing to try is a
-            // bake-pipeline fix (shader variant stripping / keyword set /
-            // graphics-API target), then re-verify each shader LIVE before
-            // adding it back — a green build is NOT proof (the native crash is
-            // invisible to dotnet build). Until then water/sky/postfx/foliage
-            // degrade to Standard via Core.Sphere.ResolveShader.
+            // With a valid bundle, SafeShaders is re-expanded to the postFX/sky set
+            // that consumers key on (WSM3DPostStack, ColorGradingLUT, ScreenSpaceAO,
+            // ScreenSpaceGI, ProceduralSky). The per-shader load loop below is the
+            // safety net: each GetObject<Shader> is wrapped in try/catch and any
+            // shader that loads with an empty name or reports !isSupported is
+            // SKIPPED (left out of LoadedShaders), so a bad/incompatible asset
+            // degrades gracefully to Standard instead of poisoning the cache.
+            //
+            // Water (GerstnerWater) / foliage (FoliageWind) / voxel (StratumVoxelPBR)
+            // are intentionally NOT re-added here yet — they are owned by other
+            // tasks and resolve via their own paths; keep #204 scoped to postFX.
             // ----------------------------------------------------------------
             public static readonly string[] SafeShaders = new[]
             {
                 "OpaqueVertexColor",
+                "BrpBloom",
+                "BrpACES",
+                "ColorGradingLUT",
+                "ScreenSpaceGI",
+                "ScreenSpaceAO",
+                "ProceduralSky",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look
