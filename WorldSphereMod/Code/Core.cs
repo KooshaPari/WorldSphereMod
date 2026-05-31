@@ -913,6 +913,11 @@ namespace WorldSphereMod
 
                 if (hadDirtyTiles && Manager.UseHeightFieldTerrain)
                 {
+                    // Mirror ProfilerDump into the fork so the parallelized
+                    // HeightField.Rebuild emits its Stopwatch breakdown ONLY when
+                    // profiling is on (per the debug-console-overlay spam trap).
+                    CompoundSpheres.HeightFieldRenderer.ProfileRebuild =
+                        Core.savedSettings != null && Core.savedSettings.ProfilerDump;
                     Manager.HeightField.MarkDirty();
                 }
 
