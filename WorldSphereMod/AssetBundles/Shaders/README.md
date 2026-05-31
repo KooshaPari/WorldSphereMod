@@ -19,14 +19,29 @@ set.
 
 1. Open the Unity bake project used by `Tools/Unity-Bake-Project/`.
 2. Drop the `.shader` files into `Assets/WSM3D/Shaders/`.
-3. For each shader, in inspector → AssetBundle dropdown → choose
-   `wsm3d-shaders` (Standalone variant).
-4. Build → Build AssetBundles → Target Win64/Linux/macOS.
-5. Copy outputs to:
-   - `WorldSphereMod/AssetBundles/win/wsm3d-shaders`
-   - `WorldSphereMod/AssetBundles/linux/wsm3d-shaders`
-   - `WorldSphereMod/AssetBundles/osx/wsm3d-shaders`
-6. Commit binary blobs + shipped `.shader` source side-by-side.
+3. Run the menu command **`WSM3D → Bake wsm3d-shaders AssetBundles`**.
+   `BakeShaders.BakeAll()` copies sources, tags the bundle, builds the
+   ShaderVariantCollection, applies the keep-all-variants / explicit-graphics-API
+   guard, and builds win/linux/osx bundles into `WorldSphereMod/AssetBundles/`.
+4. Commit binary blobs + shipped `.shader` source side-by-side.
+
+### Verify the bake produced FULL shaders (#204)
+
+The 80-vs-4936 ManagedStream crash is caused by program-less shader stubs.
+After re-baking, confirm the program data is present BEFORE re-enabling any
+shader in `Core.Sphere.SafeShaders`:
+
+- `WorldSphereMod/AssetBundles/win/wsm3d-shaders` should grow well past the
+  prior ~157 KB (each full postFX shader adds several KB of compiled program
+  data; a stubbed bake keeps the file small with ~80-byte per-shader blobs).
+- In the Editor Console, every shader should log a non-zero
+  `[WSM3D-Bake] SVC +N variants: <name>` (N ≥ 1). Any `SVC +0 variants`
+  warning means that shader will still strip — investigate before shipping.
+- Load in WorldBox with the full `SafeShaders` set re-enabled in a throwaway
+  test: NO `Mismatched serialization in the builtin class 'Shader'` and NO
+  `ManagedStream object must be readable` for any of GerstnerWater /
+  ProceduralSky / ColorGradingLUT / ScreenSpaceAO / ScreenSpaceGI / BrpBloom /
+  BrpACES / FoliageWind. Only then commit the new bundle + re-enable SafeShaders.
 
 ## Runtime loader
 

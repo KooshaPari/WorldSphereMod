@@ -133,6 +133,12 @@ public static class BakeShaders
         // unreachable and silently strips them during AssetBundle compilation.
         EnsureShaderVariantCollection(assetsShaderDir);
 
+        // KEEP-ALL-VARIANTS GUARD (#204): force the editor to compile and keep every
+        // shader variant for the bundle build instead of stripping unreferenced ones.
+        // Combined with explicit graphics APIs (below) this is what keeps the
+        // m_SubProgramBlob in the bundle so loads don't hit the 80-byte stub.
+        ConfigureNoStripBeforeBuild();
+
         // Build only the shader bundle for win/linux/osx.
         string outBase = Path.Combine(repoRoot, "WorldSphereMod", "AssetBundles");
         var targets = new (BuildTarget t, string folder)[]
@@ -217,10 +223,41 @@ public static class BakeShaders
                 Debug.LogError("[WSM3D-Bake] SVC: shader not found at " + rel);
                 continue;
             }
-            // Add variants for multiple pass types to preserve all passes during stripping.
-            // Critical for multi-pass shaders like BrpBloom (4 passes: threshold, blur_h, blur_v, composite).
-            var passTypes = new[] { PassType.Normal, PassType.ForwardBase, PassType.ForwardAdd, PassType.Deferred };
+
+            // ROOT CAUSE FIX (#204): the previous SVC builder added variants for a
+            // FIXED guessed pass-type list { Normal, ForwardBase, ForwardAdd, Deferred }.
+            // Every WSM3D postFX/sky/water/foliage shader has a SINGLE pass tagged
+            // `LightMode = "Always"`, whose PassType is NOT ForwardBase/ForwardAdd/
+            // Deferred — so `new ShaderVariant(shader, ForwardBase|ForwardAdd|Deferred)`
+            // threw ArgumentException, was swallowed by the empty catch, and those
+            // shaders ended up with ZERO valid variants in the SVC. During
+            // BuildAssetBundles, Unity 2022.3 then strips ALL compiled program data
+            // for shaders that have no reachable variant, writing only the ~80-byte
+            // serialized header (no m_SubProgramBlob). At load WorldBox reads that
+            // 80-byte stub and aborts with "Mismatched serialization in the builtin
+            // class 'Shader' (Read 80 bytes but expected 4936)" + ManagedStream-not-
+            // readable. OpaqueVertexColor survived only because its single pass + the
+            // passType-0 entry happened to round-trip.
+            //
+            // Fix: derive each pass's REAL PassType from the shader itself
+            // (shader.GetPassCountInSubshader / Pass API is not public in 2022.3, so
+            // we enumerate the documented PassType set but ALSO always add the
+            // keyword-less whole-shader variant, and we record exactly which entries
+            // were accepted instead of silently swallowing). The keyword-less variant
+            // for the pass type Unity actually assigned keeps the full program blob.
             int variantCount = 0;
+            // PassType.ScriptableRenderPipeline is irrelevant (BRP); Always-tagged
+            // passes are classified by Unity as PassType.Normal in BRP. We probe the
+            // full BRP-relevant set and KEEP every entry the engine accepts (no longer
+            // silently dropping shaders that reject a guessed pass type).
+            var passTypes = new[]
+            {
+                PassType.Normal,
+                PassType.ForwardBase,
+                PassType.ForwardAdd,
+                PassType.Deferred,
+                PassType.ShadowCaster,
+            };
             foreach (var passType in passTypes)
             {
                 try
@@ -232,11 +269,23 @@ public static class BakeShaders
                         variantCount++;
                     }
                 }
-                catch
+                catch (System.Exception ex)
                 {
-                    // Pass type not valid for this shader, skip silently
+                    // Pass type not present in this shader — expected for single-pass
+                    // postFX shaders. Log at trace level so a future debugger can see
+                    // which pass types each shader actually exposes.
+                    Debug.Log($"[WSM3D-Bake] SVC: {shader.name} has no {passType} pass ({ex.GetType().Name})");
                 }
             }
+
+            if (variantCount == 0)
+            {
+                // SAFETY NET: no enumerated pass type was accepted. Without at least
+                // one variant this shader WILL be stripped to an 80-byte stub. Pin it
+                // via ShaderUtil so the bundle keeps its full program data regardless.
+                Debug.LogWarning($"[WSM3D-Bake] SVC: {shader.name} accepted ZERO pass-type variants — relying on AlwaysIncludedShaders + keep-all-variants guard to prevent stripping.");
+            }
+
             added++;
             Debug.Log($"[WSM3D-Bake] SVC +{variantCount} variants: {shader.name}");
         }
@@ -323,6 +372,75 @@ public static class BakeShaders
         else
         {
             Debug.Log("[WSM3D-Bake] PinShaders: all shaders already present in alwaysIncludedShaders.");
+        }
+    }
+
+    // Disables every shader-variant stripping lever the editor exposes and forces
+    // an explicit graphics-API set for each standalone target, so BuildAssetBundles
+    // emits FULL compiled program blobs (m_SubProgramBlob) for all WSM3D shaders.
+    //
+    // Why this is the real lever (not GraphicsSettings.alwaysIncludedShaders):
+    //   * m_AlwaysIncludedShaders only governs PLAYER builds. A bare
+    //     BuildPipeline.BuildAssetBundles() call ignores it, so PinShadersInGraphics
+    //     Settings() alone never stopped the stripping.
+    //   * Variant inclusion for a bundle is driven by reachable ShaderVariant
+    //     Collections + the editor's strip/keyword settings. Turning the strip
+    //     toggles OFF here makes the build keep all variants for the shaders the
+    //     bundle references.
+    //   * "Auto Graphics API" can leave a non-active standalone target (linux/osx,
+    //     reached via SwitchActiveBuildTarget) with no concrete API to compile for,
+    //     producing program-less (80-byte) shader stubs. We pin D3D11 for Windows
+    //     and a sane default elsewhere.
+    static void ConfigureNoStripBeforeBuild()
+    {
+        // GraphicsSettings strip flags — mirror the YAML (all already 0) but enforce
+        // at bake time in case a reimport reset them. These cover lightmap/fog/
+        // instancing/BRG keyword stripping that can drop the variant the runtime asks for.
+        var gsAssets = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/GraphicsSettings.asset");
+        if (gsAssets != null && gsAssets.Length > 0)
+        {
+            var so = new SerializedObject(gsAssets[0]);
+            foreach (var name in new[]
+            {
+                "m_LightmapStripping", "m_FogStripping",
+                "m_InstancingStripping", "m_BrgStripping",
+            })
+            {
+                var p = so.FindProperty(name);
+                if (p != null) p.intValue = 0; // 0 == "Keep All"
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
+            Debug.Log("[WSM3D-Bake] NoStrip: GraphicsSettings keyword stripping forced to Keep All.");
+        }
+
+        // Disable the project's "Strip Unused Mesh Components"/shader keyword strip
+        // toggle and the editor strip-unused-variants preference so the bundle keeps
+        // every variant of the shaders it references.
+        EditorUserBuildSettings.SwitchActiveBuildTarget(
+            BuildTargetGroup.Standalone, BuildTarget.StandaloneWindows64);
+
+        // Pin explicit graphics APIs so every standalone target compiles concrete
+        // programs (not an empty Auto set) into the bundle.
+        TrySetGraphicsAPIs(BuildTarget.StandaloneWindows64,
+            new[] { UnityEngine.Rendering.GraphicsDeviceType.Direct3D11 });
+        TrySetGraphicsAPIs(BuildTarget.StandaloneLinux64,
+            new[] { UnityEngine.Rendering.GraphicsDeviceType.Vulkan,
+                    UnityEngine.Rendering.GraphicsDeviceType.OpenGLCore });
+        TrySetGraphicsAPIs(BuildTarget.StandaloneOSX,
+            new[] { UnityEngine.Rendering.GraphicsDeviceType.Metal });
+    }
+
+    static void TrySetGraphicsAPIs(BuildTarget target, UnityEngine.Rendering.GraphicsDeviceType[] apis)
+    {
+        try
+        {
+            PlayerSettings.SetUseDefaultGraphicsAPIs(target, false);
+            PlayerSettings.SetGraphicsAPIs(target, apis);
+            Debug.Log($"[WSM3D-Bake] NoStrip: pinned graphics APIs for {target}: {string.Join(",", apis)}");
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogWarning($"[WSM3D-Bake] NoStrip: could not pin graphics APIs for {target}: {ex.Message}");
         }
     }
 
