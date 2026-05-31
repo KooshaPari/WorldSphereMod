@@ -685,7 +685,8 @@ namespace WorldSphereMod
                                         // Height=0 tiles never z-fight the HeightField mesh.
                                         if (gpuMgr != null && gpuMgr.gameObject != null)
                                             gpuMgr.gameObject.SetActive(false);
-                                        Debug.Log($"[WSM3D] Sphere.Begin: GpuSphereManager created (parallel actor/voxel path). Rows={gpuMgr.Rows} Cols={gpuMgr.Cols}");
+                                        if (gpuMgr != null)
+                                            Debug.Log($"[WSM3D] Sphere.Begin: GpuSphereManager created (parallel actor/voxel path). Rows={gpuMgr.Rows} Cols={gpuMgr.Cols}");
                                         // #199 Phase 4: bind the HeightField to the GPU matrix
                                         // kernel and push terrain heights, then re-activate the
                                         // GPU layer once it sits at correct elevations.
