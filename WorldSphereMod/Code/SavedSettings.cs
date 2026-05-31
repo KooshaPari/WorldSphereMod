@@ -77,10 +77,13 @@ public class SavedSettings
         public float VoxelScaleMultiplier = 8.0f;
         // WHY: actor/drop voxel meshes are already sprite-sized in world units; the full 8x
         // terrain VoxelScaleMultiplier made actors gigantic (clipping the camera at max zoom).
-        // Effective actor render scale = VoxelScaleMultiplier * ActorVoxelScaleFactor, giving
-        // a unit roughly a terrain-tile tall (~2uu) instead of 8uu. Decoupled so terrain/voxel
-        // meshes that depend on 8x are unaffected.
-        public float ActorVoxelScaleFactor = 0.25f;
+        // Effective actor render scale = VoxelScaleMultiplier * ActorVoxelScaleFactor. The old
+        // 0.25 gave net 2x (8 * 0.25) — a humanoid was still ~2 terrain tiles tall and ungraspable
+        // even at max zoom (user-reported). Dropped to 0.10 → net 0.8x (8 * 0.10), so a humanoid
+        // reads at slightly under one tile; the voxel mesh extends above the tile so net 1.0x still
+        // looked oversized, hence the small undershoot. Terrain (raw VoxelScaleMultiplier) and
+        // buildings/projectiles (raw 8x, do NOT use this factor) are unaffected.
+        public float ActorVoxelScaleFactor = 0.10f;
         public bool DebugVoxelOutline = false;
         public bool DebugSanityCube = false;
         public bool DebugSpawnBuildings = false;
@@ -239,6 +242,10 @@ public class SavedSettings
             s.ProceduralBuildings = false;
             s.CrossedQuadFoliage = true; // WHY: gates the foliage patch; off = trees stay vanilla 2D
             s.UseHeightFieldTerrain = true; // #201: smooth corner-averaged terrain mesh (off = cube-step regression)
+            // #206: re-apply the actor voxel scale so persisted JSON (which shadows the field
+            // default) re-migrates to the smaller net 0.8x actor size. Requires SettingsVersion
+            // bump (Core.cs 2.4 -> 2.5) so loadedData.Version mismatch triggers this migration.
+            s.ActorVoxelScaleFactor = 0.10f;
             s.MeshWater = false;
             s.WorldspaceHealth3D = false;
             s.MountainSlopeSmoothing = false;
