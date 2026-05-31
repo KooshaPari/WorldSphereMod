@@ -31,34 +31,43 @@ namespace WorldSphereMod.Rig
             public Vector3 BaseScale;
             public Quaternion BaseRotation;
             public Vector3 BasePosition;
+            // Mesh-space (per-sprite) WORLD bind position of each bone joint,
+            // derived from the centroid of the voxels that bone skins. The bone
+            // Transform hierarchy and the mesh bindposes are both built from these
+            // SAME positions, so bind-pose space is consistent by construction —
+            // this is the fix for the unit-vs-mesh-space mismatch that shredded
+            // actors when bones rotated.
+            public Vector3[] BoneBindWorld = System.Array.Empty<Vector3>();
             public Color Tint;
             public float PhaseSeed;
             public int LastSeenFrame;
         }
 
         /// <summary>
-        /// Master gate for the skeletal skinning path. The 12-bone humanoid rig
-        /// uses HARDCODED unit-space bind offsets (see HumanoidRig.Bones: 0.5f,
-        /// 0.3f, ...) while the voxel mesh is built in per-sprite world units
-        /// (vertex = (pixel - pivot) / sprite.pixelsPerUnit, see
-        /// SpriteVoxelizer.BuildPerTexel). Those two spaces do NOT coincide: the
-        /// skeleton joints are NOT positioned at the centroids of the voxels they
-        /// skin. At rest pose this is invisible (skin matrix == identity), but the
-        /// instant a bone rotates, each rigidly single-weighted voxel swings about
-        /// the wrong pivot and the actor visibly shreds/distorts — exactly the
-        /// "horribly broken rigging" the user reported.
+        /// Master gate for the skeletal skinning path.
         ///
-        /// Making this correct requires deriving each bone's bind pose from the
-        /// actual per-bone voxel centroid of the specific mesh (per sprite), which
-        /// is a substantial rework with real regression risk. The static voxel
-        /// path renders actors correctly today (alpha.8). So until per-mesh bind
-        /// poses land, we keep the skinned path DISABLED and route every actor
-        /// through the static voxel mesh. This is enforced here (not just via the
-        /// SavedSettings flag) so a stray flag flip — e.g. AutoTest cycling or a
-        /// save/load resurrecting the value — can NEVER reintroduce broken actors.
-        /// Flip this to true only once HumanoidRig builds mesh-aligned bind poses.
+        /// HISTORY: the original 12-bone humanoid rig used HARDCODED unit-space
+        /// bind offsets (HumanoidRig.Bones: 0.5f, 0.3f, ...) while the voxel mesh
+        /// is built in per-sprite world units (vertex = (pixel - pivot) /
+        /// sprite.pixelsPerUnit, see SpriteVoxelizer.BuildPerTexel). Those spaces
+        /// did NOT coincide — the skeleton joints were not at the centroids of the
+        /// voxels they skinned — so the instant a bone rotated, each rigidly
+        /// single-weighted voxel swung about the wrong pivot and the actor
+        /// shredded. That was the "rigging is a mess" the user reported.
+        ///
+        /// FIX (this pass): both the bone Transform hierarchy AND the mesh
+        /// bindposes are now derived from the SAME per-sprite mesh data:
+        /// each bone's world bind position is the CENTROID of the voxels assigned
+        /// to it (BuildMeshAlignedSkin). Because the bindpose and the rest bone
+        /// transform are built from identical centroids, the rest skin matrix is
+        /// exactly identity and bind-pose space is consistent by construction — no
+        /// unit-vs-mesh mismatch is possible. Vertices are BLEND-weighted to their
+        /// own bone plus its parent (inverse-distance, normalized, &lt;=4
+        /// influences) so bone rotation no longer tears the seam between regions.
+        /// The hardcoded HumanoidRig.Bones offsets are now used ONLY as a
+        /// fallback direction for bones whose sprite has zero assigned voxels.
         /// </summary>
-        const bool kSkinnedRigProductionReady = false;
+        const bool kSkinnedRigProductionReady = true;
 
         static readonly Dictionary<long, ActorRigInstance> _actorRigs = new Dictionary<long, ActorRigInstance>();
         static readonly List<long> _scratchRemove = new List<long>();
@@ -241,7 +250,8 @@ namespace WorldSphereMod.Rig
                 return null;
             }
 
-            Mesh mesh = BuildHumanoidMeshClone(svm);
+            Vector3[] boneBindWorld;
+            Mesh mesh = BuildHumanoidMeshClone(svm, out boneBindWorld);
             if (mesh == null)
             {
                 return null;
@@ -262,13 +272,19 @@ namespace WorldSphereMod.Rig
             go.transform.localRotation = Quaternion.identity;
             go.transform.localScale = Vector3.one;
 
+            // Build the bone hierarchy from the SAME mesh-space centroids used for
+            // the mesh bindposes. localPosition = childCentroid - parentCentroid so
+            // every joint's WORLD rest position equals boneBindWorld[i]; the rest
+            // skin matrix is then exactly identity (no shred on first rotation).
             for (int i = 1; i < HumanoidRig.Bones.Length; i++)
             {
                 BoneDefinition boneDef = HumanoidRig.Bones[i];
                 GameObject boneGo = new GameObject(((BoneId)i).ToString());
                 Transform bone = boneGo.transform;
                 bone.SetParent(bones[boneDef.ParentIndex], worldPositionStays: false);
-                bone.localPosition = boneDef.BindPoseOffset;
+                int parent = boneDef.ParentIndex;
+                Vector3 parentWorld = (parent >= 0 && parent < boneBindWorld.Length) ? boneBindWorld[parent] : Vector3.zero;
+                bone.localPosition = boneBindWorld[i] - parentWorld;
                 bone.localRotation = Quaternion.identity;
                 bone.localScale = Vector3.one;
                 bones[i] = bone;
@@ -288,6 +304,7 @@ namespace WorldSphereMod.Rig
                 RigType = rigType,
                 RootObject = go,
                 Bones = bones,
+                BoneBindWorld = boneBindWorld,
                 LocalRotations = new Quaternion[HumanoidRig.Bones.Length],
                 Mesh = mesh,
                 Renderer = renderer,
@@ -303,8 +320,9 @@ namespace WorldSphereMod.Rig
             return instance;
         }
 
-        static Mesh BuildHumanoidMeshClone(SkinnedVoxelMesh svm)
+        static Mesh BuildHumanoidMeshClone(SkinnedVoxelMesh svm, out Vector3[] boneBindWorld)
         {
+            boneBindWorld = System.Array.Empty<Vector3>();
             if (svm.BaseMesh == null)
             {
                 return null;
@@ -313,30 +331,110 @@ namespace WorldSphereMod.Rig
             Mesh mesh = Object.Instantiate(svm.BaseMesh);
             mesh.name = $"{svm.BaseMesh.name}:skinned";
 
-            Matrix4x4[] bindPoses = HumanoidRig.GetBindPoses();
-            if (bindPoses != null && bindPoses.Length == HumanoidRig.Bones.Length)
+            int vc = mesh.vertexCount;
+            Vector3[] verts = mesh.vertices;
+            byte[] boneIndices = svm.BoneIndices ?? System.Array.Empty<byte>();
+            int boneCount = HumanoidRig.Bones.Length;
+
+            // --- 1. Per-bone voxel centroids in MESH space ---------------------
+            // The bone joint for region B is placed at the mean position of the
+            // vertices assigned to B. That is the pivot voxels actually rotate
+            // about, so rotation no longer swings them off to a foreign origin.
+            var sum = new Vector3[boneCount];
+            var cnt = new int[boneCount];
+            var clampedBone = new int[vc];
+            for (int i = 0; i < vc; i++)
             {
-                mesh.bindposes = bindPoses;
+                int b = i < boneIndices.Length ? boneIndices[i] : (int)BoneId.Spine;
+                if (b < 0 || b >= boneCount) b = (int)BoneId.Spine;
+                clampedBone[i] = b;
+                sum[b] += verts[i];
+                cnt[b]++;
             }
 
-            byte[] boneIndices = svm.BoneIndices ?? System.Array.Empty<byte>();
-            var weights = new BoneWeight[mesh.vertexCount];
-            for (int i = 0; i < weights.Length; i++)
+            boneBindWorld = ComputeBoneBindWorld(sum, cnt, boneCount);
+
+            // --- 2. Mesh bindposes from the SAME centroids ---------------------
+            // Rest bone world matrix is a pure translation to its centroid (rest
+            // rotation is identity for this rig), so the bindpose is the inverse
+            // translation. world[i]*bindpose[i] == identity at rest → zero shred.
+            var bindPoses = new Matrix4x4[boneCount];
+            for (int b = 0; b < boneCount; b++)
             {
-                int boneIndex = i < boneIndices.Length ? boneIndices[i] : (int)BoneId.Spine;
-                if (boneIndex < 0 || boneIndex >= HumanoidRig.Bones.Length)
+                bindPoses[b] = Matrix4x4.Translate(-boneBindWorld[b]);
+            }
+            mesh.bindposes = bindPoses;
+
+            // --- 3. Blended weights: own bone + parent, inverse-distance -------
+            // Single-bone rigid weights leave a hard seam that tears when adjacent
+            // bones rotate apart. Splitting each vertex between its own bone and
+            // its parent (capped <=4 influences, normalized to 1) lets the seam
+            // bend smoothly instead of cracking.
+            var weights = new BoneWeight[vc];
+            for (int i = 0; i < vc; i++)
+            {
+                int b = clampedBone[i];
+                int parent = HumanoidRig.Bones[b].ParentIndex;
+                if (parent < 0 || parent >= boneCount || parent == b)
                 {
-                    boneIndex = (int)BoneId.Spine;
+                    weights[i].boneIndex0 = b;
+                    weights[i].weight0 = 1f;
+                    continue;
                 }
 
-                weights[i].boneIndex0 = boneIndex;
-                weights[i].weight0 = 1f;
+                // Inverse-distance blend toward the two joints. eps avoids div0 and
+                // keeps a vertex sitting exactly on a joint fully weighted to it.
+                const float eps = 1e-4f;
+                float dOwn = (verts[i] - boneBindWorld[b]).magnitude + eps;
+                float dPar = (verts[i] - boneBindWorld[parent]).magnitude + eps;
+                float wOwn = 1f / dOwn;
+                float wPar = 1f / dPar;
+                // Bias toward the vertex's own segment so regions stay distinct
+                // (a pure inverse-distance blend over-bleeds across long bones).
+                wOwn *= 2f;
+                float inv = 1f / (wOwn + wPar);
+                weights[i].boneIndex0 = b;
+                weights[i].weight0 = wOwn * inv;
+                weights[i].boneIndex1 = parent;
+                weights[i].weight1 = wPar * inv;
             }
 
             mesh.boneWeights = weights;
             mesh.MarkDynamic();
             mesh.RecalculateBounds();
             return mesh;
+        }
+
+        /// <summary>
+        /// Resolve each bone's mesh-space rest joint position. Bones that skin at
+        /// least one voxel use that voxel cluster's centroid. Bones with no voxels
+        /// (sprite never assigned them) fall back to parentCentroid + the
+        /// hardcoded HumanoidRig unit-space offset so the hierarchy stays
+        /// connected — these never skin any vertex, so their exact position only
+        /// matters for keeping child joints in a sane place.
+        /// </summary>
+        static Vector3[] ComputeBoneBindWorld(Vector3[] sum, int[] cnt, int boneCount)
+        {
+            var bind = new Vector3[boneCount];
+            var resolved = new bool[boneCount];
+            // Bones are declared parent-before-child (parent index < own index),
+            // so a single forward pass resolves parents before their children.
+            for (int b = 0; b < boneCount; b++)
+            {
+                if (cnt[b] > 0)
+                {
+                    bind[b] = sum[b] / cnt[b];
+                    resolved[b] = true;
+                    continue;
+                }
+
+                int parent = HumanoidRig.Bones[b].ParentIndex;
+                Vector3 parentPos = (parent >= 0 && parent < boneCount) ? bind[parent] : Vector3.zero;
+                bind[b] = parentPos + HumanoidRig.Bones[b].BindPoseOffset;
+                resolved[b] = true;
+            }
+
+            return bind;
         }
 
         static void UpdateRigTransform(ActorRigInstance rig, Vector3 pos, Quaternion rot, Vector3 scl)
