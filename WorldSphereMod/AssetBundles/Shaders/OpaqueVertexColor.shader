@@ -91,7 +91,14 @@ Shader "WSM3D/OpaqueVertexColor"
                 fixed4 tex = tex2D(_MainTex, i.uv);
                 fixed3 albedo = i.color.rgb * tint.rgb * tex.rgb;
                 float NdotL = max(0.0, dot(normalize(i.worldNormal), _WorldSpaceLightPos0.xyz));
-                fixed3 final = saturate(albedo * (NdotL * 0.6 + 0.4) + emiss.rgb);
+                // DARK-LOWLAND fix: flat low terrain has a straight-up normal and
+                // WorldBox scenes carry little/no directional light, so NdotL≈0 there
+                // and the old 0.4 ambient floor rendered flats near-black while lit
+                // slopes read fine. Lift the ambient term (0.4→0.58) and lower the
+                // NdotL weight (0.6→0.42) so the flat-lit floor brightens to albedo*0.58
+                // while a fully-lit slope still peaks at albedo*1.0 — mountains keep
+                // their lit gradient, lowland is no longer dark.
+                fixed3 final = saturate(albedo * (NdotL * 0.42 + 0.58) + emiss.rgb);
                 return fixed4(final, 1.0);
             }
             ENDCG

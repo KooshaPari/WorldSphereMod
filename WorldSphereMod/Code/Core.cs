@@ -1130,8 +1130,20 @@ namespace WorldSphereMod
                 // Create a vertex-color material for the height field since the
                 // instanced CompoundSphere shader reads StructuredBuffers that
                 // don't exist on a plain DrawMesh call.
-                Shader vcShader = Shader.Find("Sprites/Default");
-                if (vcShader == null) vcShader = ResolveShader("");
+                //
+                // DARK-LOWLAND root cause: this previously resolved to
+                // Shader.Find("Sprites/Default") FIRST. Sprites/Default is UNLIT and
+                // is modulated by WorldBox's global 2D sprite tint (day/night), so at
+                // night the entire terrain surface renders BLACK while the lit
+                // foliage/voxels (which use WSM3D/OpaqueVertexColor) stay visible.
+                // It also has NO _EmissionColor, so the emission floor below never
+                // applied. Prefer the SAME lit vertex-color shader the rest of the
+                // 3D scene uses (OpaqueVertexColor: own diffuse+ambient term, honours
+                // the emission floor, ignores the 2D night tint) so terrain — flat
+                // lowland included — stays lit. Fall back to Sprites/Default only if
+                // the bundle/Standard shaders are somehow unavailable.
+                Shader vcShader = ResolveShader("OpaqueVertexColor");
+                if (vcShader == null) vcShader = Shader.Find("Sprites/Default");
                 if (vcShader != null)
                 {
                     Material hfMat = new Material(vcShader)
@@ -1165,10 +1177,27 @@ namespace WorldSphereMod
                         hfMat.EnableKeyword("_EMISSION");
                         hfMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
                         bool isStandard = vcShader.name != null && vcShader.name.Contains("Standard");
+                        // DARK-LOWLAND fix: the OpaqueVertexColor (unlit) floor was
+                        // 0.15, but flat low terrain (normal straight up, NdotL≈0 in a
+                        // light-less WorldBox scene) still read too dark vs lit slopes.
+                        // Emission adds AFTER the lit albedo term, so lifting it to 0.22
+                        // brightens the dark flats most (where albedo*lighting is lowest)
+                        // and saturate-clamps on the already-bright mountains — the lit
+                        // gradient is preserved, lowland is lifted. Runtime-effective even
+                        // when the shader bundle isn't rebaked (the .shader ambient bump
+                        // 0.4→0.58 is the matching fix once the bundle is rebuilt).
                         hfMat.SetColor("_EmissionColor", isStandard
                             ? new Color(0.6f, 0.6f, 0.6f, 1f)
-                            : new Color(0.15f, 0.15f, 0.15f, 1f));
+                            : new Color(0.35f, 0.35f, 0.35f, 1f));
                     }
+
+                    // DIAG: surface the resolved terrain shader + emission floor so a
+                    // black/dark-terrain regression can be diagnosed from Player.log
+                    // without guessing which shader path the runtime took.
+                    Debug.LogWarning($"[WSM3D] ConfigureHeightField terrain material: shader='{vcShader.name}' " +
+                        $"hasEmission={hfMat.HasProperty("_EmissionColor")} " +
+                        $"emission={(hfMat.HasProperty("_EmissionColor") ? hfMat.GetColor("_EmissionColor").ToString() : "n/a")} " +
+                        $"hasMainTex={hfMat.HasProperty("_MainTex")}");
 
                     hf.SetMaterial(hfMat);
                 }
