@@ -248,6 +248,7 @@ namespace WorldSphereMod.Bridge
             try { width = MapBox.width; height = MapBox.height; } catch { }
 
             long population = 0;
+            long liveUnits = 0;
             string worldAge = null;
             double worldTime = 0;
             try
@@ -256,6 +257,20 @@ namespace WorldSphereMod.Bridge
                 if (stats != null) { population = stats.population; worldAge = stats.world_age_id; }
             }
             catch { }
+            // map_stats.population only counts civ/kingdom citizens and refreshes on a timer, so it
+            // reads 0 for freshly spawned wild units even though live actors exist. Expose the raw
+            // live actor count so headless self-verification (spawn_units -> population rose) works.
+            try
+            {
+                ActorManager units = (World.world != null) ? World.world.units : null;
+                if (units != null)
+                {
+                    var list = units.getSimpleList();
+                    if (list != null) liveUnits = list.Count;
+                }
+            }
+            catch { }
+            if (population <= 0) population = liveUnits;
             try { if (hasWorld) worldTime = map.getCurWorldTime(); } catch { }
 
             bool isPaused = false;
@@ -280,6 +295,7 @@ namespace WorldSphereMod.Bridge
                 isWorld3D,
                 mapSize = new { width, height },
                 population,
+                liveUnits,
                 worldAge,
                 worldTime,
                 isPaused,

@@ -448,7 +448,9 @@ namespace WorldSphereMod.Bridge
                 {
                     string countText = context.Request.QueryString["count"] ?? "10";
                     string race = context.Request.QueryString["race"] ?? "human";
-                    WriteJson(context.Response, SpawnUnitsQueued(countText, race));
+                    string xText = context.Request.QueryString["x"];
+                    string yText = context.Request.QueryString["y"];
+                    WriteJson(context.Response, SpawnUnitsQueued(countText, race, xText, yText));
                     return;
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/generate_world", StringComparison.OrdinalIgnoreCase))
@@ -1125,51 +1127,158 @@ namespace WorldSphereMod.Bridge
             return new { ok = true, slot, path, queued = true };
         }
 
-        object SpawnUnitsQueued(string countText, string race)
+        /// <summary>
+        /// Spawn N living units of a race on valid LAND tiles. Runs synchronously on the Unity
+        /// main thread (via InvokeOnMainThread) and returns the REAL number actually created so
+        /// the operator can self-verify population rose — instead of a fire-and-forget queued:true.
+        ///
+        /// Why the old version was a no-op:
+        ///  - It only rejected tile.Type.ocean. A fresh map center is frequently water/lake/mountain,
+        ///    so units that did spawn were dropped onto liquid/lava and drowned/died instantly,
+        ///    or every random pick hit `continue` and nothing spawned at all.
+        ///  - createNewUnit() returns null silently when the tile/asset is unusable; the old code
+        ///    ignored the return value and counted a "spawn" that never produced a live actor.
+        ///  - It was fire-and-forget, so {queued:true} returned before any actor existed and the
+        ///    caller had no truthful count.
+        ///
+        /// Fix: scan an outward ring from map center (or the supplied x,y) for a SPAWNABLE tile
+        /// (ground && !liquid && !lava && !block), spawn there via ActorManager.createNewUnit,
+        /// require a non-null returned Actor, and report spawned vs requested + live unit delta.
+        /// </summary>
+        object SpawnUnitsQueued(string countText, string race, string xText = null, string yText = null)
         {
             if (!BridgeSettingParser.TryParseNonNegativeInt(countText, out int count))
                 return new { ok = false, error = "invalid_count", count = countText };
             count = Math.Min(count, 200);
+            if (string.IsNullOrWhiteSpace(race)) race = "human";
 
-            _mainThreadQueue.Enqueue(() =>
+            bool haveAnchor = false;
+            int anchorX = 0, anchorY = 0;
+            if (BridgeSettingParser.TryParseNonNegativeInt(xText, out int px) &&
+                BridgeSettingParser.TryParseNonNegativeInt(yText, out int py))
+            { anchorX = px; anchorY = py; haveAnchor = true; }
+
+            return InvokeOnMainThread<object>(() =>
             {
                 try
                 {
                     if (World.world == null || MapBox.instance == null)
-                    {
-                        Debug.LogWarning("[WSM3D][Bridge] spawn_units skipped: world_not_ready");
-                        return;
-                    }
+                        return new { ok = false, error = "world_not_ready", race };
 
                     var mapBox = MapBox.instance;
+                    if (mapBox.units == null)
+                        return new { ok = false, error = "unit_manager_null", race };
+
+                    // Reject unknown race up front so the caller gets a clear error instead of 0 spawns.
+                    if (AssetManager.actor_library == null || AssetManager.actor_library.get(race) == null)
+                        return new { ok = false, error = "unknown_race", race };
+
                     int mapW = MapBox.width;
                     int mapH = MapBox.height;
+                    int cx = haveAnchor ? Math.Max(0, Math.Min(mapW - 1, anchorX)) : mapW / 2;
+                    int cy = haveAnchor ? Math.Max(0, Math.Min(mapH - 1, anchorY)) : mapH / 2;
+
+                    // Collect spawnable land tiles in ONE pass (cheap), nearest-to-center first, so we
+                    // never do a per-unit O(W*H) scan (which blew the main-thread dispatch budget on
+                    // water-heavy maps). Sort by distance to the anchor so units cluster near center.
+                    var candidates = CollectSpawnableTiles(mapBox, cx, cy, mapW, mapH);
+                    if (candidates.Count == 0)
+                        return new { ok = false, error = "no_land_tiles", race, center = new { x = cx, y = cy } };
+
+                    int before = LiveUnitCount();
                     int spawned = 0;
-                    var rng = new System.Random();
 
                     for (int i = 0; i < count; i++)
                     {
-                        int x = rng.Next(mapW / 4, 3 * mapW / 4);
-                        int y = rng.Next(mapH / 4, 3 * mapH / 4);
-                        WorldTile tile = mapBox.GetTile(x, y);
-                        if (tile == null || tile.Type.ocean) continue;
+                        // Cycle through the nearest-first candidate list (wraps if count > land tiles).
+                        WorldTile tile = candidates[i % candidates.Count];
+                        if (tile == null) continue;
                         try
                         {
-                            if (mapBox.units == null) { Debug.LogWarning("[WSM3D][Bridge] spawn_units: mapBox.units is null"); break; }
-                            mapBox.units.createNewUnit(race, tile);
-                            spawned++;
+                            Actor actor = mapBox.units.createNewUnit(race, tile);
+                            if (actor != null) spawned++;
                         }
-                        catch (Exception spawnEx) { Debug.LogWarning($"[WSM3D][Bridge] spawn_units[{i}]: {spawnEx.GetType().Name}: {spawnEx.Message}\n{spawnEx.StackTrace}"); break; }
+                        catch (Exception spawnEx)
+                        {
+                            Debug.LogWarning($"[WSM3D][Bridge] spawn_units[{i}]: {spawnEx.GetType().Name}: {spawnEx.Message}");
+                            break;
+                        }
                     }
-                    Debug.Log($"[WSM3D][Bridge] spawn_units: spawned {spawned}/{count} {race} units");
+
+                    int after = LiveUnitCount();
+                    Debug.Log($"[WSM3D][Bridge] spawn_units: spawned {spawned}/{count} {race} units (live {before}->{after})");
+                    return new
+                    {
+                        ok = true,
+                        race,
+                        requested = count,
+                        count = spawned,
+                        spawned,
+                        liveUnitsBefore = before,
+                        liveUnitsAfter = after,
+                        center = new { x = cx, y = cy },
+                    };
                 }
                 catch (Exception ex)
                 {
                     Debug.LogWarning("[WSM3D][Bridge] spawn_units failed: " + ex.Message);
+                    return new { ok = false, error = ex.GetType().Name + ": " + ex.Message, race };
                 }
             });
+        }
 
-            return new { ok = true, count, race, queued = true };
+        /// <summary>Total live actors via the engine's actor list (used for spawn self-verification).</summary>
+        static int LiveUnitCount()
+        {
+            try
+            {
+                ActorManager units = World.world != null ? World.world.units : null;
+                if (units == null) return 0;
+                var list = units.getSimpleList();
+                return list != null ? list.Count : 0;
+            }
+            catch { return 0; }
+        }
+
+        /// <summary>
+        /// One-pass scan of the whole map for SPAWNABLE land tiles, returned sorted nearest-first
+        /// to (cx,cy). Single O(W*H) pass (cheap even at 256²) — replaces a per-unit ring scan that
+        /// could be O(W*H) PER unit and timed out the main-thread dispatch on water-heavy maps.
+        /// </summary>
+        static System.Collections.Generic.List<WorldTile> CollectSpawnableTiles(MapBox mapBox, int cx, int cy, int mapW, int mapH)
+        {
+            var found = new System.Collections.Generic.List<WorldTile>();
+            for (int x = 0; x < mapW; x++)
+            {
+                for (int y = 0; y < mapH; y++)
+                {
+                    WorldTile t = mapBox.GetTile(x, y);
+                    if (IsSpawnable(t)) found.Add(t);
+                }
+            }
+            found.Sort((a, b) =>
+            {
+                long da = (long)(a.x - cx) * (a.x - cx) + (long)(a.y - cy) * (a.y - cy);
+                long db = (long)(b.x - cx) * (b.x - cx) + (long)(b.y - cy) * (b.y - cy);
+                return da.CompareTo(db);
+            });
+            return found;
+        }
+
+        /// <summary>
+        /// A tile a civ unit can stand on without instantly dying. The base terrain layer
+        /// (main_type.layer_type) must be Ground — not Ocean/Lava/Block/Goo — and the current
+        /// top tile (Type, e.g. grass/forest) must not be liquid/lava/blocking. Using main_type's
+        /// layer is more reliable than the `ground` bool, which is unset on grass/biome overlays.
+        /// </summary>
+        static bool IsSpawnable(WorldTile t)
+        {
+            if (t == null) return false;
+            TileTypeBase baseType = t.main_type;
+            if (baseType == null || baseType.layer_type != TileLayerType.Ground) return false;
+            TileTypeBase top = t.Type;
+            if (top != null && (top.liquid || top.lava || top.block)) return false;
+            return true;
         }
 
         /// <summary>

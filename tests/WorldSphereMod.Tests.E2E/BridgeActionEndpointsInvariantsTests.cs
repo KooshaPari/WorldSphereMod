@@ -98,30 +98,30 @@ public sealed class BridgeActionEndpointsInvariantsTests
     public void Spawn_units_endpoint_uses_worldbox_types_and_nested_error_handling()
     {
         var bridgeServer = ReadSourceFile("WorldSphereMod/Code/Bridge/BridgeServer.cs");
-        var spawnUnitsBody = ExtractMethodBody(bridgeServer, "object SpawnUnitsQueued(string countText, string race)");
+        var spawnUnitsBody = ExtractMethodBody(bridgeServer, "object SpawnUnitsQueued(string countText, string race, string xText = null, string yText = null)");
 
         spawnUnitsBody.Should().Contain("BridgeSettingParser.TryParseNonNegativeInt(countText, out int count)",
-            "spawn_units must validate the count query parameter before queueing work");
+            "spawn_units must validate the count query parameter before doing work");
         spawnUnitsBody.Should().Contain("World.world == null || MapBox.instance == null",
             "spawn_units must short-circuit when the WorldBox world or MapBox are not ready");
-        spawnUnitsBody.Should().Contain("World.world",
-            "spawn_units must route through the live WorldBox world object");
         spawnUnitsBody.Should().Contain("MapBox.instance",
             "spawn_units must target the live MapBox singleton");
         spawnUnitsBody.Should().Contain("MapBox.width",
             "spawn_units must use WorldBox map dimensions to choose spawn tiles");
         spawnUnitsBody.Should().Contain("MapBox.height",
             "spawn_units must use WorldBox map dimensions to choose spawn tiles");
-        spawnUnitsBody.Should().Contain("WorldTile tile = mapBox.GetTile(x, y);",
-            "spawn_units must resolve a WorldTile before spawning units");
-        spawnUnitsBody.Should().Contain("mapBox.units.createNewUnit(race, tile);",
+        spawnUnitsBody.Should().Contain("AssetManager.actor_library.get(race) == null",
+            "spawn_units must reject unknown races up front instead of silently spawning nothing");
+        spawnUnitsBody.Should().Contain("CollectSpawnableTiles(",
+            "spawn_units must pick valid land tiles so units do not drown/burn instantly");
+        spawnUnitsBody.Should().Contain("mapBox.units.createNewUnit(race, tile)",
             "spawn_units must create units through the WorldBox unit manager");
+        spawnUnitsBody.Should().Contain("if (actor != null) spawned++;",
+            "spawn_units must only count units that actually came into existence (createNewUnit returns null on failure)");
+        spawnUnitsBody.Should().Contain("InvokeOnMainThread",
+            "spawn_units must run synchronously on the main thread so it can return the real spawned count");
         spawnUnitsBody.Should().Contain("catch (Exception spawnEx)",
             "spawn_units must isolate per-unit creation failures so one bad unit does not abort the whole loop");
-        spawnUnitsBody.Should().Contain("catch (Exception ex)",
-            "spawn_units must guard the queued work item itself");
-        spawnUnitsBody.Should().Contain("return new { ok = true, count, race, queued = true };",
-            "spawn_units must return a JSON-friendly queued acknowledgement");
         spawnUnitsBody.Should().Contain("return new { ok = false, error = \"invalid_count\", count = countText };",
             "spawn_units must return JSON error payloads for invalid input");
     }
