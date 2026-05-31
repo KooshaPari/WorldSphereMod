@@ -57,7 +57,11 @@ public class Wsm3dCliInvariantsTests
     {
         var script = ReadWsm3dScript();
 
-        script.Should().Contain("$script:PhaseDefaults = @{");
+        // safe-min mirrors SavedSettings.ApplyLightweightPreset (all phases off
+        // except VoxelEntities) via a dedicated $script:SafeMinDefaults table.
+        // This deliberately differs from $script:PhaseDefaults, which mirrors the
+        // runtime field-initializer defaults (where CrossedQuadFoliage is now on).
+        script.Should().Contain("$script:SafeMinDefaults = @{");
         script.Should().Contain(@"""VoxelEntities""       = $true");
         script.Should().Contain(@"""CrossedQuadFoliage""  = $false");
         script.Should().Contain(@"""WorldspaceUI""        = $false");
@@ -68,7 +72,7 @@ public class Wsm3dCliInvariantsTests
             @"function Invoke-PhasesPreset[\s\S]*?switch \(\$Preset\.ToLowerInvariant\(\)\) \{([\s\S]*?)\s+default \{");
         presetBlock.Success.Should().BeTrue("Invoke-PhasesPreset must exist with a switch on preset name");
         presetBlock.Groups[1].Value.Should().Contain("safe-min");
-        presetBlock.Groups[1].Value.Should().Contain("$script:PhaseDefaults[$phaseName]");
+        presetBlock.Groups[1].Value.Should().Contain("$script:SafeMinDefaults[$phaseName]");
     }
 
     [Fact]

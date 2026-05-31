@@ -175,15 +175,11 @@ namespace WorldSphereMod.Bridge
 
         static void RefreshHealthCache()
         {
-            try
-            {
-                _cachedHealthVersion = Core.savedSettings != null ? Core.savedSettings.Version : "unknown";
-                _cachedIsWorld3D = Core.IsWorld3D;
-            }
-            catch
-            {
-                // Unity objects may be mid-teardown during scene transitions.
-            }
+            // Per-field guards: pre-world Core.IsWorld3D (=> Sphere.Exists) can throw; don't let it skip version (the original /health NRE).
+            try { _cachedHealthVersion = Core.savedSettings != null ? Core.savedSettings.Version : "unknown"; }
+            catch { _cachedHealthVersion = "unknown"; }
+            try { _cachedIsWorld3D = Core.IsWorld3D; }
+            catch { _cachedIsWorld3D = false; }
         }
 
         /// <summary>Sample perf counters after MeshInstanceBatcher.Flush for lock-free /telemetry.</summary>
@@ -195,9 +191,9 @@ namespace WorldSphereMod.Bridge
                 _cachedVoxelCacheHit = SafeHitRate(
                     () => WorldSphereMod.Voxel.VoxelMeshCache.HitCount,
                     () => WorldSphereMod.Voxel.VoxelMeshCache.MissCount);
-                _cachedImpostorCacheHit = SafeHitRate(
-                    () => WorldSphereMod.LOD.ImpostorBillboard.HitCount,
-                    () => WorldSphereMod.LOD.ImpostorBillboard.MissCount);
+                // Impostor billboard cache removed (far-LOD culls, no billboards). Hit-rate
+                // slot held at 0 for telemetry-schema stability.
+                _cachedImpostorCacheHit = 0f;
                 _cachedDrawCalls = SafeLong(() => WorldSphereMod.Voxel.MeshInstanceBatcher.FrameDrawCalls);
                 if (_cachedDrawCalls > 0L)
                 {
@@ -384,6 +380,12 @@ namespace WorldSphereMod.Bridge
                         WriteJson(context.Response, InvokeOnMainThread(BuildEmitStatusPayload));
                         return;
                     }
+                    if (string.Equals(path, "/diag/errors", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Registry is internally locked; no Unity main-thread state read needed.
+                        WriteJson(context.Response, BuildDiagErrorsPayload());
+                        return;
+                    }
                     if (string.Equals(path, "/diag/render_stats", StringComparison.OrdinalIgnoreCase))
                     {
                         WriteJson(context.Response, InvokeOnMainThread(BuildRenderStatsPayload));
@@ -392,6 +394,35 @@ namespace WorldSphereMod.Bridge
                     if (string.Equals(path, "/diag/full_dump", StringComparison.OrdinalIgnoreCase))
                     {
                         WriteJson(context.Response, InvokeOnMainThread(BuildFullDumpPayload));
+                        return;
+                    }
+                    if (string.Equals(path, "/world/state", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Null-safe on main thread: returns hasWorld:false at title screen instead of NRE.
+                        WriteJson(context.Response, InvokeOnMainThread(() => BridgeActions.WorldState(Core.IsWorld3D)));
+                        return;
+                    }
+                    if (string.Equals(path, "/tools", StringComparison.OrdinalIgnoreCase))
+                    {
+                        WriteJson(context.Response, InvokeOnMainThread(BridgeActions.ListTools));
+                        return;
+                    }
+                    // Input-capture flow library: list recorded sessions + named flows.
+                    if (string.Equals(path, "/capture/list", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var flows = WorldSphereMod.Capture.FlowLibrary.List();
+                        WriteJson(context.Response, new { ok = true, root = WorldSphereMod.Capture.CaptureRecorder.CaptureRoot, count = flows.Count, flows });
+                        return;
+                    }
+                    if (string.Equals(path, "/capture/status", StringComparison.OrdinalIgnoreCase))
+                    {
+                        WriteJson(context.Response, new
+                        {
+                            ok = true,
+                            enabled = WorldSphereMod.Capture.CaptureRecorder.Enabled,
+                            session = WorldSphereMod.Capture.CaptureRecorder.SessionPath,
+                            events = WorldSphereMod.Capture.CaptureRecorder.EventCount,
+                        });
                         return;
                     }
                 }
@@ -410,8 +441,17 @@ namespace WorldSphereMod.Bridge
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && (string.Equals(path, "/actions/screenshot", StringComparison.OrdinalIgnoreCase) || string.Equals(path, "/screenshot/now", StringComparison.OrdinalIgnoreCase)))
                 {
-                    string outputPath = context.Request.QueryString["path"] ?? string.Empty;
-                    WriteJson(context.Response, CaptureScreenshot(outputPath));
+                    // Read path + mode from EITHER ?query= or the JSON body in a SINGLE body read
+                    // (the InputStream is non-seekable). Previously `path` was query-only and the body
+                    // was consumed only to sniff mode, so {"path":...} was silently dropped.
+                    // mode=camera renders ONLY the 3D scene camera into a RenderTexture,
+                    // bypassing WorldBox's debug-console / UI overlay layers. Default
+                    // (screen) keeps the legacy full-framebuffer capture for back-compat.
+                    BridgeParams shot = BridgeParams.From(context.Request);
+                    string outputPath = shot.Get("path", string.Empty);
+                    string mode = shot.Get("mode", string.Empty);
+                    bool cameraMode = string.Equals(mode, "camera", StringComparison.OrdinalIgnoreCase);
+                    WriteJson(context.Response, CaptureScreenshot(outputPath, cameraMode));
                     return;
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/voxel/dump_all", StringComparison.OrdinalIgnoreCase))
@@ -433,14 +473,102 @@ namespace WorldSphereMod.Bridge
 
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/spawn_units", StringComparison.OrdinalIgnoreCase))
                 {
-                    string countText = context.Request.QueryString["count"] ?? "10";
-                    string race = context.Request.QueryString["race"] ?? "human";
-                    WriteJson(context.Response, SpawnUnitsQueued(countText, race));
+                    // Honor count/race/x/y from EITHER ?query= or the JSON body (the live operator
+                    // POSTs {"count":80}); query wins when both are present.
+                    BridgeParams sp = BridgeParams.From(context.Request);
+                    string countText = sp.Get("count", "10");
+                    string race = sp.Get("race", "human");
+                    string xText = sp.Get("x");
+                    string yText = sp.Get("y");
+                    WriteJson(context.Response, SpawnUnitsQueued(countText, race, xText, yText));
                     return;
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/generate_world", StringComparison.OrdinalIgnoreCase))
                 {
                     WriteJson(context.Response, GenerateWorldQueued());
+                    return;
+                }
+                // #1 priority: drive world-creation headlessly so the operator never needs the 3 menu clicks.
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/new_world", StringComparison.OrdinalIgnoreCase))
+                {
+                    WriteJson(context.Response, QueueAction("new_world", BridgeActions.NewWorld));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/regenerate", StringComparison.OrdinalIgnoreCase))
+                {
+                    WriteJson(context.Response, QueueAction("regenerate", BridgeActions.Regenerate));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/save", StringComparison.OrdinalIgnoreCase))
+                {
+                    WriteJson(context.Response, QueueAction("save", BridgeActions.Save));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/pause", StringComparison.OrdinalIgnoreCase))
+                {
+                    WriteJson(context.Response, QueueAction("pause", BridgeActions.Pause));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/play", StringComparison.OrdinalIgnoreCase))
+                {
+                    WriteJson(context.Response, QueueAction("play", BridgeActions.Play));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/set_speed", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Honor speed from ?query= OR {"speed":...} body (live-bridge param contract).
+                    string speed = BridgeParams.From(context.Request).Get("speed", string.Empty);
+                    WriteJson(context.Response, QueueAction("set_speed", () => BridgeActions.SetSpeed(speed)));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/camera", StringComparison.OrdinalIgnoreCase))
+                {
+                    // x/y/zoom from ?query= or JSON body {"x":128,"y":128,"zoom":6}.
+                    BridgeParams cp = BridgeParams.From(context.Request);
+                    string cx = cp.Get("x", string.Empty);
+                    string cy = cp.Get("y", string.Empty);
+                    string cz = cp.Get("zoom", string.Empty);
+                    WriteJson(context.Response, QueueAction("camera", () => BridgeActions.Camera(cx, cy, cz)));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/camera_focus", StringComparison.OrdinalIgnoreCase))
+                {
+                    string target = BridgeParams.From(context.Request).Get("target", string.Empty);
+                    WriteJson(context.Response, QueueAction("camera_focus", () => BridgeActions.CameraFocus(target)));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/select_tool", StringComparison.OrdinalIgnoreCase))
+                {
+                    string id = BridgeParams.From(context.Request).Get("id", string.Empty);
+                    WriteJson(context.Response, QueueAction("select_tool", () => BridgeActions.SelectTool(id)));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/use_tool", StringComparison.OrdinalIgnoreCase))
+                {
+                    BridgeParams up = BridgeParams.From(context.Request);
+                    string id = up.Get("id", string.Empty);
+                    string ux = up.Get("x", string.Empty);
+                    string uy = up.Get("y", string.Empty);
+                    WriteJson(context.Response, QueueAction("use_tool", () => BridgeActions.UseTool(id, ux, uy)));
+                    return;
+                }
+                // Input-capture replay: re-drive a recorded flow headlessly through the same
+                // main-thread BridgeActions path the live /actions/* routes use.
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/capture/replay", StringComparison.OrdinalIgnoreCase))
+                {
+                    string file = context.Request.QueryString["file"] ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(file)) { WriteJson(context.Response, new { ok = false, error = "missing_file" }, HttpStatusCode.BadRequest); return; }
+                    WriteJson(context.Response, QueueAction("capture_replay", () => WorldSphereMod.Capture.CaptureReplayer.ReplayFile(file)));
+                    return;
+                }
+                // Promote the current/last session (or a named source) into a named flow.
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/capture/save", StringComparison.OrdinalIgnoreCase))
+                {
+                    string name = context.Request.QueryString["name"] ?? string.Empty;
+                    string source = context.Request.QueryString["source"] ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(name)) { WriteJson(context.Response, new { ok = false, error = "missing_name" }, HttpStatusCode.BadRequest); return; }
+                    var (ok, savedPath, error) = WorldSphereMod.Capture.FlowLibrary.SaveAs(name, source);
+                    WriteJson(context.Response, ok ? (object)new { ok = true, name, path = savedPath } : new { ok = false, error, name }, ok ? HttpStatusCode.OK : HttpStatusCode.BadRequest);
                     return;
                 }
 
@@ -449,6 +577,71 @@ namespace WorldSphereMod.Bridge
             catch (Exception ex)
             {
                 WriteJson(context.Response, new { ok = false, error = ex.Message }, HttpStatusCode.InternalServerError);
+            }
+        }
+
+        // Reads request params from BOTH the query string and the JSON request body.
+        // The HttpListener body stream can only be consumed ONCE, so callers build a single
+        // BridgeParams per request and reuse it for every lookup (query takes precedence; the
+        // body is parsed lazily on first body-backed lookup). Honors the live-bridge contract
+        // that every /actions param works whether passed as ?name= or {"name":...}.
+        sealed class BridgeParams
+        {
+            readonly System.Collections.Specialized.NameValueCollection _query;
+            Newtonsoft.Json.Linq.JObject _body;
+            bool _bodyParsed;
+            readonly string _rawBody;
+
+            BridgeParams(System.Collections.Specialized.NameValueCollection query, string rawBody)
+            {
+                _query = query;
+                _rawBody = rawBody;
+            }
+
+            // Reads the body stream exactly once (it is non-seekable) so subsequent param lookups
+            // can fall back to JSON values without re-reading a now-exhausted stream.
+            public static BridgeParams From(HttpListenerRequest request)
+            {
+                string raw = string.Empty;
+                try
+                {
+                    if (request.HasEntityBody)
+                        using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
+                            raw = reader.ReadToEnd();
+                }
+                catch { /* body optional */ }
+                return new BridgeParams(request.QueryString, raw);
+            }
+
+            Newtonsoft.Json.Linq.JObject Body()
+            {
+                if (!_bodyParsed)
+                {
+                    _bodyParsed = true;
+                    if (!string.IsNullOrWhiteSpace(_rawBody))
+                    {
+                        try { _body = Newtonsoft.Json.Linq.JObject.Parse(_rawBody); }
+                        catch { _body = null; }
+                    }
+                }
+                return _body;
+            }
+
+            /// <summary>Query value wins; otherwise the JSON body value (numbers/strings/bools coerced to string). null when absent.</summary>
+            public string Get(string name)
+            {
+                string q = _query[name];
+                if (!string.IsNullOrEmpty(q)) return q;
+                Newtonsoft.Json.Linq.JObject body = Body();
+                Newtonsoft.Json.Linq.JToken tok = body?[name];
+                if (tok == null || tok.Type == Newtonsoft.Json.Linq.JTokenType.Null) return null;
+                return tok.ToString(Newtonsoft.Json.Formatting.None).Trim('"');
+            }
+
+            public string Get(string name, string fallback)
+            {
+                string v = Get(name);
+                return string.IsNullOrEmpty(v) ? fallback : v;
             }
         }
 
@@ -1052,51 +1245,183 @@ namespace WorldSphereMod.Bridge
             return new { ok = true, slot, path, queued = true };
         }
 
-        object SpawnUnitsQueued(string countText, string race)
+        /// <summary>
+        /// Spawn N living units of a race on valid LAND tiles. Runs synchronously on the Unity
+        /// main thread (via InvokeOnMainThread) and returns the REAL number actually created so
+        /// the operator can self-verify population rose — instead of a fire-and-forget queued:true.
+        ///
+        /// Why the old version was a no-op:
+        ///  - It only rejected tile.Type.ocean. A fresh map center is frequently water/lake/mountain,
+        ///    so units that did spawn were dropped onto liquid/lava and drowned/died instantly,
+        ///    or every random pick hit `continue` and nothing spawned at all.
+        ///  - createNewUnit() returns null silently when the tile/asset is unusable; the old code
+        ///    ignored the return value and counted a "spawn" that never produced a live actor.
+        ///  - It was fire-and-forget, so {queued:true} returned before any actor existed and the
+        ///    caller had no truthful count.
+        ///
+        /// Why units still DIED 0->0 after the tile fix (root cause of THIS change):
+        ///  - ActorManager.createNewUnit() is the low-level constructor: it does NOT assign a
+        ///    kingdom and does NOT set nutrition. On a fresh empty world the resulting actor has
+        ///    no wild kingdom and zero nutrition, so it starves/gets pruned within the first ticks
+        ///    -> "live 0->0". (A loaded SAVE worked because its actors already had kingdoms.)
+        ///  - The in-game creature power instead calls spawnNewUnitByPlayer(), which wraps
+        ///    spawnNewUnit(): assigns the asset's wild kingdom (kingdoms_wild.get(kingdom_id_wild)),
+        ///    calls setStatsDirty(), and (crucially) setNutrition(nutrition_level_on_spawn). It also
+        ///    joins a nearby joinable city when sapient. Those actors PERSIST.
+        ///
+        /// Fix: collect SPAWNABLE land tiles (ground && !liquid && !lava && !block) nearest-first,
+        /// spawn each via ActorManager.spawnNewUnitByPlayer (the lasting, kingdom+nutrition path the
+        /// player's creature power uses), require a non-null returned Actor, and report spawned vs
+        /// requested + live unit delta.
+        /// </summary>
+        object SpawnUnitsQueued(string countText, string race, string xText = null, string yText = null)
         {
             if (!BridgeSettingParser.TryParseNonNegativeInt(countText, out int count))
                 return new { ok = false, error = "invalid_count", count = countText };
-            count = Math.Min(count, 200);
+            count = Math.Min(count, 500); // sane max: cap a single dispatch so a bad arg can't spawn-storm the sim
+            if (string.IsNullOrWhiteSpace(race)) race = "human";
 
-            _mainThreadQueue.Enqueue(() =>
+            bool haveAnchor = false;
+            int anchorX = 0, anchorY = 0;
+            if (BridgeSettingParser.TryParseNonNegativeInt(xText, out int px) &&
+                BridgeSettingParser.TryParseNonNegativeInt(yText, out int py))
+            { anchorX = px; anchorY = py; haveAnchor = true; }
+
+            return InvokeOnMainThread<object>(() =>
             {
                 try
                 {
                     if (World.world == null || MapBox.instance == null)
-                    {
-                        Debug.LogWarning("[WSM3D][Bridge] spawn_units skipped: world_not_ready");
-                        return;
-                    }
+                        return new { ok = false, error = "world_not_ready", race };
 
                     var mapBox = MapBox.instance;
+                    if (mapBox.units == null)
+                        return new { ok = false, error = "unit_manager_null", race };
+
+                    // Reject unknown race up front so the caller gets a clear error instead of 0 spawns.
+                    if (AssetManager.actor_library == null || AssetManager.actor_library.get(race) == null)
+                        return new { ok = false, error = "unknown_race", race };
+
                     int mapW = MapBox.width;
                     int mapH = MapBox.height;
+                    int cx = haveAnchor ? Math.Max(0, Math.Min(mapW - 1, anchorX)) : mapW / 2;
+                    int cy = haveAnchor ? Math.Max(0, Math.Min(mapH - 1, anchorY)) : mapH / 2;
+
+                    // Collect spawnable land tiles in ONE pass (cheap), nearest-to-center first, so we
+                    // never do a per-unit O(W*H) scan (which blew the main-thread dispatch budget on
+                    // water-heavy maps). Sort by distance to the anchor so units cluster near center.
+                    var candidates = CollectSpawnableTiles(mapBox, cx, cy, mapW, mapH);
+                    if (candidates.Count == 0)
+                        return new { ok = false, error = "no_land_tiles", race, center = new { x = cx, y = cy } };
+
+                    int before = LiveUnitCount();
                     int spawned = 0;
-                    var rng = new System.Random();
 
                     for (int i = 0; i < count; i++)
                     {
-                        int x = rng.Next(mapW / 4, 3 * mapW / 4);
-                        int y = rng.Next(mapH / 4, 3 * mapH / 4);
-                        WorldTile tile = mapBox.GetTile(x, y);
-                        if (tile == null || tile.Type.ocean) continue;
+                        // Cycle through the nearest-first candidate list (wraps if count > land tiles).
+                        WorldTile tile = candidates[i % candidates.Count];
+                        if (tile == null) continue;
                         try
                         {
-                            if (mapBox.units == null) { Debug.LogWarning("[WSM3D][Bridge] spawn_units: mapBox.units is null"); break; }
-                            mapBox.units.createNewUnit(race, tile);
-                            spawned++;
+                            // Use the player-facing spawn path: assigns a wild kingdom + nutrition
+                            // (and joins a nearby city if sapient) so the actor PERSISTS instead of
+                            // starving/being pruned. createNewUnit() alone produced 0->0 live units.
+                            Actor actor = mapBox.units.spawnNewUnitByPlayer(race, tile);
+                            if (actor != null) spawned++;
                         }
-                        catch (Exception spawnEx) { Debug.LogWarning($"[WSM3D][Bridge] spawn_units[{i}]: {spawnEx.GetType().Name}: {spawnEx.Message}\n{spawnEx.StackTrace}"); break; }
+                        catch (Exception spawnEx)
+                        {
+                            Debug.LogWarning($"[WSM3D][Bridge] spawn_units[{i}]: {spawnEx.GetType().Name}: {spawnEx.Message}");
+                            break;
+                        }
                     }
-                    Debug.Log($"[WSM3D][Bridge] spawn_units: spawned {spawned}/{count} {race} units");
+
+                    int after = LiveUnitCount();
+                    Debug.Log($"[WSM3D][Bridge] spawn_units: spawned {spawned}/{count} {race} units (live {before}->{after})");
+                    return new
+                    {
+                        ok = true,
+                        race,
+                        requested = count,
+                        count = spawned,
+                        spawned,
+                        liveUnitsBefore = before,
+                        liveUnitsAfter = after,
+                        center = new { x = cx, y = cy },
+                    };
                 }
                 catch (Exception ex)
                 {
                     Debug.LogWarning("[WSM3D][Bridge] spawn_units failed: " + ex.Message);
+                    return new { ok = false, error = ex.GetType().Name + ": " + ex.Message, race };
                 }
             });
+        }
 
-            return new { ok = true, count, race, queued = true };
+        /// <summary>Total live actors via the engine's actor list (used for spawn self-verification).</summary>
+        static int LiveUnitCount()
+        {
+            try
+            {
+                ActorManager units = World.world != null ? World.world.units : null;
+                if (units == null) return 0;
+                var list = units.getSimpleList();
+                return list != null ? list.Count : 0;
+            }
+            catch { return 0; }
+        }
+
+        /// <summary>
+        /// One-pass scan of the whole map for SPAWNABLE land tiles, returned sorted nearest-first
+        /// to (cx,cy). Single O(W*H) pass (cheap even at 256²) — replaces a per-unit ring scan that
+        /// could be O(W*H) PER unit and timed out the main-thread dispatch on water-heavy maps.
+        /// </summary>
+        static System.Collections.Generic.List<WorldTile> CollectSpawnableTiles(MapBox mapBox, int cx, int cy, int mapW, int mapH)
+        {
+            var found = new System.Collections.Generic.List<WorldTile>();
+            for (int x = 0; x < mapW; x++)
+            {
+                for (int y = 0; y < mapH; y++)
+                {
+                    WorldTile t = mapBox.GetTile(x, y);
+                    if (IsSpawnable(t)) found.Add(t);
+                }
+            }
+            found.Sort((a, b) =>
+            {
+                long da = (long)(a.x - cx) * (a.x - cx) + (long)(a.y - cy) * (a.y - cy);
+                long db = (long)(b.x - cx) * (b.x - cx) + (long)(b.y - cy) * (b.y - cy);
+                return da.CompareTo(db);
+            });
+            return found;
+        }
+
+        /// <summary>
+        /// A tile a civ unit can stand on without instantly dying. The base terrain layer
+        /// (main_type.layer_type) must be Ground — not Ocean/Lava/Block/Goo — and the current
+        /// top tile (Type, e.g. grass/forest) must not be liquid/lava/blocking. Using main_type's
+        /// layer is more reliable than the `ground` bool, which is unset on grass/biome overlays.
+        /// </summary>
+        static bool IsSpawnable(WorldTile t)
+        {
+            if (t == null) return false;
+            TileTypeBase baseType = t.main_type;
+            if (baseType == null || baseType.layer_type != TileLayerType.Ground) return false;
+            TileTypeBase top = t.Type;
+            if (top != null && (top.liquid || top.lava || top.block)) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// Run a headless toolbar/world action on the Unity main thread and return its real {ok,...} result.
+        /// Uses InvokeOnMainThread (drained every frame by BridgeServer.Update, even at the title screen),
+        /// so the operator gets the actual outcome instead of a fire-and-forget queued:true.
+        /// </summary>
+        object QueueAction(string name, Func<object> action)
+        {
+            try { return InvokeOnMainThread(action); }
+            catch (Exception ex) { return new { ok = false, action = name, error = ex.Message }; }
         }
 
         object GenerateWorldQueued()
@@ -1123,6 +1448,11 @@ namespace WorldSphereMod.Bridge
 
         object CaptureScreenshot(string outputPath)
         {
+            return CaptureScreenshot(outputPath, false);
+        }
+
+        object CaptureScreenshot(string outputPath, bool cameraMode)
+        {
             string requestPath = string.IsNullOrWhiteSpace(outputPath) ? WorldSphereMod.ScreenshotCapture.BuildDefaultPath() : outputPath;
             ManualResetEventSlim completed = new ManualResetEventSlim(false);
             object result = new { ok = false, error = "pending", path = Path.GetFullPath(requestPath) };
@@ -1132,13 +1462,22 @@ namespace WorldSphereMod.Bridge
             {
                 try
                 {
-                    StartCoroutine(WorldSphereMod.ScreenshotCapture.CaptureCoroutine(requestPath, (savedPath, success, message) =>
-                    {
-                        result = success
-                            ? new { ok = true, path = savedPath }
-                            : new { ok = false, error = message, path = savedPath };
-                        completed.Set();
-                    }));
+                    var coroutine = cameraMode
+                        ? WorldSphereMod.ScreenshotCapture.CaptureCameraCoroutine(requestPath, (savedPath, success, message) =>
+                        {
+                            result = success
+                                ? new { ok = true, path = savedPath }
+                                : new { ok = false, error = message, path = savedPath };
+                            completed.Set();
+                        })
+                        : WorldSphereMod.ScreenshotCapture.CaptureCoroutine(requestPath, (savedPath, success, message) =>
+                        {
+                            result = success
+                                ? new { ok = true, path = savedPath }
+                                : new { ok = false, error = message, path = savedPath };
+                            completed.Set();
+                        });
+                    StartCoroutine(coroutine);
                 }
                 catch (Exception ex)
                 {
@@ -1207,6 +1546,39 @@ namespace WorldSphereMod.Bridge
             return new { ok = true, status = "armed" };
         }
 
+        // BRIDGE SINK for RenderErrorRegistry: per-type counts + sample examples so a remote
+        // operator can GET /diag/errors during a run and see WHAT failed WHERE — no pixels.
+        object BuildDiagErrorsPayload()
+        {
+            List<WorldSphereMod.Voxel.RenderErrorRegistry.TypeReport> snapshot =
+                WorldSphereMod.Voxel.RenderErrorRegistry.Snapshot();
+            var byType = new List<object>(snapshot.Count);
+            var counts = new Dictionary<string, long>();
+            long total = 0;
+            for (int i = 0; i < snapshot.Count; i++)
+            {
+                WorldSphereMod.Voxel.RenderErrorRegistry.TypeReport r = snapshot[i];
+                counts[r.type] = r.count;
+                total += r.count;
+                var examples = new List<object>(r.examples.Count);
+                for (int j = 0; j < r.examples.Count; j++)
+                {
+                    WorldSphereMod.Voxel.RenderErrorRegistry.Example e = r.examples[j];
+                    examples.Add(new { name = e.name, reason = e.reason, pos = new { x = e.x, y = e.y, z = e.z } });
+                }
+                byType.Add(new { type = r.type, count = r.count, examples });
+            }
+
+            return new
+            {
+                ok = true,
+                total,
+                counts,
+                errors = byType,
+                renderErrorProps = Core.savedSettings != null && Core.savedSettings.RenderErrorProps,
+            };
+        }
+
         object BuildRenderStatsPayload()
         {
             long drawCalls = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameDrawCalls;
@@ -1232,8 +1604,11 @@ namespace WorldSphereMod.Bridge
 
             int voxelCacheSize = SafeCount(() => WorldSphereMod.Voxel.VoxelMeshCache.Count);
             int procgenCacheSize = SafeCount(() => WorldSphereMod.ProcGen.ProcGenCache.Count);
-            int foliageCount = SafeCount(() => WorldSphereMod.Foliage.CrossedQuadMeshCache.Count);
-            int impostorCount = SafeCount(() => WorldSphereMod.LOD.ImpostorBillboard.Count);
+            // Crossed-quad foliage + impostor billboard caches removed (all foliage/fx
+            // is voxel now; far-LOD culls instead of billboarding). Slots kept at 0 for
+            // telemetry-schema stability.
+            int foliageCount = 0;
+            int impostorCount = 0;
 
             bool emitVoxelsFired = drawCalls > 0 || _cachedLastNonZeroDrawCalls > 0;
 
@@ -1304,6 +1679,8 @@ namespace WorldSphereMod.Bridge
             object telemetry = BuildTelemetryPayload();
             object renderStats = BuildRenderStatsPayload();
             object emitStatus = BuildEmitStatusPayload();
+            object diagErrors = null;
+            try { diagErrors = BuildDiagErrorsPayload(); } catch { }
             object voxelStats = null;
             try { voxelStats = BuildVoxelStatsPayload(); } catch { }
             object voxelQueue = null;
@@ -1496,6 +1873,7 @@ namespace WorldSphereMod.Bridge
                 telemetry,
                 renderStats,
                 emitStatus,
+                diagErrors,
                 voxelStats,
                 voxelQueue,
                 memory,

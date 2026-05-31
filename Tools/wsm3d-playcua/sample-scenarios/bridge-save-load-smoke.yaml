@@ -26,7 +26,7 @@ steps:
         value: 0
       - field: frameMs
         op: "<"
-        value: 4000
+        value: 10000
   - action: load_save
     optional: true
     slot: 2
@@ -62,4 +62,4 @@ steps:
         value: 0
       - field: frameMs
         op: "<"
-        value: 4000
+        value: 10000

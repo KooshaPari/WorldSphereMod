@@ -87,38 +87,43 @@ namespace WorldSphereMod.Foliage
                 Material? mat = FoliageMaterial.Get();
                 if (mat == null) return true;
 
-                // Road remains a flat decal. Trees/bushes (.life) route through
-                // CrossedQuadMeshCache first when the CrossedQuadFoliage flag is on
-                // — that's the Phase 3 swaying-foliage path. If the cache cannot
-                // build a crossed-quad mesh this frame (per-frame budget exhausted,
-                // unreadable atlas, blank sprite), fall back to the OrganicBlob
-                // voxel pathway so the tile still renders something visible.
+                // VOXEL-OR-INVISIBLE POLICY (user, 2026-05-30): foliage must be a REAL
+                // voxel volume or NOTHING — NEVER a crossed-quad X / 2.5D slab. The
+                // crossed-quad render path is removed entirely: trees/bushes (.life) now
+                // route through the OrganicBlob VOXEL mesh. Road remains a flat ground
+                // decal (it is genuinely a ground surface, not an upright object).
+                //
+                // If the voxel mesh isn't ready this frame (async build pending) the tile
+                // renders nothing — we return false to suppress the vanilla 2D Tilemap
+                // flush so the native billboard never shows through, and the foliage simply
+                // pops in once the voxel mesh is built.
                 Mesh? mesh;
                 if (t.road)
                 {
-                    mesh = CrossedQuadMeshCache.GetOrBuild(sprite, BuildingShape.Single, 0f);
-                }
-                else if (t.life && Core.savedSettings.CrossedQuadFoliage)
-                {
-                    float swayAmp = 0.15f;
-                    mesh = CrossedQuadMeshCache.GetOrBuild(sprite, BuildingShape.CrossedQuad, swayAmp, sprite.name);
-                    if (mesh == null || mesh.vertexCount == 0)
-                    {
-                        mesh = VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob);
-                    }
+                    mesh = VoxelMeshCache.Get(sprite, ShapeHint.Flat);
                 }
                 else
                 {
                     mesh = VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob);
                 }
-                if (mesh == null || mesh.vertexCount == 0) return true;
+                if (mesh == null || mesh.vertexCount == 0)
+                {
+                    // Suppress the vanilla 2D overlay (return false) so no billboard shows;
+                    // the voxel foliage pops in next frame once the async build completes.
+                    return false;
+                }
 
                 Vector2 pos2 = new Vector2(pTile.pos.x, pTile.pos.y);
                 Vector3 pos3 = Tools.To3DTileHeight(pos2);
                 Quaternion rot = Tools.GetRotation(pTile.pos);
-                Matrix4x4 trs = Matrix4x4.TRS(pos3, rot, Vector3.one);
+                // WHY: foliage meshes are built at raw sprite-pixel size; without the
+                // shared VoxelScaleMultiplier (8x) they render sub-pixel against the
+                // 8x-scaled 3D world and are effectively invisible (same fix as the
+                // actor/building/drop voxel paths in VoxelRender).
+                float foliageScale = Mathf.Max(1f, Core.savedSettings.VoxelScaleMultiplier);
+                Matrix4x4 trs = Matrix4x4.TRS(pos3, rot, Vector3.one * foliageScale);
 
-                if (!t.road && t.life && Core.savedSettings.CrossedQuadFoliage)
+                if (!t.road && t.life)
                 {
                     WorldSphereMod.Fx.Environmental.EnqueueLeaf(pos3);
                     if (Core.savedSettings.DayNightCycle)

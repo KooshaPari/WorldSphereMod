@@ -1,0 +1,130 @@
+// CompoundSphereCompute.compute
+//
+// GPU-compute keystone for the Compound-Spheres GPU-driven renderer rewrite
+// (MelvinShwuaner/Compound-Spheres upstream/main). This is the missing .compute
+// asset that ManagerBase<T>.Init() loads via ComputeShader.FindKernel(...) and
+// dispatches in ManagerBase.Begin() / ComputeGraphicsBuffer.Refresh().
+//
+// ---------------------------------------------------------------------------
+// CONTRACT (must match CompoundSpheres/ManagerBase.cs + ComputeGraphicsBuffer):
+//
+//   Kernel "CSMatrices" (MatrixKernel) — writes resource OutputMatrices
+//     in : StructuredBuffer<float2>   InputPositions  // per-tile grid coord (X=row, Y=col)
+//     in : StructuredBuffer<int>      Dirty           // 1 = recompute this tile
+//     in : float                      Radius          // SphereManager.Radius = Rows / 2PI
+//     out: RWStructuredBuffer<float4x4> OutputMatrices // per-tile model (TRS) matrix
+//
+//   Kernel "CSColors" (ColorKernel) — writes resource OutputColors
+//     in : StructuredBuffer<uint>     InputColors     // per-tile packed RGBA32 (Color32)
+//     in : StructuredBuffer<int>      Dirty           // 1 = recompute this tile
+//     out: RWStructuredBuffer<uint>   OutputColors    // per-tile packed RGBA32
+//
+// Both kernels: numthreads(64,1,1); dispatched with TotalTiles/64 groups
+// (ManagerBase.Begin / ComputeGraphicsBuffer ThreadCount = ceil(Length/64)).
+//
+// The matrix kernel REPLICATES the CPU formulas the old fork used per-tile so
+// the GPU path is drop-in identical visually:
+//   position  = DefaultSettings.CartesianToCylindrical(Radius, X, Y, height)
+//   rotation  = DefaultSettings.CylindricalRotation(position.xy)  (look-at + 180)
+//   scale     = applied in the vertex shader from the Scales buffer (NOT here)
+// Height defaults to 0 here; height-displaced tiles (HeightFieldRenderer, P2)
+// supply a per-tile height via the optional InputHeights buffer.
+// ---------------------------------------------------------------------------
+
+// NOTE: kernel entry-point names MUST differ from the RW resource names
+// (HLSL forbids a kernel and a variable sharing an identifier — that collision
+// silently failed the bundle compile in the P1 authoring). The C# side passes
+// these kernel names ("CSMatrices"/"CSColors") as MatrixKernel/ColorKernel; the
+// buffer names (OutputMatrices/OutputColors) stay matched to the material.
+#pragma kernel CSMatrices
+#pragma kernel CSColors
+
+#define PI 3.14159265358979323846
+#define TWO_PI 6.28318530717958647692
+
+// ---- Matrix kernel I/O ----
+StructuredBuffer<float2>    InputPositions;
+StructuredBuffer<int>       Dirty;
+RWStructuredBuffer<float4x4> OutputMatrices;
+
+// Optional per-tile height (P2 HeightFieldRenderer). When the buffer is not
+// bound Unity returns 0, which is the flat-cylinder default.
+StructuredBuffer<float>     InputHeights;
+
+float Radius;
+uint  TotalTiles;       // optional bounds guard (0 = unbounded)
+uint  HasHeights;       // 1 if InputHeights is bound, else 0
+
+// ---- Color kernel I/O ----
+StructuredBuffer<uint>      InputColors;
+RWStructuredBuffer<uint>    OutputColors;
+
+// CartesianToCylindrical: grid (X=row, Y=col) -> world position on cylinder.
+// Mirrors DefaultSettings.CartesianToCylindrical exactly.
+//   phi = X / Rows * 2PI  ; Rows = Radius * 2PI  => phi = X / Radius
+float3 CartesianToCylindrical(float X, float Y, float height)
+{
+    float phi = X / Radius;                 // X/Rows * 2PI, Rows = Radius*2PI
+    float r   = Radius + height;
+    float px  = r * cos(phi);
+    float py  = r * sin(phi);
+    float pz  = Y;
+    return float3(px, py, pz);
+}
+
+// Builds a rotation matrix equivalent to:
+//   Quaternion.LookRotation(forward=(pos.x,pos.y,0)) * Quaternion.Euler(0,-180,0)
+// i.e. tile faces radially outward from the cylinder axis. Unity LookRotation
+// uses +Z = forward, +Y = up(0,1,0). The Euler(0,-180,0) flips it to face out.
+float3x3 CylindricalRotation(float3 forward)
+{
+    // forward in XY plane (z forced to 0 to match (Vector2)Position)
+    float3 fwd = normalize(float3(forward.x, forward.y, 0.0001));
+    float3 up  = float3(0, 1, 0);
+    float3 right = normalize(cross(up, fwd));
+    up = cross(fwd, right);
+    // LookRotation matrix columns = (right, up, fwd). Then * Euler(0,-180,0)
+    // (yaw 180) negates the right and forward axes.
+    return float3x3(
+        -right.x, up.x, -fwd.x,
+        -right.y, up.y, -fwd.y,
+        -right.z, up.z, -fwd.z
+    );
+}
+
+[numthreads(64,1,1)]
+void CSMatrices(uint3 id : SV_DispatchThreadID)
+{
+    uint i = id.x;
+    if (TotalTiles != 0 && i >= TotalTiles) return;
+    if (Dirty[i] == 0) return;
+
+    float2 grid = InputPositions[i];
+    float height = (HasHeights == 1) ? InputHeights[i] : 0.0;
+
+    float3 pos = CartesianToCylindrical(grid.x, grid.y, height);
+    float3x3 rot = CylindricalRotation(pos);
+
+    // Compose TRS (scale applied later in the vertex shader from Scales buffer).
+    // Column-major float4x4 with translation in the last column.
+    float4x4 m;
+    m[0] = float4(rot[0][0], rot[0][1], rot[0][2], pos.x);
+    m[1] = float4(rot[1][0], rot[1][1], rot[1][2], pos.y);
+    m[2] = float4(rot[2][0], rot[2][1], rot[2][2], pos.z);
+    m[3] = float4(0, 0, 0, 1);
+    OutputMatrices[i] = m;
+}
+
+[numthreads(64,1,1)]
+void CSColors(uint3 id : SV_DispatchThreadID)
+{
+    uint i = id.x;
+    if (TotalTiles != 0 && i >= TotalTiles) return;
+    if (Dirty[i] == 0) return;
+
+    // Pass-through pack: the CPU writes Color32 into InputColors; we copy it to
+    // the render-side OutputColors buffer (the vertex/frag shader unpacks RGBA32
+    // via Colors[ID] & 0xFF etc). Tinting / day-night / biome blends belong here
+    // in later phases so they run on the GPU instead of the CPU UpdateColor path.
+    OutputColors[i] = InputColors[i];
+}

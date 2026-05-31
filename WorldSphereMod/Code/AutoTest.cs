@@ -19,7 +19,16 @@ namespace WorldSphereMod
             nameof(SavedSettings.MeshWater),
             nameof(SavedSettings.MountainSlopeSmoothing),
             nameof(SavedSettings.HighShadows),
-            nameof(SavedSettings.SkeletalAnimation),
+            // SkeletalAnimation intentionally EXCLUDED from the AutoTest cycle.
+            // The humanoid rig's hardcoded unit-space bone bind offsets
+            // (HumanoidRig.Bones) do not align to the per-sprite voxel mesh
+            // space (mesh verts are (pixel-pivot)/pixelsPerUnit), so rotating
+            // bones swings voxels about the wrong pivots and shreds the actor.
+            // Cycling this flag ON here is exactly what produced the live
+            // True->False->True->False flicker AND the visibly broken/distorted
+            // actors the user reported. Until the rig builds bind poses from the
+            // mesh's actual per-bone voxel centroids, the static voxel path is
+            // the correct render path and SkeletalAnimation stays OFF.
             nameof(SavedSettings.WorldspaceUI),
             nameof(SavedSettings.DayNightCycle),
             nameof(SavedSettings.PostFX),

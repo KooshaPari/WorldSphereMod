@@ -115,17 +115,11 @@ namespace WorldSphereMod.Weather
             var resolvedMaterial = VoxelRender.GetResolvedMaterial();
             if (resolvedMaterial == null)
             {
+                // 60f1 strips Unlit/* — ResolveShader returns Standard, never null.
                 Shader fallback = Shader.Find("Sprites/Default")
-                    ?? Shader.Find("Standard")
-                    ?? Shader.Find("Unlit/Texture");
-                if (fallback == null)
-                {
-                    fallback = Shader.Find("Hidden/InternalErrorShader");
-                }
+                    ?? Core.Sphere.ResolveShader("");
 
-                resolvedMaterial = fallback != null
-                    ? new Material(fallback)
-                    : new Material(Shader.Find("Standard"));
+                resolvedMaterial = new Material(fallback);
                 resolvedMaterial.color = Color.white;
             }
 

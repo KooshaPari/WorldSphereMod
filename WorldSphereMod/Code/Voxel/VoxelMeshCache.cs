@@ -49,6 +49,12 @@ namespace WorldSphereMod.Voxel
             public List<int> triangles = new List<int>();
             public List<Color32> colors = new List<Color32>();
             public MeshInvariantsSnapshot invariants;
+            // WHY: full CPU-side arrays captured BEFORE Mesh.UploadMeshData(true) freed the
+            // readable copy; disk-cache save reads these instead of the non-readable mesh.
+            public Vector3[] diskVertices;
+            public int[] diskTriangles;
+            public Color32[] diskColors;
+            public Vector3[] diskNormals;
         }
 
         struct Entry
@@ -563,6 +569,12 @@ namespace WorldSphereMod.Voxel
                         // Smoothed mesh still has CPU-side data (MeshSmoother reads it),
                         // so it's safe to snapshot here.
                         completion.Snapshot = CreateSnapshot(completion.Sprite, mesh, mesh.vertices, mesh.colors32, mesh.triangles);
+                        // WHY: re-capture full CPU arrays from the still-readable smoothed
+                        // mesh so disk-save uses them, not a later non-readable read-back.
+                        completion.Snapshot.diskVertices = mesh.vertices;
+                        completion.Snapshot.diskTriangles = mesh.triangles;
+                        completion.Snapshot.diskColors = mesh.colors32;
+                        completion.Snapshot.diskNormals = mesh.normals;
                     }
                 }
 
@@ -587,13 +599,20 @@ namespace WorldSphereMod.Voxel
                     if (_cache.Count > Capacity) Evict();
                 }
 
-                if (completion.Sprite != null && !string.IsNullOrEmpty(completion.Sprite.name))
+                // WHY: save from the CPU snapshot captured pre-upload, never from the
+                // non-readable mesh. A null/dataless snapshot means no readable copy, so
+                // skip the save rather than trigger an "isReadable is false" warning flood.
+                if (completion.Sprite != null && !string.IsNullOrEmpty(completion.Sprite.name)
+                    && completion.Snapshot != null && completion.Snapshot.diskVertices != null)
                 {
                     int depth = Core.savedSettings != null ? Core.savedSettings.VoxelSpriteDepth : 8;
                     string spriteHash = VoxelDiskCache.ComputeSpriteHash(completion.Sprite);
                     VoxelDiskCache.EnqueueSave(
                         completion.Sprite.name,
-                        mesh,
+                        completion.Snapshot.diskVertices,
+                        completion.Snapshot.diskTriangles,
+                        completion.Snapshot.diskColors,
+                        completion.Snapshot.diskNormals,
                         depth,
                         completion.InflationStyle ?? "pertexel",
                         spriteHash);
@@ -1090,6 +1109,8 @@ namespace WorldSphereMod.Voxel
         static void LogVoxelizedSprite(Sprite sprite, Mesh mesh, string inflationStyle)
         {
             if (sprite == null || mesh == null) return;
+            // Gated behind ProfilerDump: fires per unique sprite as entities stream into view, flooding the viewport.
+            if (Core.savedSettings == null || !Core.savedSettings.ProfilerDump) return;
             int key = sprite.GetInstanceID();
             lock (_lock)
             {
@@ -1132,12 +1153,16 @@ namespace WorldSphereMod.Voxel
                 : ResolveVoxelInflationStyle();
             if (sprite != null)
             {
-                int key = sprite.GetInstanceID();
-                lock (_lock)
+                // Gated behind ProfilerDump: fires per unique sprite as entities stream into view, flooding the viewport.
+                if (Core.savedSettings != null && Core.savedSettings.ProfilerDump)
                 {
-                    if (_diagnosedShapeHints.Add(key))
+                    int key = sprite.GetInstanceID();
+                    lock (_lock)
                     {
-                        Debug.Log($"[WSM3D][ShapeHintMap] sprite=\"{sprite.name}\" hint={shapeHint} bucket={inflationStyle}");
+                        if (_diagnosedShapeHints.Add(key))
+                        {
+                            Debug.Log($"[WSM3D][ShapeHintMap] sprite=\"{sprite.name}\" hint={shapeHint} bucket={inflationStyle}");
+                        }
                     }
                 }
             }

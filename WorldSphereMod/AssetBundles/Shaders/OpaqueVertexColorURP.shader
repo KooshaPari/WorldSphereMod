@@ -32,7 +32,6 @@ Shader "WSM3D/OpaqueVertexColorURP"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #pragma target 3.0
             #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"

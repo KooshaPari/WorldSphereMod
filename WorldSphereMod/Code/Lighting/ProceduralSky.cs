@@ -24,6 +24,7 @@ namespace WorldSphereMod.Lighting
         static Material? s_previousCameraSkybox;
         static bool s_previousCameraSkyboxCaptured;
         static bool s_overrodeGlobalSkybox;
+        static bool s_skyGateLogged;
 
         static readonly int _zenith = Shader.PropertyToID("_ZenithColor");
         static readonly int _horizon = Shader.PropertyToID("_HorizonColor");
@@ -74,6 +75,19 @@ namespace WorldSphereMod.Lighting
         static Shader? ResolveSkyShader(out bool isVanilla)
         {
             isVanilla = false;
+            // HdrSkybox REQUIRES the bundle-only ProceduralSky shader. On 60f1 the
+            // bundle only deserializes OpaqueVertexColor, so when ProceduralSky is
+            // absent we skip the bundle path and degrade to Unity's built-in
+            // Skybox/Procedural gradient — never reach for a missing URP/Unlit sky.
+            if (!s_skyGateLogged)
+            {
+                s_skyGateLogged = true;
+                if (!WorldSphereMod.Core.Sphere.HasBundleShader("ProceduralSky")
+                    && !WorldSphereMod.Core.Sphere.HasBundleShader("ContinuumSkybox"))
+                {
+                    Debug.Log("[WSM3D] HdrSkybox: ProceduralSky shader unavailable at runtime — using Skybox/Procedural degraded sky.");
+                }
+            }
             // First check Core.Sphere.LoadedShaders dict — that's the
             // direct reference stash from Core.LoadAssets. Shader.Find
             // does NOT see bundle-loaded shaders unless they're also
@@ -389,7 +403,14 @@ namespace WorldSphereMod.Lighting
                 return;
             }
 
-            if (_skyMat.mainTexture != _skyCubemap)
+            // Only assign mainTexture if the shader actually exposes a main
+            // texture property. The degraded 'Skybox/Procedural' fallback has
+            // neither '_MainTex' nor '_Tex', so assigning mainTexture there
+            // spams: "Material 'WSM3D.ProceduralSky' with Shader
+            // 'Skybox/Procedural' doesn't have a texture property '_Tex'".
+            // The custom baked-cubemap sky shader does have it.
+            if (_skyMat.mainTexture != _skyCubemap
+                && (_skyMat.HasProperty("_MainTex") || _skyMat.HasProperty("_Tex")))
             {
                 _skyMat.mainTexture = _skyCubemap;
             }
@@ -398,14 +419,11 @@ namespace WorldSphereMod.Lighting
         void SyncReflections(Color sunColor, Vector3 sunDir)
         {
             if (_skyCubemap == null) return;
-            var water = WorldSphereMod.Water.WaterSurface.Instance;
-            if (water?._renderer != null)
-            {
-                Material mat = water._renderer.material;
-                mat.SetTexture("_SkyCubemap", _skyCubemap);
-                mat.SetVector("_SunDir", new Vector4(sunDir.x, sunDir.y, sunDir.z, 0f));
-                mat.SetColor("_SunColor", sunColor);
-            }
+            // Water is a corner-averaged sub-mesh inside the Compound-Spheres fork
+            // (HeightFieldRenderer.ConfigureWater) now, not a main-mod surface — its
+            // sky reflections are driven inside the fork. Nothing to sync here.
+            _ = sunColor;
+            _ = sunDir;
         }
     }
 }

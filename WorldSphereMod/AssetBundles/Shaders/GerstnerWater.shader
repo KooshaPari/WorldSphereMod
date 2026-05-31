@@ -54,7 +54,6 @@ Shader "WSM3D/GerstnerWater"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #pragma target 3.0
             #include "UnityCG.cginc"
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float4 color : COLOR; };

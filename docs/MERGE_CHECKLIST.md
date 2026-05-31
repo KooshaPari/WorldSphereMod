@@ -1,8 +1,14 @@
-# Merge checklist — PR #7 → `main`
+# Merge checklist — PR #7 (merged) + phase branches
 
-**PR:** [WorldSphereMod3D: automation + phase gates](https://github.com/KooshaPari/WorldSphereMod/pull/7) (`claude/research-ultraplan-fork-DdgI5`)
+**PR #7:** [WorldSphereMod3D: automation + phase gates](https://github.com/KooshaPari/WorldSphereMod/pull/7) — **MERGED** to `main` @ **`4efa128`** (2026-05-28 squash merge).
 
-Use this before merging [PR #7](https://github.com/KooshaPari/WorldSphereMod/pull/7) into `main`.
+**Active phase branch:** `feat/phase-7-ui-kickoff` — worldspace UI kickoff ([`docs/phases/phase-7-worldspace-ui.md`](phases/phase-7-worldspace-ui.md)). Handoff: [`docs/HANDOFF.md`](HANDOFF.md).
+
+---
+
+## PR #7 → `main` (historical — completed)
+
+Use this section as the record of gates that shipped in `4efa128`.
 
 ## CI gates (must be green on the PR)
 
@@ -20,9 +26,9 @@ Use this before merging [PR #7](https://github.com/KooshaPari/WorldSphereMod/pul
 
 **CI summary (all checks on this PR):** https://github.com/KooshaPari/WorldSphereMod/pull/7/checks
 
-### Current check status (2026-05-26, `aa98a0c`)
+### Check status at merge (2026-05-28, `4efa128`)
 
-**PR #7:** OPEN, **MERGEABLE** — https://github.com/KooshaPari/WorldSphereMod/pull/7
+**PR #7:** **MERGED** — https://github.com/KooshaPari/WorldSphereMod/pull/7
 
 | Check | Blocking? | Status | Notes |
 |---|---|---|---|
@@ -42,7 +48,28 @@ Use this before merging [PR #7](https://github.com/KooshaPari/WorldSphereMod/pul
 | **SonarCloud Code Analysis** | **No** | fail | External SonarCloud project — not a repo workflow gate |
 | Cursor Bugbot / Autofix | No | neutral / in progress | Advisory review bots |
 
-**Merge readiness:** all **blocking** repo gates green; SonarCloud is external only. Desktop PlayCUA proof: `pwsh Tools/do-all.ps1` (not CI — see [`live-verify-gate.yml`](../.github/workflows/live-verify-gate.yml) header).
+**Merge readiness (at merge time):** all **blocking** repo gates green; SonarCloud external only. Desktop proof shipped with PR #7 tooling (`Tools/do-all.ps1`, `Tools/wsm3d-audit-tick.ps1`).
+
+## Post-merge desktop status (2026-05-28)
+
+Latest desk `do-all-latest` on `feat/phase-7-ui-kickoff` (after syncing `main`):
+
+| Stage | Status | Notes |
+|---|---|---|
+| Offline `wsm-live-verify` | pass | CI-equivalent |
+| PlayCUA `run-all` | pass @ 1× | `-VisionBackend off` (OmniRoute funnel timeout common) |
+| `live-verify-live` | fail | Re-run after bridge stable + populated world |
+| `audit-tick` | fail | Often coupled to live/vision; use `-SkipLive` for offline-only tick |
+
+**OmniRoute / laptop:** funnel `https://omniroute-a6e82363-1.tail2b570.ts.net/v1` or tailnet `http://100.112.14.98:20128/v1` — [`Tools/setup-omniroute-laptop.md`](../Tools/setup-omniroute-laptop.md), `pwsh Tools/verify-omniroute-remote.ps1`. Secrets in `Tools/omniroute-vision.env` (gitignored).
+
+**Next on phase branch:**
+
+```powershell
+pwsh Tools/do-all.ps1 -SkipLive
+pwsh Tools/wsm3d.ps1 playcua run Tools/wsm3d-playcua/sample-scenarios/phase-7-worldspace-ui.yaml -VisionBackend off
+git push --no-recurse-submodules origin feat/phase-7-ui-kickoff
+```
 
 ### Known / external check failures (not repo code)
 

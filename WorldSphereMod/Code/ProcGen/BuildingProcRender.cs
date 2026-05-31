@@ -66,30 +66,19 @@ namespace WorldSphereMod.ProcGen
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode());
                     bool submitted = false;
 
-                    if (tier == WorldSphereMod.LOD.LodTier.Impostor)
+                    if (tier == WorldSphereMod.LOD.LodTier.Cull)
                     {
                         if (profile) impostorSw.Start();
                         try
                         {
-                            Sprite? impSp = rd.main_sprites[i];
-                            if (impSp == null) continue;
-                            Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(impSp);
-                            Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial(impSp);
-                            if (im == null || imMat == null) continue;
-                            Vector3 imPos = rd.positions[i];
-                            Vector3 imScl = rd.scales[i];
-                            if (rd.flip_x_states[i]) imScl.x = -imScl.x;
-                            if (imPos.z < Constants.ZDisplacement * 0.5f)
-                            {
-                                imPos = imPos.To3DTileHeight(false);
-                            }
-                            Quaternion br = Tools.RotateToCamera(ref imPos);
-                            Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
-                            if (!MeshInstanceBatcher.InstancingBroken)
-                            {
-                                MeshInstanceBatcher.Submit(im, imMat, imTrs, Color.white);
-                                submitted = true;
-                            }
+                            // FAR TIER = CULL, NEVER A BILLBOARD. Matching the actor/drop/
+                            // projectile voxel paths (VoxelRender), distant buildings render
+                            // NOTHING rather than a flat camera-facing impostor quad. The
+                            // ImpostorBillboard cache is removed entirely. Near buildings still
+                            // voxelize through the regular branch below; the vanilla 2D sprite
+                            // for this building is suppressed via scales[i]=0 there, but at the
+                            // Impostor tier we simply skip the submit so it's invisible at range.
+                            _ = i;
                         }
                         finally
                         {
@@ -123,6 +112,11 @@ namespace WorldSphereMod.ProcGen
 
                             if (rules.Shape == BuildingShape.CrossedQuad || rules.Shape == BuildingShape.Single)
                             {
+                                // VOXEL-OR-INVISIBLE (user, 2026-05-30): these foliage-tier
+                                // building assets (trees/bushes flagged CrossedQuad, rocks/
+                                // ground decals flagged Single) are REAL voxel volumes now —
+                                // never crossed-quad billboards. CrossedQuad → OrganicBlob puff;
+                                // Single → flat ground decal. The crossed-quad mesh path is gone.
                                 LogFirstBuildingPos(rawPos, pos, scl);
                                 if (!FoliageDensity.ShouldRender(rawPos, b.asset.id, Core.savedSettings.FoliageDensity))
                                 {
@@ -131,8 +125,11 @@ namespace WorldSphereMod.ProcGen
                                 }
                                 Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
                                 if (!FoliageMaterial.EnsureMaterial()) continue;
-                                Mesh? fm = CrossedQuadMeshCache.GetOrBuild(sp, rules.Shape, rules.SwayAmplitude, b.asset.id);
-                                if (fm == null) continue;
+                                ShapeHint hint = rules.Shape == BuildingShape.Single
+                                    ? ShapeHint.Flat
+                                    : ShapeHint.OrganicBlob;
+                                Mesh? fm = VoxelMeshCache.Get(sp, hint);
+                                if (fm == null || fm.vertexCount == 0) continue;
                                 Material? mat = FoliageMaterial.Get();
                                 if (mat == null) continue;
                                 if (!MeshInstanceBatcher.InstancingBroken)

@@ -120,17 +120,16 @@ namespace WorldSphereMod.Worldspace
             float d = Vector3.Distance(cam.transform.position, transform.position);
             transform.LookAt(cam.transform.position, Vector3.up);
 
-            // Phase 7 fix: labels were rendering huge because the rig sits at
-            // VoxelScaleMultiplier (~8x) world units AND distanceFactor grew with
-            // camera distance. At strategy-view distances (d > ~80) the label
-            // outgrew the actor head. Clamp the per-axis localScale to
-            // Min(1, cameraDistance / 100) so labels never exceed the rig's own
-            // mesh-unit scale, then keep a kBaseScale floor so close-up text is
-            // still legible. This replaces the previous linear-grow policy.
-            float baseScale = Core.savedSettings != null ? Core.savedSettings.NameplateBaseScale : 0.15f;
-            float divisor = Core.savedSettings != null ? Core.savedSettings.NameplateScaleDistanceDivisor : 100f;
-            float clamped = Mathf.Min(1f, d / divisor);
-            float effective = Mathf.Max(baseScale, clamped);
+            // WHY: prior `Max(baseScale, Min(1, d/100))` snapped localScale to ~1.0 at
+            // any strategy-view distance — ~6.7x the 0.15 base — making labels dwarf the
+            // actor; anchor on baseScale and apply only a clamped distance multiplier.
+            var s = Core.savedSettings;
+            float baseScale = s != null ? s.NameplateBaseScale : 0.15f;
+            float refDist = s != null ? s.NameplateReferenceDistance : 10f;
+            float minScale = s != null ? s.NameplateMinScale : 0.25f;
+            float maxScale = s != null ? s.NameplateMaxScale : 4f;
+            float distFactor = refDist > 0.0001f ? Mathf.Max(1f, d / refDist) : 1f;
+            float effective = Mathf.Clamp(baseScale * distFactor, baseScale * minScale, baseScale * maxScale);
             transform.localScale = Vector3.one * effective;
 
             ApplyFade(d);

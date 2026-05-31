@@ -65,6 +65,20 @@ namespace WorldSphereMod.Voxel
         static readonly int _baseColorProp = Shader.PropertyToID("_BaseColor");
         static readonly int _colorPropUnlit = Shader.PropertyToID("_Color");
         static readonly int _emissionProp = Shader.PropertyToID("_EmissionColor");
+        // WHY a small 0.15 floor (NOT zero, NOT 1.5): emission is a VISIBILITY
+        // GUARD for the Standard-shader fallback. Shaders frequently degrade to
+        // Standard at runtime (ADR-0013: only OpaqueVertexColor survives the
+        // 62f3-bake -> 60f1-runtime load; Core.Sphere.ResolveShader returns
+        // Shader.Find("Standard") otherwise). Standard is LIT and WorldBox scenes
+        // have no directional/ambient light, so albedo contributes ~0 and zero
+        // emission renders pure-black/invisible actors. 1.5 over-corrected and
+        // saturate-clamped everything to white (commit cc7ca7f2); 0.0 swung back
+        // to black under the Standard fallback. 0.15 is the balanced floor: barely
+        // perceptible under the unlit OpaqueVertexColor path (which already has a
+        // 0.4 ambient term and so doesn't need it) yet keeps Standard-fallback
+        // actors visible. (Restores the floor lost when TerrainSmoothing.cs — which
+        // carried the original 0.15 guard, commit 77661bc0 — was deleted in the
+        // f1b0ad9e lineage merge.)
         static readonly UnityEngine.Color _bakeEmission = new UnityEngine.Color(0.15f, 0.15f, 0.15f, 1f);
     // Scratch array for per-instance _EmissionColor so UNITY_ACCESS_INSTANCED_PROP
     // reads the value correctly (SetColor alone writes a shared value that the
@@ -110,9 +124,16 @@ namespace WorldSphereMod.Voxel
 
         static int _pendingSubmissionCount;
         static bool _instancingErrorLogged;
-        // Default to instanced rendering; material checks below guard unsupported
-        // shader paths before issuing DrawMeshInstanced.
-        static bool _useFallbackPath = false;
+        // WHY magenta+green actors: the bundled WSM3D/OpaqueVertexColor shader is
+        // baked on Unity 62f3 for a 60f1 runtime; the INSTANCING_ON shader variant
+        // does NOT survive that cross-version load, so Graphics.DrawMeshInstanced
+        // finds no compatible variant and Unity substitutes Hidden/InternalErrorShader
+        // -> neon magenta (and the per-instance _Color cbuffer reads uninitialized
+        // garbage -> green). The plain Graphics.DrawMesh path uses the BASE variant
+        // (no INSTANCING_ON), which IS present (terrain MeshRenderer + foliage prove
+        // it), and UNITY_ACCESS_INSTANCED_PROP falls back to the MPB/material _Color
+        // there. Default to that path so actors render with correct per-actor color.
+        static bool _useFallbackPath = true;
         static bool _verboseDrawLoggingArmed;
         static bool _verboseDrawLoggingConsumed;
         static bool _renderTargetLogged;
@@ -565,7 +586,10 @@ namespace WorldSphereMod.Voxel
 
             Interlocked.Exchange(ref _pendingSubmissionCount, 0);
             _buckets.Clear();
-            _useFallbackPath = false;
+            // Keep non-instanced default across world reloads — the bundled
+            // OpaqueVertexColor INSTANCING_ON variant is missing (see field decl),
+            // so re-enabling instancing here would resurrect the magenta bug.
+            _useFallbackPath = true;
             _instancingErrorLogged = false;
             _standardInstancingAttempted = false;
             _verboseDrawLoggingArmed = false;

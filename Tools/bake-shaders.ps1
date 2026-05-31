@@ -2,6 +2,11 @@
 # WSM3D Shader AssetBundle Bake — fully automated, no UI clicks.
 # Requires Unity 2022.3 LTS (matches WorldBox runtime). Pass -UnityExe when auto-detect fails.
 #
+# P2: BakeShaders.cs also copies + tags the GPU-compute keystone
+# External/Compound-Spheres/Default Assets/CompoundSphereCompute.compute into the
+# wsm3d-shaders bundle so ManagerBase<T>.Init() can FindKernel(OutputMatrices /
+# OutputColors) at runtime (the bake previously globbed *.shader only).
+#
 # Shader sources under WorldSphereMod/AssetBundles/Shaders/ and Resources/Shaders/
 # (BrpBloom, BrpACES, ScreenSpaceGI, ProceduralSky, ScreenSpaceAO) must stay
 # BRP-compatible for bundle bake:

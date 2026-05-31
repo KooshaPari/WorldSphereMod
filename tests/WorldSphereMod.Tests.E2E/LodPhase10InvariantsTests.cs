@@ -63,47 +63,41 @@ public class LodPhase10InvariantsTests
     }
 
     [Fact]
-    public void LodSelector_exposes_Voxel_Proxy_Impostor_mid_tier_with_hysteresis()
+    public void LodSelector_exposes_two_tier_voxel_or_cull_ladder_with_hysteresis()
     {
         var lod = ReadSourceFile("WorldSphereMod/Code/LOD/LodSelector.cs");
 
-        lod.Should().Contain("public enum LodTier { Voxel, Proxy, Impostor }",
-            "three-tier ladder must include mid Proxy LOD");
-        lod.Should().Contain("public static float ProxyThreshold = 0.020f",
-            "Proxy boundary must be tunable separately from Voxel threshold");
+        // VOXEL-OR-INVISIBLE: the ladder is exactly two tiers — Voxel (near) or Cull (far).
+        // The legacy Proxy/Impostor billboard tiers are removed; far = draw nothing.
+        lod.Should().Contain("public enum LodTier { Voxel, Cull }",
+            "two-tier ladder: near voxel or far cull, no billboard tier");
+        lod.Should().NotContain("LodTier.Impostor",
+            "the impostor billboard tier must be gone (voxel-or-invisible)");
+        lod.Should().NotContain("LodTier.Proxy",
+            "the proxy billboard tier must be gone (voxel-or-invisible)");
 
         var selectBody = ExtractMethodBody(lod, "public static LodTier Select(Vector3 worldPos, int instanceId)");
-        selectBody.Should().Contain("proposed = LodTier.Voxel");
-        selectBody.Should().Contain("proposed = LodTier.Proxy",
-            "screen-size math must propose Proxy between voxel and impostor distances");
-        selectBody.Should().Contain("proposed = LodTier.Impostor");
-        selectBody.Should().Contain("if (h.pendingFrames >= 3)",
+        selectBody.Should().Contain("LodTier.Voxel");
+        selectBody.Should().Contain("LodTier.Cull",
+            "far objects must select Cull, not an intermediate billboard");
+        // Hysteresis debounce stabilizes the near/far flip so tiles do not oscillate
+        // (the LOD flash-wave). _hystFrames == 3.
+        selectBody.Should().Contain("h.pendingFrames >= _hystFrames",
             "tier changes must require hysteresis debounce");
+        lod.Should().Contain("const int _hystFrames = 3",
+            "hysteresis debounce holds a proposed tier for 3 frames before promotion");
     }
 
     [Fact]
-    public void Mod_OnLoad_enables_impostor_only_when_compute_indirect_unsupported()
+    public void Mod_OnLoad_enables_cull_only_when_compute_indirect_unsupported()
     {
         var mod = ReadSourceFile("WorldSphereMod/Code/Mod.cs");
 
         mod.Should().Contain("!SystemInfo.supportsComputeShaders || !SystemInfo.supportsIndirectArgumentsBuffer");
+        // ImpostorOnlyMode kept as the flag name for call-site compatibility, but it now
+        // means "cull everything" (voxel-or-invisible) — there is no billboard fallback.
         mod.Should().Contain("LodSelector.ImpostorOnlyMode = true",
-            "hardware without compute/indirect must force impostor-only compatibility path");
-    }
-
-    [Fact]
-    public void ImpostorBillboard_resolves_bundled_shader_then_URP_and_Standard_fallbacks()
-    {
-        var impostor = ReadSourceFile("WorldSphereMod/Code/LOD/ImpostorBillboard.cs");
-        var getMatBody = ExtractMethodBody(impostor, "public static Material? GetMaterial()");
-
-        getMatBody.Should().Contain("Core.Sphere.LoadedShaders.TryGetValue(\"Impostor\"",
-            "bundled impostor shader must be preferred");
-        getMatBody.Should().Contain("Shader.Find(\"WSM3D/Impostor\")");
-        getMatBody.Should().Contain("Impostor material fallback shader resolved via Shader.Find",
-            "URP/Standard chain must exist when bundled shader is missing");
-        getMatBody.Should().Contain("MeshInstanceBatcher.UseFallbackPath",
-            "instancing fallback must disable enableInstancing on impostor material");
+            "hardware without compute/indirect must force the cull-only compatibility path");
     }
 
     [Fact]
@@ -118,89 +112,43 @@ public class LodPhase10InvariantsTests
             "perf budget must sample frame delta over a fixed window");
         tickBody.Should().Contain("[WSM3D][Perf]",
             "budget regression tests rely on periodic perf log emission");
-        tickBody.Should().Contain("ImpostorBillboard.Tick()",
-            "impostor atlas LRU must advance each voxel frame");
+        // No ImpostorBillboard atlas to advance anymore — the billboard tier is removed.
+        voxelRender.Should().NotContain("ImpostorBillboard",
+            "the impostor billboard atlas must be gone (voxel-or-invisible)");
     }
 
     [Fact]
-    public void VoxelRender_actor_emit_branches_on_Impostor_tier_before_full_voxel_mesh()
+    public void VoxelRender_actor_emit_culls_at_far_tier_instead_of_billboarding()
     {
         var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
 
-        voxelRender.Should().Contain("if (tier == WorldSphereMod.LOD.LodTier.Impostor)",
-            "far actors must submit impostor billboards instead of full voxel meshes");
-        voxelRender.Should().Contain("ImpostorBillboard.GetOrCreate(sp)",
-            "impostor path must use atlas cache");
+        // Far tier = CULL, never a billboard. The actor emit must branch on the Cull tier
+        // and draw nothing, after suppressing the vanilla 2D sprite up-front.
+        voxelRender.Should().Contain("if (tier == WorldSphereMod.LOD.LodTier.Cull)",
+            "far actors must be culled (draw nothing), not billboarded");
+        voxelRender.Should().NotContain("ImpostorBillboard.GetOrCreate",
+            "no impostor atlas billboard path may exist");
         voxelRender.Should().Contain("FrustumCuller.IsVisible(cullPos, radius)",
             "near/far LOD selection must run only for frustum-visible actors");
     }
 
     [Fact]
-    public void Proxy_tier_emit_uses_full_voxel_path_until_BuildProxy_ships()
+    public void Emit_paths_never_branch_on_a_billboard_tier()
     {
         var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
         var buildingProc = ReadSourceFile("WorldSphereMod/Code/ProcGen/BuildingProcRender.cs");
-        var voxelizer = ReadSourceFile("WorldSphereMod/Code/Voxel/SpriteVoxelizer.cs");
-        var proxyCache = ReadSourceFile("WorldSphereMod/Code/Voxel/ProxyMeshCache.cs");
 
-        voxelRender.Should().NotContain("tier == WorldSphereMod.LOD.LodTier.Proxy",
-            "actor/building/projectile emit must not branch on Proxy until mid-tier meshes exist");
-        buildingProc.Should().NotContain("tier == WorldSphereMod.LOD.LodTier.Proxy",
-            "procedural building emit must not branch on Proxy until mid-tier meshes exist");
+        // Voxel-or-invisible: the only tiers are Voxel and Cull. No Proxy/Impostor branch.
+        voxelRender.Should().NotContain("LodTier.Proxy",
+            "actor/building/projectile emit must not branch on a Proxy billboard tier");
+        voxelRender.Should().NotContain("LodTier.Impostor",
+            "actor/building/projectile emit must not branch on an Impostor billboard tier");
+        buildingProc.Should().NotContain("LodTier.Proxy",
+            "procedural building emit must not branch on a Proxy billboard tier");
+        buildingProc.Should().NotContain("LodTier.Impostor",
+            "procedural building emit must not branch on an Impostor billboard tier");
 
-        voxelizer.Should().Contain("public static Mesh BuildProxy(Sprite sprite)",
-            "Phase 10 proxy entry point must exist as a documented deferral stub");
-        voxelizer.Should().Contain("phase10-proxy-tier-status.md",
-            "BuildProxy stub must document deferral to status doc");
-        proxyCache.Should().Contain("public static class ProxyMeshCache",
-            "proxy mesh cache stub must exist for future mid-tier wiring");
-        proxyCache.Should().Contain("return null",
-            "ProxyMeshCache.Get must defer until BuildProxy and emit dispatch ship");
-
-        voxelRender.Should().Contain("LodTier.Proxy (and Voxel) share full voxel path",
-            "emit fallthrough must document that Proxy still uses VoxelMeshCache");
-        voxelRender.Should().Contain("Mesh m = VoxelMeshCache.Get(sp, -1, true)",
-            "non-impostor tiers (Voxel and Proxy) must share the full voxel cache path");
-    }
-
-    [Fact]
-    public void ProxyMeshCache_Get_stub_always_returns_null()
-    {
-        var proxyCache = ReadSourceFile("WorldSphereMod/Code/Voxel/ProxyMeshCache.cs");
-        var getBody = ExtractMethodBody(proxyCache, "public static Mesh Get(Sprite sprite)");
-
-        getBody.Should().Contain("if (sprite == null) return null",
-            "null sprite must short-circuit before cache lookup");
-        getBody.Should().Contain("return null",
-            "ProxyMeshCache.Get must remain a deferral stub until BuildProxy ships");
-        proxyCache.Should().Contain("phase10-proxy-tier-status.md",
-            "proxy cache stub must link deferral to Phase 10 status doc");
-    }
-
-    [Fact]
-    public void SpriteVoxelizer_BuildProxy_stub_documents_LodTier_Proxy_contract()
-    {
-        var voxelizer = ReadSourceFile("WorldSphereMod/Code/Voxel/SpriteVoxelizer.cs");
-        var statusDoc = ReadSourceFile("docs/journeys/scratch/phase10-proxy-tier-status.md");
-        var buildProxyBody = ExtractMethodBody(voxelizer, "public static Mesh BuildProxy(Sprite sprite)");
-
-        buildProxyBody.Should().Contain("if (sprite == null) return null");
-        buildProxyBody.Should().Contain("return null",
-            "BuildProxy must stay a null-returning stub until half-res voxelize ships");
-
-        var buildProxyIndex = voxelizer.IndexOf("public static Mesh BuildProxy(Sprite sprite)", StringComparison.Ordinal);
-        buildProxyIndex.Should().BeGreaterThan(0);
-        var buildProxyDoc = voxelizer.Substring(Math.Max(0, buildProxyIndex - 400), 400);
-        buildProxyDoc.Should().Contain("half-res",
-            "BuildProxy contract must document half-res downsample target");
-        buildProxyDoc.Should().Contain("depth=1",
-            "BuildProxy contract must document depth=1 voxelization");
-        buildProxyDoc.Should().Contain("LodTier.Proxy",
-            "BuildProxy deferral must name the mid-tier LOD label");
-
-        statusDoc.Should().Contain("LodTier { Voxel, Proxy, Impostor }",
-            "Phase 10 status doc must document the three-tier LodSelector enum");
-        statusDoc.Should().Contain("LodSelector.Select(...)` may return `LodTier.Proxy`",
-            "status doc must describe mid-band Proxy selection behavior");
+        voxelRender.Should().Contain("Mesh m = VoxelMeshCache.Get(sp)",
+            "the near (Voxel) tier shares the full voxel cache path");
     }
 }

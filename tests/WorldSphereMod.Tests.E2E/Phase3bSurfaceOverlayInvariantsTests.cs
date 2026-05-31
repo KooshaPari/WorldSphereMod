@@ -150,8 +150,8 @@ public sealed class Phase3bSurfaceOverlayInvariantsTests
         var source = ReadSourceFile(FoliageTileRenderRelative);
         var prefixBody = ExtractMethodBody(source, "public static bool Prefix(WorldTilemap __instance, WorldTile pTile)");
 
-        prefixBody.Should().Contain("CrossedQuadMeshCache.GetOrBuild(sprite, BuildingShape.Single, 0f)",
-            "road overlays must stay flat decals via the crossed-quad cache");
+        prefixBody.Should().Contain("VoxelMeshCache.Get(sprite, ShapeHint.Flat)",
+            "road overlays must stay flat decals via the shared voxel mesh cache");
         prefixBody.Should().Contain("VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob)",
             "life/grass overlays must use the shared voxel mesh cache");
         prefixBody.Should().Contain("Tools.To3DTileHeight(pos2)",
