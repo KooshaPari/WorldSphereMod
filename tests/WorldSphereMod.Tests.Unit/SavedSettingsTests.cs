@@ -99,7 +99,7 @@ public class SavedSettingsTests
         {
             ("VoxelEntities", true),
             ("ProceduralBuildings", false),
-            ("CrossedQuadFoliage", false),
+            ("CrossedQuadFoliage", true),
             ("BiomeBlending", true),
             ("MeshWater", false),
             ("HighShadows", false),
@@ -188,7 +188,7 @@ public class SavedSettingsTests
     [Theory]
     [InlineData("VoxelEntities", "true")]
     [InlineData("ProceduralBuildings", "false")]
-    [InlineData("CrossedQuadFoliage", "false")]
+    [InlineData("CrossedQuadFoliage", "true")]
     [InlineData("BiomeBlending", "true")]
     [InlineData("MeshWater", "false")]
     [InlineData("HighShadows", "false")]
@@ -212,8 +212,8 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+CrossedQuadFoliage\s*=\s*false")
-            .Success.Should().BeTrue("Phase 3 should default CrossedQuadFoliage to false");
+        Regex.Match(source, @"public\s+bool\s+CrossedQuadFoliage\s*=\s*true")
+            .Success.Should().BeTrue("Phase 3 should default CrossedQuadFoliage to true (3D foliage on by default; commit e6f8516)");
     }
 
     [Fact]

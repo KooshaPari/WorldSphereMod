@@ -86,7 +86,7 @@ public sealed class Phase6RigRegistryTests
         var rigIndex = source.IndexOf("ResolveRigType(a.asset.id)", StringComparison.Ordinal);
         cullIndex.Should().BeGreaterThan(-1);
         rigIndex.Should().BeGreaterThan(cullIndex, "rig type should be resolved after frustum cull");
-        source.Should().Contain("tier != WorldSphereMod.LOD.LodTier.Impostor");
+        source.Should().Contain("tier != WorldSphereMod.LOD.LodTier.Cull");
         source.Should().Contain("Constants.ResolveActorRig(assetId)");
     }
 
