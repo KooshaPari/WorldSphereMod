@@ -579,6 +579,13 @@ namespace WorldSphereMod
             public static bool PerlinNoise = true;
             #region Fancy stuff
             static SphereManager Manager;
+            // #199 GPU-compute go-live: a GpuSphereManager wired IN PARALLEL with the
+            // CPU Manager for the instanced actor/voxel tile path. The CPU Manager
+            // stays the coordinate/terrain (HeightField) authority. Null until the
+            // async GPU creator completes; null whenever CompoundCompute is unavailable
+            // (legacy CPU-only path). All consumer calls are null-guarded.
+            static CompoundSpheres.Gpu.GpuSphereManager GpuManager;
+            static CompoundSpheres.Gpu.GpuSphereManagerSettings GpuManagerConfig;
             static Mesh CompoundSphereMesh;
             internal static Material CompoundSphereMaterial;
             // GPU-compute keystone shader (CompoundSphereCompute), loaded from the
@@ -660,6 +667,30 @@ namespace WorldSphereMod
                                 WorldSphereMod.Lighting.ProceduralSky.EnsureCreated();
                         }
                         catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] ProceduralSky re-trigger failed: " + ex.Message); }
+
+                        // #199 Phase 2.3: wire the GPU manager IN PARALLEL with the CPU
+                        // Manager for the instanced actor/voxel tile path. Skipped (no-op)
+                        // when CompoundCompute is unavailable — legacy CPU path only.
+                        try
+                        {
+                            if (CreateGpuSettings())
+                            {
+                                host.StartCoroutine(CompoundSpheres.Gpu.GpuSphereManager.Creator.CreateSphereManagerAsync(
+                                    width, height, GpuManagerConfig,
+                                    onCreated: gpuMgr =>
+                                    {
+                                        GpuManager = gpuMgr;
+                                        // Risk #2 mitigation (a): keep the GPU tile layer INACTIVE
+                                        // until terrain heights are synced in Phase 4, so its
+                                        // Height=0 tiles do not z-fight the HeightField mesh on
+                                        // flat worlds. Phase 4 (BindGpu) re-activates it.
+                                        if (gpuMgr != null && gpuMgr.gameObject != null)
+                                            gpuMgr.gameObject.SetActive(false);
+                                        Debug.Log($"[WSM3D] Sphere.Begin: GpuSphereManager created (parallel actor/voxel path), inactive until Phase 4 height sync. Rows={gpuMgr.Rows} Cols={gpuMgr.Cols}");
+                                    }));
+                            }
+                        }
+                        catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] GpuSphereManager creation failed: " + ex.Message + " — staying on CPU path."); }
                     }));
             }
             static Color32 GetBaseColor(int index)
@@ -972,6 +1003,13 @@ namespace WorldSphereMod
             }
             public static void Finish()
             {
+                // #199 Phase 2.6: tear down the parallel GPU manager alongside the CPU one.
+                if (GpuManager != null && GpuManager.gameObject != null)
+                {
+                    GpuManager.Destroy();
+                }
+                GpuManager = null;
+                GpuManagerConfig = null;
                 if (Manager == null || Manager.gameObject == null)
                 {
                     return;
@@ -1077,6 +1115,12 @@ namespace WorldSphereMod
             {
                 if (Manager == null || !Manager.IsReady) return;
                 Manager.DrawTiles(CameraX);
+                // #199 Phase 2.5: parallel GPU actor/voxel tile draw. Null-guarded
+                // (async creation may not have completed on early frames) and gated
+                // on the GameObject being active — the layer stays inactive from
+                // creation until Phase 4 syncs terrain heights (risk #2 mitigation a).
+                if (GpuManager != null && GpuManager.gameObject != null && GpuManager.gameObject.activeSelf)
+                    GpuManager.DrawTiles(CameraX);
             }
             static void ConfigureHeightField(SphereManager mgr, int mapWidth, int mapHeight)
             {
@@ -1859,6 +1903,42 @@ namespace WorldSphereMod
                     CurrentShape.GetCameraRange,
                     new List<IBufferData>() { new CustomBufferData<Vector3>("AddedColors", 12, SphereTileAddedColor) }
                );
+            }
+            // #199 Phase 2.4 / 5.2: build the GPU manager settings mirroring
+            // CreateSettings() but typed against the GPU manager. Returns null when
+            // the GPU-compute keystone (CompoundCompute) is unavailable so Begin()
+            // SKIPS GPU creation and stays on the legacy CPU path (no NRE in Init,
+            // which dereferences ComputeShader.FindKernel).
+            //
+            // The "AddedColors" custom buffer is wired HERE (risk #3) so that the
+            // GpuManager.RefreshCustom("AddedColors") / UpdateCustom mirrors added in
+            // Phase 3 do not throw KeyNotFoundException.
+            static bool CreateGpuSettings()
+            {
+                if (CompoundCompute == null)
+                {
+                    Debug.LogWarning("[WSM3D] CreateGpuSettings: CompoundCompute null — GPU-compute path skipped, legacy CPU SphereManager stays sole renderer.");
+                    GpuManagerConfig = null;
+                    return false;
+                }
+                GpuManagerConfig = new CompoundSpheres.Gpu.GpuSphereManagerSettings
+                {
+                    SphereTileMesh = CompoundSphereMesh,
+                    SphereTileMaterial = CompoundSphereMaterial,
+                    GetSphereTileScale = CompoundSphereScripts.GpuTileScaleForCurrentShape,
+                    GetDisplayMode = CompoundSphereScripts.GpuDisplayMode,
+                    ComputeShader = CompoundCompute,
+                    MatrixKernel = CompoundSpheres.Gpu.GpuKernels.Matrix,
+                    ColorKernel = CompoundSpheres.Gpu.GpuKernels.Color,
+                    GetSphereTileTexture = CompoundSphereScripts.GpuTileTexture,
+                    TextureArray = Textures,
+                    GetCameraRange = CompoundSphereScripts.GpuCameraRange,
+                    CustomBuffers = new List<CompoundSpheres.Gpu.IBufferData>()
+                    {
+                        new CompoundSpheres.Gpu.CustomBufferData<Vector3>("AddedColors", CompoundSphereScripts.GpuTileAddedColor)
+                    }
+                };
+                return true;
             }
             static void CreateTextures()
             {
