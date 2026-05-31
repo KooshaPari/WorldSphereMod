@@ -175,15 +175,11 @@ namespace WorldSphereMod.Bridge
 
         static void RefreshHealthCache()
         {
-            try
-            {
-                _cachedHealthVersion = Core.savedSettings != null ? Core.savedSettings.Version : "unknown";
-                _cachedIsWorld3D = Core.IsWorld3D;
-            }
-            catch
-            {
-                // Unity objects may be mid-teardown during scene transitions.
-            }
+            // Per-field guards: pre-world Core.IsWorld3D (=> Sphere.Exists) can throw; don't let it skip version (the original /health NRE).
+            try { _cachedHealthVersion = Core.savedSettings != null ? Core.savedSettings.Version : "unknown"; }
+            catch { _cachedHealthVersion = "unknown"; }
+            try { _cachedIsWorld3D = Core.IsWorld3D; }
+            catch { _cachedIsWorld3D = false; }
         }
 
         /// <summary>Sample perf counters after MeshInstanceBatcher.Flush for lock-free /telemetry.</summary>
@@ -400,6 +396,17 @@ namespace WorldSphereMod.Bridge
                         WriteJson(context.Response, InvokeOnMainThread(BuildFullDumpPayload));
                         return;
                     }
+                    if (string.Equals(path, "/world/state", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Null-safe on main thread: returns hasWorld:false at title screen instead of NRE.
+                        WriteJson(context.Response, InvokeOnMainThread(() => BridgeActions.WorldState(Core.IsWorld3D)));
+                        return;
+                    }
+                    if (string.Equals(path, "/tools", StringComparison.OrdinalIgnoreCase))
+                    {
+                        WriteJson(context.Response, InvokeOnMainThread(BridgeActions.ListTools));
+                        return;
+                    }
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && path.StartsWith("/settings/", StringComparison.OrdinalIgnoreCase))
                 {
@@ -447,6 +454,66 @@ namespace WorldSphereMod.Bridge
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/generate_world", StringComparison.OrdinalIgnoreCase))
                 {
                     WriteJson(context.Response, GenerateWorldQueued());
+                    return;
+                }
+                // #1 priority: drive world-creation headlessly so the operator never needs the 3 menu clicks.
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/new_world", StringComparison.OrdinalIgnoreCase))
+                {
+                    WriteJson(context.Response, QueueAction("new_world", BridgeActions.NewWorld));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/regenerate", StringComparison.OrdinalIgnoreCase))
+                {
+                    WriteJson(context.Response, QueueAction("regenerate", BridgeActions.Regenerate));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/save", StringComparison.OrdinalIgnoreCase))
+                {
+                    WriteJson(context.Response, QueueAction("save", BridgeActions.Save));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/pause", StringComparison.OrdinalIgnoreCase))
+                {
+                    WriteJson(context.Response, QueueAction("pause", BridgeActions.Pause));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/play", StringComparison.OrdinalIgnoreCase))
+                {
+                    WriteJson(context.Response, QueueAction("play", BridgeActions.Play));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/set_speed", StringComparison.OrdinalIgnoreCase))
+                {
+                    string speed = context.Request.QueryString["speed"] ?? string.Empty;
+                    WriteJson(context.Response, QueueAction("set_speed", () => BridgeActions.SetSpeed(speed)));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/camera", StringComparison.OrdinalIgnoreCase))
+                {
+                    string cx = context.Request.QueryString["x"] ?? string.Empty;
+                    string cy = context.Request.QueryString["y"] ?? string.Empty;
+                    string cz = context.Request.QueryString["zoom"] ?? string.Empty;
+                    WriteJson(context.Response, QueueAction("camera", () => BridgeActions.Camera(cx, cy, cz)));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/camera_focus", StringComparison.OrdinalIgnoreCase))
+                {
+                    string target = context.Request.QueryString["target"] ?? string.Empty;
+                    WriteJson(context.Response, QueueAction("camera_focus", () => BridgeActions.CameraFocus(target)));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/select_tool", StringComparison.OrdinalIgnoreCase))
+                {
+                    string id = context.Request.QueryString["id"] ?? string.Empty;
+                    WriteJson(context.Response, QueueAction("select_tool", () => BridgeActions.SelectTool(id)));
+                    return;
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/use_tool", StringComparison.OrdinalIgnoreCase))
+                {
+                    string id = context.Request.QueryString["id"] ?? string.Empty;
+                    string ux = context.Request.QueryString["x"] ?? string.Empty;
+                    string uy = context.Request.QueryString["y"] ?? string.Empty;
+                    WriteJson(context.Response, QueueAction("use_tool", () => BridgeActions.UseTool(id, ux, uy)));
                     return;
                 }
 
@@ -1103,6 +1170,17 @@ namespace WorldSphereMod.Bridge
             });
 
             return new { ok = true, count, race, queued = true };
+        }
+
+        /// <summary>
+        /// Run a headless toolbar/world action on the Unity main thread and return its real {ok,...} result.
+        /// Uses InvokeOnMainThread (drained every frame by BridgeServer.Update, even at the title screen),
+        /// so the operator gets the actual outcome instead of a fire-and-forget queued:true.
+        /// </summary>
+        object QueueAction(string name, Func<object> action)
+        {
+            try { return InvokeOnMainThread(action); }
+            catch (Exception ex) { return new { ok = false, action = name, error = ex.Message }; }
         }
 
         object GenerateWorldQueued()
