@@ -78,10 +78,9 @@ namespace WorldSphereMod.Voxel
         }
 
         /// <summary>
-        /// Phase 10 proxy-tier mesh entry point (half-res downsample, then voxelize at depth=1).
-        /// Deferred: returns null; <see cref="LOD.LodTier.Proxy"/> emit still uses
-        /// <see cref="VoxelMeshCache.Get"/> until this ships. See
-        /// <c>docs/journeys/scratch/phase10-proxy-tier-status.md</c>.
+        /// DEAD STUB. The mid-tier "Proxy" LOD was removed when the render ladder collapsed
+        /// to VOXEL-OR-INVISIBLE (Voxel near / Cull far, no proxy or billboard tier).
+        /// Always returns null; retained only so external references compile.
         /// </summary>
         public static Mesh BuildProxy(Sprite sprite)
         {

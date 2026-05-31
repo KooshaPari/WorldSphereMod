@@ -4,13 +4,22 @@ using WorldSphereMod.NewCamera;
 
 namespace WorldSphereMod.LOD
 {
-    public enum LodTier { Voxel, Proxy, Impostor }
+    // VOXEL-OR-INVISIBLE (user, 2026-05-30): the render ladder has exactly TWO tiers —
+    // Voxel (near: emit a real voxel mesh) and Cull (far: draw NOTHING). The legacy
+    // research lineage carried a third Impostor/Proxy billboard tier that fix/ removed;
+    // the f1b0ad9e merge re-fused it, producing the left-to-right LOD WAVE where objects
+    // oscillated between an impostor billboard and the voxel state every frame
+    // (project_wsm3d_lod_threshold_bug). There is NO intermediate billboard tier: far =
+    // cull. Hysteresis keeps a near/far flip from happening every frame.
+    public enum LodTier { Voxel, Cull }
 
     public static class LodSelector
     {
+        // When the GPU can't run the voxel path at all (no compute/indirect), everything
+        // is culled rather than billboarded — voxel-or-invisible holds even on the
+        // compatibility path. (No impostor fallback tier exists anymore.)
         public static bool ImpostorOnlyMode;
         public static float VoxelThreshold = 0.08f;
-        public static float ProxyThreshold = 0.020f;
 
         struct LodHysteresis
         {
@@ -23,32 +32,30 @@ namespace WorldSphereMod.LOD
 
         // WHY: a tier change requires crossing the boundary by this fraction (deadband)
         // AND persisting this many frames. Without a distance deadband, actors sitting
-        // near a hard threshold flipped Voxel<->Impostor every frame as the camera panned,
+        // near the hard threshold flipped Voxel<->Cull every frame as the camera panned,
         // producing the left-to-right LOD WAVE the user observed.
-        const float _hystMargin = 0.25f;   // 25% squared-distance deadband around each boundary
-        const int _hystFrames = 8;          // proposed tier must persist N frames before promotion
+        const float _hystMargin = 0.25f;   // 25% squared-distance deadband around the boundary
+        const int _hystFrames = 3;          // proposed tier must persist N frames before promotion
 
-        // Cached squared-distance LOD thresholds; recomputed only when any of the inputs
-        // (camera FOV, LODScale, VoxelThreshold, ProxyThreshold) change. Saves an Mathf.Tan,
-        // two divides and two muls per actor per frame; per-actor cost collapses to a
-        // squared-distance compare.
+        // Cached squared-distance LOD threshold; recomputed only when any of the inputs
+        // (camera FOV, LODScale, VoxelThreshold, VoxelScaleMultiplier) change. Saves an
+        // Mathf.Tan, a divide and a mul per actor per frame; per-actor cost collapses to a
+        // single squared-distance compare.
         static float _cachedFov = float.NaN;
         static float _cachedLodScale = float.NaN;
         static float _cachedVoxelThreshold = float.NaN;
-        static float _cachedProxyThreshold = float.NaN;
         static float _cachedVoxelScale = float.NaN;
         static float _voxelMaxDistSqr;
-        static float _proxyMaxDistSqr;
         // Base vanilla actor sprite half-height in world units. Actual rendered
         // height = _baseEntityHeight * VoxelScaleMultiplier. Read VoxelScaleMultiplier
         // at runtime so the LOD math tracks the live setting (otherwise stale JSON or
-        // a user-changed multiplier silently demotes every actor to Impostor — see
+        // a user-changed multiplier silently culls every actor — see
         // project_wsm3d_lod_threshold_bug).
         const float _baseEntityHeight = 0.5f;
 
         public static LodTier Select(Vector3 worldPos, int instanceId)
         {
-            if (ImpostorOnlyMode) return LodTier.Impostor;
+            if (ImpostorOnlyMode) return LodTier.Cull;
 
             Camera cam = CameraManager.MainCamera;
             if (cam == null) return LodTier.Voxel;
@@ -57,22 +64,19 @@ namespace WorldSphereMod.LOD
             float lodScale = Core.savedSettings.LODScale;
             // WHY: LOD distance must track the ACTUAL rendered actor height, which is now
             // VoxelScaleMultiplier * ActorVoxelScaleFactor (actors render reduced). Folding the
-            // factor in keeps tier boundaries matched to real on-screen size.
+            // factor in keeps the tier boundary matched to real on-screen size.
             float voxelScale = Mathf.Max(0.0001f, Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor);
             if (fov != _cachedFov || lodScale != _cachedLodScale
-                || VoxelThreshold != _cachedVoxelThreshold || ProxyThreshold != _cachedProxyThreshold
+                || VoxelThreshold != _cachedVoxelThreshold
                 || voxelScale != _cachedVoxelScale)
             {
                 float entityHeight = _baseEntityHeight * voxelScale;
                 float tanHalfFov = Mathf.Max(0.0001f, Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad));
                 float voxelMaxDist = entityHeight * lodScale / (VoxelThreshold * tanHalfFov);
-                float proxyMaxDist = entityHeight * lodScale / (ProxyThreshold * tanHalfFov);
                 _voxelMaxDistSqr = voxelMaxDist * voxelMaxDist;
-                _proxyMaxDistSqr = proxyMaxDist * proxyMaxDist;
                 _cachedFov = fov;
                 _cachedLodScale = lodScale;
                 _cachedVoxelThreshold = VoxelThreshold;
-                _cachedProxyThreshold = ProxyThreshold;
                 _cachedVoxelScale = voxelScale;
             }
 
@@ -82,11 +86,8 @@ namespace WorldSphereMod.LOD
             float dz = worldPos.z - camPos.z;
             float distSqr = dx * dx + dy * dy + dz * dz;
 
-            // Raw tier from the bare thresholds (no hysteresis).
-            LodTier rawTier;
-            if (distSqr < _voxelMaxDistSqr) rawTier = LodTier.Voxel;
-            else if (distSqr < _proxyMaxDistSqr) rawTier = LodTier.Proxy;
-            else rawTier = LodTier.Impostor;
+            // Raw tier from the bare threshold (no hysteresis).
+            LodTier rawTier = distSqr < _voxelMaxDistSqr ? LodTier.Voxel : LodTier.Cull;
 
             if (!_hyst.TryGetValue(instanceId, out LodHysteresis h))
             {
@@ -95,9 +96,10 @@ namespace WorldSphereMod.LOD
                 return h.current;
             }
 
-            // WHY: apply a deadband around the CURRENT tier's boundaries. Only propose a
-            // change once distance crosses the boundary by _hystMargin. An actor that stays
-            // inside the band keeps its tier no matter how the camera pans — kills the wave.
+            // WHY: apply a deadband around the CURRENT tier's boundary. Only propose a
+            // change once distance crosses the boundary by _hystMargin. An object that
+            // stays inside the band keeps its tier no matter how the camera pans — this
+            // kills the wave.
             LodTier proposed = ProposeWithDeadband(distSqr, h.current);
 
             if (h.current == proposed)
@@ -123,31 +125,21 @@ namespace WorldSphereMod.LOD
             return h.current;
         }
 
-        // Hysteresis deadband: a promotion to a NEARER tier requires distance to drop well
-        // below the boundary; a demotion to a FARTHER tier requires it to rise well above.
-        // Boundaries widen/narrow by _hystMargin depending on the current tier so a small
-        // per-frame distance jitter never flips the tier.
+        // Hysteresis deadband around the single Voxel<->Cull boundary. Entering Voxel
+        // (near) requires distance to drop well below the boundary; leaving Voxel for Cull
+        // (far) requires it to rise well above. A small per-frame distance jitter therefore
+        // never flips the tier.
         static LodTier ProposeWithDeadband(float distSqr, LodTier current)
         {
-            float voxelEnter = _voxelMaxDistSqr * (1f - _hystMargin); // must be closer than this to ENTER Voxel
-            float voxelExit  = _voxelMaxDistSqr * (1f + _hystMargin); // must be farther than this to LEAVE Voxel
-            float proxyEnter = _proxyMaxDistSqr * (1f - _hystMargin);
-            float proxyExit  = _proxyMaxDistSqr * (1f + _hystMargin);
+            float voxelEnter = _voxelMaxDistSqr * (1f - _hystMargin); // closer than this to ENTER Voxel
+            float voxelExit  = _voxelMaxDistSqr * (1f + _hystMargin); // farther than this to LEAVE Voxel
 
             switch (current)
             {
                 case LodTier.Voxel:
-                    if (distSqr > voxelExit)
-                        return distSqr > proxyExit ? LodTier.Impostor : LodTier.Proxy;
-                    return LodTier.Voxel;
-                case LodTier.Proxy:
-                    if (distSqr < voxelEnter) return LodTier.Voxel;
-                    if (distSqr > proxyExit) return LodTier.Impostor;
-                    return LodTier.Proxy;
-                default: // Impostor
-                    if (distSqr < voxelEnter) return LodTier.Voxel;
-                    if (distSqr < proxyEnter) return LodTier.Proxy;
-                    return LodTier.Impostor;
+                    return distSqr > voxelExit ? LodTier.Cull : LodTier.Voxel;
+                default: // Cull
+                    return distSqr < voxelEnter ? LodTier.Voxel : LodTier.Cull;
             }
         }
 

@@ -592,11 +592,16 @@ namespace WorldSphereMod.Voxel
                 {
                     Actor a = arr[i];
                     if (a == null || a.asset == null) { dsNullActor++; continue; }
-                    // Per-asset opt-out: the existing v1 API hands designers a way to
-                    // mark assets as "perp" (ground-aligned billboard). Those keep
-                    // sprite rendering for now — they tend to be flat decals (arrows,
-                    // ground markers) where voxelization adds nothing.
-                    if (Constants.PerpActors.ContainsKey(a.asset.id)) { dsPerpSkipped++; continue; }
+                    // VOXEL-OR-INVISIBLE (user, 2026-05-30): the legacy PerpActors opt-out
+                    // used to `continue` here, which LEFT has_normal_render[i] true and so
+                    // re-exposed the vanilla 2D billboard for perp-marked assets (palms,
+                    // ferns, bats, ground decals). That violated voxel-or-invisible — those
+                    // entities reappeared as flat sprites (BUG A). Perp assets now fall
+                    // through to the SAME voxel-or-cull path as every other actor: they
+                    // either render a real voxel mesh or nothing. We only bump the
+                    // diagnostic counter; we do NOT skip the emit.
+                    bool isPerp = Constants.PerpActors.ContainsKey(a.asset.id);
+                    if (isPerp) dsPerpSkipped++;
                     // GATE REMOVED (codex plate-78 diff): upstream may set has_normal_render=false
                     // for actors that should still get voxelized (e.g. all actors after the first
                     // created settlement per user observation). Buildings have no such gate;
@@ -616,22 +621,11 @@ namespace WorldSphereMod.Voxel
                     }
                     LastFrustumCullerPassCount++;
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, a.GetHashCode());
-                    if (tier == WorldSphereMod.LOD.LodTier.Impostor) dsTierImpostor++;
-                    else if (tier == WorldSphereMod.LOD.LodTier.Voxel)
-                    {
-                        dsTierVoxel++;
-                    }
-                    else if (tier != WorldSphereMod.LOD.LodTier.Impostor)
-                    {
-                        // Proxy currently shares the full voxel path, so keep
-                        // it in the voxel-path diagnostics without introducing a
-                        // Proxy-specific emit branch.
-                        dsTierVoxel++;
-                        dsTierProxy++;
-                    }
-                    else dsTierOther++;
+                    // Two-tier ladder: Voxel (near, emit mesh) or Cull (far, draw nothing).
+                    if (tier == WorldSphereMod.LOD.LodTier.Cull) dsTierImpostor++;
+                    else dsTierVoxel++;
 
-                    if (Core.savedSettings.SkeletalAnimation && tier != WorldSphereMod.LOD.LodTier.Impostor)
+                    if (Core.savedSettings.SkeletalAnimation && tier != WorldSphereMod.LOD.LodTier.Cull)
                     {
                         WorldSphereMod.Rig.RigType rigType = ResolveRigType(a.asset.id);
                         if (rigType != WorldSphereMod.Rig.RigType.None)
@@ -703,7 +697,7 @@ namespace WorldSphereMod.Voxel
                     // we skip the submit and the actor simply renders nothing this frame.
                     rd.has_normal_render[i] = false;
 
-                    if (tier == WorldSphereMod.LOD.LodTier.Impostor)
+                    if (tier == WorldSphereMod.LOD.LodTier.Cull)
                     {
                         // FAR TIER = CULL, NOT BILLBOARD. The user explicitly prefers seeing
                         // NOTHING over a flat impostor. Keep the LOD distance logic (so near
@@ -714,7 +708,7 @@ namespace WorldSphereMod.Voxel
                         continue;
                     }
 
-                    // Phase 10: LodTier.Proxy (and Voxel) share full voxel path until BuildProxy/ProxyMeshCache ship.
+                    // Near tier: emit the full voxel mesh via the shared VoxelMeshCache.
                     Mesh m = VoxelMeshCache.Get(sp, -1, true);
                     // Mesh not built yet (async) or empty → INVISIBLE until ready. Sprite
                     // already suppressed; do NOT draw a placeholder billboard. Record so the
@@ -964,14 +958,14 @@ namespace WorldSphereMod.Voxel
                     Vector3 origScale = rd.scales[i];
                     rd.scales[i] = Vector3.zero;
 
-                    if (tier == WorldSphereMod.LOD.LodTier.Impostor)
+                    if (tier == WorldSphereMod.LOD.LodTier.Cull)
                     {
                         // FAR TIER = CULL. Sprite already suppressed → building invisible at
                         // distance rather than a flat impostor billboard.
                         continue;
                     }
 
-                    // Phase 10: Proxy tier shares full voxel path until BuildProxy/ProxyMeshCache ship.
+                    // Near tier: emit the full voxel mesh via the shared VoxelMeshCache.
                     Mesh m = VoxelMeshCache.Get(sp);
                     // Not ready / empty → invisible until built. Sprite already suppressed.
                     if (m == null || m.vertexCount == 0)
@@ -1085,7 +1079,7 @@ namespace WorldSphereMod.Voxel
                 // Suppress the vanilla 2D SpriteRenderer up-front; only re-show nothing.
                 sr.enabled = false;
 
-                if (tier == WorldSphereMod.LOD.LodTier.Impostor)
+                if (tier == WorldSphereMod.LOD.LodTier.Cull)
                 {
                     // FAR TIER = CULL. Sprite suppressed → drop invisible at distance, never
                     // a flat impostor billboard.
@@ -1177,7 +1171,7 @@ namespace WorldSphereMod.Voxel
                     // up-front. Far LOD / not-ready mesh → invisible, never a billboard.
                     SuppressProjectileSprite(pAsset, pos);
 
-                    if (tier == WorldSphereMod.LOD.LodTier.Impostor)
+                    if (tier == WorldSphereMod.LOD.LodTier.Cull)
                     {
                         // FAR TIER = CULL. Sprite suppressed → projectile invisible at distance.
                         continue;

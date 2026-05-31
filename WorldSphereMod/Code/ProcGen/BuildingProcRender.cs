@@ -66,7 +66,7 @@ namespace WorldSphereMod.ProcGen
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode());
                     bool submitted = false;
 
-                    if (tier == WorldSphereMod.LOD.LodTier.Impostor)
+                    if (tier == WorldSphereMod.LOD.LodTier.Cull)
                     {
                         if (profile) impostorSw.Start();
                         try
