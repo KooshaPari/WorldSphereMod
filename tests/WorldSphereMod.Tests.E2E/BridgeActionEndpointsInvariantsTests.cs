@@ -73,8 +73,8 @@ public sealed class BridgeActionEndpointsInvariantsTests
             "spawn_units route must be dispatched from ProcessRequest");
         processRequestBody.Should().Contain("string.Equals(path, \"/actions/generate_world\", StringComparison.OrdinalIgnoreCase)",
             "generate_world route must be dispatched from ProcessRequest");
-        processRequestBody.Should().Contain("WriteJson(context.Response, SpawnUnitsQueued(countText, race));",
-            "spawn_units must return a JSON response via the bridge writer");
+        processRequestBody.Should().Contain("WriteJson(context.Response, SpawnUnitsQueued(countText, race, xText, yText));",
+            "spawn_units must return a JSON response via the bridge writer (anchor x/y now honored)");
         processRequestBody.Should().Contain("WriteJson(context.Response, GenerateWorldQueued());",
             "generate_world must return a JSON response via the bridge writer");
         processRequestBody.Should().Contain("catch (Exception ex)",
@@ -114,8 +114,8 @@ public sealed class BridgeActionEndpointsInvariantsTests
             "spawn_units must reject unknown races up front instead of silently spawning nothing");
         spawnUnitsBody.Should().Contain("CollectSpawnableTiles(",
             "spawn_units must pick valid land tiles so units do not drown/burn instantly");
-        spawnUnitsBody.Should().Contain("mapBox.units.createNewUnit(race, tile)",
-            "spawn_units must create units through the WorldBox unit manager");
+        spawnUnitsBody.Should().Contain("mapBox.units.spawnNewUnitByPlayer(race, tile)",
+            "spawn_units must create persisting units through the WorldBox player-spawn path (createNewUnit alone produced 0->0 live units)");
         spawnUnitsBody.Should().Contain("if (actor != null) spawned++;",
             "spawn_units must only count units that actually came into existence (createNewUnit returns null on failure)");
         spawnUnitsBody.Should().Contain("InvokeOnMainThread",

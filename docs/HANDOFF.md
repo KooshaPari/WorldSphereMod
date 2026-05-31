@@ -91,7 +91,7 @@ instead of carrying the underlying implementation inline.
 | 0  Fork plumbing                       | code landed | Build portability, GUID `worldsphere3d.fork`, settings v2, API v2, task/journey gates, capability discovery, opt-in profiler overlay, journey capture tooling; ADR-0007 conditional patch dispatch **Accepted** (`PhasePatchGate` + E2E invariants; phase 1/2 PlayCUA smoke). |
 | 1  Voxel actors + buildings            | code present, runtime unverified | Current code default: `VoxelEntities = true`. Triage says Harmony patches are still not applying in-game, so do not treat the default as proof. |
 | 2  Procedural building meshes          | code present, runtime unverified | Current code default: `ProceduralBuildings = false`. |
-| 3a Crossed-quad foliage                | code present, runtime unverified | Current code default: `CrossedQuadFoliage = false`. |
+| 3a Crossed-quad foliage                | code present, runtime unverified | Current code default: `CrossedQuadFoliage = true`. |
 | 3b Surface overlays + walls            | code present, runtime unverified | `WorldTilemap.renderTile` Prefix + `drawWallType` Prefix wired. |
 | 4  Mesh water                          | code present, runtime unverified | Current code default: `MeshWater = false`. |
 | 5  Sun + cascaded shadows              | code present, runtime unverified | Current code defaults: `HighShadows = false`, `HdrSkybox = false`, `ColorGradingLut = false`. |
@@ -109,7 +109,7 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 |---|---|---|---|
 | `VoxelEntities` | `true` | 1 | Default-on voxel actors/items/projectiles |
 | `ProceduralBuildings` | `false` | 2 | Default-off building meshes |
-| `CrossedQuadFoliage` | `false` | 3a | Default-off crossed-quad foliage |
+| `CrossedQuadFoliage` | `true` | 3a | Default-on crossed-quad foliage |
 | `BiomeBlending` | `false` | n/a | Terrain polish |
 | `MeshWater` | `false` | 4 | Default-off mesh water (Phase 4-lite) |
 | `WorldspaceHealth3D` | `false` | 7 | Worldspace HP bar style |
@@ -142,12 +142,12 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 ### Default-on / currently enabled
 
 - `VoxelEntities` — Phase 1
+- `CrossedQuadFoliage` — Phase 3a/3b
 - `ACESTonemapping` — Phase 9
 
 ### Default-off / opt-in
 
 - `ProceduralBuildings` — Phase 2
-- `CrossedQuadFoliage` — Phase 3a/3b
 - `MeshWater` — Phase 4
 - `HighShadows` — Phase 5
 - `HdrSkybox` — Phase 5b

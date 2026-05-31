@@ -53,9 +53,20 @@ public class PhaseDefaultsDriftTests
     {
         var defaults = new Dictionary<string, bool>(StringComparer.Ordinal);
 
+        // Scope parsing to the $script:PhaseDefaults = @{ ... } block only, so
+        // sibling tables (e.g. $script:SafeMinDefaults, which intentionally holds
+        // different values for default-on phases like CrossedQuadFoliage) do not
+        // pollute the field-default comparison.
+        var blockMatch = Regex.Match(
+            source,
+            @"\$script:PhaseDefaults\s*=\s*@\{(?<body>[\s\S]*?)\}",
+            RegexOptions.IgnoreCase);
+        blockMatch.Success.Should().BeTrue("wsm3d.ps1 must define a $script:PhaseDefaults hashtable");
+        var block = blockMatch.Groups["body"].Value;
+
         // Match lines like:  "VoxelEntities"       = $true
         foreach (Match match in Regex.Matches(
-                     source,
+                     block,
                      @"""(\w+)""\s*=\s*\$(true|false)",
                      RegexOptions.IgnoreCase))
         {

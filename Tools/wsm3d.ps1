@@ -74,8 +74,27 @@ $script:OmniRouteBaseUrl = if ($env:OMNROUTE_BASE_URL) { $env:OMNROUTE_BASE_URL.
 $script:GitSubmodulePaths = @("External/Compound-Spheres")
 $script:LiveVerifyReportPath = Join-Path $RepoRoot "Tools/.reports/live-verify-latest.json"
 
-# Phase defaults from SavedSettings.cs (also used by safe-min preset)
+# Phase field-initializer defaults from SavedSettings.cs (runtime startup state).
+# Mirrors the `public bool <Flag> = <value>;` declarations and is guarded against
+# drift by PhaseDefaultsDriftTests. CrossedQuadFoliage is default-on (#foliage).
 $script:PhaseDefaults = @{
+    "VoxelEntities"       = $true
+    "ProceduralBuildings" = $false
+    "CrossedQuadFoliage"  = $true
+    "MeshWater"           = $false
+    "HighShadows"         = $false
+    "SkeletalAnimation"   = $false
+    "WorldspaceUI"        = $false
+    "DayNightCycle"       = $false
+    "PostFX"              = $false
+    "ParticleEffects"     = $false
+}
+
+# Safe-min preset = SavedSettings.ApplyLightweightPreset (everything off except
+# voxel actors). This intentionally DIFFERS from PhaseDefaults for default-on
+# phases (e.g. CrossedQuadFoliage) so `phases preset safe-min` yields the truly
+# minimal/diagnostic baseline rather than the runtime startup defaults.
+$script:SafeMinDefaults = @{
     "VoxelEntities"       = $true
     "ProceduralBuildings" = $false
     "CrossedQuadFoliage"  = $false
@@ -1508,14 +1527,14 @@ function Invoke-PhasesPreset {
             Assert-SettingsWritable -Force:$Force
             $settings = Get-SettingsJson
 
-            foreach ($phaseName in $script:PhaseDefaults.Keys) {
+            foreach ($phaseName in $script:SafeMinDefaults.Keys) {
                 if ($settings | Get-Member -Name $phaseName) {
-                    $settings.$phaseName = $script:PhaseDefaults[$phaseName]
+                    $settings.$phaseName = $script:SafeMinDefaults[$phaseName]
                 }
             }
 
             Set-SettingsJson $settings
-            Write-Success "Applied preset '$Preset' (SavedSettings factory defaults)."
+            Write-Success "Applied preset '$Preset' (SavedSettings ApplyLightweightPreset / safe-min defaults)."
         }
 
         default {
