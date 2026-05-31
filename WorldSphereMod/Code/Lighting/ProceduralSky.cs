@@ -419,14 +419,11 @@ namespace WorldSphereMod.Lighting
         void SyncReflections(Color sunColor, Vector3 sunDir)
         {
             if (_skyCubemap == null) return;
-            var water = WorldSphereMod.Water.WaterSurface.Instance;
-            if (water?._renderer != null)
-            {
-                Material mat = water._renderer.material;
-                mat.SetTexture("_SkyCubemap", _skyCubemap);
-                mat.SetVector("_SunDir", new Vector4(sunDir.x, sunDir.y, sunDir.z, 0f));
-                mat.SetColor("_SunColor", sunColor);
-            }
+            // Water is a corner-averaged sub-mesh inside the Compound-Spheres fork
+            // (HeightFieldRenderer.ConfigureWater) now, not a main-mod surface — its
+            // sky reflections are driven inside the fork. Nothing to sync here.
+            _ = sunColor;
+            _ = sunDir;
         }
     }
 }

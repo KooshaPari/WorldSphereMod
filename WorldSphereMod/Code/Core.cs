@@ -210,17 +210,9 @@ namespace WorldSphereMod
                 {
                     WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated();
                 }
-                if (flagName == nameof(SavedSettings.MountainSlopeSmoothing))
-                {
-                    if (newValue)
-                    {
-                        WorldSphereMod.Terrain.MountainSlopeSurface.EnsureActive();
-                    }
-                    else
-                    {
-                        WorldSphereMod.Terrain.MountainSlopeSurface.Destroy();
-                    }
-                }
+                // MountainSlopeSmoothing: slope smoothing is intrinsic to the fork's
+                // height-field mesh now (corner-averaged heights + analytic normals +
+                // Perlin micro-displacement). No main-mod surface to toggle.
                 if (flagName == nameof(SavedSettings.DayNightCycle) && newValue)
                 {
                     WorldSphereMod.Lighting.TimeOfDay.EnsureCreated();

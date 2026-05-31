@@ -1354,7 +1354,6 @@ namespace WorldSphereMod.Voxel
                 var sw = Stopwatch.StartNew();
                 double tPrepareWorld = 0.0;
                 double tBeginFrame = 0.0;
-                double tImpostorTick = 0.0;
                 double tFrustumUpdate = 0.0;
                 double tRigTick = 0.0;
                 double tRigDrain = 0.0;
@@ -1364,9 +1363,6 @@ namespace WorldSphereMod.Voxel
                 double tDrainCompletedBuilds = 0.0;
                 double tSanityDraw = 0.0;
                 double tProcGenDrain = 0.0;
-                double tFoliageDrain = 0.0;
-                double tWaterLifecycle = 0.0;
-                double tMountainSlope = 0.0;
                 double tSunBind = 0.0;
                 double tSunUpdate = 0.0;
                 double tDecalTick = 0.0;
@@ -1421,7 +1417,6 @@ namespace WorldSphereMod.Voxel
                     VoxelRender._submitDiagCount = 0;
                 }
 
-                tImpostorTick = Measure(WorldSphereMod.LOD.ImpostorBillboard.Tick);
                 tFrustumUpdate = Measure(() =>
                 {
                     if (Core.savedSettings.VoxelEntities || Core.savedSettings.ProceduralBuildings || Core.savedSettings.CrossedQuadFoliage)
@@ -1456,14 +1451,6 @@ namespace WorldSphereMod.Voxel
                 {
                     tProcGenDrain = Measure(WorldSphereMod.ProcGen.ProcGenCache.DrainPendingDestroy);
                 }
-
-                if (Core.savedSettings.CrossedQuadFoliage)
-                {
-                    tFoliageDrain = Measure(WorldSphereMod.Foliage.CrossedQuadMeshCache.DrainPendingDestroy);
-                }
-
-                tWaterLifecycle = Measure(WorldSphereMod.Water.WaterRender.UpdateLifecycle);
-                tMountainSlope = Measure(WorldSphereMod.Terrain.MountainSlopeSurface.EnsureActive);
 
                 if (Time.time >= _nextCameraLookup)
                 {
@@ -1509,7 +1496,6 @@ namespace WorldSphereMod.Voxel
                     $"total={tTotal:F2}ms " +
                     $"PrepareWorld={tPrepareWorld:F2}ms " +
                     $"BeginFrame={tBeginFrame:F2}ms " +
-                    $"ImpostorTick={tImpostorTick:F2}ms " +
                     $"FrustumUpdate={tFrustumUpdate:F2}ms " +
                     $"RigTick={tRigTick:F2}ms " +
                     $"RigDrain={tRigDrain:F2}ms " +
@@ -1519,9 +1505,6 @@ namespace WorldSphereMod.Voxel
                     $"DrainCompletedBuilds={tDrainCompletedBuilds:F2}ms " +
                     $"SanityDraw={tSanityDraw:F2}ms " +
                     $"ProcGenDrain={tProcGenDrain:F2}ms " +
-                    $"FoliageDrain={tFoliageDrain:F2}ms " +
-                    $"WaterLifecycle={tWaterLifecycle:F2}ms " +
-                    $"MountainSlope={tMountainSlope:F2}ms " +
                     $"SunBind={tSunBind:F2}ms " +
                     $"SunUpdate={tSunUpdate:F2}ms " +
                     $"DecalTick={tDecalTick:F2}ms " +
@@ -1581,7 +1564,6 @@ namespace WorldSphereMod.Voxel
             }
 
             WorldSphereMod.Voxel.VoxelMeshCache.BeginFrame();
-            WorldSphereMod.LOD.ImpostorBillboard.Tick();
 
             bool hasRenderWork = Core.savedSettings.VoxelEntities || Core.savedSettings.ProceduralBuildings || Core.savedSettings.CrossedQuadFoliage;
             if (hasRenderWork)
@@ -1636,18 +1618,6 @@ namespace WorldSphereMod.Voxel
             {
                 WorldSphereMod.ProcGen.ProcGenCache.DrainPendingDestroy();
             }
-
-            if (Core.savedSettings.CrossedQuadFoliage)
-            {
-                WorldSphereMod.Foliage.CrossedQuadMeshCache.DrainPendingDestroy();
-            }
-
-            // Always call UpdateLifecycle so the OFF->ON and ON->OFF edges
-            // both fire. The previous guard `if (MeshWater)` prevented the
-            // destroy path from running when the setting was toggled off.
-            WorldSphereMod.Water.WaterRender.UpdateLifecycle();
-
-            WorldSphereMod.Terrain.MountainSlopeSurface.EnsureActive();
 
             if (Time.time >= _nextCameraLookup)
             {
