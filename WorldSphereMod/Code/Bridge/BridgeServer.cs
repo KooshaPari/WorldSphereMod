@@ -384,6 +384,12 @@ namespace WorldSphereMod.Bridge
                         WriteJson(context.Response, InvokeOnMainThread(BuildEmitStatusPayload));
                         return;
                     }
+                    if (string.Equals(path, "/diag/errors", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Registry is internally locked; no Unity main-thread state read needed.
+                        WriteJson(context.Response, BuildDiagErrorsPayload());
+                        return;
+                    }
                     if (string.Equals(path, "/diag/render_stats", StringComparison.OrdinalIgnoreCase))
                     {
                         WriteJson(context.Response, InvokeOnMainThread(BuildRenderStatsPayload));
@@ -1207,6 +1213,39 @@ namespace WorldSphereMod.Bridge
             return new { ok = true, status = "armed" };
         }
 
+        // BRIDGE SINK for RenderErrorRegistry: per-type counts + sample examples so a remote
+        // operator can GET /diag/errors during a run and see WHAT failed WHERE — no pixels.
+        object BuildDiagErrorsPayload()
+        {
+            List<WorldSphereMod.Voxel.RenderErrorRegistry.TypeReport> snapshot =
+                WorldSphereMod.Voxel.RenderErrorRegistry.Snapshot();
+            var byType = new List<object>(snapshot.Count);
+            var counts = new Dictionary<string, long>();
+            long total = 0;
+            for (int i = 0; i < snapshot.Count; i++)
+            {
+                WorldSphereMod.Voxel.RenderErrorRegistry.TypeReport r = snapshot[i];
+                counts[r.type] = r.count;
+                total += r.count;
+                var examples = new List<object>(r.examples.Count);
+                for (int j = 0; j < r.examples.Count; j++)
+                {
+                    WorldSphereMod.Voxel.RenderErrorRegistry.Example e = r.examples[j];
+                    examples.Add(new { name = e.name, reason = e.reason, pos = new { x = e.x, y = e.y, z = e.z } });
+                }
+                byType.Add(new { type = r.type, count = r.count, examples });
+            }
+
+            return new
+            {
+                ok = true,
+                total,
+                counts,
+                errors = byType,
+                renderErrorProps = Core.savedSettings != null && Core.savedSettings.RenderErrorProps,
+            };
+        }
+
         object BuildRenderStatsPayload()
         {
             long drawCalls = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameDrawCalls;
@@ -1304,6 +1343,8 @@ namespace WorldSphereMod.Bridge
             object telemetry = BuildTelemetryPayload();
             object renderStats = BuildRenderStatsPayload();
             object emitStatus = BuildEmitStatusPayload();
+            object diagErrors = null;
+            try { diagErrors = BuildDiagErrorsPayload(); } catch { }
             object voxelStats = null;
             try { voxelStats = BuildVoxelStatsPayload(); } catch { }
             object voxelQueue = null;
@@ -1496,6 +1537,7 @@ namespace WorldSphereMod.Bridge
                 telemetry,
                 renderStats,
                 emitStatus,
+                diagErrors,
                 voxelStats,
                 voxelQueue,
                 memory,

@@ -84,6 +84,15 @@ public class SavedSettings
         public bool DebugVoxelOutline = false;
         public bool DebugSanityCube = false;
         public bool DebugSpawnBuildings = false;
+        // RENDER-ERROR DIAGNOSTICS: when true, render failures draw a typed in-world ERROR
+        // prop (GMod-style) at the failing object + record telemetry. When false, failures
+        // are INVISIBLE (voxel-or-invisible policy) but STILL recorded in RenderErrorRegistry
+        // / /diag/errors — telemetry is always on; only the visual marker is gated.
+        // Default TRUE while we fix rendering; flip false for clean play.
+        public bool RenderErrorProps = true;
+        // PER-OBJECT DIAGNOSTIC OVERLAY: tags objects with compact render-state so the
+        // failure DISTRIBUTION is visible at a glance. Opt-in; off by default.
+        public bool RenderDiagOverlay = false;
         // AutoTest set false now that Phase 1+6+10 confirmed via opus —
         // AutoTest's flag-flip cycle leaves the game in non-default state on
         // exit + spams 13×3s timing buckets per launch. Switch to manual

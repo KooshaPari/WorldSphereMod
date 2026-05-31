@@ -67,6 +67,10 @@ namespace WorldSphereMod.Voxel
             _submitDiagLogged = false;
             ActorVoxelEmit.ResetDiag();
             BuildingVoxelEmit.ResetDiag();
+            // Clear render-error telemetry + queued markers on world reload — stale counts
+            // from a prior world would otherwise pollute /diag/errors.
+            RenderErrorRegistry.Reset();
+            RenderErrorMarkers.Reset();
         }
 
         /// <summary>
@@ -563,7 +567,14 @@ namespace WorldSphereMod.Voxel
                     if (visCount > 0) _emitDiagSawNonZero = true;
                 }
                 if (!Core.IsWorld3D || !Core.savedSettings.VoxelEntities) return;
-                if (!EnsureMaterial()) return;
+                // MaterialNull: no usable shader/material resolved → every actor this frame is
+                // invisible. Record once at the actor manager position so the operator sees WHY.
+                if (!EnsureMaterial())
+                {
+                    RenderErrorRegistry.Record(RenderErrorType.MaterialNull, "ActorManager",
+                        "EnsureMaterial() returned no usable voxel material", Vector3.zero);
+                    return;
+                }
 
                 var rd = __instance.render_data;
                 var arr = __instance.visible_units.array;
@@ -662,7 +673,13 @@ namespace WorldSphereMod.Voxel
                     }
 
                     Sprite sp = rd.main_sprites[i];
-                    if (sp == null) { dsSpriteNull++; continue; }
+                    if (sp == null)
+                    {
+                        dsSpriteNull++;
+                        // SpriteNull: render_data had no sprite to voxelize for this actor.
+                        RecordActorError(RenderErrorType.SpriteNull, a, "main_sprites[i] is null", rd.positions[i]);
+                        continue;
+                    }
 
                     // VOXEL-OR-INVISIBLE POLICY (user, 2026-05-30): objects are REAL voxel
                     // volumes or NOTHING — never a 2D/2.5D billboard. So suppress the vanilla
@@ -685,8 +702,17 @@ namespace WorldSphereMod.Voxel
                     // Phase 10: LodTier.Proxy (and Voxel) share full voxel path until BuildProxy/ProxyMeshCache ship.
                     Mesh m = VoxelMeshCache.Get(sp, -1, true);
                     // Mesh not built yet (async) or empty → INVISIBLE until ready. Sprite
-                    // already suppressed; do NOT draw a placeholder billboard.
-                    if (m == null || m.vertexCount == 0) { dsVoxelMeshNull++; continue; }
+                    // already suppressed; do NOT draw a placeholder billboard. Record so the
+                    // operator can tell "still building" (VoxelNotReady) from "build failed".
+                    if (m == null || m.vertexCount == 0)
+                    {
+                        dsVoxelMeshNull++;
+                        Vector3 errPos = rd.positions[i];
+                        if (errPos.z < Constants.ZDisplacement * 0.5f) errPos = errPos.To3DTileHeight(false);
+                        RecordActorError(RenderErrorType.VoxelNotReady,
+                            a, sp != null ? "voxel mesh null/empty (async build pending) sprite=" + sp.name : "voxel mesh null/empty", errPos);
+                        continue;
+                    }
                     dsVoxelSubmitAttempt++;
 
                     Vector3 pos = rd.positions[i];
@@ -727,6 +753,10 @@ namespace WorldSphereMod.Voxel
                     else
                     {
                         dsVoxelSubmitFail++;
+                        // ShaderFailed: Submit rejected the mesh (material null / instancing
+                        // variant missing / InternalError). Distinct from "not ready".
+                        RecordActorError(RenderErrorType.ShaderFailed,
+                            a, "Submit() returned false (material/shader unusable)", pos);
                     }
                 }
                 // DIAG-SUBMIT one-shot path report — answers "where did the meshOk actors go?"
@@ -740,6 +770,13 @@ namespace WorldSphereMod.Voxel
             static WorldSphereMod.Rig.RigType ResolveRigType(string assetId)
             {
                 return Constants.ResolveActorRig(assetId);
+            }
+
+            // Funnel actor render failures into the registry with a stable object name.
+            static void RecordActorError(RenderErrorType type, Actor a, string reason, Vector3 worldPos)
+            {
+                string name = a != null && a.asset != null ? a.asset.id : "<actor>";
+                RenderErrorRegistry.Record(type, name, reason, worldPos);
             }
 
             static void LogActorSubmitDiagnostic(string path, ref bool logged, Actor actor, Sprite? sprite, Vector3 beforeLift, Vector3 afterLift, Color tint)
@@ -823,7 +860,12 @@ namespace WorldSphereMod.Voxel
                 }
                 if (!Core.IsWorld3D || !Core.savedSettings.VoxelEntities) return;
                 if (Core.savedSettings.ProceduralBuildings) return;
-                if (!EnsureMaterial()) return;
+                if (!EnsureMaterial())
+                {
+                    RenderErrorRegistry.Record(RenderErrorType.MaterialNull, "BuildingManager",
+                        "EnsureMaterial() returned no usable voxel material", Vector3.zero);
+                    return;
+                }
 
                 var rd = __instance.render_data;
                 var arr = __instance._array_visible_buildings;
@@ -861,7 +903,12 @@ namespace WorldSphereMod.Voxel
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode());
 
                     Sprite sp = rd.main_sprites[i];
-                    if (sp == null) continue;
+                    if (sp == null)
+                    {
+                        RenderErrorRegistry.Record(RenderErrorType.SpriteNull,
+                            b.asset != null ? b.asset.id : "<building>", "main_sprites[i] is null", cullPos);
+                        continue;
+                    }
 
                     // VOXEL-OR-INVISIBLE POLICY: suppress the vanilla 2D building sprite
                     // for every eligible building up-front (zero its render scale). If the
@@ -882,7 +929,13 @@ namespace WorldSphereMod.Voxel
                     // Phase 10: Proxy tier shares full voxel path until BuildProxy/ProxyMeshCache ship.
                     Mesh m = VoxelMeshCache.Get(sp);
                     // Not ready / empty → invisible until built. Sprite already suppressed.
-                    if (m == null || m.vertexCount == 0) continue;
+                    if (m == null || m.vertexCount == 0)
+                    {
+                        RenderErrorRegistry.Record(RenderErrorType.VoxelNotReady,
+                            b.asset != null ? b.asset.id : "<building>",
+                            "voxel mesh null/empty (async build pending) sprite=" + sp.name, cullPos);
+                        continue;
+                    }
 
                     Vector3 pos = rd.positions[i];
                     if (pos.z < Constants.ZDisplacement * 0.5f)
@@ -1527,6 +1580,12 @@ namespace WorldSphereMod.Voxel
             {
                 SanityTestCube.Draw();
             }
+
+            // Visual sink: draw this frame's typed ERROR-prop markers (gated by RenderErrorProps)
+            // BEFORE Flush so they batch with the frame's other voxel submissions. Then emit the
+            // low-frequency structured [ERRORS] summary (throttled on-change / interval inside).
+            WorldSphereMod.Voxel.RenderErrorMarkers.DrawQueued();
+            WorldSphereMod.Voxel.RenderErrorRegistry.MaybeEmitSummary();
 
             if (Core.savedSettings.ProceduralBuildings)
             {
