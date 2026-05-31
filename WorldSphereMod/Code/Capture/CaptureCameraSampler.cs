@@ -37,12 +37,27 @@ namespace WorldSphereMod.Capture
         {
             try
             {
-                Camera cam = SafeCamera();
-                if (cam == null) return;
+                float x, y, zoom;
 
-                float x = cam.transform.position.x;
-                float y = cam.transform.position.y;
-                float zoom = cam.orthographic ? cam.orthographicSize : cam.fieldOfView;
+                if (Core.IsWorld3D)
+                {
+                    // In 3D the 2D MapBox.camera is DISABLED; read the live WSM rig instead, the same
+                    // source the camera-action / screenshot code uses. Position is the world anchor,
+                    // Height is the surface-distance "zoom".
+                    var mgr = NewCamera.CameraManager.Manager;
+                    if (mgr == null) return;
+                    Vector2 pos = NewCamera.CameraManager.Position;
+                    x = pos.x; y = pos.y;
+                    zoom = NewCamera.CameraManager.Height;
+                }
+                else
+                {
+                    Camera cam = SafeCamera();
+                    if (cam == null) return;
+                    x = cam.transform.position.x;
+                    y = cam.transform.position.y;
+                    zoom = cam.orthographic ? cam.orthographicSize : cam.fieldOfView;
+                }
 
                 long now = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
 

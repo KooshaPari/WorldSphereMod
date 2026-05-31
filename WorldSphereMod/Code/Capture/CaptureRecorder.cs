@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using NeoModLoader.constants;
 using Newtonsoft.Json;
 using UnityEngine;
 
@@ -53,10 +54,18 @@ namespace WorldSphereMod.Capture
         /// <summary>Root dir for all capture artifacts (sessions + saved named flows).</summary>
         public static string CaptureRoot => Path.Combine(ModConfigRoot, FolderName);
 
-        static string ModConfigRoot =>
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                "AppData", "LocalLow", "mkarpenko", "WorldBox", "mods_config");
+        // Resolve the mods_config dir the same way the rest of WSM3D does (Core.SaveSettings,
+        // VoxelDiskCache): Paths.ModsConfigPath is WorldBox/NML's own cross-platform resolver
+        // (LocalLow on Windows, ~/Library/.. on macOS, ~/.config/.. on Linux). Falling back to a
+        // hardcoded Windows AppData/LocalLow path broke macOS/Linux.
+        static string ModConfigRoot
+        {
+            get
+            {
+                try { return Paths.ModsConfigPath; }
+                catch { return Application.persistentDataPath; }
+            }
+        }
 
         /// <summary>
         /// Record one normalized event. No-op when disabled. Lazily opens the session file on the

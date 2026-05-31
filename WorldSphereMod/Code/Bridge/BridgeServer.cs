@@ -516,7 +516,8 @@ namespace WorldSphereMod.Bridge
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/set_speed", StringComparison.OrdinalIgnoreCase))
                 {
-                    string speed = context.Request.QueryString["speed"] ?? string.Empty;
+                    // Honor speed from ?query= OR {"speed":...} body (live-bridge param contract).
+                    string speed = BridgeParams.From(context.Request).Get("speed", string.Empty);
                     WriteJson(context.Response, QueueAction("set_speed", () => BridgeActions.SetSpeed(speed)));
                     return;
                 }
@@ -532,21 +533,22 @@ namespace WorldSphereMod.Bridge
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/camera_focus", StringComparison.OrdinalIgnoreCase))
                 {
-                    string target = context.Request.QueryString["target"] ?? string.Empty;
+                    string target = BridgeParams.From(context.Request).Get("target", string.Empty);
                     WriteJson(context.Response, QueueAction("camera_focus", () => BridgeActions.CameraFocus(target)));
                     return;
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/select_tool", StringComparison.OrdinalIgnoreCase))
                 {
-                    string id = context.Request.QueryString["id"] ?? string.Empty;
+                    string id = BridgeParams.From(context.Request).Get("id", string.Empty);
                     WriteJson(context.Response, QueueAction("select_tool", () => BridgeActions.SelectTool(id)));
                     return;
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/use_tool", StringComparison.OrdinalIgnoreCase))
                 {
-                    string id = context.Request.QueryString["id"] ?? string.Empty;
-                    string ux = context.Request.QueryString["x"] ?? string.Empty;
-                    string uy = context.Request.QueryString["y"] ?? string.Empty;
+                    BridgeParams up = BridgeParams.From(context.Request);
+                    string id = up.Get("id", string.Empty);
+                    string ux = up.Get("x", string.Empty);
+                    string uy = up.Get("y", string.Empty);
                     WriteJson(context.Response, QueueAction("use_tool", () => BridgeActions.UseTool(id, ux, uy)));
                     return;
                 }

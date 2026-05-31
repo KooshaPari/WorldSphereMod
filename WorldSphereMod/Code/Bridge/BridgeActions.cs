@@ -93,6 +93,10 @@ namespace WorldSphereMod.Bridge
                 catch (Exception ex) { return Fail("set_speed_failed:" + ex.Message); }
             }
 
+            // A non-numeric arg (e.g. "fastest") with no named-id setter has no numeric meaning —
+            // fail loudly instead of silently falling through to the numeric path and PAUSING.
+            if (!isNumeric) return NotFound("Config.setWorldSpeed (named-speed setter)");
+
             // Numeric path: step nextWorldSpeed N times (0 = pause via set_paused).
             MethodInfo next = cfg.GetMethod("nextWorldSpeed", All, null, new[] { typeof(bool) }, null);
             if (next == null) return NotFound("Config.setWorldSpeed/nextWorldSpeed");
@@ -203,14 +207,14 @@ namespace WorldSphereMod.Bridge
             {
                 case "village":
                 case "city":
-                    if (TryInvoke(map, "locateSelectedVillage") != null) return new { ok = true, target = t };
+                    if (InvokeOk(TryInvoke(map, "locateSelectedVillage"))) return new { ok = true, target = t };
                     break;
                 case "center":
-                    if (TryInvoke(map, "centerCamera") != null) return new { ok = true, target = t };
+                    if (InvokeOk(TryInvoke(map, "centerCamera"))) return new { ok = true, target = t };
                     break;
             }
             // Generic fallback: center camera.
-            if (TryInvoke(map, "centerCamera") != null) return new { ok = true, target = "center", note = "fell_back_to_center" };
+            if (InvokeOk(TryInvoke(map, "centerCamera"))) return new { ok = true, target = "center", note = "fell_back_to_center" };
             return NotFound("MapBox.centerCamera");
         }
 
@@ -283,13 +287,14 @@ namespace WorldSphereMod.Bridge
             object actWithId = GetFieldValue(power, "click_action");
             if (actWithId is Delegate dWithId)
             {
-                bool ok = (bool)dWithId.DynamicInvoke(tile, power.id);
+                // DynamicInvoke returns null for void delegates — treat "no bool returned" as applied.
+                bool ok = dWithId.DynamicInvoke(tile, power.id) is bool b ? b : true;
                 return new { ok = true, applied = ok, id = power.id, x, y, via = "click_action" };
             }
             object actPow = GetFieldValue(power, "click_power_action");
             if (actPow is Delegate dPow)
             {
-                bool ok = (bool)dPow.DynamicInvoke(tile, power);
+                bool ok = dPow.DynamicInvoke(tile, power) is bool b ? b : true;
                 return new { ok = true, applied = ok, id = power.id, x, y, via = "click_power_action" };
             }
             return NotFound("GodPower.click_action/click_power_action");
@@ -423,6 +428,15 @@ namespace WorldSphereMod.Bridge
             {
                 return new { ok = false, method, error = ex.InnerException?.Message ?? ex.Message };
             }
+        }
+
+        /// <summary>True only when a TryInvoke result is present AND its anonymous {ok=...} flag is true
+        /// (TryInvoke returns {ok=false,...} on a thrown invoke, so a non-null result alone is not success).</summary>
+        static bool InvokeOk(object tryInvokeResult)
+        {
+            if (tryInvokeResult == null) return false;
+            PropertyInfo okProp = tryInvokeResult.GetType().GetProperty("ok");
+            return okProp != null && okProp.GetValue(tryInvokeResult) is bool b && b;
         }
 
         static object Fail(string error) => new { ok = false, error };
