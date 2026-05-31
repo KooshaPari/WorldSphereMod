@@ -771,6 +771,7 @@ namespace WorldSphereMod
                 public Vector3 Start;//the root of the corner in 3D space
             }
             private static readonly Region[] Regions = new Region[6];
+            internal static Region[] AllRegions => Regions;
             static Region CreateRegion(int minx, int miny, int maxx, int maxy)
             {
                 Region region = new Region();

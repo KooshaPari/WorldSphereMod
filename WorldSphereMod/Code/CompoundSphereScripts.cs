@@ -331,5 +331,56 @@ namespace WorldSphereMod
             Cube.transform.localScale = new Vector3(Tools.Cube.Size, Tools.Cube.Size, Tools.Cube.Size);
             Object.Destroy(Cube.GetComponent<MeshRenderer>());
         }
+
+        public static void GpuCylindricalInitiation(GpuSphereManager manager)
+        {
+            var sw = Stopwatch.StartNew();
+            GameObject cylinder = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            cylinder.transform.SetPositionAndRotation(new Vector3(0, 0, (manager.Cols / 2) + ZDisplacement), Quaternion.Euler(-90, 0, 0));
+            cylinder.transform.localScale = new Vector3(manager.Diameter, manager.Cols / 2, manager.Diameter);
+            Object.Destroy(cylinder.GetComponent<CapsuleCollider>());
+            Object.Destroy(cylinder.GetComponent<MeshRenderer>());
+            cylinder.AddComponent<MeshCollider>();
+            cylinder.transform.parent = manager.transform;
+            Debug.Log($"[WSM3D][PERF] CompoundSphereScripts.GpuCylindricalInitiation={sw.Elapsed.TotalMilliseconds:F3}ms");
+        }
+        public static void GpuFlatInitiation(GpuSphereManager manager)
+        {
+            var sw = Stopwatch.StartNew();
+            GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            quad.transform.SetPositionAndRotation(new Vector3((manager.Rows / 2) - 0.5f, 0, (manager.Cols / 2) - 0.5f + ZDisplacement), Quaternion.Euler(90, 0, 0));
+            quad.transform.localScale = new Vector3(manager.Rows, manager.Cols, 1);
+            Object.Destroy(quad.GetComponent<MeshRenderer>());
+            quad.GetComponent<MeshCollider>().convex = true;
+            quad.transform.parent = manager.transform;
+            Debug.Log($"[WSM3D][PERF] CompoundSphereScripts.GpuFlatInitiation={sw.Elapsed.TotalMilliseconds:F3}ms");
+        }
+        public static void GpuCubeInitiation(GpuSphereManager manager)
+        {
+            GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            cube.transform.position = new Vector3(0, 0, ZDisplacement);
+            cube.transform.localScale = new Vector3(Tools.Cube.Size, Tools.Cube.Size, Tools.Cube.Size);
+            Object.Destroy(cube.GetComponent<MeshRenderer>());
+            cube.transform.parent = manager.transform;
+        }
+        public static GpuCubeRegion[] BuildGpuCubeRegions()
+        {
+            var src = Tools.Cube.AllRegions;
+            var dst = new GpuCubeRegion[src.Length];
+            for (int i = 0; i < src.Length; i++)
+            {
+                Tools.Cube.Region r = src[i];
+                dst[i] = new GpuCubeRegion
+                {
+                    RectPos = r.Rect.position,
+                    RectSize = r.Rect.size,
+                    Normal = r.Normal,
+                    Right = r.Right,
+                    Up = r.Up,
+                    Start = r.Start,
+                };
+            }
+            return dst;
+        }
     }
 }

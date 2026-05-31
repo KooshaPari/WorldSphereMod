@@ -680,10 +680,16 @@ namespace WorldSphereMod
                                     onCreated: gpuMgr =>
                                     {
                                         GpuManager = gpuMgr;
+                                        if (gpuMgr == null)
+                                        {
+                                            Debug.LogWarning("[WSM3D] Sphere.Begin: GpuSphereManager creation returned null — staying on CPU path.");
+                                            return;
+                                        }
+                                        ConfigureGpuShape(gpuMgr);
                                         // Risk #2 mitigation (a): keep the GPU tile layer INACTIVE
                                         // until terrain heights are synced (just below), so its
                                         // Height=0 tiles never z-fight the HeightField mesh.
-                                        if (gpuMgr != null && gpuMgr.gameObject != null)
+                                        if (gpuMgr.gameObject != null)
                                             gpuMgr.gameObject.SetActive(false);
                                         Debug.Log($"[WSM3D] Sphere.Begin: GpuSphereManager created (parallel actor/voxel path). Rows={gpuMgr.Rows} Cols={gpuMgr.Cols}");
                                         // #199 Phase 4: bind the HeightField to the GPU matrix
@@ -911,10 +917,12 @@ namespace WorldSphereMod
             public static void UpdateScale(SphereTile Tile)
             {
                 Manager.UpdateScale(Tile.X, Tile.Y);
+                GpuManager?.UpdateScale(Tile.X, Tile.Y);
             }
             public static void UpdateTexture(SphereTile Tile)
             {
                 Manager.UpdateTexture(Tile.X, Tile.Y);
+                GpuManager?.UpdateTexture(Tile.X, Tile.Y);
             }
             private static bool _scalesDone = true;
             private static bool _texDone = true;
@@ -1151,6 +1159,15 @@ namespace WorldSphereMod
             // used ONLY for height sync, NO color delegate to avoid the O(N) scan)
             // then re-activate the GPU tile layer now that it sits at correct
             // elevations (undoing the Phase 2 SetActive(false)).
+            static void ConfigureGpuShape(CompoundSpheres.Gpu.GpuSphereManager mgr)
+            {
+                if (mgr == null) return;
+                int shape = savedSettings.CurrentShape;
+                if (shape == 2)
+                    mgr.ConfigureCube(CompoundSphereScripts.BuildGpuCubeRegions(), Tools.Cube.Size);
+                else
+                    mgr.ConfigureShape((CompoundSpheres.Gpu.TileShape)shape);
+            }
             static void BindGpu(int mapWidth, int mapHeight)
             {
                 if (GpuManager == null || CompoundCompute == null) return;
@@ -1969,6 +1986,11 @@ namespace WorldSphereMod
                     GpuManagerConfig = null;
                     return false;
                 }
+                CompoundSpheres.Gpu.GpuInitiation gpuInitiation = CompoundSphereScripts.GpuCylindricalInitiation;
+                if (savedSettings.CurrentShape == 1)
+                    gpuInitiation = CompoundSphereScripts.GpuFlatInitiation;
+                else if (savedSettings.CurrentShape == 2)
+                    gpuInitiation = CompoundSphereScripts.GpuCubeInitiation;
                 GpuManagerConfig = new CompoundSpheres.Gpu.GpuSphereManagerSettings
                 {
                     SphereTileMesh = CompoundSphereMesh,
@@ -1981,6 +2003,7 @@ namespace WorldSphereMod
                     GetSphereTileTexture = CompoundSphereScripts.GpuTileTexture,
                     TextureArray = Textures,
                     GetCameraRange = CompoundSphereScripts.GpuCameraRange,
+                    Initiation = gpuInitiation,
                     CustomBuffers = new List<CompoundSpheres.Gpu.IBufferData>()
                     {
                         new CompoundSpheres.Gpu.CustomBufferData<Vector3>("AddedColors", CompoundSphereScripts.GpuTileAddedColor)
