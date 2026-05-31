@@ -75,9 +75,24 @@ public class SavedSettings
         // "auto" defers to AssetShapeRegistry per sprite name. See spec Known gaps.
         public string VoxelInflationStyle = "pertexel";
         public float VoxelScaleMultiplier = 8.0f;
+        // WHY: actor/drop voxel meshes are already sprite-sized in world units; the full 8x
+        // terrain VoxelScaleMultiplier made actors gigantic (clipping the camera at max zoom).
+        // Effective actor render scale = VoxelScaleMultiplier * ActorVoxelScaleFactor, giving
+        // a unit roughly a terrain-tile tall (~2uu) instead of 8uu. Decoupled so terrain/voxel
+        // meshes that depend on 8x are unaffected.
+        public float ActorVoxelScaleFactor = 0.25f;
         public bool DebugVoxelOutline = false;
         public bool DebugSanityCube = false;
         public bool DebugSpawnBuildings = false;
+        // RENDER-ERROR DIAGNOSTICS: when true, render failures draw a typed in-world ERROR
+        // prop (GMod-style) at the failing object + record telemetry. When false, failures
+        // are INVISIBLE (voxel-or-invisible policy) but STILL recorded in RenderErrorRegistry
+        // / /diag/errors — telemetry is always on; only the visual marker is gated.
+        // Default TRUE while we fix rendering; flip false for clean play.
+        public bool RenderErrorProps = true;
+        // PER-OBJECT DIAGNOSTIC OVERLAY: tags objects with compact render-state so the
+        // failure DISTRIBUTION is visible at a glance. Opt-in; off by default.
+        public bool RenderDiagOverlay = false;
         // AutoTest set false now that Phase 1+6+10 confirmed via opus —
         // AutoTest's flag-flip cycle leaves the game in non-default state on
         // exit + spams 13×3s timing buckets per launch. Switch to manual
@@ -89,7 +104,10 @@ public class SavedSettings
         // path instead of voxelizing building sprites directly.
         public bool BuildingStyleProcgen = false;
         // Phase 3: Crossed-quad foliage (vs. billboarded sprite top tiles).
-        public bool CrossedQuadFoliage = false;
+        // WHY default ON: the [Phase] gate skips the FoliageTileRender Harmony patch
+        // entirely when this is false, so trees fall through to vanilla 2D. Mirrors
+        // VoxelEntities=true so foliage renders 3D out-of-the-box like actors.
+        public bool CrossedQuadFoliage = true;
         // ADR-0017 M0: continuous height-field mesh terrain (replaces per-tile quads).
         // Flat shape only. Default OFF until validated in-game.
         public bool UseHeightFieldTerrain = false;
@@ -122,7 +140,6 @@ public class SavedSettings
         public float NameplateMinScale = 0.25f;
         public float NameplateMaxScale = 4f;
         public float NameplateBaseScale = 0.15f;
-        public float NameplateScaleDistanceDivisor = 100f;
         // Phase 8: Day/night cycle + procedural sky + fog.
         public bool DayNightCycle = false;
         public float FogDensity = 0.05f;
@@ -174,6 +191,12 @@ public class SavedSettings
         public bool VoxelDiskCache = true;
         public int VoxelDiskCacheMaxSizeMB = 50;
 
+        // Input-capture substrate: passively record the user's in-game action stream
+        // (clicks->tool+tile, camera moves, world create/load, speed changes) to an
+        // append-only JSONL session log so flows can be replayed headlessly via the bridge.
+        // Default on for now (see docs/adr/ADR-input-capture-substrate.md).
+        public bool InputCaptureEnabled = true;
+
         public static void ApplyLightweightPreset(SavedSettings s)
         {
             if (s == null) throw new ArgumentNullException(nameof(s));
@@ -210,7 +233,7 @@ public class SavedSettings
 
             s.VoxelEntities = true;
             s.ProceduralBuildings = false;
-            s.CrossedQuadFoliage = false;
+            s.CrossedQuadFoliage = true; // WHY: gates the foliage patch; off = trees stay vanilla 2D
             s.MeshWater = false;
             s.WorldspaceHealth3D = false;
             s.MountainSlopeSmoothing = false;

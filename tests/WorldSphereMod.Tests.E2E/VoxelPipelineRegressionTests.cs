@@ -259,7 +259,12 @@ public class VoxelPipelineRegressionTests
             RegexOptions.Singleline);
         arrayMatch.Success.Should().BeTrue("SafeShaders array initializer must exist");
 
-        var entries = Regex.Matches(arrayMatch.Groups["body"].Value, @"""(?<name>[^""]+)""");
+        var bodyWithoutLineComments = Regex.Replace(
+            arrayMatch.Groups["body"].Value,
+            @"//.*$",
+            string.Empty,
+            RegexOptions.Multiline);
+        var entries = Regex.Matches(bodyWithoutLineComments, @"""(?<name>[^""]+)""");
         var shaderNames = new string[entries.Count];
         for (int i = 0; i < entries.Count; i++)
             shaderNames[i] = entries[i].Groups["name"].Value;
@@ -268,7 +273,9 @@ public class VoxelPipelineRegressionTests
         // bundle deserialization hits the 2nd shader (ManagedStream not
         // readable). Only OpaqueVertexColor survives. All other consumers
         // null-check LoadedShaders and fall back gracefully (water →
-        // Standard transparent, postfx → bypass, foliage → OVC, etc).
+        // fork height-field surface, postfx → bypass, foliage → OVC, etc).
+        // This MUST match Core.Sphere.SafeShaders exactly (merged: fix/'s
+        // fork-water path keeps the same single-shader runtime trim).
         var expected = new[]
         {
             "OpaqueVertexColor",

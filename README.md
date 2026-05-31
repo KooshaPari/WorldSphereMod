@@ -33,6 +33,26 @@ This fork lands a real 3D pipeline on top of that foundation:
 The full plan, including file-by-file changes and verification steps, lives
 at `docs/PLAN.md`.
 
+## Divergence from upstream
+
+Forked at upstream `2188cb7a` (2026-05-18). As of 2026-05-30 we are **10 ahead / 682 behind**
+(the "behind" count is inflated by hard-fork history; the substantive missing upstream
+work is 10 commits from 05-25→05-29). Full audit: [`docs/upstream-divergence-audit.md`](docs/upstream-divergence-audit.md).
+
+| Feature | Upstream behavior | Our fork behavior | User-facing change | Technical change | Outcome (what the user sees/gets) |
+|---|---|---|---|---|---|
+| Entities (actors/buildings/drops/etc.) | 2D `SpriteRenderer` rotated to face camera | Voxelized actors + buildings, procedural meshes | Real 3D units instead of flat billboards | Voxel/mesh pipeline, `VoxelEntities=true` default (Phase 1, PROVEN) | Solid 3D characters and structures |
+| Rendering backend | Vendored `CompoundSpheres.dll` binary | Submodule `External/Compound-Spheres` (`wsm3d/main`) with per-vertex normals + water-mask + FrustumCuller + HeightFieldRenderer | — | Replaces vendored DLL with source submodule build | Terrain relief, water, culling we control |
+| Terrain | Flat 3D tile tops | Height-field terrain with biome colors, slopes, Perlin detail | Elevation and smooth biome-colored surface | `HeightFieldRenderer` in submodule | Hills/valleys instead of flat grid |
+| Foliage | 2D sprite cards | Crossed-quad 3D trees/bushes/rocks (scale 8x) | Trees stand up in 3D | `CrossedQuadFoliage` (Phase 3) | 3D vegetation |
+| Water | Tile color | Mesh water (translucent fluid; Gerstner shader source) | Water looks like a fluid surface | `MeshWater` + water sub-mesh | Translucent animated water |
+| Walls | (upstream `170faf30` adds a 3D wall path — NOT yet merged) | 3D prism walls via our Phase 3 overlays | Walls render in 3D | Our overlay path; upstream's `QuantumSprites.drawWallType` prefix is a safe future cherry-pick | Standing walls |
+| Lighting / sky | Skybox + baked per-tile color | Sun driver, shadow cascades, procedural sky, day/night driver | Dynamic lighting + optional day/night | Phases 5/8 (defaults OFF pending validation) | Real-time shadows, sky gradient |
+| UI | Flat Canvas | Worldspace 3D nameplates, HP bars, damage popups, selection ring | Floating in-world labels | Phase 7 (`WorldspaceUI`, default OFF) | 3D UI anchored to units |
+| API | v1 surface | v1 preserved + v2 (`IsModel3D`, `RegisterCustomMesh`) no-op on upstream host | External mods get 3D hooks | `WorldSphereAPI` v2, co-installable GUID `worldsphere3d.fork` | Other mods can register custom meshes |
+| Diagnostics | None | Typed render-error markers + `ErrorRegistry` + `/diag/errors` | Clearer failure reporting | `5c137e10` | Actionable render errors |
+| **NOT taken from upstream (05-25→05-29)** | `aab82167` cube-mesh terrain, `170faf30` wall fix, `19e73d6c`+`79bed66e` compute-backend re-integration + rebuilt DLL/AssetBundles | We use our own voxel + submodule pipeline | — | Upstream DLL is built against the new compute backend and bypasses our submodule; high conflict with voxel/heightfield work | Our 3D pipeline, not upstream's recent backend rewrite |
+
 ## Installation
 
 This fork uses a different `GUID` (`worldsphere3d.fork`) than upstream so it

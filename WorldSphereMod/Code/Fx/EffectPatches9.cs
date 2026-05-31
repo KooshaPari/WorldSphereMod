@@ -4,8 +4,8 @@ using UnityEngine;
 namespace WorldSphereMod.Fx
 {
     /// <summary>
-    /// Phase 9 Step 4 lifecycle plumbing. Mirrors the Sphere.Begin/Finish Postfix/Prefix
-    /// pair pattern used by <see cref="Water.WaterRender"/> — initializes the particle
+    /// Phase 9 Step 4 lifecycle plumbing. Uses the Sphere.Begin/Finish Postfix/Prefix
+    /// pair pattern — initializes the particle
     /// library + decal pool when a 3D world spins up, tears them down on Finish. The
     /// visual sprite-suppression hook is deferred to Step 5; this file is plumbing only.
     /// </summary>

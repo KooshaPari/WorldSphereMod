@@ -48,34 +48,12 @@ try {
     }
 
     function Import-DoAllVisionEnv {
-        foreach ($fileName in @('omniroute-vision.env', 'fireworks-vision.env')) {
-            $envFile = Join-Path $RepoRoot "Tools/$fileName"
-            if (Test-Path -LiteralPath $envFile) {
-                Get-Content -LiteralPath $envFile | ForEach-Object {
-                    if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
-                        Set-Item -Path "env:$($matches[1].Trim())" -Value $matches[2].Trim()
-                    }
-                }
-            }
-        }
-    }
-
-    function Import-DoAllVisionEnv {
-        Import-DoAllVisionEnvFile "omniroute-vision.env"
-        Import-DoAllVisionEnvFile "fireworks-vision.env"
+        Import-VisionEnvFile "omniroute-vision.env"
+        Import-VisionEnvFile "fireworks-vision.env"
         if (-not $env:FIREWORKS_API_KEY) {
             $userFw = [Environment]::GetEnvironmentVariable("FIREWORKS_API_KEY", "User")
             if ($userFw) { $env:FIREWORKS_API_KEY = $userFw }
         }
-    }
-
-    function Get-DefaultPlaycuaVisionBackend {
-        $explicit = if ($env:PLAYCUA_VISION_BACKEND) { $env:PLAYCUA_VISION_BACKEND.Trim().ToLowerInvariant() } else { "" }
-        if ($explicit -in @("fireworks", "omniroute", "anthropic", "off")) { return $explicit }
-        if ($env:FIREWORKS_API_KEY) { return "fireworks" }
-        if ($env:OMNROUTE_API_KEY) { return "omniroute" }
-        if ($env:ANTHROPIC_API_KEY) { return "anthropic" }
-        return "off"
     }
 
     Import-DoAllVisionEnv
@@ -94,19 +72,24 @@ try {
     }
     Add-DoAllStage 'initial-offline-verify' 'passed' @{}
 
-    function Get-BridgeHealth {
-        try {
-            return Invoke-RestMethod -Uri 'http://127.0.0.1:8766/health' -TimeoutSec 4
-        } catch {
-            return $null
+    function Wait-BridgeReady {
+        param([int]$MaxMinutes = 5)
+        $deadline = (Get-Date).AddMinutes($MaxMinutes)
+        $health = $null
+        while ((Get-Date) -lt $deadline) {
+            $health = Get-BridgeHealth
+            if ($health -and $health.bridgeAlive) { return $health }
+            Start-Sleep -Seconds 6
         }
+        return $health
     }
 
     if (-not $SkipRelaunch) {
         Write-Host '=== do-all: relaunch ===' -ForegroundColor Cyan
         pwsh (Join-Path $RepoRoot 'Tools/wsm3d.ps1') relaunch -NoBuild | Out-Host
         Write-Host '=== do-all: wait bridge (up to 8m) ===' -ForegroundColor Cyan
-        if (-not (Ensure-BridgeReady -WaitSeconds 480)) {
+        $health = Wait-BridgeReady -MaxMinutes 8
+        if (-not $health -or -not $health.bridgeAlive) {
             Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge not up after relaunch (8m)' }
             $report.durationMs = [math]::Round(((Get-Date) - $started).TotalMilliseconds, 0)
             $report.finishedAt = (Get-Date).ToUniversalTime().ToString('o')
@@ -114,31 +97,17 @@ try {
             $report | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $ReportPath -Encoding utf8
             throw 'Bridge did not become reachable after relaunch (waited 8m)'
         }
-        $health = Get-BridgeHealth
-        if (-not $health) {
-            Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge dropped after ready check' }
-            throw 'Bridge dropped immediately after ready check'
-        }
         Add-DoAllStage 'bridge-wait' 'passed' @{ isWorld3D = [bool]$health.isWorld3D }
 
-            if (-not $health.isWorld3D) {
-                Write-Host '=== do-all: bootstrap save2 (bridge-save-load-smoke) ===' -ForegroundColor Cyan
-                $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend off
-                $health = Get-BridgeHealth
-            }
-        } else {
-            $health = Wait-BridgeReady -MaxMinutes 2
-            if (-not $health -or -not $health.bridgeAlive) {
-                Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge down' }
-                throw 'Bridge not reachable (use relaunch or start WorldBox)'
-            }
-            if (-not $health.isWorld3D) {
-                $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend off
-                $health = Get-BridgeHealth
-            }
+        if (-not $health.isWorld3D) {
+            Write-Host '=== do-all: bootstrap save2 (bridge-save-load-smoke) ===' -ForegroundColor Cyan
+            $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend off
+            $health = Get-BridgeHealth
         }
     } else {
-        if (-not (Ensure-BridgeReady -WaitSeconds 120)) {
+        Write-Host '=== do-all: wait bridge (SkipRelaunch, up to 2m) ===' -ForegroundColor Cyan
+        $health = Wait-BridgeReady -MaxMinutes 2
+        if (-not $health -or -not $health.bridgeAlive) {
             Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge down' }
             $report.durationMs = [math]::Round(((Get-Date) - $started).TotalMilliseconds, 0)
             $report.finishedAt = (Get-Date).ToUniversalTime().ToString('o')
@@ -146,15 +115,12 @@ try {
             $report | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $ReportPath -Encoding utf8
             throw 'Bridge not reachable (use relaunch or start WorldBox)'
         }
-        $health = Get-BridgeHealth
-        if (-not $health) {
-            Add-DoAllStage 'bridge-wait' 'failed' @{ reason = 'bridge dropped after ready check' }
-            throw 'Bridge dropped immediately after ready check'
-        }
+        Add-DoAllStage 'bridge-wait' 'passed' @{ isWorld3D = [bool]$health.isWorld3D }
+
         if (-not $health.isWorld3D) {
-            $bootstrap = Join-Path $RepoRoot 'Tools/wsm3d-playcua/sample-scenarios/bridge-save-load-smoke.yaml'
-            python (Join-Path $RepoRoot 'Tools/wsm3d-playcua/main.py') $bootstrap --vision-backend off 2>&1 | Out-Null
-            $health = Wait-World3D -MaxSeconds 180
+            Write-Host '=== do-all: bootstrap save2 (bridge-save-load-smoke) ===' -ForegroundColor Cyan
+            $null = Ensure-BridgeWorld3DBootstrapped -BootstrapVisionBackend off
+            $health = Get-BridgeHealth
         }
     }
 

@@ -36,6 +36,30 @@ namespace WorldSphereMod.Rig
             public int LastSeenFrame;
         }
 
+        /// <summary>
+        /// Master gate for the skeletal skinning path. The 12-bone humanoid rig
+        /// uses HARDCODED unit-space bind offsets (see HumanoidRig.Bones: 0.5f,
+        /// 0.3f, ...) while the voxel mesh is built in per-sprite world units
+        /// (vertex = (pixel - pivot) / sprite.pixelsPerUnit, see
+        /// SpriteVoxelizer.BuildPerTexel). Those two spaces do NOT coincide: the
+        /// skeleton joints are NOT positioned at the centroids of the voxels they
+        /// skin. At rest pose this is invisible (skin matrix == identity), but the
+        /// instant a bone rotates, each rigidly single-weighted voxel swings about
+        /// the wrong pivot and the actor visibly shreds/distorts — exactly the
+        /// "horribly broken rigging" the user reported.
+        ///
+        /// Making this correct requires deriving each bone's bind pose from the
+        /// actual per-bone voxel centroid of the specific mesh (per sprite), which
+        /// is a substantial rework with real regression risk. The static voxel
+        /// path renders actors correctly today (alpha.8). So until per-mesh bind
+        /// poses land, we keep the skinned path DISABLED and route every actor
+        /// through the static voxel mesh. This is enforced here (not just via the
+        /// SavedSettings flag) so a stray flag flip — e.g. AutoTest cycling or a
+        /// save/load resurrecting the value — can NEVER reintroduce broken actors.
+        /// Flip this to true only once HumanoidRig builds mesh-aligned bind poses.
+        /// </summary>
+        const bool kSkinnedRigProductionReady = false;
+
         static readonly Dictionary<long, ActorRigInstance> _actorRigs = new Dictionary<long, ActorRigInstance>();
         static readonly List<long> _scratchRemove = new List<long>();
         static Transform? _root;
@@ -65,7 +89,14 @@ namespace WorldSphereMod.Rig
                 return false;
             }
 
-            if (rigType != RigType.Humanoid)
+            // STABLE-OFF GUARD: until the humanoid rig builds mesh-aligned bind
+            // poses (see kSkinnedRigProductionReady), route EVERY actor through
+            // the static voxel mesh — which renders correctly — instead of the
+            // distorting skinned path. Returning true (not false) is deliberate:
+            // the caller treats a false return as "invisible this frame", so we
+            // submit the static mesh ourselves and report success so the actor
+            // stays visible and correct.
+            if (!kSkinnedRigProductionReady || rigType != RigType.Humanoid)
             {
                 return VoxelRender.Submit(svm.BaseMesh, Matrix4x4.TRS(pos, rot, scl), tint);
             }
@@ -153,7 +184,8 @@ namespace WorldSphereMod.Rig
             double avgFrameMs = _perfWindowMs / _perfFrameCounter;
             _perfFrameCounter = 0;
             _perfWindowMs = 0.0;
-            UnityDebug.Log($"[WSM3D][Perf] RigDriver.Update avg60FrameMs={avgFrameMs:F3}ms frameSkinnedActors={activeRigCount}");
+            if (Core.savedSettings != null && Core.savedSettings.ProfilerDump)
+                UnityDebug.Log($"[WSM3D][Perf] RigDriver.Update avg60FrameMs={avgFrameMs:F3}ms frameSkinnedActors={activeRigCount}");
         }
 
         public static void Clear()

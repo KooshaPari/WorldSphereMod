@@ -21,6 +21,13 @@ namespace WorldSphereMod.LOD
 
         static readonly Dictionary<int, LodHysteresis> _hyst = new Dictionary<int, LodHysteresis>();
 
+        // WHY: a tier change requires crossing the boundary by this fraction (deadband)
+        // AND persisting this many frames. Without a distance deadband, actors sitting
+        // near a hard threshold flipped Voxel<->Impostor every frame as the camera panned,
+        // producing the left-to-right LOD WAVE the user observed.
+        const float _hystMargin = 0.25f;   // 25% squared-distance deadband around each boundary
+        const int _hystFrames = 8;          // proposed tier must persist N frames before promotion
+
         // Cached squared-distance LOD thresholds; recomputed only when any of the inputs
         // (camera FOV, LODScale, VoxelThreshold, ProxyThreshold) change. Saves an Mathf.Tan,
         // two divides and two muls per actor per frame; per-actor cost collapses to a
@@ -48,7 +55,10 @@ namespace WorldSphereMod.LOD
 
             float fov = cam.fieldOfView;
             float lodScale = Core.savedSettings.LODScale;
-            float voxelScale = Mathf.Max(0.0001f, Core.savedSettings.VoxelScaleMultiplier);
+            // WHY: LOD distance must track the ACTUAL rendered actor height, which is now
+            // VoxelScaleMultiplier * ActorVoxelScaleFactor (actors render reduced). Folding the
+            // factor in keeps tier boundaries matched to real on-screen size.
+            float voxelScale = Mathf.Max(0.0001f, Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor);
             if (fov != _cachedFov || lodScale != _cachedLodScale
                 || VoxelThreshold != _cachedVoxelThreshold || ProxyThreshold != _cachedProxyThreshold
                 || voxelScale != _cachedVoxelScale)
@@ -72,17 +82,23 @@ namespace WorldSphereMod.LOD
             float dz = worldPos.z - camPos.z;
             float distSqr = dx * dx + dy * dy + dz * dz;
 
-            LodTier proposed;
-            if (distSqr < _voxelMaxDistSqr) proposed = LodTier.Voxel;
-            else if (distSqr < _proxyMaxDistSqr) proposed = LodTier.Proxy;
-            else proposed = LodTier.Impostor;
+            // Raw tier from the bare thresholds (no hysteresis).
+            LodTier rawTier;
+            if (distSqr < _voxelMaxDistSqr) rawTier = LodTier.Voxel;
+            else if (distSqr < _proxyMaxDistSqr) rawTier = LodTier.Proxy;
+            else rawTier = LodTier.Impostor;
 
             if (!_hyst.TryGetValue(instanceId, out LodHysteresis h))
             {
-                h = new LodHysteresis { current = proposed, pending = proposed, pendingFrames = 0 };
+                h = new LodHysteresis { current = rawTier, pending = rawTier, pendingFrames = 0 };
                 _hyst[instanceId] = h;
                 return h.current;
             }
+
+            // WHY: apply a deadband around the CURRENT tier's boundaries. Only propose a
+            // change once distance crosses the boundary by _hystMargin. An actor that stays
+            // inside the band keeps its tier no matter how the camera pans — kills the wave.
+            LodTier proposed = ProposeWithDeadband(distSqr, h.current);
 
             if (h.current == proposed)
             {
@@ -95,7 +111,7 @@ namespace WorldSphereMod.LOD
             if (h.pending == proposed)
             {
                 h.pendingFrames++;
-                if (h.pendingFrames >= 3)
+                if (h.pendingFrames >= _hystFrames)
                 {
                     h.current = proposed;
                     h.pendingFrames = 0;
@@ -105,6 +121,34 @@ namespace WorldSphereMod.LOD
 
             _hyst[instanceId] = h;
             return h.current;
+        }
+
+        // Hysteresis deadband: a promotion to a NEARER tier requires distance to drop well
+        // below the boundary; a demotion to a FARTHER tier requires it to rise well above.
+        // Boundaries widen/narrow by _hystMargin depending on the current tier so a small
+        // per-frame distance jitter never flips the tier.
+        static LodTier ProposeWithDeadband(float distSqr, LodTier current)
+        {
+            float voxelEnter = _voxelMaxDistSqr * (1f - _hystMargin); // must be closer than this to ENTER Voxel
+            float voxelExit  = _voxelMaxDistSqr * (1f + _hystMargin); // must be farther than this to LEAVE Voxel
+            float proxyEnter = _proxyMaxDistSqr * (1f - _hystMargin);
+            float proxyExit  = _proxyMaxDistSqr * (1f + _hystMargin);
+
+            switch (current)
+            {
+                case LodTier.Voxel:
+                    if (distSqr > voxelExit)
+                        return distSqr > proxyExit ? LodTier.Impostor : LodTier.Proxy;
+                    return LodTier.Voxel;
+                case LodTier.Proxy:
+                    if (distSqr < voxelEnter) return LodTier.Voxel;
+                    if (distSqr > proxyExit) return LodTier.Impostor;
+                    return LodTier.Proxy;
+                default: // Impostor
+                    if (distSqr < voxelEnter) return LodTier.Voxel;
+                    if (distSqr < proxyEnter) return LodTier.Proxy;
+                    return LodTier.Impostor;
+            }
         }
 
         public static void ResetHysteresis()
