@@ -5,16 +5,16 @@ using FluentAssertions;
 using Xunit;
 
 /// <summary>
-/// Source invariants for terrain polish: biome color blending (TileMapToSphere + Core.Sphere)
-/// and mountain slope smoothing overlay (Terrain/TerrainSmoothing.cs).
+/// Source invariants for biome color blending (SavedSettings + TileMapToSphere + Core.Sphere).
+/// Split out of the former TerrainSmoothingInvariantsTests after the mountain-slope smoothing
+/// overlay (Terrain/TerrainSmoothing.cs) was removed in favor of the fork HeightFieldRenderer.
+/// These tests exercise LIVE code only.
 /// </summary>
-public sealed class TerrainSmoothingInvariantsTests
+public sealed class BiomeBlendingInvariantsTests
 {
     const string SavedSettingsRelative = "WorldSphereMod/Code/SavedSettings.cs";
     const string TileMapToSphereRelative = "WorldSphereMod/Code/TileMapToSphere.cs";
-    const string TerrainSmoothingRelative = "WorldSphereMod/Code/Terrain/TerrainSmoothing.cs";
     const string CoreRelative = "WorldSphereMod/Code/Core.cs";
-    const string WorldUnloadPatchRelative = "WorldSphereMod/Code/Voxel/WorldUnloadPatch.cs";
     const string WorldSphereTabRelative = "WorldSphereMod/Code/WorldSphereTab.cs";
 
     static string FindRepoRoot()
@@ -69,42 +69,8 @@ public sealed class TerrainSmoothingInvariantsTests
         throw new InvalidOperationException("Unbalanced braces while extracting method body");
     }
 
-    static string ExtractOnFinishMethodBody(string patchSource)
-    {
-        const string signature = "public static void OnFinish()";
-        int headerIndex = patchSource.IndexOf(signature, StringComparison.Ordinal);
-        headerIndex.Should().BeGreaterThanOrEqualTo(0, "WorldUnloadPatch.OnFinish must exist");
-
-        int openBrace = patchSource.IndexOf('{', headerIndex);
-        openBrace.Should().BeGreaterThanOrEqualTo(0, "OnFinish must open with a '{'");
-
-        int depth = 0;
-        for (int i = openBrace; i < patchSource.Length; i++)
-        {
-            char c = patchSource[i];
-            if (c == '{')
-            {
-                depth++;
-                continue;
-            }
-
-            if (c != '}')
-            {
-                continue;
-            }
-
-            depth--;
-            if (depth == 0)
-            {
-                return patchSource.Substring(openBrace + 1, i - openBrace - 1);
-            }
-        }
-
-        throw new InvalidOperationException("Unbalanced braces while extracting OnFinish body");
-    }
-
     [Fact]
-    public void SavedSettings_terrain_polish_flags_default_false()
+    public void SavedSettings_terrain_polish_flags_default_correctly()
     {
         var settings = ReadSource(SavedSettingsRelative);
 
@@ -185,97 +151,6 @@ public sealed class TerrainSmoothingInvariantsTests
         var sampleBody = ExtractMethodBody(core, "static bool TrySampleBaseColor(int x, int y, out Color32 color, out WorldTile tile)");
         sampleBody.Should().Contain("Core.Sphere.IsWrapped",
             "wrapped worlds must wrap horizontal neighbor coordinates");
-    }
-
-    [Fact]
-    public void MountainSlopeSurface_is_phase_gated_and_rebuilds_on_tile_redraw()
-    {
-        var source = ReadSource(TerrainSmoothingRelative);
-
-        source.Should().Contain("[Phase(nameof(SavedSettings.MountainSlopeSmoothing))]",
-            "mountain slope patches must honor the MountainSlopeSmoothing phase gate");
-        source.Should().Contain("[HarmonyPatch(typeof(WorldTilemap), nameof(WorldTilemap.redrawTiles))]",
-            "slope overlay must rebuild when upstream tilemap redraw runs");
-
-        var ensureActive = ExtractMethodBody(source, "public static void EnsureActive()");
-        ensureActive.Should().Contain("!Core.IsWorld3D || !Core.savedSettings.MountainSlopeSmoothing",
-            "overlay must tear down outside 3D or when the toggle is off");
-        ensureActive.Should().Contain("Create(capsule.parent)",
-            "first activation must parent the overlay under the sphere rig");
-
-        var redrawPostfix = ExtractMethodBody(source, "public static void OnRedraw()");
-        redrawPostfix.Should().Contain("MountainSlopeSurface.EnsureActive()");
-        redrawPostfix.Should().Contain("MountainSlopeSurface.RequestRebuild()");
-    }
-
-    [Fact]
-    public void MountainSlopeSurface_detects_cliff_quads_above_height_threshold()
-    {
-        var source = ReadSource(TerrainSmoothingRelative);
-        var detectBody = ExtractMethodBody(source, "List<CliffQuad> DetectCliffQuads(int width, int height)");
-
-        detectBody.Should().Contain("tile.TileHeight()",
-            "cliff detection must compare upstream tile heights");
-        detectBody.Should().Contain("Mathf.Abs(tileHeight - rightHeight) > 0.1f",
-            "horizontal cliff edges must exceed minimum height threshold for smooth coverage");
-        detectBody.Should().Contain("Mathf.Abs(tileHeight - upHeight) > 0.1f",
-            "vertical cliff edges must exceed minimum height threshold for smooth coverage");
-        detectBody.Should().Contain("Core.Sphere.GetColor(tile.data.tile_id)",
-            "cliff quads must carry biome-blended tile colors");
-    }
-
-    [Fact]
-    public void MountainSlopeSurface_RebuildMesh_projects_cliff_quads_onto_sphere()
-    {
-        var source = ReadSource(TerrainSmoothingRelative);
-        var rebuildBody = ExtractMethodBody(source, "void RebuildMesh()");
-
-        rebuildBody.Should().Contain("DetectCliffQuads(width, height)",
-            "mesh rebuild must derive geometry from cliff detection");
-        rebuildBody.Should().Contain("Core.Sphere.SpherePos(",
-            "rebuilt vertices must be projected onto the sphere surface");
-    }
-
-    [Fact]
-    public void MountainSlopeSurface_EnsureMaterial_resolves_OpaqueVertexColor_with_white_tint()
-    {
-        var source = ReadSource(TerrainSmoothingRelative);
-        var ensureBody = ExtractMethodBody(source, "static bool EnsureMaterial()");
-
-        ensureBody.Should().Contain("LoadedShaders.TryGetValue(\"OpaqueVertexColor\"",
-            "slope material must resolve from the bundle-loaded shader cache first");
-        ensureBody.Should().Contain("Shader.Find(\"WSM3D/OpaqueVertexColor\")",
-            "slope material must fall back to Shader.Find when cache misses");
-        ensureBody.Should().Contain("Color.white",
-            "tint must be white so vertex colors are the sole albedo source");
-        ensureBody.Should().Contain("material.enableInstancing",
-            "slope material must validate instancing before adoption");
-        ensureBody.Should().Contain("[WSM3D] No mountain slope smoothing shader found; overlay disabled.",
-            "missing shader path must disable overlay instead of rendering magenta fallback");
-    }
-
-    [Fact]
-    public void Core_ApplyPhaseToggle_wires_MountainSlopeSmoothing_lifecycle()
-    {
-        var core = ReadSource(CoreRelative);
-        var applyBody = ExtractMethodBody(core, "public static void ApplyPhaseToggle(string flagName, bool newValue)");
-
-        var mountainBranch = ExtractMethodBody(applyBody,
-            $"if (flagName == nameof(SavedSettings.MountainSlopeSmoothing))");
-        mountainBranch.Should().Contain("MountainSlopeSurface.EnsureActive()",
-            "enabling the toggle must create the overlay without world reload");
-        mountainBranch.Should().Contain("MountainSlopeSurface.Destroy()",
-            "disabling the toggle must tear down the overlay immediately");
-    }
-
-    [Fact]
-    public void WorldUnloadPatch_OnFinish_clears_mountain_slope_overlay()
-    {
-        var patch = ReadSource(WorldUnloadPatchRelative);
-        var onFinish = ExtractOnFinishMethodBody(patch);
-
-        onFinish.Should().Contain("WorldSphereMod.Terrain.MountainSlopeSurface.Destroy()",
-            "world unload must drop transient mountain slope mesh state");
     }
 
     [Fact]
