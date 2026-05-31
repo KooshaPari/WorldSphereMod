@@ -269,20 +269,25 @@ public class VoxelPipelineRegressionTests
         for (int i = 0; i < entries.Count; i++)
             shaderNames[i] = entries[i].Groups["name"].Value;
 
-        // ADR-0013 emergency trim 2026-05-28: Unity natively crashes when
-        // bundle deserialization hits the 2nd shader (ManagedStream not
-        // readable). Only OpaqueVertexColor survives. All other consumers
-        // null-check LoadedShaders and fall back gracefully (water →
-        // fork height-field surface, postfx → bypass, foliage → OVC, etc).
-        // This MUST match Core.Sphere.SafeShaders exactly (merged: fix/'s
-        // fork-water path keeps the same single-shader runtime trim).
+        // ADR-0013 — re-verified at runtime 2026-05-31. A full re-expansion to
+        // the postFX/sky/water/foliage set was tried against the 60f1-MATCHED
+        // re-baked bundle and STILL crashed: every shader except
+        // OpaqueVertexColor threw "Mismatched serialization in the builtin
+        // class 'Shader'" + ManagedStream-not-readable, loaded with an empty
+        // name, and the accumulated native errors crashed the player. The
+        // editor-version match did NOT make them 60f1-runtime compatible.
+        // Only OpaqueVertexColor deserializes cleanly. All other consumers
+        // null-check LoadedShaders and fall back gracefully (water → fork
+        // height-field surface, postfx → bypass, foliage → OVC, etc).
+        // This MUST match Core.Sphere.SafeShaders exactly.
         var expected = new[]
         {
             "OpaqueVertexColor",
         };
         shaderNames.Should().BeEquivalentTo(expected,
             "SafeShaders must contain EXACTLY the runtime shader load set " +
-            "(post ADR-0013 emergency trim — only OpaqueVertexColor is bundle-safe)");
+            "(ADR-0013 — only OpaqueVertexColor is 60f1-runtime bundle-safe; " +
+            "full-set re-expansion re-verified crashing 2026-05-31)");
 
         // The ADR-0013 reference must be present as a guard against uninformed edits
         source.Should().Contain("ADR-0013",
