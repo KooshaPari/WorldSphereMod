@@ -626,6 +626,10 @@ namespace WorldSphereMod.Voxel
                         if (rigType != WorldSphereMod.Rig.RigType.None)
                         {
                             dsSkeletalAttempt++;
+                            // VOXEL-OR-INVISIBLE: suppress the vanilla 2D sprite for skinned
+                            // actors up-front too. If the skinned submit fails, the actor is
+                            // invisible this frame rather than reverting to a 2D billboard.
+                            rd.has_normal_render[i] = false;
                             Vector3 skPos = rd.positions[i];
                             Vector3 skPosBeforeLift = skPos;
                             Vector3 skRot = rd.rotations[i];
@@ -660,37 +664,28 @@ namespace WorldSphereMod.Voxel
                     Sprite sp = rd.main_sprites[i];
                     if (sp == null) { dsSpriteNull++; continue; }
 
+                    // VOXEL-OR-INVISIBLE POLICY (user, 2026-05-30): objects are REAL voxel
+                    // volumes or NOTHING — never a 2D/2.5D billboard. So suppress the vanilla
+                    // 2D sprite for EVERY eligible actor up-front (not just on successful
+                    // submit). If the voxel mesh isn't ready / material invalid / far LOD,
+                    // we skip the submit and the actor simply renders nothing this frame.
+                    rd.has_normal_render[i] = false;
+
                     if (tier == WorldSphereMod.LOD.LodTier.Impostor)
                     {
-                        bool submitted = false;
-                        Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
-                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial(sp);
-                        if (im == null || im.vertexCount == 0) { dsImpostorMeshNull++; continue; }
-                        if (imMat == null) { dsImpostorMatNull++; continue; }
-                        Vector3 imPos = rd.positions[i];
-                        Vector3 imPosBeforeLift = imPos;
-                        Vector3 imScl = rd.scales[i];
-                        if (rd.flip_x_states[i]) imScl.x = -imScl.x;
-                        if (imPos.z < Constants.ZDisplacement * 0.5f)
-                        {
-                            imPos = imPos.To3DTileHeight(false);
-                        }
-                        LogActorSubmitDiagnostic("impostor", ref _actorImpostorDiagnosticLogged, a, sp, imPosBeforeLift, imPos, rd.colors[i]);
-                        Quaternion br = WorldSphereMod.LOD.ImpostorBillboard.GetFacingRotation(imPos);
-                        Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
-                        MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
-                        LastBatcherSubmitCount++;
-                        dsImpostorSubmit++;
-                        submitted = true;
-                        if (submitted)
-                        {
-                            rd.has_normal_render[i] = false;
-                        }
+                        // FAR TIER = CULL, NOT BILLBOARD. The user explicitly prefers seeing
+                        // NOTHING over a flat impostor. Keep the LOD distance logic (so near
+                        // objects still voxelize) but the far tier draws nothing. Sprite is
+                        // already suppressed above, so the object is invisible at distance.
+                        dsTierImpostor++;
+                        dsImpostorMeshNull++;
                         continue;
                     }
 
                     // Phase 10: LodTier.Proxy (and Voxel) share full voxel path until BuildProxy/ProxyMeshCache ship.
                     Mesh m = VoxelMeshCache.Get(sp, -1, true);
+                    // Mesh not built yet (async) or empty → INVISIBLE until ready. Sprite
+                    // already suppressed; do NOT draw a placeholder billboard.
                     if (m == null || m.vertexCount == 0) { dsVoxelMeshNull++; continue; }
                     dsVoxelSubmitAttempt++;
 
@@ -868,36 +863,25 @@ namespace WorldSphereMod.Voxel
                     Sprite sp = rd.main_sprites[i];
                     if (sp == null) continue;
 
+                    // VOXEL-OR-INVISIBLE POLICY: suppress the vanilla 2D building sprite
+                    // for every eligible building up-front (zero its render scale). If the
+                    // voxel mesh isn't ready / far LOD, nothing draws — never a billboard.
+                    // BuildingRenderData has no has_normal_render; scales[i]=0 hides the
+                    // sprite quad without nulling main_sprites (downstream chokes on null).
+                    // Snapshot the original sprite scale FIRST — the voxel mesh below needs it.
+                    Vector3 origScale = rd.scales[i];
+                    rd.scales[i] = Vector3.zero;
+
                     if (tier == WorldSphereMod.LOD.LodTier.Impostor)
                     {
-                        bool submitted = false;
-                        Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
-                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial(sp);
-                        // Impostor mesh build failed: fall through to vanilla
-                        // sprite (don't zero scales — that's the "hide the
-                        // sprite because we drew our own mesh" path, which
-                        // we didn't actually do here).
-                        if (im == null || im.vertexCount == 0 || imMat == null) continue;
-                        Vector3 imPos = rd.positions[i];
-                        Vector3 imScl = rd.scales[i];
-                        if (rd.flip_x_states[i]) imScl.x = -imScl.x;
-                        if (imPos.z < Constants.ZDisplacement * 0.5f)
-                        {
-                            imPos = imPos.To3DTileHeight(false);
-                        }
-                        Quaternion br = WorldSphereMod.LOD.ImpostorBillboard.GetFacingRotation(imPos);
-                        Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
-                        MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
-                        submitted = true;
-                        if (submitted)
-                        {
-                            rd.scales[i] = Vector3.zero;
-                        }
+                        // FAR TIER = CULL. Sprite already suppressed → building invisible at
+                        // distance rather than a flat impostor billboard.
                         continue;
                     }
 
                     // Phase 10: Proxy tier shares full voxel path until BuildProxy/ProxyMeshCache ship.
                     Mesh m = VoxelMeshCache.Get(sp);
+                    // Not ready / empty → invisible until built. Sprite already suppressed.
                     if (m == null || m.vertexCount == 0) continue;
 
                     Vector3 pos = rd.positions[i];
@@ -906,7 +890,7 @@ namespace WorldSphereMod.Voxel
                         pos = pos.To3DTileHeight(false);
                     }
                     Vector3 rot = rd.rotations[i];
-                    Vector3 scl = rd.scales[i];
+                    Vector3 scl = origScale;
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
                     scl.z = scl.x;
                     // Lift mesh center up by half world-space height (same fix as
@@ -990,6 +974,8 @@ namespace WorldSphereMod.Voxel
                 }
                 if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, 1.5f * Mathf.Max(1f, Core.savedSettings.VoxelScaleMultiplier * 0.5f)))
                 {
+                    // Off-screen: the vanilla frustum cull already hides the sprite. Leave
+                    // sr.enabled as-is (vanilla manages off-screen); do not force a billboard.
                     sr.enabled = true;
                     return;
                 }
@@ -997,30 +983,21 @@ namespace WorldSphereMod.Voxel
                 WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, __instance.GetHashCode());
                 Color tint = sr.color;
 
+                // VOXEL-OR-INVISIBLE POLICY: in 3D the drop is a real voxel volume or nothing.
+                // Suppress the vanilla 2D SpriteRenderer up-front; only re-show nothing.
+                sr.enabled = false;
+
                 if (tier == WorldSphereMod.LOD.LodTier.Impostor)
                 {
-                    Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
-                    Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial(sp);
-                    if (im == null || im.vertexCount == 0 || imMat == null)
-                    {
-                        sr.enabled = true;
-                        return;
-                    }
-
-                    Vector3 imPos = cullPos;
-                    // WHY: drops share the actor scale factor so they aren't 8x oversized.
-                    float imScale = Mathf.Max(__instance._scale, 0.01f) * Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor;
-                    Vector3 imScl = new Vector3(imScale, imScale, imScale);
-                    Quaternion br = WorldSphereMod.LOD.ImpostorBillboard.GetFacingRotation(imPos);
-                    MeshInstanceBatcher.Submit(im, imMat, Matrix4x4.TRS(imPos, br, imScl), tint);
-                    sr.enabled = false;
+                    // FAR TIER = CULL. Sprite suppressed → drop invisible at distance, never
+                    // a flat impostor billboard.
                     return;
                 }
 
                 Mesh? mesh = VoxelMeshCache.Get(sp, -1, true);
+                // Not ready / empty → invisible until built. Sprite stays suppressed.
                 if (mesh == null || mesh.vertexCount == 0)
                 {
-                    sr.enabled = true;
                     return;
                 }
 
@@ -1033,14 +1010,9 @@ namespace WorldSphereMod.Voxel
                 pos.y += halfHeight;
                 float yaw = __instance.transform.eulerAngles.y;
                 Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, yaw, 0f), scl);
-                if (Submit(mesh, trs, tint))
-                {
-                    sr.enabled = false;
-                }
-                else
-                {
-                    sr.enabled = true;
-                }
+                // Submit the real voxel mesh. Whether or not it submits, the sprite stays
+                // suppressed (set above) — voxel-or-nothing, never a billboard fallback.
+                Submit(mesh, trs, tint);
             }
         }
 
@@ -1103,20 +1075,13 @@ namespace WorldSphereMod.Voxel
                     Color tint = new Color(1f, 1f, 1f, projectile.getAlpha());
                     bool perp = Constants.PerpProjectiles.ContainsKey(projectile.asset.id);
 
+                    // VOXEL-OR-INVISIBLE POLICY: suppress the vanilla 2D projectile sprite
+                    // up-front. Far LOD / not-ready mesh → invisible, never a billboard.
+                    SuppressProjectileSprite(pAsset, pos);
+
                     if (tier == WorldSphereMod.LOD.LodTier.Impostor)
                     {
-                        Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sprite);
-                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial(sprite);
-                        if (im == null || im.vertexCount == 0 || imMat == null)
-                        {
-                            continue;
-                        }
-
-                        float imScale = Mathf.Max(projectile.getCurrentScale(), 0.01f) * Core.savedSettings.VoxelScaleMultiplier;
-                        Vector3 imScl = new Vector3(imScale, imScale, imScale);
-                        Quaternion br = WorldSphereMod.LOD.ImpostorBillboard.GetFacingRotation(pos);
-                        MeshInstanceBatcher.Submit(im, imMat, Matrix4x4.TRS(pos, br, imScl), tint);
-                        SuppressProjectileSprite(pAsset, pos);
+                        // FAR TIER = CULL. Sprite suppressed → projectile invisible at distance.
                         continue;
                     }
 
