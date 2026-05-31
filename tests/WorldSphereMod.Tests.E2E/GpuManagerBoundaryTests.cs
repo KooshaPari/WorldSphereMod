@@ -89,4 +89,36 @@ public class GpuManagerBoundaryTests
             "GPU custom-buffer samplers are index-based (GetCustomData<T>(int Index))");
         s.Should().Contain("public static void GpuCameraRange(GpuSphereManager mgr, out CompoundSpheres.Gpu.Range Rows, out CompoundSpheres.Gpu.Range Cols)");
     }
+
+    // ---- Phase 3 ----
+    [Fact]
+    public void Phase3_refreshsphere_mirrors_textures_and_added_to_gpu()
+    {
+        var s = Core();
+        s.Should().Contain("GpuManager?.RefreshTextures();");
+        s.Should().Contain("GpuManager?.RefreshCustom(\"AddedColors\");");
+    }
+
+    [Fact]
+    public void Phase3_gpu_refreshscales_stays_inside_dirty_heights_gate()
+    {
+        // Risk #5: the GPU scale flush must live INSIDE the hadDirtyHeights block,
+        // not run unconditionally every frame (would re-break the rebuild storm).
+        var s = Core();
+        var gateIdx = s.IndexOf("if (hadDirtyHeights && Manager.UseHeightFieldTerrain)", System.StringComparison.Ordinal);
+        gateIdx.Should().BeGreaterThan(0);
+        var gpuScaleIdx = s.IndexOf("GpuManager?.RefreshScales();", System.StringComparison.Ordinal);
+        gpuScaleIdx.Should().BeGreaterThan(gateIdx, "GPU RefreshScales must appear after (inside) the hadDirtyHeights gate");
+        var markDirtyIdx = s.IndexOf("Manager.HeightField.MarkDirty();", System.StringComparison.Ordinal);
+        gpuScaleIdx.Should().BeLessThan(markDirtyIdx, "GPU RefreshScales must be within the same gated block");
+    }
+
+    [Fact]
+    public void Phase3_refreshcolors_and_updates_mirrored_to_gpu()
+    {
+        var s = Core();
+        s.Should().Contain("GpuManager?.RefreshColors();");
+        s.Should().Contain("GpuManager?.UpdateCustom(\"AddedColors\", (Tile.X * Height) + Tile.Y);");
+        s.Should().Contain("GpuManager?.UpdateColor(Tile.X, Tile.Y);");
+    }
 }
