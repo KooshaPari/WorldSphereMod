@@ -104,24 +104,42 @@ namespace WorldSphereMod.Bridge
 
         // ---- CAMERA ----
 
-        /// <summary>Frame the 3D camera at world tile (x,y) with the given orthographic zoom so the operator can compose screenshots.</summary>
+        /// <summary>
+        /// Frame the camera at world tile (x,y) with the given zoom so the operator can compose screenshots.
+        /// In 3D mode the live rig is WorldSphereMod.NewCamera.CameraManager: the legacy World.world.camera is
+        /// DISABLED, and CameraManager.Postfix rewrites MainCamera.transform.position every frame from
+        /// CameraManager.Position (= Manager.transform.position) and CameraManager.Height. So directly poking
+        /// MainCamera.transform.position never sticks. The real setters are:
+        ///   pan  -> Manager.transform.position .x/.y  (the world anchor the Postfix projects onto the sphere)
+        ///   zoom -> CameraManager.Height AND Manager._target_zoom (Height drives placement; _target_zoom keeps
+        ///           vanilla zoom logic from lerping it back). Height is clamped to
+        ///           [CameraMinSurfaceDistance, CameraMaxSurfaceDistance].
+        /// In 2D mode we keep the legacy MapBox.setZoomOrthographic + camera-transform path.
+        /// </summary>
         public static object Camera(string xText, string yText, string zoomText)
         {
             MapBox map = Map;
             if (map == null) return Fail("world_host_not_ready");
 
+            bool hasX = float.TryParse(xText, NumberStyles.Float, CultureInfo.InvariantCulture, out float x);
+            bool hasY = float.TryParse(yText, NumberStyles.Float, CultureInfo.InvariantCulture, out float y);
             bool hasZoom = float.TryParse(zoomText, NumberStyles.Float, CultureInfo.InvariantCulture, out float zoom);
+
+            if (Core.IsWorld3D)
+                return Camera3D(hasX, x, hasY, y, hasZoom, zoom);
+
+            // ---- 2D fallback (legacy ortho camera) ----
+            bool zoomApplied = false;
             if (hasZoom)
             {
                 object zr = TryInvoke(map, "setZoomOrthographic", new object[] { zoom }, new[] { typeof(float) });
                 if (zr == null) return NotFound("MapBox.setZoomOrthographic");
+                zoomApplied = true;
             }
 
             UnityEngine.Camera cam = SafeMainCamera(map);
             if (cam == null) return Fail("camera_not_ready");
 
-            bool hasX = float.TryParse(xText, NumberStyles.Float, CultureInfo.InvariantCulture, out float x);
-            bool hasY = float.TryParse(yText, NumberStyles.Float, CultureInfo.InvariantCulture, out float y);
             if (hasX || hasY)
             {
                 Vector3 p = cam.transform.position; // why: keep depth (z), only reframe the XY plane the map lives on
@@ -131,7 +149,48 @@ namespace WorldSphereMod.Bridge
             }
 
             Vector3 cp = cam.transform.position;
-            return new { ok = true, x = cp.x, y = cp.y, zoom = cam.orthographic ? cam.orthographicSize : (float?)null, applied = new { x = hasX, y = hasY, zoom = hasZoom } };
+            return new { ok = true, x = cp.x, y = cp.y, zoom = cam.orthographic ? cam.orthographicSize : (float?)null, applied = new { x = hasX, y = hasY, zoom = zoomApplied } };
+        }
+
+        /// <summary>Drive the WSM 3D rig (CameraManager). Returns the real applied values so the operator can verify the reframe.</summary>
+        static object Camera3D(bool hasX, float x, bool hasY, float y, bool hasZoom, float zoom)
+        {
+            var mgr = NewCamera.CameraManager.Manager;
+            if (mgr == null || mgr.transform == null) return Fail("camera3d_not_ready");
+
+            // Pan: set the world anchor the per-frame Postfix projects onto the sphere.
+            bool xApplied = false, yApplied = false;
+            if (hasX || hasY)
+            {
+                Vector3 p = mgr.transform.position;
+                if (hasX) { p.x = x; xApplied = true; }
+                if (hasY) { p.y = y; yApplied = true; }
+                mgr.transform.position = p;
+            }
+
+            // Zoom: clamp to the 3D surface-distance range, then set BOTH the placement field
+            // (Height) and the vanilla target (_target_zoom) so the value persists past the next update.
+            bool zoomApplied = false;
+            if (hasZoom)
+            {
+                float minSurface = Core.savedSettings != null ? Core.savedSettings.CameraMinSurfaceDistance : 1f;
+                float maxSurface = Core.savedSettings != null ? Core.savedSettings.CameraMaxSurfaceDistance : 60f;
+                float clamped = Mathf.Clamp(zoom, minSurface, maxSurface);
+                NewCamera.CameraManager.Height = clamped;
+                mgr._target_zoom = clamped;
+                zoomApplied = true;
+            }
+
+            Vector2 pos = NewCamera.CameraManager.Position;
+            return new
+            {
+                ok = true,
+                x = pos.x,
+                y = pos.y,
+                zoom = NewCamera.CameraManager.Height,
+                applied = new { x = xApplied, y = yApplied, zoom = zoomApplied },
+                via = "CameraManager3D",
+            };
         }
 
         /// <summary>Snap the camera to a named target: "village"/"unit"/"center". Uses WorldBox's own focus helpers where present.</summary>

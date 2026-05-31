@@ -441,28 +441,15 @@ namespace WorldSphereMod.Bridge
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && (string.Equals(path, "/actions/screenshot", StringComparison.OrdinalIgnoreCase) || string.Equals(path, "/screenshot/now", StringComparison.OrdinalIgnoreCase)))
                 {
-                    string outputPath = context.Request.QueryString["path"] ?? string.Empty;
+                    // Read path + mode from EITHER ?query= or the JSON body in a SINGLE body read
+                    // (the InputStream is non-seekable). Previously `path` was query-only and the body
+                    // was consumed only to sniff mode, so {"path":...} was silently dropped.
                     // mode=camera renders ONLY the 3D scene camera into a RenderTexture,
                     // bypassing WorldBox's debug-console / UI overlay layers. Default
                     // (screen) keeps the legacy full-framebuffer capture for back-compat.
-                    string mode = context.Request.QueryString["mode"] ?? string.Empty;
-                    if (string.IsNullOrEmpty(mode))
-                    {
-                        try
-                        {
-                            string body;
-                            using (var reader = new StreamReader(context.Request.InputStream, context.Request.ContentEncoding))
-                            {
-                                body = reader.ReadToEnd();
-                            }
-                            if (!string.IsNullOrEmpty(body) && body.IndexOf("\"mode\"", StringComparison.OrdinalIgnoreCase) >= 0
-                                && body.IndexOf("camera", StringComparison.OrdinalIgnoreCase) >= 0)
-                            {
-                                mode = "camera";
-                            }
-                        }
-                        catch { /* body optional; fall through to default capture */ }
-                    }
+                    BridgeParams shot = BridgeParams.From(context.Request);
+                    string outputPath = shot.Get("path", string.Empty);
+                    string mode = shot.Get("mode", string.Empty);
                     bool cameraMode = string.Equals(mode, "camera", StringComparison.OrdinalIgnoreCase);
                     WriteJson(context.Response, CaptureScreenshot(outputPath, cameraMode));
                     return;
@@ -486,10 +473,13 @@ namespace WorldSphereMod.Bridge
 
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/spawn_units", StringComparison.OrdinalIgnoreCase))
                 {
-                    string countText = context.Request.QueryString["count"] ?? "10";
-                    string race = context.Request.QueryString["race"] ?? "human";
-                    string xText = context.Request.QueryString["x"];
-                    string yText = context.Request.QueryString["y"];
+                    // Honor count/race/x/y from EITHER ?query= or the JSON body (the live operator
+                    // POSTs {"count":80}); query wins when both are present.
+                    BridgeParams sp = BridgeParams.From(context.Request);
+                    string countText = sp.Get("count", "10");
+                    string race = sp.Get("race", "human");
+                    string xText = sp.Get("x");
+                    string yText = sp.Get("y");
                     WriteJson(context.Response, SpawnUnitsQueued(countText, race, xText, yText));
                     return;
                 }
@@ -532,9 +522,11 @@ namespace WorldSphereMod.Bridge
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/camera", StringComparison.OrdinalIgnoreCase))
                 {
-                    string cx = context.Request.QueryString["x"] ?? string.Empty;
-                    string cy = context.Request.QueryString["y"] ?? string.Empty;
-                    string cz = context.Request.QueryString["zoom"] ?? string.Empty;
+                    // x/y/zoom from ?query= or JSON body {"x":128,"y":128,"zoom":6}.
+                    BridgeParams cp = BridgeParams.From(context.Request);
+                    string cx = cp.Get("x", string.Empty);
+                    string cy = cp.Get("y", string.Empty);
+                    string cz = cp.Get("zoom", string.Empty);
                     WriteJson(context.Response, QueueAction("camera", () => BridgeActions.Camera(cx, cy, cz)));
                     return;
                 }
@@ -583,6 +575,71 @@ namespace WorldSphereMod.Bridge
             catch (Exception ex)
             {
                 WriteJson(context.Response, new { ok = false, error = ex.Message }, HttpStatusCode.InternalServerError);
+            }
+        }
+
+        // Reads request params from BOTH the query string and the JSON request body.
+        // The HttpListener body stream can only be consumed ONCE, so callers build a single
+        // BridgeParams per request and reuse it for every lookup (query takes precedence; the
+        // body is parsed lazily on first body-backed lookup). Honors the live-bridge contract
+        // that every /actions param works whether passed as ?name= or {"name":...}.
+        sealed class BridgeParams
+        {
+            readonly System.Collections.Specialized.NameValueCollection _query;
+            Newtonsoft.Json.Linq.JObject _body;
+            bool _bodyParsed;
+            readonly string _rawBody;
+
+            BridgeParams(System.Collections.Specialized.NameValueCollection query, string rawBody)
+            {
+                _query = query;
+                _rawBody = rawBody;
+            }
+
+            // Reads the body stream exactly once (it is non-seekable) so subsequent param lookups
+            // can fall back to JSON values without re-reading a now-exhausted stream.
+            public static BridgeParams From(HttpListenerRequest request)
+            {
+                string raw = string.Empty;
+                try
+                {
+                    if (request.HasEntityBody)
+                        using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
+                            raw = reader.ReadToEnd();
+                }
+                catch { /* body optional */ }
+                return new BridgeParams(request.QueryString, raw);
+            }
+
+            Newtonsoft.Json.Linq.JObject Body()
+            {
+                if (!_bodyParsed)
+                {
+                    _bodyParsed = true;
+                    if (!string.IsNullOrWhiteSpace(_rawBody))
+                    {
+                        try { _body = Newtonsoft.Json.Linq.JObject.Parse(_rawBody); }
+                        catch { _body = null; }
+                    }
+                }
+                return _body;
+            }
+
+            /// <summary>Query value wins; otherwise the JSON body value (numbers/strings/bools coerced to string). null when absent.</summary>
+            public string Get(string name)
+            {
+                string q = _query[name];
+                if (!string.IsNullOrEmpty(q)) return q;
+                Newtonsoft.Json.Linq.JObject body = Body();
+                Newtonsoft.Json.Linq.JToken tok = body?[name];
+                if (tok == null || tok.Type == Newtonsoft.Json.Linq.JTokenType.Null) return null;
+                return tok.ToString(Newtonsoft.Json.Formatting.None).Trim('"');
+            }
+
+            public string Get(string name, string fallback)
+            {
+                string v = Get(name);
+                return string.IsNullOrEmpty(v) ? fallback : v;
             }
         }
 
@@ -1219,7 +1276,7 @@ namespace WorldSphereMod.Bridge
         {
             if (!BridgeSettingParser.TryParseNonNegativeInt(countText, out int count))
                 return new { ok = false, error = "invalid_count", count = countText };
-            count = Math.Min(count, 200);
+            count = Math.Min(count, 500); // sane max: cap a single dispatch so a bad arg can't spawn-storm the sim
             if (string.IsNullOrWhiteSpace(race)) race = "human";
 
             bool haveAnchor = false;
