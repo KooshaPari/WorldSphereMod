@@ -557,7 +557,7 @@ namespace WorldSphereMod.Voxel
                             if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(dCullPos, 2f))
                             { frustumFail++; continue; }
                             frustumPass++;
-                            Sprite dSp = diagRd.main_sprites[di];
+                            Sprite dSp = ResolveActorSprite(diagRd, di, da);
                             if (dSp == null) { meshNull++; continue; }
                             Mesh dm = VoxelMeshCache.Get(dSp, -1, true);
                             if (dm == null || dm.vertexCount == 0) meshNull++; else meshOk++;
@@ -657,7 +657,7 @@ namespace WorldSphereMod.Voxel
                             // rough actor height estimate; / 2 for center→bottom shift).
                             float skHalfHeight = Mathf.Abs(skScl.y) * Core.savedSettings.VoxelScaleMultiplier * 0.5f;
                             skPos.y += skHalfHeight;
-                            LogActorSubmitDiagnostic("skeletal", ref _actorSkeletalDiagnosticLogged, a, rd.main_sprites[i], skPosBeforeLift, skPos, rd.colors[i]);
+                            LogActorSubmitDiagnostic("skeletal", ref _actorSkeletalDiagnosticLogged, a, ResolveActorSprite(rd, i, a), skPosBeforeLift, skPos, rd.colors[i]);
                             if (WorldSphereMod.Rig.RigDriver.SubmitSkinnedActor(
                                     a, skPos, Quaternion.Euler(0f, skRot.y, 0f), skScl, rd.colors[i], rigType))
                             {
@@ -672,12 +672,17 @@ namespace WorldSphereMod.Voxel
                         }
                     }
 
-                    Sprite sp = rd.main_sprites[i];
+                    // Resolve the actor's actual current sprite. main_sprites[i] is null for
+                    // any actor whose colored-sprite resolution was deferred to the
+                    // (post-postfix) precalculateRenderDataNormal pass; fall back to the live
+                    // animation-frame sprite via Actor.calculateMainSprite() in that case.
+                    Sprite sp = ResolveActorSprite(rd, i, a);
                     if (sp == null)
                     {
                         dsSpriteNull++;
-                        // SpriteNull: render_data had no sprite to voxelize for this actor.
-                        RecordActorError(RenderErrorType.SpriteNull, a, "main_sprites[i] is null", rd.positions[i]);
+                        // SpriteNull: neither render_data nor calculateMainSprite() yielded a sprite.
+                        RecordActorError(RenderErrorType.SpriteNull, a,
+                            "main_sprites[i] null and calculateMainSprite() returned null", rd.positions[i]);
                         continue;
                     }
 
@@ -777,6 +782,36 @@ namespace WorldSphereMod.Voxel
             {
                 string name = a != null && a.asset != null ? a.asset.id : "<actor>";
                 RenderErrorRegistry.Record(type, name, reason, worldPos);
+            }
+
+            // ROOT-CAUSE FIX (2026-05-30): ActorManager.precalculateRenderDataParallel only
+            // writes render_data.main_sprites[i] for the subset of actors whose colored sprite
+            // can be resolved on the worker thread (canParallelSetColoredSprite()==true). For
+            // everyone else it stores null and defers the real sprite to
+            // precalculateRenderDataNormal(), which runs AFTER this Harmony postfix on the
+            // parallel pass. So at our read point main_sprites[i] is null for live, fully-
+            // visible actors (the headless /diag/errors showed 29/29 SpriteNull "human" at
+            // valid positions — those are the deferred ones). It is NOT a missing sprite: the
+            // authoritative current animation-frame sprite is actor.calculateMainSprite(), the
+            // exact call WorldBox itself uses in both render passes. We resolve from that when
+            // the array slot is empty so VoxelMeshCache.Get(sprite) gets a real sprite and the
+            // voxel mesh actually builds. Only genuinely-null cases (e.g. asset has no sprite)
+            // fall through to the SpriteNull telemetry + voxel-or-invisible policy.
+            static Sprite ResolveActorSprite(ActorRenderData rd, int i, Actor a)
+            {
+                Sprite sp = rd.main_sprites[i];
+                if (sp != null) return sp;
+                if (a == null) return null;
+                try
+                {
+                    return a.calculateMainSprite();
+                }
+                catch
+                {
+                    // Defensive: animation container not ready / asset edge case — treat as null
+                    // so the caller records SpriteNull rather than throwing inside the postfix.
+                    return null;
+                }
             }
 
             static void LogActorSubmitDiagnostic(string path, ref bool logged, Actor actor, Sprite? sprite, Vector3 beforeLift, Vector3 afterLift, Color tint)
