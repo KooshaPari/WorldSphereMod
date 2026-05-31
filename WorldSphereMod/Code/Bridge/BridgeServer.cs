@@ -442,7 +442,29 @@ namespace WorldSphereMod.Bridge
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && (string.Equals(path, "/actions/screenshot", StringComparison.OrdinalIgnoreCase) || string.Equals(path, "/screenshot/now", StringComparison.OrdinalIgnoreCase)))
                 {
                     string outputPath = context.Request.QueryString["path"] ?? string.Empty;
-                    WriteJson(context.Response, CaptureScreenshot(outputPath));
+                    // mode=camera renders ONLY the 3D scene camera into a RenderTexture,
+                    // bypassing WorldBox's debug-console / UI overlay layers. Default
+                    // (screen) keeps the legacy full-framebuffer capture for back-compat.
+                    string mode = context.Request.QueryString["mode"] ?? string.Empty;
+                    if (string.IsNullOrEmpty(mode))
+                    {
+                        try
+                        {
+                            string body;
+                            using (var reader = new StreamReader(context.Request.InputStream, context.Request.ContentEncoding))
+                            {
+                                body = reader.ReadToEnd();
+                            }
+                            if (!string.IsNullOrEmpty(body) && body.IndexOf("\"mode\"", StringComparison.OrdinalIgnoreCase) >= 0
+                                && body.IndexOf("camera", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                mode = "camera";
+                            }
+                        }
+                        catch { /* body optional; fall through to default capture */ }
+                    }
+                    bool cameraMode = string.Equals(mode, "camera", StringComparison.OrdinalIgnoreCase);
+                    WriteJson(context.Response, CaptureScreenshot(outputPath, cameraMode));
                     return;
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/voxel/dump_all", StringComparison.OrdinalIgnoreCase))
@@ -1367,6 +1389,11 @@ namespace WorldSphereMod.Bridge
 
         object CaptureScreenshot(string outputPath)
         {
+            return CaptureScreenshot(outputPath, false);
+        }
+
+        object CaptureScreenshot(string outputPath, bool cameraMode)
+        {
             string requestPath = string.IsNullOrWhiteSpace(outputPath) ? WorldSphereMod.ScreenshotCapture.BuildDefaultPath() : outputPath;
             ManualResetEventSlim completed = new ManualResetEventSlim(false);
             object result = new { ok = false, error = "pending", path = Path.GetFullPath(requestPath) };
@@ -1376,13 +1403,22 @@ namespace WorldSphereMod.Bridge
             {
                 try
                 {
-                    StartCoroutine(WorldSphereMod.ScreenshotCapture.CaptureCoroutine(requestPath, (savedPath, success, message) =>
-                    {
-                        result = success
-                            ? new { ok = true, path = savedPath }
-                            : new { ok = false, error = message, path = savedPath };
-                        completed.Set();
-                    }));
+                    var coroutine = cameraMode
+                        ? WorldSphereMod.ScreenshotCapture.CaptureCameraCoroutine(requestPath, (savedPath, success, message) =>
+                        {
+                            result = success
+                                ? new { ok = true, path = savedPath }
+                                : new { ok = false, error = message, path = savedPath };
+                            completed.Set();
+                        })
+                        : WorldSphereMod.ScreenshotCapture.CaptureCoroutine(requestPath, (savedPath, success, message) =>
+                        {
+                            result = success
+                                ? new { ok = true, path = savedPath }
+                                : new { ok = false, error = message, path = savedPath };
+                            completed.Set();
+                        });
+                    StartCoroutine(coroutine);
                 }
                 catch (Exception ex)
                 {
