@@ -384,8 +384,13 @@ namespace WorldSphereMod
                 Patcher.Transpile(Method(typeof(DebugLayerCursor), nameof(DebugLayerCursor.drawIsland)), MapLayerTranspiler);
                 Patcher.Transpile(Method(typeof(ExplosionsEffects), nameof(ExplosionsEffects.UpdateDirty)), MapLayerTranspiler);
                 Patcher.Transpile(Method(typeof(FireLayer), nameof(FireLayer.UpdateDirty)), MapLayerTranspiler);
-                Patcher.Transpile(Method(typeof(LavaLayer), nameof(LavaLayer.drawLavaPixel)), MapLayerTranspiler);
-                Patcher.Transpile(Method(typeof(LavaLayer), nameof(LavaLayer.updateLava)), MapLayerTranspiler);
+                // Lava now renders as a 3D corner-averaged emissive surface in the fork
+                // (HeightFieldRenderer LiquidKind.Lava, wired in ConfigureHeightField),
+                // mirroring how the 2D water billboard was retired for the 3D water
+                // surface. The flat LavaLayer overlay transpiles are therefore retired —
+                // re-enable only if the 3D lava surface is disabled.
+                // Patcher.Transpile(Method(typeof(LavaLayer), nameof(LavaLayer.drawLavaPixel)), MapLayerTranspiler);
+                // Patcher.Transpile(Method(typeof(LavaLayer), nameof(LavaLayer.updateLava)), MapLayerTranspiler);
                 Patcher.Transpile(Method(typeof(PathFindingVisualiser), nameof(PathFindingVisualiser.showPath)), MapLayerTranspiler);
                 Patcher.Transpile(Method(typeof(PixelFlashEffects), nameof(PixelFlashEffects.UpdateDirty)), MapLayerTranspiler);
                 Patcher.Transpile(Method(typeof(UnitLayer), nameof(UnitLayer.UpdateDirty)), MapLayerTranspiler);
@@ -1156,7 +1161,188 @@ namespace WorldSphereMod
                     hf.SetWaterMaterial(waterMat);
                 }
 
-                Debug.Log($"[WSM3D] HeightFieldRenderer configured: map={w}x{h} wrapped={wrapped} seaLevel={seaLevel:F2}");
+                // -----------------------------------------------------------------
+                // Generalized liquid surfaces (lava / swamp / acid). Each reuses the
+                // fork's corner-averaged sub-mesh + analytic-normal + depth-shading
+                // path (HeightFieldRenderer.ConfigureLiquid) with its own
+                // classification and per-type material. Lava now renders as a 3D
+                // emissive surface here instead of the flat 2D LavaLayer overlay.
+                //
+                // Classification (WorldBox tile data):
+                //   LAVA  : main_type.lava (the canonical lava flag, same one
+                //           FoliageTileRender/BridgeServer already key on).
+                //   SWAMP : tile string id starts with "swamp" (swamp_low/_high),
+                //           and the tile is a liquid/ground swamp surface.
+                //   ACID  : tile string id contains "acid" (WorldBox ships acid as a
+                //           cloud/status effect, so terrain acid is rare; the layer is
+                //           wired+materialed and lights up if/when an acid tile exists).
+                // Each liquid's surface sits at its own tile height (level == seabed ==
+                // TileHeight) so it conforms to its basin exactly like water.
+                ConfigureLiquidSurface(hf, LiquidKind.Lava, w, h, wrapped,
+                    classify: tt => tt.lava,
+                    color: new Color(1.00f, 0.35f, 0.05f, 0.92f),
+                    emissive: new Color(1.40f, 0.45f, 0.06f, 1f));
+                ConfigureLiquidSurface(hf, LiquidKind.Swamp, w, h, wrapped,
+                    classify: tt => !tt.lava && IdContains(tt, "swamp"),
+                    color: new Color(0.22f, 0.32f, 0.12f, 0.78f),
+                    emissive: null);
+                ConfigureLiquidSurface(hf, LiquidKind.Acid, w, h, wrapped,
+                    classify: tt => IdContains(tt, "acid"),
+                    color: new Color(0.45f, 0.95f, 0.10f, 0.72f),
+                    emissive: new Color(0.30f, 0.80f, 0.05f, 1f));
+
+                // -----------------------------------------------------------------
+                // TERRAIN-OVERLAY family: feed per-tile overlay state (snow / tumor
+                // corruption / burnt / frozen) from WorldBox tile data into the
+                // fork's land vertex-color bake. Cheap vertex tint, no extra mesh.
+                // Data sources (decompiled Assembly-CSharp):
+                //   snow       — main_type.id starts with "snow" (snow_sand/hills/
+                //                block/summit) OR a snow top_type; biome cold.
+                //   corruption — top_type.creep == true (tumor_low/high,
+                //                corruption_low/high, biomass). DYNAMIC: spreads via
+                //                CorruptedTreesManager; we dirty on change (below).
+                //   burnt      — WorldTile.burned_stages > 0 (or isOnFire()).
+                //   frozen     — WorldTile.data.frozen OR main_type.id == "ice".
+                // -----------------------------------------------------------------
+                hf.ConfigureTerrainOverlay((tx, ty) =>
+                {
+                    int sx = wrapped ? ((tx % w) + w) % w : Mathf.Clamp(tx, 0, w - 1);
+                    int sy = Mathf.Clamp(ty, 0, h - 1);
+                    WorldTile tile = World.world.GetTileSimple(sx, sy);
+                    return SampleTileOverlay(tile);
+                });
+
+                Debug.Log($"[WSM3D] HeightFieldRenderer configured: map={w}x{h} wrapped={wrapped} seaLevel={seaLevel:F2} (+lava/swamp/acid surfaces +terrain overlays)");
+            }
+
+            /// <summary>
+            /// Read the TERRAIN-OVERLAY state for a single WorldBox tile and pack it
+            /// into the fork's POD <see cref="HeightFieldRenderer.TerrainOverlay"/>.
+            /// Uses the real Assembly-CSharp fields; private/uncertain ones are
+            /// guarded so a WorldBox update can't NRE the renderer.
+            /// </summary>
+            static CompoundSpheres.HeightFieldRenderer.TerrainOverlay SampleTileOverlay(WorldTile tile)
+            {
+                var ov = default(CompoundSpheres.HeightFieldRenderer.TerrainOverlay);
+                if (tile == null) return ov;
+
+                try
+                {
+                    var main = tile.main_type;
+                    var top = tile.top_type;
+
+                    // SNOW: snow_* ground tiles read full; cold/forever-frozen biomes
+                    // get a lighter dusting so peaks/tundra still read snowy.
+                    if (IdContains(main, "snow"))
+                        ov.Snow = 1f;
+                    else if (main != null && main.forever_frozen)
+                        ov.Snow = Mathf.Max(ov.Snow, 0.5f);
+
+                    // FROZEN: explicit per-tile frozen flag, or literal ice tile.
+                    bool frozen = false;
+                    try { frozen = tile.data != null && tile.data.frozen; } catch { }
+                    if (frozen || IdContains(main, "ice"))
+                        ov.Frozen = 1f;
+
+                    // CORRUPTION / TUMOR (dynamic): any creep top tile — tumor_low/
+                    // high, corruption_low/high, biomass. creep is the WorldBox flag
+                    // that marks the spreading corruption family.
+                    if (top != null && top.creep)
+                        ov.Corruption = 1f;
+                    else if (main != null && main.creep)
+                        ov.Corruption = Mathf.Max(ov.Corruption, 1f);
+
+                    // BURNT: burned_stages accumulates 0..15 after fire; scale to 0..1.
+                    int burned = 0;
+                    try { burned = tile.burned_stages; } catch { }
+                    if (burned > 0)
+                        ov.Burnt = Mathf.Clamp01(burned / 12f);
+                    else
+                    {
+                        bool onFire = false;
+                        try { onFire = tile.isOnFire(); } catch { }
+                        if (onFire) ov.Burnt = 0.6f;
+                    }
+                }
+                catch { /* never let overlay sampling break the terrain bake */ }
+
+                return ov;
+            }
+
+            /// <summary>True if the tile type's string id contains <paramref name="needle"/> (case-insensitive).</summary>
+            static bool IdContains(TileTypeBase tt, string needle)
+            {
+                if (tt == null) return false;
+                string id = tt.id;
+                return !string.IsNullOrEmpty(id) && id.IndexOf(needle, System.StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+
+            /// <summary>
+            /// Wire one non-water liquid surface into the fork's height field: a
+            /// classifier (over the tile's main_type), a level/seabed sampler (the
+            /// tile's own height, so the surface conforms to its basin), and a
+            /// per-type translucent (lava also emissive) material via ResolveShader
+            /// (bundle-or-Standard).
+            /// </summary>
+            static void ConfigureLiquidSurface(
+                HeightFieldRenderer hf,
+                LiquidKind kind,
+                int w, int h, bool wrapped,
+                Func<TileTypeBase, bool> classify,
+                Color color,
+                Color? emissive)
+            {
+                Func<int, int, WorldTile> getTile = (tx, ty) =>
+                {
+                    int sx = wrapped ? ((tx % w) + w) % w : Mathf.Clamp(tx, 0, w - 1);
+                    int sy = Mathf.Clamp(ty, 0, h - 1);
+                    return World.world.GetTileSimple(sx, sy);
+                };
+
+                hf.ConfigureLiquid(
+                    kind,
+                    sampleIsLiquid: (tx, ty) =>
+                    {
+                        WorldTile tile = getTile(tx, ty);
+                        if (tile == null) return false;
+                        var tt = tile.main_type;
+                        return tt != null && classify(tt);
+                    },
+                    sampleLevel: (tx, ty) =>
+                    {
+                        WorldTile tile = getTile(tx, ty);
+                        return tile == null ? 0f : tile.TileHeight();
+                    },
+                    sampleSeabed: (tx, ty) =>
+                    {
+                        WorldTile tile = getTile(tx, ty);
+                        return tile == null ? 0f : tile.TileHeight();
+                    });
+
+                Shader shader = ResolveShader("");
+                if (shader == null) return;
+                Material mat = new Material(shader) { name = "WSM3D.HeightField" + kind };
+                if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
+                mat.color = color;
+                bool translucent = color.a < 0.999f;
+                if (translucent)
+                {
+                    if (mat.HasProperty("_Mode")) mat.SetFloat("_Mode", 3f);
+                    mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                    mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                    mat.SetInt("_ZWrite", 0);
+                    mat.EnableKeyword("_ALPHABLEND_ON");
+                    mat.DisableKeyword("_ALPHATEST_ON");
+                    mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                    mat.renderQueue = 3000;
+                }
+                if (emissive.HasValue && mat.HasProperty("_EmissionColor"))
+                {
+                    mat.EnableKeyword("_EMISSION");
+                    mat.SetColor("_EmissionColor", emissive.Value);
+                    mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                }
+                hf.SetLiquidMaterial(kind, mat);
             }
             static void CreateCachedColors()
             {
