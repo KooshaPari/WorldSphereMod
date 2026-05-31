@@ -102,12 +102,20 @@ public class CloudCrossedQuadInvariantsTests
     }
 
     [Fact]
-    public void CloudCrossedQuadRender_submits_through_MeshInstanceBatcher_with_foliage_material()
+    public void CloudCrossedQuadRender_submits_voxel_puff_through_MeshInstanceBatcher_with_foliage_material()
     {
         var source = ReadSourceFile("WorldSphereMod/Code/Fx/CloudCrossedQuadRender.cs");
 
-        source.Should().Contain("CrossedQuadMeshCache.GetOrBuild(sprite, BuildingShape.CrossedQuad",
-            "cloud mesh must come from the shared crossed-quad cache");
+        // INVARIANT (post crossed-quad removal, 2026-05-30): clouds are REAL 3D voxel
+        // puffs, never flat camera-facing crossed quads. The mesh comes from the shared
+        // VoxelMeshCache as an OrganicBlob (same volume actors/foliage use), NOT from the
+        // deleted CrossedQuadMeshCache.
+        source.Should().Contain("VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob)",
+            "cloud mesh must come from the shared voxel mesh cache as an OrganicBlob puff");
+        source.Should().NotContain("CrossedQuadMeshCache",
+            "crossed-quad cache is deleted — clouds must not reference it");
+        source.Should().NotContain("BuildingShape.CrossedQuad",
+            "clouds must not build crossed-quad geometry");
         source.Should().Contain("FoliageMaterial.EnsureMaterial()",
             "cloud path must use the foliage material gate");
         source.Should().Contain("MeshInstanceBatcher.Submit(state.Mesh, material, trs, tint)",
@@ -115,11 +123,11 @@ public class CloudCrossedQuadInvariantsTests
 
         var tryStart = ExtractMethodBody(source, "public static bool TryStart(BaseEffect effect, EffectData data)");
         tryStart.Should().Contain("SuppressSprite(effect, out bool spriteWasEnabled)",
-            "successful cloud start must hide the upstream billboard");
+            "successful cloud start must hide the upstream 2D sprite");
 
         var update = ExtractMethodBody(source, "public static void Update(BaseEffect effect)");
         update.Should().Contain("MeshInstanceBatcher.Submit(state.Mesh, material, trs, tint)",
-            "per-frame cloud update must resubmit the crossed-quad mesh");
+            "per-frame cloud update must resubmit the voxel puff mesh");
     }
 
     [Fact]

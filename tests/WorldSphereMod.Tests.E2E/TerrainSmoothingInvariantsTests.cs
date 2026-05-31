@@ -5,16 +5,21 @@ using FluentAssertions;
 using Xunit;
 
 /// <summary>
-/// Source invariants for terrain polish: biome color blending (TileMapToSphere + Core.Sphere)
-/// and mountain slope smoothing overlay (Terrain/TerrainSmoothing.cs).
+/// Source invariants for terrain polish: biome color blending (TileMapToSphere + Core.Sphere).
+///
+/// NOTE (post crossed-quad removal + fork pivot, 2026-05-30): the former main-mod
+/// MountainSlopeSurface overlay (Terrain/TerrainSmoothing.cs) is DELETED. Mountain
+/// slope smoothing is now intrinsic to the Compound-Spheres fork's height-field mesh
+/// (corner-averaged heights + analytic normals + Perlin micro-displacement) — there is
+/// no main-mod overlay class to render or tear down. The MountainSlopeSmoothing saved
+/// setting is retained as a fork-facing toggle, so default + tab + ApplyPhaseToggle
+/// wiring are still asserted; the deleted render-class invariants are removed.
 /// </summary>
 public sealed class TerrainSmoothingInvariantsTests
 {
     const string SavedSettingsRelative = "WorldSphereMod/Code/SavedSettings.cs";
     const string TileMapToSphereRelative = "WorldSphereMod/Code/TileMapToSphere.cs";
-    const string TerrainSmoothingRelative = "WorldSphereMod/Code/Terrain/TerrainSmoothing.cs";
     const string CoreRelative = "WorldSphereMod/Code/Core.cs";
-    const string WorldUnloadPatchRelative = "WorldSphereMod/Code/Voxel/WorldUnloadPatch.cs";
     const string WorldSphereTabRelative = "WorldSphereMod/Code/WorldSphereTab.cs";
 
     static string FindRepoRoot()
@@ -188,94 +193,30 @@ public sealed class TerrainSmoothingInvariantsTests
     }
 
     [Fact]
-    public void MountainSlopeSurface_is_phase_gated_and_rebuilds_on_tile_redraw()
+    public void MountainSlopeSurface_overlay_class_is_deleted_after_fork_pivot()
     {
-        var source = ReadSource(TerrainSmoothingRelative);
+        // The former main-mod overlay file is gone; slope smoothing is intrinsic to the
+        // fork's height-field mesh. Guard against the overlay class sneaking back into the
+        // main mod (which would re-introduce the crossed-quad-era 2.5D overlay regression).
+        var slopeFile = Path.Combine(FindRepoRoot(), "WorldSphereMod/Code/Terrain/TerrainSmoothing.cs");
+        File.Exists(slopeFile).Should().BeFalse(
+            "Terrain/TerrainSmoothing.cs must stay deleted — slope smoothing lives in the fork height-field renderer");
 
-        source.Should().Contain("[Phase(nameof(SavedSettings.MountainSlopeSmoothing))]",
-            "mountain slope patches must honor the MountainSlopeSmoothing phase gate");
-        source.Should().Contain("[HarmonyPatch(typeof(WorldTilemap), nameof(WorldTilemap.redrawTiles))]",
-            "slope overlay must rebuild when upstream tilemap redraw runs");
-
-        var ensureActive = ExtractMethodBody(source, "public static void EnsureActive()");
-        ensureActive.Should().Contain("!Core.IsWorld3D || !Core.savedSettings.MountainSlopeSmoothing",
-            "overlay must tear down outside 3D or when the toggle is off");
-        ensureActive.Should().Contain("Create(capsule.parent)",
-            "first activation must parent the overlay under the sphere rig");
-
-        var redrawPostfix = ExtractMethodBody(source, "public static void OnRedraw()");
-        redrawPostfix.Should().Contain("MountainSlopeSurface.EnsureActive()");
-        redrawPostfix.Should().Contain("MountainSlopeSurface.RequestRebuild()");
+        var core = ReadSource(CoreRelative);
+        core.Should().NotContain("MountainSlopeSurface",
+            "no main-mod MountainSlopeSurface overlay may be referenced — slope is intrinsic to the fork mesh");
     }
 
     [Fact]
-    public void MountainSlopeSurface_detects_cliff_quads_above_height_threshold()
-    {
-        var source = ReadSource(TerrainSmoothingRelative);
-        var detectBody = ExtractMethodBody(source, "List<CliffQuad> DetectCliffQuads(int width, int height)");
-
-        detectBody.Should().Contain("tile.TileHeight()",
-            "cliff detection must compare upstream tile heights");
-        detectBody.Should().Contain("Mathf.Abs(tileHeight - rightHeight) > 0.1f",
-            "horizontal cliff edges must exceed minimum height threshold for smooth coverage");
-        detectBody.Should().Contain("Mathf.Abs(tileHeight - upHeight) > 0.1f",
-            "vertical cliff edges must exceed minimum height threshold for smooth coverage");
-        detectBody.Should().Contain("Core.Sphere.GetColor(tile.data.tile_id)",
-            "cliff quads must carry biome-blended tile colors");
-    }
-
-    [Fact]
-    public void MountainSlopeSurface_RebuildMesh_projects_cliff_quads_onto_sphere()
-    {
-        var source = ReadSource(TerrainSmoothingRelative);
-        var rebuildBody = ExtractMethodBody(source, "void RebuildMesh()");
-
-        rebuildBody.Should().Contain("DetectCliffQuads(width, height)",
-            "mesh rebuild must derive geometry from cliff detection");
-        rebuildBody.Should().Contain("Core.Sphere.SpherePos(",
-            "rebuilt vertices must be projected onto the sphere surface");
-    }
-
-    [Fact]
-    public void MountainSlopeSurface_EnsureMaterial_resolves_OpaqueVertexColor_with_white_tint()
-    {
-        var source = ReadSource(TerrainSmoothingRelative);
-        var ensureBody = ExtractMethodBody(source, "static bool EnsureMaterial()");
-
-        ensureBody.Should().Contain("LoadedShaders.TryGetValue(\"OpaqueVertexColor\"",
-            "slope material must resolve from the bundle-loaded shader cache first");
-        ensureBody.Should().Contain("Shader.Find(\"WSM3D/OpaqueVertexColor\")",
-            "slope material must fall back to Shader.Find when cache misses");
-        ensureBody.Should().Contain("Color.white",
-            "tint must be white so vertex colors are the sole albedo source");
-        ensureBody.Should().Contain("material.enableInstancing",
-            "slope material must validate instancing before adoption");
-        ensureBody.Should().Contain("[WSM3D] No mountain slope smoothing shader found; overlay disabled.",
-            "missing shader path must disable overlay instead of rendering magenta fallback");
-    }
-
-    [Fact]
-    public void Core_ApplyPhaseToggle_wires_MountainSlopeSmoothing_lifecycle()
+    public void Core_ApplyPhaseToggle_treats_MountainSlopeSmoothing_as_fork_intrinsic_no_overlay()
     {
         var core = ReadSource(CoreRelative);
         var applyBody = ExtractMethodBody(core, "public static void ApplyPhaseToggle(string flagName, bool newValue)");
 
-        var mountainBranch = ExtractMethodBody(applyBody,
-            $"if (flagName == nameof(SavedSettings.MountainSlopeSmoothing))");
-        mountainBranch.Should().Contain("MountainSlopeSurface.EnsureActive()",
-            "enabling the toggle must create the overlay without world reload");
-        mountainBranch.Should().Contain("MountainSlopeSurface.Destroy()",
-            "disabling the toggle must tear down the overlay immediately");
-    }
-
-    [Fact]
-    public void WorldUnloadPatch_OnFinish_clears_mountain_slope_overlay()
-    {
-        var patch = ReadSource(WorldUnloadPatchRelative);
-        var onFinish = ExtractOnFinishMethodBody(patch);
-
-        onFinish.Should().Contain("WorldSphereMod.Terrain.MountainSlopeSurface.Destroy()",
-            "world unload must drop transient mountain slope mesh state");
+        // The setting survives as a fork-facing toggle, but there is no main-mod overlay to
+        // create/destroy: ApplyPhaseToggle must NOT wire MountainSlopeSurface lifecycle.
+        applyBody.Should().NotContain("MountainSlopeSurface",
+            "ApplyPhaseToggle must not create/destroy a main-mod slope overlay — slope is intrinsic to the fork mesh");
     }
 
     [Fact]

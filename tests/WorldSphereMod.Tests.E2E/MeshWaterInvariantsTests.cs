@@ -5,13 +5,17 @@ using FluentAssertions;
 using Xunit;
 
 /// <summary>
-/// Source invariants for Phase 4 mesh water scaffold: SavedSettings.MeshWater default,
-/// WaterSurface.EnsureMaterial fallback chain, and WaterGerstner.shader resource reference.
+/// Source invariants for the MeshWater toggle + WaterGerstner.shader resource.
+///
+/// NOTE (post crossed-quad removal + fork pivot, 2026-05-30): the main-mod water
+/// renderer (Water/WaterSurface.cs, Water/WaterRender.cs, Water/WaterMaskBuffer.cs) is
+/// DELETED. Mesh water now lives in the Compound-Spheres fork's HeightFieldRenderer.
+/// The MeshWater saved setting + WaterGerstner.shader asset are retained on the main
+/// mod, so their invariants stay; the deleted main-mod render-class source-text tests
+/// are removed in favor of a guard that the Water/ code dir stays gone.
 /// </summary>
 public sealed class MeshWaterInvariantsTests
 {
-    const string WaterSurfaceRelative = "WorldSphereMod/Code/Water/WaterSurface.cs";
-    const string WaterRenderRelative = "WorldSphereMod/Code/Water/WaterRender.cs";
     const string SavedSettingsRelative = "WorldSphereMod/Code/SavedSettings.cs";
     const string WaterGerstnerShaderRelative = "WorldSphereMod/Resources/Shaders/WaterGerstner.shader";
 
@@ -92,72 +96,26 @@ public sealed class MeshWaterInvariantsTests
     }
 
     [Fact]
-    public void WaterSurface_EnsureMaterial_references_WaterGerstner_and_fallback_chain()
+    public void MainMod_water_render_classes_are_deleted_after_fork_pivot()
     {
-        var source = ReadSource(WaterSurfaceRelative);
-        var ensureBody = ExtractMethodBody(source, "static bool EnsureMaterial()");
+        // The main-mod water renderer moved to the Compound-Spheres fork HeightFieldRenderer.
+        // Guard against the deleted overlay classes re-appearing in the main mod.
+        var root = FindRepoRoot();
+        foreach (var deleted in new[]
+                 {
+                     "WorldSphereMod/Code/Water/WaterSurface.cs",
+                     "WorldSphereMod/Code/Water/WaterRender.cs",
+                     "WorldSphereMod/Code/Water/WaterMaskBuffer.cs",
+                 })
+        {
+            File.Exists(Path.Combine(root, deleted)).Should().BeFalse(
+                $"{deleted} must stay deleted — mesh water lives in the fork HeightFieldRenderer");
+        }
 
-        ensureBody.Should().Contain("LoadedShaders.TryGetValue(\"GerstnerWater\"",
-            "bundled GerstnerWater must be preferred when AssetBundle cache is warm");
-        ensureBody.Should().Contain("Shader.Find(\"WSM3D/GerstnerWater\")",
-            "runtime must probe the baked shader name when bundle cache is cold");
-
-        ensureBody.Should().Contain("[WSM3D] No bundled GerstnerWater shader found; water disabled.",
-            "missing shader path must disable water instead of creating a broken surface");
-    }
-
-    [Fact]
-    public void WaterSurface_EnsureMaterial_standard_fallback_avoids_blackworld_regression()
-    {
-        var source = ReadSource(WaterSurfaceRelative);
-        var configureBody = ExtractMethodBody(source,
-            "static void ConfigureWaterMaterial(Material material, Color waterTint,");
-
-        configureBody.Should().Contain("SetStandardTransparentMode(material)",
-            "built-in Standard fallback should use the shared transparent setup helper");
-        configureBody.Should().Contain("EnableKeyword(\"_EMISSION\")",
-            "Standard/URP Lit fallback must self-illuminate in zero-light scenes");
-        configureBody.Should().Contain("material.renderQueue = 3000",
-            "GerstnerWater path must use transparent queue for depth-based alpha blending");
-    }
-
-    [Fact]
-    public void WaterSurface_EnsureMaterial_validates_enableInstancing_after_setting()
-    {
-        var source = ReadSource(WaterSurfaceRelative);
-        var ensureBody = ExtractMethodBody(source, "static bool EnsureMaterial()");
-
-        var setThenReadPattern = @"enableInstancing\s*=\s*true[\s\S]*?enableInstancing";
-        Regex.IsMatch(ensureBody, setThenReadPattern).Should().BeTrue(
-            "EnsureMaterial must verify enableInstancing was accepted before keeping a material");
-    }
-
-    [Fact]
-    public void WaterRender_wires_MeshWater_lifecycle_and_tile_suppression()
-    {
-        var waterRender = ReadSource(WaterRenderRelative);
         var voxelRender = ReadSource("WorldSphereMod/Code/Voxel/VoxelRender.cs");
-
-        waterRender.Should().Contain("[Phase(nameof(SavedSettings.MeshWater))]",
-            "mesh water patches must be gated by the MeshWater phase attribute");
-        waterRender.Should().Contain("Core.savedSettings.MeshWater",
-            "runtime toggle must read SavedSettings.MeshWater");
-        waterRender.Should().Contain("WaterSurface.Create(",
-            "world begin and runtime toggle must create the water surface");
-        waterRender.Should().Contain("WaterSurface.Destroy()",
-            "world finish and runtime toggle must tear down the water surface");
-        waterRender.Should().Contain("WaterMaskBuffer.RebuildMask()",
-            "mask rebuild must precede mesh creation and tile edits");
-
-        var colorSuppression = ExtractMethodBody(waterRender,
-            "public static void OnSphereTileColor(SphereTile SphereTile, ref Color32 __result)");
-        colorSuppression.Should().Contain("WaterSurface.Instance == null",
-            "tile color suppression must wait until the mesh exists");
-        colorSuppression.Should().Contain("__result.a = 0",
-            "water tiles must hide vanilla tile tint when mesh water is active");
-
-        var tickPerFrame = ExtractMethodBody(voxelRender, "public static void TickPerFrame()");
-        tickPerFrame.Should().Contain("WaterRender.UpdateLifecycle()",
-            "TickPerFrame must reconcile runtime MeshWater toggles without world reload");
+        voxelRender.Should().NotContain("WaterRender",
+            "TickPerFrame must not drive a main-mod WaterRender — water is fork-side now");
+        voxelRender.Should().NotContain("WaterSurface",
+            "VoxelRender must not reference the deleted main-mod WaterSurface overlay");
     }
 }

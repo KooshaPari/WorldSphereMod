@@ -150,10 +150,14 @@ public sealed class Phase3bSurfaceOverlayInvariantsTests
         var source = ReadSourceFile(FoliageTileRenderRelative);
         var prefixBody = ExtractMethodBody(source, "public static bool Prefix(WorldTilemap __instance, WorldTile pTile)");
 
-        prefixBody.Should().Contain("CrossedQuadMeshCache.GetOrBuild(sprite, BuildingShape.Single, 0f)",
-            "road overlays must stay flat decals via the crossed-quad cache");
+        // Post crossed-quad removal (2026-05-30): roads stay flat ground decals but now
+        // build via the voxel mesh cache as a Flat shape — the CrossedQuadMeshCache is gone.
+        prefixBody.Should().Contain("VoxelMeshCache.Get(sprite, ShapeHint.Flat)",
+            "road overlays must stay flat decals via the voxel mesh cache (Flat shape)");
+        prefixBody.Should().NotContain("CrossedQuadMeshCache",
+            "deleted crossed-quad cache must not be referenced");
         prefixBody.Should().Contain("VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob)",
-            "life/grass overlays must use the shared voxel mesh cache");
+            "life/grass overlays must use the shared voxel mesh cache as real 3D volumes");
         prefixBody.Should().Contain("Tools.To3DTileHeight(pos2)",
             "overlay TRS must lift tile height like other 3D emit paths");
         prefixBody.Should().Contain("mesh.vertexCount == 0",

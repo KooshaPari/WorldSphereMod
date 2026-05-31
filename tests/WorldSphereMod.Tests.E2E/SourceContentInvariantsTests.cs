@@ -65,8 +65,12 @@ public class SourceContentInvariantsTests
 
         AssertClearThenDrain(onFinish, "WorldSphereMod.ProcGen.ProcGenCache",
             "ProcGenCache.Clear enqueues meshes for deferred destroy on the main thread");
-        AssertClearThenDrain(onFinish, "WorldSphereMod.Foliage.CrossedQuadMeshCache",
-            "CrossedQuadMeshCache.Clear enqueues meshes for deferred destroy on the main thread");
+        // CrossedQuadMeshCache is deleted (crossed-quad render path eliminated). Foliage now
+        // routes through the voxel mesh cache; world unload drains its per-tile sprite memo.
+        onFinish.Should().NotContain("CrossedQuadMeshCache",
+            "deleted crossed-quad cache must not be referenced at world unload");
+        onFinish.Should().Contain("WorldSphereMod.Foliage.FoliageTileRender.ClearCache()",
+            "world unload must drop the per-tile foliage overlay sprite memo");
 
         onFinish.Should().Contain("WorldSphereMod.Voxel.VoxelRender.Reset()",
             "world unload must reset VoxelRender static material/latch state");

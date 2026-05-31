@@ -2,9 +2,56 @@
 
 Canonical "next session starts here" doc for WorldSphereMod3D.
 
-**Last updated:** 2026-05-28 (`117746e` on `feat/phase-7-ui-kickoff`; `main` at `4efa128` after PR #7 squash-merge)
+**Last updated:** 2026-05-30 (`6bf38fde` on `fix/shader-standard-fallback`).
 
-**Active branch:** `feat/phase-7-ui-kickoff` — Phase 7 worldspace UI kickoff ([`docs/phases/phase-7-worldspace-ui.md`](phases/phase-7-worldspace-ui.md)). Synced with `origin/main` after [PR #7](https://github.com/KooshaPari/WorldSphereMod/pull/7) landed (`4efa128` — automation, PlayCUA gates, live-verify harness).
+**Working tree moved to `E:/Dev/WorldSphereMod`** (C: filled up). All paths are relative to that root.
+
+**Active branch:** `fix/shader-standard-fallback`.
+
+## This session's architecture shift (read first)
+
+The rendering model changed materially on 2026-05-30. A cold session must
+internalize these before touching anything:
+
+1. **Terrain + water + slope smoothing moved INTO the Compound-Spheres fork.**
+   `CompoundSpheres/HeightFieldRenderer.cs` (on `wsm3d/main`) emits a
+   corner-averaged height-field land mesh with analytic normals + a water
+   sub-mesh in the same rebuild pass. The main-mod overlays
+   (`Code/Water/WaterSurface.cs`, `WaterRender.cs`, `WaterMaskBuffer.cs`,
+   `Code/Terrain/TerrainSmoothing.cs`) are **retired**; the main mod is now a
+   pure data/adapter provider (`Core.cs ConfigureHeightField`/`ConfigureWater`).
+   The submodule was found **detached** at upstream `73a7b77` (which lacked
+   the height-field) and **re-attached to `wsm3d/main`** (`9e69b64b`). ADR:
+   `docs/adr/ADR-fork-terrain-water-slope.md`.
+2. **Crossed-quad billboards ELIMINATED; voxel-or-invisible policy.** Clouds,
+   buildings, foliage, walls and actors all render as real 3D voxel/mesh, or
+   are culled at far LOD — never a billboard. Deleted:
+   `CrossedQuadMeshCache`/`Mesher`, `ImpostorBillboard`, water-overlay stubs,
+   `TerrainSmoothing` stub (`63940cd8`, `6bf38fde`).
+3. **Rigging stably disabled → static voxel mesh** (bind-pose scale mismatch;
+   re-enable later with centroid bind poses) (`4f85defa`).
+4. **Magenta root cause fixed:** `OpaqueVertexColor` `INSTANCING_ON` variant
+   failed 62f3→60f1; fix = buffer-driven `CompoundSphere.shader` (no `_Color`
+   cbuffer). **Unity 2022.3.60f1 installed at `E:/Unity/Hub/Editor/2022.3.60f1`**
+   for matched-version bakes.
+5. **Headless bridge controls the game (zero clicks):** `BridgeActions.cs` —
+   `/actions/new_world`, `spawn_units` (persisting via `spawnNewUnitByPlayer`),
+   `camera`, `set_speed`, `select_tool`/`use_tool`, plus `/world/state` and
+   `/tools` (`237eb56b`, `237c3dc3`).
+6. **Machine-readable diagnostics:** `RenderErrorRegistry` + `GET /diag/errors`
+   (typed render-failure JSON), in-world error markers (`RenderErrorProps`
+   flag), `[WSM3D][ERRORS]` log summary (`5c137e10`).
+7. **GPU-compute renderer base adoption (in progress):** adopting Melvin's
+   GPU-driven instanced engine (compute kernels for matrices/colors, indirect
+   draw) as the SOTA base behind an adapter shim. P1–P3 landed (authored
+   `.compute` keystone, GPU manager + shim, compute-bundle bake). Go-live in
+   slices. ADR: `docs/adr/ADR-sota-gpu-compute-adoption.md`.
+8. **Both forks track upstream now** (`MelvinShwuaner/WorldSphereMod` +
+   `/Compound-Spheres`). Audit: `docs/upstream-divergence-audit.md`;
+   foresight: `docs/foresight-melvin-trajectory-and-gaps.md`.
+
+Older Phase-7-kickoff context below this section predates the shift; treat the
+list above as the source of truth where they conflict.
 
 **Latest `do-all-latest` (desk, vision off):** PlayCUA **passed on 1st attempt** (`run-all`, `-VisionBackend off`); **`live-verify-live`** and **`audit-tick`** stages failed. OmniRoute funnel (`https://omniroute-a6e82363-1.tail2b570.ts.net/v1`) often times out from the desk — use `-SkipLive` / vision-off PlayCUA for laptop-only loops; see [OmniRoute (kooshas-laptop)](#omniroute-kooshas-laptop). Report: `Tools/.reports/do-all-latest.json`.
 
