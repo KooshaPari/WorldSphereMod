@@ -153,4 +153,37 @@ public class GpuManagerBoundaryTests
         s.Should().NotContain("new CompoundSpheres.Compat.LegacyManagerShim(GpuManager,",
             "no extra delegate args — height-only shim");
     }
+
+    // ---- Phase 5 ----
+    [Fact]
+    public void Phase5_compound_compute_loaded_from_shader_bundle()
+    {
+        // 5.1: CompoundCompute is populated from the wsm3d-shaders bundle in LoadAssets.
+        var s = Core();
+        s.Should().Contain("CompoundCompute = cs;",
+            "the GPU-compute keystone must be loaded from the shader bundle");
+        s.Should().Contain("GetObject<UnityEngine.ComputeShader>(",
+            "loaded via GetObject<ComputeShader> on the .compute asset path");
+    }
+
+    [Fact]
+    public void Phase5_create_gpu_settings_passes_compute_and_skips_when_null()
+    {
+        // 5.2: CreateGpuSettings passes CompoundCompute as ComputeShader, and
+        // returns false (skips GPU creation + logs) when it is null — no crash.
+        var s = Core();
+        s.Should().Contain("ComputeShader = CompoundCompute,",
+            "the loaded compute keystone must be passed as the GPU settings ComputeShader");
+        s.Should().Contain("MatrixKernel = CompoundSpheres.Gpu.GpuKernels.Matrix,");
+        s.Should().Contain("ColorKernel = CompoundSpheres.Gpu.GpuKernels.Color,");
+        // Guard: null compute => skip + warn (no NRE in ManagerBase.Init FindKernel).
+        var guardIdx = s.IndexOf("if (CompoundCompute == null)", System.StringComparison.Ordinal);
+        guardIdx.Should().BeGreaterThan(0);
+        var returnFalse = s.IndexOf("GpuManagerConfig = null;\r\n                    return false;",
+            System.StringComparison.Ordinal);
+        if (returnFalse < 0)
+            returnFalse = s.IndexOf("GpuManagerConfig = null;\n                    return false;",
+                System.StringComparison.Ordinal);
+        returnFalse.Should().BeGreaterThan(guardIdx, "the null guard must skip creation by returning false");
+    }
 }
