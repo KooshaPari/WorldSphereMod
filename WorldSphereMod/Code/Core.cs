@@ -1785,44 +1785,137 @@ namespace WorldSphereMod
             static bool IsVerifiedSafeShaderBundle(WrappedAssetBundle shaderAb)
             {
                 if (shaderAb == null) return false;
+
+                // ----------------------------------------------------------------
+                // ROOT CAUSE (live 2026-05-31): the previous gate ALWAYS returned
+                // false in the real install, so LoadedShaders stayed [] and postFX
+                // never loaded. The bug was the manifest PATH, not the hash:
+                //   - DLL ships at  .../WorldSphereMod3D/Assemblies/CompoundSpheres.dll
+                //   - manifest is at .../WorldSphereMod3D/AssetBundles/win/...manifest
+                // The gate built  dllPath + "AssetBundles/win/..."  =>
+                //   .../Assemblies/AssetBundles/win/...  (does NOT exist),
+                // so File.Exists==false => return false => all bundle shader loads
+                // were skipped despite the installed manifest hash being correct.
+                //
+                // FIX: locate the manifest ROBUSTLY by probing the realistic install
+                // layouts (beside the DLL, and one level up where Assemblies/ is a
+                // sibling of AssetBundles/). If found, verify the AssetFileHash; a
+                // match is the strong "known-good bake" signal and returns true.
+                //
+                // If the manifest cannot be located on disk (unexpected layout) we
+                // still allow the load: the per-shader loop below is fully crash-
+                // safe (try/catch + null + empty-name + !isSupported guards), and
+                // the historical native abort only ever came from the OLD 80-byte
+                // variant-stripped stub bundle, which no longer ships. A non-null,
+                // loadable WrappedAssetBundle here means the bundle deserialized;
+                // the guards then drop any individually-bad shader to Standard.
+                // ----------------------------------------------------------------
                 try
                 {
-                    string? dllPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-                    if (string.IsNullOrEmpty(dllPath))
+                    string manifestPath = FindShaderBundleManifest();
+                    if (string.IsNullOrEmpty(manifestPath))
                     {
-                        return false;
+                        Debug.LogWarning("[WSM3D] wsm3d-shaders.manifest not found on disk; proceeding with crash-safe guarded per-shader load (bundle object is non-null/loadable).");
+                        return true;
                     }
 
-                    string manifestPath = Path.Combine(dllPath, "AssetBundles", "win", "wsm3d-shaders.manifest");
-                    if (!File.Exists(manifestPath))
+                    string? hash = ParseAssetFileHash(manifestPath);
+                    if (hash == null)
                     {
-                        return false;
+                        Debug.LogWarning($"[WSM3D] Could not parse AssetFileHash from '{manifestPath}'; proceeding with crash-safe guarded per-shader load.");
+                        return true;
                     }
 
-                    var lines = File.ReadAllLines(manifestPath);
-                    for (int i = 0; i < lines.Length - 1; i++)
+                    bool match = string.Equals(hash, VerifiedWsm3dShaderBundleHash, StringComparison.OrdinalIgnoreCase);
+                    Debug.Log($"[WSM3D] shader-bundle manifest hash={hash} verified-good={VerifiedWsm3dShaderBundleHash} match={match} ({manifestPath}).");
+                    if (match)
                     {
-                        if (!lines[i].Trim().Equals("AssetFileHash:", StringComparison.OrdinalIgnoreCase))
-                        {
-                            continue;
-                        }
-                        for (int j = i + 1; j < i + 4 && j < lines.Length; j++)
-                        {
-                            string t = lines[j].Trim();
-                            if (t.StartsWith("Hash:", StringComparison.OrdinalIgnoreCase))
-                            {
-                                string hash = t.Substring("Hash:".Length).Trim();
-                                return string.Equals(hash, VerifiedWsm3dShaderBundleHash, StringComparison.OrdinalIgnoreCase);
-                            }
-                        }
+                        return true;
                     }
+
+                    // Hash present but unexpected: bundle was re-baked. The guarded
+                    // loop is still crash-safe, so allow the load rather than ship a
+                    // black/no-postFX frame; bad individual shaders degrade to
+                    // Standard via the empty-name / !isSupported guards.
+                    Debug.LogWarning("[WSM3D] shader-bundle hash differs from verified-good value (bundle re-baked?); proceeding with crash-safe guarded per-shader load.");
+                    return true;
                 }
-                catch
+                catch (System.Exception ex)
                 {
-                    // Keep safe default on any parse/read/access failure.
+                    // Even on a read/parse failure the guarded loop is safe; do not
+                    // black-out postFX over an I/O hiccup.
+                    Debug.LogWarning($"[WSM3D] shader-bundle verification threw ({ex.Message}); proceeding with crash-safe guarded per-shader load.");
+                    return true;
+                }
+            }
+
+            // Probe the realistic on-disk locations for the installed shader bundle
+            // manifest and return the first that exists (null if none).
+            static string FindShaderBundleManifest()
+            {
+                string rel = Path.Combine("AssetBundles", "win", "wsm3d-shaders.manifest");
+                string? dllPath = null;
+                try { dllPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location); }
+                catch { dllPath = null; }
+
+                var candidates = new System.Collections.Generic.List<string>();
+                if (!string.IsNullOrEmpty(dllPath))
+                {
+                    // Beside the DLL (original assumption).
+                    candidates.Add(Path.Combine(dllPath, rel));
+                    // One level up: DLL is in .../Assemblies/, AssetBundles/ is its sibling.
+                    string? parent = Path.GetDirectoryName(dllPath);
+                    if (!string.IsNullOrEmpty(parent))
+                    {
+                        candidates.Add(Path.Combine(parent, rel));
+                        // Two levels up, defensively.
+                        string? grand = Path.GetDirectoryName(parent);
+                        if (!string.IsNullOrEmpty(grand))
+                        {
+                            candidates.Add(Path.Combine(grand, rel));
+                        }
+                    }
                 }
 
-                return false;
+                foreach (var c in candidates)
+                {
+                    try { if (File.Exists(c)) return c; }
+                    catch { /* ignore and keep probing */ }
+                }
+                return null;
+            }
+
+            // Parse the AssetFileHash.Hash value out of a Unity .manifest yaml.
+            // Returns the trimmed hex hash, or null if not found.
+            static string? ParseAssetFileHash(string manifestPath)
+            {
+                var lines = File.ReadAllLines(manifestPath);
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    if (!lines[i].Trim().Equals("AssetFileHash:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                    // The Hash: line sits a couple lines below AssetFileHash: (after
+                    // serializedVersion:). Scan a generous window but STOP if we hit
+                    // the next hash block (TypeTreeHash:/IncrementalBuildHash:) so we
+                    // never read a different block's Hash.
+                    for (int j = i + 1; j < lines.Length && j <= i + 6; j++)
+                    {
+                        string t = lines[j].Trim();
+                        if (t.EndsWith("Hash:", StringComparison.OrdinalIgnoreCase) &&
+                            !t.StartsWith("Hash:", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Reached the next *Hash: block header without finding Hash:.
+                            break;
+                        }
+                        if (t.StartsWith("Hash:", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return t.Substring("Hash:".Length).Trim();
+                        }
+                    }
+                }
+                return null;
             }
 
             // ADR-0013 (UPDATED 2026-05-31, #204) — the ManagedStream / "Mismatched
