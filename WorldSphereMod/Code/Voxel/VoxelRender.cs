@@ -646,16 +646,26 @@ namespace WorldSphereMod.Voxel
                             Vector3 skRot = rd.rotations[i];
                             Vector3 skScl = rd.scales[i];
                             if (rd.flip_x_states[i]) skScl.x = -skScl.x;
+                            skScl.z = skScl.x;
+                            // Match the static actor path scale (line ~737): raw
+                            // rd.scales[i] is sprite-native (~1) and would render a
+                            // tiny actor against the 8x voxel world. RigDriver now
+                            // routes through the static voxel mesh (skinned path is
+                            // disabled, see RigDriver.kSkinnedRigProductionReady), so
+                            // apply the same VoxelScaleMultiplier * ActorVoxelScaleFactor
+                            // the normal static actor submit uses.
+                            skScl *= Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor;
                             if (skPos.z < Constants.ZDisplacement * 0.5f)
                             {
                                 skPos = skPos.To3DTileHeight(false);
                             }
-                            // Match the ActorVoxelEmit Y-lift so skinned actors aren't
-                            // embedded inside the terrain/water voxel. SubmitSkinnedActor
-                            // uses skPos as the rig root position; raise it by half the
-                            // expected actor height (use scl.y * VoxelScaleMultiplier as
-                            // rough actor height estimate; / 2 for center→bottom shift).
-                            float skHalfHeight = Mathf.Abs(skScl.y) * Core.savedSettings.VoxelScaleMultiplier * 0.5f;
+                            // Match the static actor path Y-lift so the mesh BOTTOM
+                            // sits on the terrain instead of embedded in the tile
+                            // cube. skScl is already fully scaled above, so estimate
+                            // half-height directly from it (no extra VoxelScaleMultiplier
+                            // — that would double-lift now that skScl carries the
+                            // multiplier). ~0.5 world units of mesh height pre-scale.
+                            float skHalfHeight = Mathf.Abs(skScl.y) * 0.5f;
                             skPos.y += skHalfHeight;
                             LogActorSubmitDiagnostic("skeletal", ref _actorSkeletalDiagnosticLogged, a, ResolveActorSprite(rd, i, a), skPosBeforeLift, skPos, rd.colors[i]);
                             if (WorldSphereMod.Rig.RigDriver.SubmitSkinnedActor(
