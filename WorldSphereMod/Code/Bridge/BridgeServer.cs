@@ -191,9 +191,9 @@ namespace WorldSphereMod.Bridge
                 _cachedVoxelCacheHit = SafeHitRate(
                     () => WorldSphereMod.Voxel.VoxelMeshCache.HitCount,
                     () => WorldSphereMod.Voxel.VoxelMeshCache.MissCount);
-                _cachedImpostorCacheHit = SafeHitRate(
-                    () => WorldSphereMod.LOD.ImpostorBillboard.HitCount,
-                    () => WorldSphereMod.LOD.ImpostorBillboard.MissCount);
+                // Impostor billboard cache removed (far-LOD culls, no billboards). Hit-rate
+                // slot held at 0 for telemetry-schema stability.
+                _cachedImpostorCacheHit = 0f;
                 _cachedDrawCalls = SafeLong(() => WorldSphereMod.Voxel.MeshInstanceBatcher.FrameDrawCalls);
                 if (_cachedDrawCalls > 0L)
                 {
@@ -1141,9 +1141,20 @@ namespace WorldSphereMod.Bridge
         ///  - It was fire-and-forget, so {queued:true} returned before any actor existed and the
         ///    caller had no truthful count.
         ///
-        /// Fix: scan an outward ring from map center (or the supplied x,y) for a SPAWNABLE tile
-        /// (ground && !liquid && !lava && !block), spawn there via ActorManager.createNewUnit,
-        /// require a non-null returned Actor, and report spawned vs requested + live unit delta.
+        /// Why units still DIED 0->0 after the tile fix (root cause of THIS change):
+        ///  - ActorManager.createNewUnit() is the low-level constructor: it does NOT assign a
+        ///    kingdom and does NOT set nutrition. On a fresh empty world the resulting actor has
+        ///    no wild kingdom and zero nutrition, so it starves/gets pruned within the first ticks
+        ///    -> "live 0->0". (A loaded SAVE worked because its actors already had kingdoms.)
+        ///  - The in-game creature power instead calls spawnNewUnitByPlayer(), which wraps
+        ///    spawnNewUnit(): assigns the asset's wild kingdom (kingdoms_wild.get(kingdom_id_wild)),
+        ///    calls setStatsDirty(), and (crucially) setNutrition(nutrition_level_on_spawn). It also
+        ///    joins a nearby joinable city when sapient. Those actors PERSIST.
+        ///
+        /// Fix: collect SPAWNABLE land tiles (ground && !liquid && !lava && !block) nearest-first,
+        /// spawn each via ActorManager.spawnNewUnitByPlayer (the lasting, kingdom+nutrition path the
+        /// player's creature power uses), require a non-null returned Actor, and report spawned vs
+        /// requested + live unit delta.
         /// </summary>
         object SpawnUnitsQueued(string countText, string race, string xText = null, string yText = null)
         {
@@ -1195,7 +1206,10 @@ namespace WorldSphereMod.Bridge
                         if (tile == null) continue;
                         try
                         {
-                            Actor actor = mapBox.units.createNewUnit(race, tile);
+                            // Use the player-facing spawn path: assigns a wild kingdom + nutrition
+                            // (and joins a nearby city if sapient) so the actor PERSISTS instead of
+                            // starving/being pruned. createNewUnit() alone produced 0->0 live units.
+                            Actor actor = mapBox.units.spawnNewUnitByPlayer(race, tile);
                             if (actor != null) spawned++;
                         }
                         catch (Exception spawnEx)
@@ -1458,8 +1472,11 @@ namespace WorldSphereMod.Bridge
 
             int voxelCacheSize = SafeCount(() => WorldSphereMod.Voxel.VoxelMeshCache.Count);
             int procgenCacheSize = SafeCount(() => WorldSphereMod.ProcGen.ProcGenCache.Count);
-            int foliageCount = SafeCount(() => WorldSphereMod.Foliage.CrossedQuadMeshCache.Count);
-            int impostorCount = SafeCount(() => WorldSphereMod.LOD.ImpostorBillboard.Count);
+            // Crossed-quad foliage + impostor billboard caches removed (all foliage/fx
+            // is voxel now; far-LOD culls instead of billboarding). Slots kept at 0 for
+            // telemetry-schema stability.
+            int foliageCount = 0;
+            int impostorCount = 0;
 
             bool emitVoxelsFired = drawCalls > 0 || _cachedLastNonZeroDrawCalls > 0;
 
