@@ -1142,7 +1142,7 @@ namespace WorldSphereMod
                 // the emission floor, ignores the 2D night tint) so terrain — flat
                 // lowland included — stays lit. Fall back to Sprites/Default only if
                 // the bundle/Standard shaders are somehow unavailable.
-                Shader vcShader = ResolveShader("");
+                Shader vcShader = ResolveShader("OpaqueVertexColor");
                 if (vcShader == null) vcShader = Shader.Find("Sprites/Default");
                 if (vcShader != null)
                 {
