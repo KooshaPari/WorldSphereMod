@@ -121,4 +121,36 @@ public class GpuManagerBoundaryTests
         s.Should().Contain("GpuManager?.UpdateCustom(\"AddedColors\", (Tile.X * Height) + Tile.Y);");
         s.Should().Contain("GpuManager?.UpdateColor(Tile.X, Tile.Y);");
     }
+
+    // ---- Phase 4 ----
+    [Fact]
+    public void Phase4_bindgpu_pushes_heights_and_reactivates_layer()
+    {
+        var s = Core();
+        s.Should().Contain("static void BindGpu(int mapWidth, int mapHeight)");
+        s.Should().Contain("var shim = new CompoundSpheres.Compat.LegacyManagerShim(GpuManager);",
+            "shim must be height-only (no color delegate) to avoid the O(N) color scan (risk #6)");
+        s.Should().Contain("hf.BindGpu(shim);");
+        s.Should().Contain("GpuManager.gameObject.SetActive(true);",
+            "GPU tile layer must be re-activated once heights are synced");
+    }
+
+    [Fact]
+    public void Phase4_bindgpu_invoked_after_gpu_manager_created()
+    {
+        var s = Core();
+        s.Should().Contain("BindGpu(width, height);",
+            "BindGpu must run in the GPU onCreated callback (both Manager.HeightField and GpuManager exist there)");
+    }
+
+    [Fact]
+    public void Phase4_shim_is_height_only_no_color_arg()
+    {
+        // The shim ctor accepts optional color/height delegates; passing a color
+        // delegate triggers an O(N)/frame full re-scan (risk #6). We must construct
+        // it with only the GpuSphereManager (height pushed via BindGpu->SetHeights).
+        var s = Core();
+        s.Should().NotContain("new CompoundSpheres.Compat.LegacyManagerShim(GpuManager,",
+            "no extra delegate args — height-only shim");
+    }
 }

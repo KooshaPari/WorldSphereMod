@@ -681,12 +681,15 @@ namespace WorldSphereMod
                                     {
                                         GpuManager = gpuMgr;
                                         // Risk #2 mitigation (a): keep the GPU tile layer INACTIVE
-                                        // until terrain heights are synced in Phase 4, so its
-                                        // Height=0 tiles do not z-fight the HeightField mesh on
-                                        // flat worlds. Phase 4 (BindGpu) re-activates it.
+                                        // until terrain heights are synced (just below), so its
+                                        // Height=0 tiles never z-fight the HeightField mesh.
                                         if (gpuMgr != null && gpuMgr.gameObject != null)
                                             gpuMgr.gameObject.SetActive(false);
-                                        Debug.Log($"[WSM3D] Sphere.Begin: GpuSphereManager created (parallel actor/voxel path), inactive until Phase 4 height sync. Rows={gpuMgr.Rows} Cols={gpuMgr.Cols}");
+                                        Debug.Log($"[WSM3D] Sphere.Begin: GpuSphereManager created (parallel actor/voxel path). Rows={gpuMgr.Rows} Cols={gpuMgr.Cols}");
+                                        // #199 Phase 4: bind the HeightField to the GPU matrix
+                                        // kernel and push terrain heights, then re-activate the
+                                        // GPU layer once it sits at correct elevations.
+                                        BindGpu(width, height);
                                     }));
                             }
                         }
@@ -1142,6 +1145,30 @@ namespace WorldSphereMod
                 // creation until Phase 4 syncs terrain heights (risk #2 mitigation a).
                 if (GpuManager != null && GpuManager.gameObject != null && GpuManager.gameObject.activeSelf)
                     GpuManager.DrawTiles(CameraX);
+            }
+            // #199 Phase 4: push the HeightField's terrain heights into the GPU
+            // matrix kernel (via a height-only LegacyManagerShim — risk #6: shim
+            // used ONLY for height sync, NO color delegate to avoid the O(N) scan)
+            // then re-activate the GPU tile layer now that it sits at correct
+            // elevations (undoing the Phase 2 SetActive(false)).
+            static void BindGpu(int mapWidth, int mapHeight)
+            {
+                if (GpuManager == null || CompoundCompute == null) return;
+                if (Manager == null || !Manager.UseHeightFieldTerrain) return;
+                var hf = Manager.HeightField;
+                if (hf == null) return;
+                try
+                {
+                    var shim = new CompoundSpheres.Compat.LegacyManagerShim(GpuManager);
+                    hf.BindGpu(shim);
+                    if (GpuManager.gameObject != null)
+                        GpuManager.gameObject.SetActive(true);
+                    Debug.Log($"[WSM3D] Phase 4 BindGpu: terrain heights pushed to GPU matrix kernel; GPU tile layer re-activated. HasHeights={GpuManager.HasHeights}");
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogWarning("[WSM3D] Phase 4 BindGpu failed: " + ex.Message + " — GPU tile layer stays inactive.");
+                }
             }
             static void ConfigureHeightField(SphereManager mgr, int mapWidth, int mapHeight)
             {
