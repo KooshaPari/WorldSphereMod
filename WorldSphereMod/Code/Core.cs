@@ -335,6 +335,14 @@ namespace WorldSphereMod
                 Patcher.PatchAll(typeof(WorldSphereMod.Bridge.BridgePerFrameTick));
                 Patcher.PatchAll(typeof(WorldSphereMod.Bridge.BridgeSurvivalBackup));
                 Patcher.PatchAll(typeof(WorldSphereMod.Bridge.BridgeLoadSaveHooks));
+                // Input-capture recorder hooks (passive; gated by SavedSettings.InputCaptureEnabled).
+                Patcher.PatchAll(typeof(WorldSphereMod.Capture.CaptureClickHook));
+                Patcher.PatchAll(typeof(WorldSphereMod.Capture.CaptureSelectToolHook));
+                Patcher.PatchAll(typeof(WorldSphereMod.Capture.CaptureNewWorldHook));
+                Patcher.PatchAll(typeof(WorldSphereMod.Capture.CaptureLoadSaveHook));
+                Patcher.PatchAll(typeof(WorldSphereMod.Capture.CaptureSetSpeedByIdHook));
+                Patcher.PatchAll(typeof(WorldSphereMod.Capture.CaptureSetSpeedByAssetHook));
+                Patcher.PatchAll(typeof(WorldSphereMod.Capture.CaptureZoomHook));
                 Patcher.PatchAll(typeof(SphereControl));
                 Patcher.PatchAll(typeof(Dist3D));
                 Patcher.PatchAll(typeof(EffectPatches));
