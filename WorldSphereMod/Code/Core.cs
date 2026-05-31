@@ -1549,6 +1549,12 @@ namespace WorldSphereMod
                 }
                 else
                 {
+                    if (!IsVerifiedSafeShaderBundle(shaderAb))
+                    {
+                        Debug.LogWarning("[WSM3D] wsm3d-shaders bundle is unverified in this install. Skipping bundle shader loads and keeping Shader.Find / Standard fallback.");
+                    }
+                    else
+                    {
                     // DIAGNOSTIC BLOCK DISABLED — see ADR-0013.
                     //
                     // Invoking AssetBundle.LoadAllAssets(typeof(ShaderVariantCollection))
@@ -1635,6 +1641,7 @@ namespace WorldSphereMod
                     // Log which shaders actually made it into the cache so
                     // "LoadedShaders[count=2]" in the log can be diagnosed.
                     Debug.Log($"[WSM3D] LoadedShaders[count={LoadedShaders.Count}]: {string.Join(", ", LoadedShaders.Keys)}");
+                    }
 
                     // GPU-compute keystone (ADR-sota-gpu-compute-adoption): load the
                     // baked CompoundSphereCompute ComputeShader so the GPU-driven
@@ -1773,6 +1780,51 @@ namespace WorldSphereMod
             }
 
             // ----------------------------------------------------------------
+            static readonly string VerifiedWsm3dShaderBundleHash = "34b1a0aea10a1405dd5fae3546776d2d";
+
+            static bool IsVerifiedSafeShaderBundle(WrappedAssetBundle shaderAb)
+            {
+                if (shaderAb == null) return false;
+                try
+                {
+                    string? dllPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                    if (string.IsNullOrEmpty(dllPath))
+                    {
+                        return false;
+                    }
+
+                    string manifestPath = Path.Combine(dllPath, "AssetBundles", "win", "wsm3d-shaders.manifest");
+                    if (!File.Exists(manifestPath))
+                    {
+                        return false;
+                    }
+
+                    var lines = File.ReadAllLines(manifestPath);
+                    for (int i = 0; i < lines.Length - 1; i++)
+                    {
+                        if (!lines[i].Trim().Equals("AssetFileHash:", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+                        for (int j = i + 1; j < i + 4 && j < lines.Length; j++)
+                        {
+                            string t = lines[j].Trim();
+                            if (t.StartsWith("Hash:", StringComparison.OrdinalIgnoreCase))
+                            {
+                                string hash = t.Substring("Hash:".Length).Trim();
+                                return string.Equals(hash, VerifiedWsm3dShaderBundleHash, StringComparison.OrdinalIgnoreCase);
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                    // Keep safe default on any parse/read/access failure.
+                }
+
+                return false;
+            }
+
             // ADR-0013 (UPDATED 2026-05-31, #204) — the ManagedStream / "Mismatched
             // serialization in builtin class 'Shader'" crash was ROOT-CAUSED to the
             // bake pipeline emitting a variant-STRIPPED 80-byte shader stub, NOT a
