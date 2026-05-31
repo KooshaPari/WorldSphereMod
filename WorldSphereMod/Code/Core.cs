@@ -26,7 +26,7 @@ namespace WorldSphereMod
         public static class Core
     {
         public static SavedSettings savedSettings = new SavedSettings();
-        public static string SettingsVersion = "2.3";
+        public static string SettingsVersion = "2.4";
 
         public static Harmony Patcher;
         internal static bool ClearVoxelMeshCacheOnFirstFrame;
@@ -1064,7 +1064,13 @@ namespace WorldSphereMod
             }
             static void ConfigureHeightField(SphereManager mgr, int mapWidth, int mapHeight)
             {
-                bool enabled = savedSettings.UseHeightFieldTerrain && savedSettings.CurrentShape == 0;
+                // #201: HeightFieldRenderer is shape-AGNOSTIC. Its mesh build operates
+                // purely on Rows×Cols + corner-averaging and projects every vertex via
+                // the injected projectPosition => mgr.SphereTilePosition, which is the
+                // active shape's own (cylindrical/flat/cube) To2D projector. So the smooth
+                // mesh renders correctly for ALL shapes; the old `&& CurrentShape == 0`
+                // gate needlessly pinned it to one shape (and left land blocky elsewhere).
+                bool enabled = savedSettings.UseHeightFieldTerrain;
                 mgr.UseHeightFieldTerrain = enabled;
                 if (!enabled) return;
 

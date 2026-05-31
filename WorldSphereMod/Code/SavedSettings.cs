@@ -109,8 +109,12 @@ public class SavedSettings
         // VoxelEntities=true so foliage renders 3D out-of-the-box like actors.
         public bool CrossedQuadFoliage = true;
         // ADR-0017 M0: continuous height-field mesh terrain (replaces per-tile quads).
-        // Flat shape only. Default OFF until validated in-game.
-        public bool UseHeightFieldTerrain = false;
+        // Default ON (#201): the corner-averaged + analytic-normal + Perlin-displaced
+        // mesh is the smooth-terrain path; OFF made land fall back to blocky per-tile
+        // quads (the cube-step regression). The mesh build is shape-agnostic (operates
+        // on Rows×Cols + injected shape-aware projectPosition), so it is enabled for all
+        // shapes via the gate in Core.ConfigureHeightField.
+        public bool UseHeightFieldTerrain = true;
         // Terrain polish: blend biome colors across tile boundaries.
         public bool BiomeBlending = true;
         // Phase 4: Mesh water surface (vs. flat tile color).
@@ -234,6 +238,7 @@ public class SavedSettings
             s.VoxelEntities = true;
             s.ProceduralBuildings = false;
             s.CrossedQuadFoliage = true; // WHY: gates the foliage patch; off = trees stay vanilla 2D
+            s.UseHeightFieldTerrain = true; // #201: smooth corner-averaged terrain mesh (off = cube-step regression)
             s.MeshWater = false;
             s.WorldspaceHealth3D = false;
             s.MountainSlopeSmoothing = false;
