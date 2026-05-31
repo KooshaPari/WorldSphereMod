@@ -67,6 +67,24 @@ public static class BakeShaders
             File.Copy(src, dst, overwrite: true);
             Debug.Log("[WSM3D-Bake] copied compute: " + Path.GetFileName(src));
         }
+        // GPU adoption: also ship the buffer-driven material shader
+        // (CompoundSphere.shader) — color/matrix come from StructuredBuffers
+        // packed uint, no per-instance _Color cbuffer / INSTANCING_ON variant,
+        // so this is the shader that kills the magenta/green failure class.
+        foreach (var src in new[]
+        {
+            Path.Combine(repoRoot, "External", "Compound-Spheres", "Default Assets", "CompoundSphere.shader"),
+        })
+        {
+            if (!File.Exists(src))
+            {
+                Debug.LogWarning("[WSM3D-Bake] CompoundSphere.shader missing, skipping: " + src);
+                continue;
+            }
+            string dst = Path.Combine(assetsShaderDir, Path.GetFileName(src));
+            File.Copy(src, dst, overwrite: true);
+            Debug.Log("[WSM3D-Bake] copied buffer-driven shader: " + Path.GetFileName(src));
+        }
         AssetDatabase.Refresh();
 
         // Tag compute shaders into the same bundle as the surface shaders.

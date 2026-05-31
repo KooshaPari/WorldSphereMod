@@ -576,6 +576,11 @@ namespace WorldSphereMod
             static SphereManager Manager;
             static Mesh CompoundSphereMesh;
             internal static Material CompoundSphereMaterial;
+            // GPU-compute keystone shader (CompoundSphereCompute), loaded from the
+            // wsm3d-shaders bundle in LoadAssets. Non-null once the bundle ships the
+            // baked .compute; the GPU CompoundSpheres.Gpu manager / LegacyManagerShim
+            // bind its CSMatrices/CSColors kernels to it. Null => legacy CPU path.
+            internal static UnityEngine.ComputeShader CompoundCompute;
             static Texture2DArray Textures;
             static SphereManagerSettings SphereManagerConfig;
             static Dictionary<Tile, int> TileIDS;
@@ -1358,6 +1363,35 @@ namespace WorldSphereMod
                     // Log which shaders actually made it into the cache so
                     // "LoadedShaders[count=2]" in the log can be diagnosed.
                     Debug.Log($"[WSM3D] LoadedShaders[count={LoadedShaders.Count}]: {string.Join(", ", LoadedShaders.Keys)}");
+
+                    // GPU-compute keystone (ADR-sota-gpu-compute-adoption): load the
+                    // baked CompoundSphereCompute ComputeShader so the GPU-driven
+                    // CompoundSpheres.Gpu manager / LegacyManagerShim can bind its
+                    // CSMatrices/CSColors kernels (GpuKernels.Matrix/.Color). This is
+                    // the binding that makes the buffer-driven GPU path constructible
+                    // (no per-instance _Color cbuffer -> no magenta/green class).
+                    // NOTE: a ComputeShader is NOT a UnityEngine.Shader, so it loads
+                    // via GetObject<ComputeShader> on the .compute asset path.
+                    try
+                    {
+                        UnityEngine.ComputeShader cs =
+                            shaderAb.GetObject<UnityEngine.ComputeShader>("assets/wsm3d/shaders/compoundspherecompute.compute");
+                        if (cs == null)
+                            cs = shaderAb.GetObject<UnityEngine.ComputeShader>("Assets/WSM3D/Shaders/CompoundSphereCompute.compute");
+                        if (cs != null)
+                        {
+                            CompoundCompute = cs;
+                            Debug.Log($"[WSM3D] Loaded GPU-compute keystone: CompoundSphereCompute (kernels {CompoundSpheres.Gpu.GpuKernels.Matrix}/{CompoundSpheres.Gpu.GpuKernels.Color}) supported={SystemInfo.supportsComputeShaders}");
+                        }
+                        else
+                        {
+                            Debug.LogWarning("[WSM3D] CompoundSphereCompute not in wsm3d-shaders bundle — GPU-compute path unavailable; legacy CPU SphereManager path stays active.");
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogWarning("[WSM3D] CompoundSphereCompute load threw: " + ex.Message + " — GPU-compute path unavailable.");
+                    }
                 }
 
                 // Inspect CompoundSphereMaterial's shader. If its shader was
