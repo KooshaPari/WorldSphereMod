@@ -7,10 +7,17 @@ using WorldSphereMod.Voxel;
 
 namespace WorldSphereMod.Worldspace
 {
+    // Run after WorldUIRenderer (order 0) so the rig world-position is already
+    // updated before we billboard the bar. Fixes the "camera-fixed" appearance
+    // caused by billboarding against the previous frame's rig transform.
+    [UnityEngine.DefaultExecutionOrder(100)]
     public sealed class HealthBar : MonoBehaviour
     {
         internal Actor? Actor;
         bool _use3dMode;
+        // Actor height in world-units (VoxelScaleMultiplier * ActorVoxelScaleFactor).
+        // Cached at Attach time; used in LateUpdate to keep bar width proportional.
+        float _actorH = 0.8f;
 
         const float kFullLength = 1f;
         const float kThickness = 0.1f;
@@ -31,13 +38,31 @@ namespace WorldSphereMod.Worldspace
             var existing = rigRoot.GetComponentInChildren<HealthBar>();
             if (existing != null) return existing;
 
+            // Scale the bar to match the actor's rendered size.  Voxel actors are
+            // drawn at VoxelScaleMultiplier * ActorVoxelScaleFactor world-units tall
+            // (default 8 * 0.1 = 0.8 WU).  The bar constants (width 0.8, thickness
+            // 0.08) were authored for 1× tile-unit space; dividing by VoxelScaleMultiplier
+            // brings them back to actor-proportional sizes.  (#191 / healthbar-massive)
+            float vsm = Core.savedSettings != null
+                ? Mathf.Max(1f, Core.savedSettings.VoxelScaleMultiplier)
+                : 8f;
+            float avs = Core.savedSettings != null
+                ? Mathf.Max(0.01f, Core.savedSettings.ActorVoxelScaleFactor)
+                : 0.10f;
+            // Effective actor height in world-units (used to lift bar above head).
+            float actorH = vsm * avs;
+
             GameObject go = new GameObject("hpbar");
             go.transform.SetParent(rigRoot, false);
-            go.transform.localPosition = new Vector3(0, 0.35f, 0);
-            go.transform.localScale = new Vector3(0.8f, 0.08f, 1f);
+            // Lift bar just above actor head: rig anchor is at kRigLift above terrain,
+            // actor mesh extends actorH above that, add a small margin.
+            go.transform.localPosition = new Vector3(0, actorH + 0.05f, 0);
+            // Width proportional to actor width; keep bar thin in Y; flat in Z.
+            go.transform.localScale = new Vector3(actorH, actorH * 0.1f, 0.01f);
 
             var bar = go.AddComponent<HealthBar>();
             bar.Actor = a;
+            bar._actorH = actorH;
             bar._use3dMode = Core.savedSettings.WorldspaceHealth3D;
             if (bar._use3dMode)
             {
@@ -120,7 +145,7 @@ namespace WorldSphereMod.Worldspace
             }
 
             Vector3 s = transform.localScale;
-            s.x = 0.8f * hp;
+            s.x = _actorH * hp;
             transform.localScale = s;
         }
 
