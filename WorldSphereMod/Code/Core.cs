@@ -1891,9 +1891,16 @@ namespace WorldSphereMod
             // is the ground-truth confirm. If a native ManagedStream abort recurs,
             // flip both back to false (crash-safe) — the per-shader load loop keeps
             // its try/catch + null + isSupported guards regardless.
-            public const bool PostFxShaderBundleAvailable = true;
+            // 2026-06-01 GAME-RUNTIME RESULT: re-enable STILL crashed. OVC now loads
+            // cleanly from the bundle (strip fix worked for it), but the 6 postFX
+            // shaders are STILL player-side 80-byte stubs → "Read 80 expected 12700"
+            // native abort. So subshaderCount (12/0 in editor) is ALSO a false
+            // positive — the editor recompiles; only the PLAYER is truth. postFX
+            // shaders need their FULL variant set in the SVC (INSTANCING_ON + their
+            // own keywords/passes) — not yet achieved. Crash-safe until then.
+            public const bool PostFxShaderBundleAvailable = false;
 
-            public const bool ShaderBundleAvailable = true;
+            public const bool ShaderBundleAvailable = false;
 
             // Names of the 6 postFX shaders that are stub-baked and must never be
             // loaded via GetObject<Shader> while PostFxShaderBundleAvailable=false.
