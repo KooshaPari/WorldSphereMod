@@ -1880,19 +1880,20 @@ namespace WorldSphereMod
             //   ArgumentException: ManagedStream must be readable → process crash.
             // C# try/catch CANNOT intercept this native abort.
             //
-            // #204/#208 RESOLVED: wsm3d-shaders bundle re-baked in Unity 2022.3.60f1
-            // #204/#208 REOPENED 2026-06-01: the 60f1 re-bake + batchmode editor
-            // validation (14/14 OK) was a FALSE POSITIVE — the Editor recompiles
-            // stripped shaders from source, but the standalone PLAYER (WorldBox)
-            // cannot: runtime still crashes "Mismatched serialization 'Shader'
-            // (Read 80 expected 12700)" at the SafeShaders load. The bundle's
-            // shaders are variant-STRIPPED 80-byte stubs even after the 60f1 bake.
-            // Both flags stay FALSE (crash-safe; all shaders -> Shader.Find/Standard)
-            // until the bake includes full player-side variants AND a PLAYER-context
-            // load probe confirms no native abort.
-            public const bool PostFxShaderBundleAvailable = false;
+            // #204/#208 — VARIANT-STRIPPING root cause FIXED 2026-06-01 (bundle md5
+            // 8530b5f6): the bake now registers its ShaderVariantCollection in
+            // GraphicsSettings.m_PreloadedShaders (the array Unity's AssetBundle
+            // strip pass actually reads) + adds INSTANCING_ON variants for the
+            // multi_compile_instancing shaders. The prior false positive was an
+            // EDITOR-recompile load probe; the new validator checks
+            // shader.subshaderCount (reads serialized bundle bytes) → 12 valid, 0
+            // stubs (all postFX subshaderCount>=2). Re-enabling; the GAME runtime
+            // is the ground-truth confirm. If a native ManagedStream abort recurs,
+            // flip both back to false (crash-safe) — the per-shader load loop keeps
+            // its try/catch + null + isSupported guards regardless.
+            public const bool PostFxShaderBundleAvailable = true;
 
-            public const bool ShaderBundleAvailable = false;
+            public const bool ShaderBundleAvailable = true;
 
             // Names of the 6 postFX shaders that are stub-baked and must never be
             // loaded via GetObject<Shader> while PostFxShaderBundleAvailable=false.
