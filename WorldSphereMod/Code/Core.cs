@@ -492,6 +492,11 @@ namespace WorldSphereMod
         {
             try { CameraManager.MakeCamera3D(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] MakeCamera3D failed: " + ex.Message); }
+            // WorldspaceUI on world-load: EnsureCreated is normally only triggered by a
+            // live flag toggle; when the JSON already has WorldspaceUI=true the renderer
+            // was never started. Start it here so nameplates + healthbars appear at load.
+            try { WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated(); }
+            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] WorldUIRenderer.EnsureCreated failed: " + ex.Message); }
             // SUN=NULL ROOT-CAUSE FIX: the mod-load SunDriver.Init() (PostInit) ran
             // while Core.IsWorld3D was false (Sphere did not exist yet) and early-
             // returned, so the directional sun was never created and RenderSettings.sun

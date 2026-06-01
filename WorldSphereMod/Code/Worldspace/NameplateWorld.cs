@@ -12,6 +12,9 @@ namespace WorldSphereMod.Worldspace
     /// Phase 7 Step 2. Per-actor world-space name label attached to the shared worldspace rig.
     /// Uses a <c>TextMesh3D</c> when available, then faces the camera each <see cref="LateUpdate"/>.
     /// </summary>
+    // Run after WorldUIRenderer (order 0) so the rig world-position is already
+    // updated before we face the camera. Fixes one-frame lag that looks camera-fixed.
+    [UnityEngine.DefaultExecutionOrder(100)]
     public sealed class NameplateWorld : MonoBehaviour
     {
         internal Actor? Actor;
@@ -25,7 +28,11 @@ namespace WorldSphereMod.Worldspace
         public static NameplateWorld? Attach(Actor a, Transform rigRoot)
         {
             if (a == null || rigRoot == null) return null;
-            if (!Core.savedSettings.WorldspaceLabel3D) return null;
+            // WorldspaceLabel3D controls whether to PREFER 3D text (TextMesh3D).
+            // Nameplates always render when WorldspaceUI is enabled; the flag only
+            // selects the rendering path (3D text vs canvas/Text fallback).
+            // Removing the early-return that was the root cause of missing labels (#191).
+            bool prefer3D = Core.savedSettings != null && Core.savedSettings.WorldspaceLabel3D;
 
             Transform parent = rigRoot;
             var existing = parent.GetComponentInChildren<NameplateWorld>(true);
@@ -49,7 +56,8 @@ namespace WorldSphereMod.Worldspace
             var np = go.AddComponent<NameplateWorld>();
             np.Actor = a;
             SuppressUpstreamNameplate(a);
-            np._label3d = CreateTextMesh3D(go, name);
+            // Only attempt 3D text when the setting explicitly opts in AND the type exists.
+            np._label3d = prefer3D ? CreateTextMesh3D(go, name) : null;
             if (np._label3d == null)
             {
                 SetupFallbackCanvasLabel(go, name);
