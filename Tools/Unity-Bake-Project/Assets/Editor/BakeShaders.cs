@@ -139,6 +139,21 @@ public static class BakeShaders
         // m_SubProgramBlob in the bundle so loads don't hit the 80-byte stub.
         ConfigureNoStripBeforeBuild();
 
+        // FIX 3 (#208): belt-and-suspenders — warm up the SVC before BuildPipeline.BuildAssetBundles.
+        // WarmUp() forces Unity to compile all variants listed in the SVC at editor time so they
+        // are resident in the shader cache when the bundle build starts. This means the strip pass
+        // cannot claim "no compiled data exists" for any of our registered variants.
+        var svcForWarmup = AssetDatabase.LoadAssetAtPath<ShaderVariantCollection>(SvcAssetPath);
+        if (svcForWarmup != null)
+        {
+            svcForWarmup.WarmUp();
+            Debug.Log("[WSM3D-Bake] SVC WarmUp() complete — all registered variants pre-compiled.");
+        }
+        else
+        {
+            Debug.LogWarning("[WSM3D-Bake] SVC WarmUp(): could not load SVC at " + SvcAssetPath + " — skipping WarmUp.");
+        }
+
         // Build only the shader bundle for win/linux/osx.
         string outBase = Path.Combine(repoRoot, "WorldSphereMod", "AssetBundles");
         var targets = new (BuildTarget t, string folder)[]
@@ -258,8 +273,29 @@ public static class BakeShaders
                 PassType.Deferred,
                 PassType.ShadowCaster,
             };
+
+            // FIX 2 (#208): detect whether this shader uses #pragma multi_compile_instancing
+            // so we can add INSTANCING_ON keyword variants for the 3 affected shaders
+            // (Impostor, OpaqueVertexColor, StratumVoxelPBR). Without these variants the
+            // GPU-instancing draw path baked by BuildAssetBundles is stripped — the runtime
+            // DrawMeshInstancedIndirect calls can't find a matching compiled program and
+            // silently falls back to uninstanced draws (or worse, mismatches the blob layout).
+            bool hasInstancing = false;
+            try
+            {
+                string shaderSrc = File.ReadAllText(path);
+                hasInstancing = shaderSrc.Contains("#pragma multi_compile_instancing");
+                if (hasInstancing)
+                    Debug.Log($"[WSM3D-Bake] SVC: {shader.name} has #pragma multi_compile_instancing — will add INSTANCING_ON variants.");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[WSM3D-Bake] SVC: could not read shader source for instancing detection ({shader.name}): {ex.Message}");
+            }
+
             foreach (var passType in passTypes)
             {
+                // No-keyword baseline variant.
                 try
                 {
                     var variant = new ShaderVariantCollection.ShaderVariant(shader, passType);
@@ -275,6 +311,26 @@ public static class BakeShaders
                     // postFX shaders. Log at trace level so a future debugger can see
                     // which pass types each shader actually exposes.
                     Debug.Log($"[WSM3D-Bake] SVC: {shader.name} has no {passType} pass ({ex.GetType().Name})");
+                }
+
+                // INSTANCING_ON variant — only for shaders declaring multi_compile_instancing.
+                if (hasInstancing)
+                {
+                    try
+                    {
+                        var instVariant = new ShaderVariantCollection.ShaderVariant(shader, passType, "INSTANCING_ON");
+                        if (!svc.Contains(instVariant))
+                        {
+                            svc.Add(instVariant);
+                            variantCount++;
+                        }
+                    }
+                    catch (System.Exception)
+                    {
+                        // This pass+keyword combo is invalid for this shader — skip silently.
+                        // We already logged that this shader has instancing above; the relevant
+                        // pass types will be among the ones that DO accept INSTANCING_ON.
+                    }
                 }
             }
 
@@ -311,6 +367,14 @@ public static class BakeShaders
             PlayerSettings.SetPreloadedAssets(preloaded.ToArray());
             Debug.Log("[WSM3D-Bake] registered SVC in PlayerSettings.preloadedAssets");
         }
+
+        // FIX 1 (#208): CRITICAL — also register the SVC in GraphicsSettings.m_PreloadedShaders.
+        // PlayerSettings.preloadedAssets is the RUNTIME startup loader (no effect on AssetBundle
+        // build-time stripping). The array that Unity's AssetBundle strip pass actually reads is
+        // GraphicsSettings.m_PreloadedShaders. When that array is empty, the strip pass sees no
+        // reachable SVC and silently strips all variants → 80-byte stubs. We must append our SVC
+        // to m_PreloadedShaders so the BuildAssetBundles strip pass finds it.
+        RegisterSvcInGraphicsSettingsPreloadedShaders(svc);
 
         Debug.Log($"[WSM3D-Bake] ShaderVariantCollection ready — {added} shaders pinned.");
     }
@@ -441,6 +505,48 @@ public static class BakeShaders
         catch (System.Exception ex)
         {
             Debug.LogWarning($"[WSM3D-Bake] NoStrip: could not pin graphics APIs for {target}: {ex.Message}");
+        }
+    }
+
+    // FIX 1 (#208): registers the ShaderVariantCollection in GraphicsSettings.m_PreloadedShaders —
+    // the array that Unity's AssetBundle variant-strip pass reads at build time.
+    // PlayerSettings.preloadedAssets is a runtime-only mechanism; only m_PreloadedShaders
+    // gates the strip pass. An empty m_PreloadedShaders means the strip pass sees no
+    // reachable SVC and silently drops all compiled program data → 80-byte stubs on disk.
+    static void RegisterSvcInGraphicsSettingsPreloadedShaders(ShaderVariantCollection svc)
+    {
+        var gsAssets = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/GraphicsSettings.asset");
+        if (gsAssets == null || gsAssets.Length == 0)
+        {
+            Debug.LogWarning("[WSM3D-Bake] RegisterSvcInGraphicsSettings: could not load GraphicsSettings.asset; m_PreloadedShaders NOT updated.");
+            return;
+        }
+        var gsSo = new SerializedObject(gsAssets[0]);
+        var preloadProp = gsSo.FindProperty("m_PreloadedShaders");
+        if (preloadProp == null)
+        {
+            Debug.LogWarning("[WSM3D-Bake] RegisterSvcInGraphicsSettings: m_PreloadedShaders property not found in GraphicsSettings; skipping.");
+            return;
+        }
+
+        // Check if SVC is already present to avoid duplicates across repeated bake runs.
+        bool found = false;
+        for (int i = 0; i < preloadProp.arraySize; i++)
+        {
+            var elem = preloadProp.GetArrayElementAtIndex(i);
+            if (elem.objectReferenceValue == svc) { found = true; break; }
+        }
+        if (!found)
+        {
+            preloadProp.arraySize++;
+            var newElem = preloadProp.GetArrayElementAtIndex(preloadProp.arraySize - 1);
+            newElem.objectReferenceValue = svc;
+            gsSo.ApplyModifiedPropertiesWithoutUndo();
+            Debug.Log("[WSM3D-Bake] registered SVC in GraphicsSettings.m_PreloadedShaders — variant strip pass will now see our SVC.");
+        }
+        else
+        {
+            Debug.Log("[WSM3D-Bake] SVC already present in GraphicsSettings.m_PreloadedShaders.");
         }
     }
 
