@@ -492,6 +492,21 @@ namespace WorldSphereMod
         {
             try { CameraManager.MakeCamera3D(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] MakeCamera3D failed: " + ex.Message); }
+            // SUN=NULL ROOT-CAUSE FIX: the mod-load SunDriver.Init() (PostInit) ran
+            // while Core.IsWorld3D was false (Sphere did not exist yet) and early-
+            // returned, so the directional sun was never created and RenderSettings.sun
+            // stayed null -> near-black terrain. Re-run it here where IsWorld3D is true.
+            // Init() is idempotent (no-ops if Sun already exists).
+            try { WorldSphereMod.Lighting.SunDriver.Init(); }
+            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] SunDriver.Init failed: " + ex.Message); }
+            // Start the day/night driver so the sun is actively pumped, but only when
+            // the user enabled DayNightCycle. When it's off, the static sun + ambient
+            // floor from Init() keep the scene lit (no forced day/night).
+            if (savedSettings.DayNightCycle)
+            {
+                try { WorldSphereMod.Lighting.TimeOfDay.EnsureCreated(); }
+                catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] TimeOfDay.EnsureCreated failed: " + ex.Message); }
+            }
             try { WorldSphereMod.Lighting.CubemapLighting.EnsureCreated(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] CubemapLighting failed: " + ex.Message); }
             try { WorldSphereMod.PostFx.WSM3DPostStack.EnsureCreated(); }
