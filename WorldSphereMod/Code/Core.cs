@@ -1559,11 +1559,23 @@ namespace WorldSphereMod
                 // loads only SafeShaders — see ADR-0013 / human gate before
                 // expanding the list. Load with try/catch if bundle file is missing.
                 WrappedAssetBundle shaderAb = null;
-                try { shaderAb = AssetBundleUtils.GetAssetBundle("wsm3d-shaders"); }
-                catch { shaderAb = null; }
+                // #204/#208: the ENTIRE wsm3d-shaders bundle is corrupt — baked against a
+                // Shader serialization layout that mismatches the runtime Unity (2022.3.60f1),
+                // so EVERY GetObject from it native-aborts (uncatchable ManagedStream error →
+                // Crash!!!). Confirmed even OpaqueVertexColor aborts at Core.cs:1613
+                // (Read 2872 vs expected 3980). Per-shader allowlisting cannot help. Until a
+                // serialization-matched re-bake lands, skip the bundle ENTIRELY: leave shaderAb
+                // null so the whole shader+compute load block below is bypassed. All shaders
+                // fall back to Shader.Find/Standard; terrain still renders via the separate
+                // 'worldsphere' bundle's CompoundSphere shader (loaded above, unaffected).
+                if (ShaderBundleAvailable)
+                {
+                    try { shaderAb = AssetBundleUtils.GetAssetBundle("wsm3d-shaders"); }
+                    catch { shaderAb = null; }
+                }
                 if (shaderAb == null)
                 {
-                    Debug.LogWarning("[WSM3D] AssetBundleUtils.GetAssetBundle('wsm3d-shaders') returned null — shader bundle not baked yet. Consumers will fall back to Shader.Find / Standard.");
+                    Debug.LogWarning("[WSM3D] wsm3d-shaders bundle not loaded (ShaderBundleAvailable=" + ShaderBundleAvailable + "; corrupt bake #204/#208). All shaders fall back to Shader.Find / Standard; GPU-compute path skipped.");
                 }
                 else
                 {
@@ -1856,6 +1868,14 @@ namespace WorldSphereMod
             // execute from ANY code path. PostFX degrades to Shader.Find / Standard
             // / disabled — no visual postFX, but the game loads crash-free.
             public const bool PostFxShaderBundleAvailable = false;
+
+            // #204/#208: master switch for the ENTIRE wsm3d-shaders bundle. The current
+            // bake is corrupt across ALL shaders (even OpaqueVertexColor native-aborts on
+            // GetObject — serialization layout mismatches the runtime Unity), so the bundle
+            // is not loaded at all while this is false (see LoadAssets). Set true ONLY after
+            // a re-bake where every shader is confirmed to deserialize without a native
+            // ManagedStream abort (load-probe each in a throwaway build first).
+            public const bool ShaderBundleAvailable = false;
 
             // Names of the 6 postFX shaders that are stub-baked and must never be
             // loaded via GetObject<Shader> while PostFxShaderBundleAvailable=false.
