@@ -22,6 +22,24 @@
             not just camera-billboarded sprites). False on v1 hosts.
             </summary>
         </member>
+        <member name="M:WorldSphereAPI.GetVersion">
+            <summary>
+            Returns the host API version string when available. Falls back to
+            <c>unknown</c> on older hosts that do not expose discovery methods.
+            </summary>
+        </member>
+        <member name="M:WorldSphereAPI.GetCapabilities">
+            <summary>
+            Returns the set of host capabilities exposed through the discovery surface.
+            Older hosts return an empty set.
+            </summary>
+        </member>
+        <member name="M:WorldSphereAPI.HasFeature(System.String)">
+            <summary>
+            Returns true when the connected host advertises <paramref name="Name"/>.
+            Older hosts safely return false.
+            </summary>
+        </member>
         <member name="M:WorldSphereAPI.RegisterCustomMesh(System.String,System.Object,System.Object)">
             <summary>
             Override the auto-voxelized mesh for a given asset id. No-op on v1 hosts.

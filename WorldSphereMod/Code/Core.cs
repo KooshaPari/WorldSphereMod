@@ -26,7 +26,10 @@ namespace WorldSphereMod
         public static class Core
     {
         public static SavedSettings savedSettings = new SavedSettings();
-        public static string SettingsVersion = "2.5";
+        // 2.5 -> 2.6: re-fire ApplyPhaseDefaults so persisted JSON saved at 2.5 with
+        // VoxelEntities=false (live bridge showed voxelEntitiesEnabled=false despite a
+        // true field default — settings-staleness shadow) re-migrates VoxelEntities=true.
+        public static string SettingsVersion = "2.6";
 
         public static Harmony Patcher;
         internal static bool ClearVoxelMeshCacheOnFirstFrame;
