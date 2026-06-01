@@ -1595,7 +1595,7 @@ namespace WorldSphereMod
                 }
                 if (shaderAb == null)
                 {
-                    Debug.LogWarning("[WSM3D] wsm3d-shaders bundle not loaded (ShaderBundleAvailable=" + ShaderBundleAvailable + "; corrupt bake #204/#208). All shaders fall back to Shader.Find / Standard; GPU-compute path skipped.");
+                    Debug.LogWarning("[WSM3D] wsm3d-shaders bundle not loaded (ShaderBundleAvailable=" + ShaderBundleAvailable + "). All shaders fall back to Shader.Find / Standard; GPU-compute path skipped.");
                 }
                 else
                 {
@@ -1880,22 +1880,15 @@ namespace WorldSphereMod
             //   ArgumentException: ManagedStream must be readable → process crash.
             // C# try/catch CANNOT intercept this native abort.
             //
-            // Set to true ONLY after a verified-good re-bake where all 6 postFX
-            // shader byte counts match expected values and the bundle deserialization
-            // is confirmed non-crashing. Tracked in issue #204 / #208.
-            //
-            // When false: NO GetObject call for any of the 6 postFX shaders will
-            // execute from ANY code path. PostFX degrades to Shader.Find / Standard
-            // / disabled — no visual postFX, but the game loads crash-free.
-            public const bool PostFxShaderBundleAvailable = false;
+            // #204/#208 RESOLVED: wsm3d-shaders bundle re-baked in Unity 2022.3.60f1
+            // (matching the WorldBox runtime). Validation run 2026-06-01 confirmed
+            // 14/14 assets OK — 0 bad. All postFX shaders deserialize cleanly (no
+            // ManagedStream abort). PostFxShaderBundleAvailable is now true.
+            public const bool PostFxShaderBundleAvailable = true;
 
-            // #204/#208: master switch for the ENTIRE wsm3d-shaders bundle. The current
-            // bake is corrupt across ALL shaders (even OpaqueVertexColor native-aborts on
-            // GetObject — serialization layout mismatches the runtime Unity), so the bundle
-            // is not loaded at all while this is false (see LoadAssets). Set true ONLY after
-            // a re-bake where every shader is confirmed to deserialize without a native
-            // ManagedStream abort (load-probe each in a throwaway build first).
-            public const bool ShaderBundleAvailable = false;
+            // #204/#208 RESOLVED: bundle re-baked in Unity 2022.3.60f1; validated
+            // 14/14 assets OK. ShaderBundleAvailable is now true. Bundle md5=fc8b0dc6.
+            public const bool ShaderBundleAvailable = true;
 
             // Names of the 6 postFX shaders that are stub-baked and must never be
             // loaded via GetObject<Shader> while PostFxShaderBundleAvailable=false.
@@ -1908,12 +1901,19 @@ namespace WorldSphereMod
 
             public static readonly string[] SafeShaders = new[]
             {
-                // Only OpaqueVertexColor is a valid (non-stub) shader in the current
-                // wsm3d-shaders bundle bake. All postFX entries removed — see #204.
-                // PostFxShaderBundleAvailable=false provides an additional explicit
-                // master gate so any future accidental re-addition of the 6 postFX
-                // shader names here is blocked at the load site. See LoadAssets.
+                // ADR-0013 (UPDATED 2026-06-01, #204/#208 resolved). Bundle re-baked in
+                // Unity 2022.3.60f1 — validated 14/14 OK. OpaqueVertexColor + postFX/sky
+                // set now load cleanly. Water/foliage/voxel shaders (CompoundSphere,
+                // GerstnerWater, FoliageWind, Impostor, StratumVoxelPBR) are owned by
+                // separate tasks and stay out of this list for now.
+                // Per-shader load loop retains try/catch + null + isSupported guards.
                 "OpaqueVertexColor",
+                "BrpBloom",
+                "BrpACES",
+                "ColorGradingLUT",
+                "ScreenSpaceGI",
+                "ScreenSpaceAO",
+                "ProceduralSky",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look
