@@ -26,10 +26,13 @@ namespace WorldSphereMod
         public static class Core
     {
         public static SavedSettings savedSettings = new SavedSettings();
-        // 2.6 settings migration: re-fire ApplyPhaseDefaults for both
-        // VoxelEntities and CrossedQuadFoliage when stale JSON is loaded, so
-        // older persisted states cannot re-enable 2D/deprecated foliage fallbacks.
-        public static string SettingsVersion = "2.6";
+        // 2.6 -> 2.7: the 2.5→2.6 bump fixed the one-time migration but users whose
+        // JSON was already at "2.6" with VoxelEntities=false (saved before the
+        // ApplyPhaseDefaults entry existed) hit the version-match path (line 78) and
+        // migration never re-fired — stale-false was preserved. The fix: bump to 2.7
+        // AND make ApplySchemaVersionMigration FORCE-SET VoxelEntities=true +
+        // CrossedQuadFoliage=true unconditionally (not relying on default-if-absent).
+        public static string SettingsVersion = "2.7";
 
         public static Harmony Patcher;
         internal static bool ClearVoxelMeshCacheOnFirstFrame;
@@ -87,6 +90,18 @@ namespace WorldSphereMod
         static void ApplySchemaVersionMigration(SavedSettings loadedData)
         {
             SavedSettings.ApplyPhaseDefaults(loadedData);
+
+            // FORCE-SET critical render flags unconditionally.
+            // ApplyPhaseDefaults sets these to true, but we also write them
+            // here explicitly so that if a future ApplyPhaseDefaults omits one
+            // of these entries, migration still guarantees the correct state.
+            // This is the canonical fix for the 2.6-stale-false regression:
+            // a persisted JSON at version 2.6 with VoxelEntities=false was
+            // kept because the version-match guard bypassed migration entirely.
+            // Now every migration (any old-version → current) force-overwrites
+            // these flags regardless of the persisted value.
+            loadedData.VoxelEntities = true;
+            loadedData.CrossedQuadFoliage = true;
 
             // Preserve the user's CurrentShape across version bumps.
             // Only phase boolean flags are reset — numeric/scale/shape
