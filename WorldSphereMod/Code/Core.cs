@@ -1881,14 +1881,18 @@ namespace WorldSphereMod
             // C# try/catch CANNOT intercept this native abort.
             //
             // #204/#208 RESOLVED: wsm3d-shaders bundle re-baked in Unity 2022.3.60f1
-            // (matching the WorldBox runtime). Validation run 2026-06-01 confirmed
-            // 14/14 assets OK — 0 bad. All postFX shaders deserialize cleanly (no
-            // ManagedStream abort). PostFxShaderBundleAvailable is now true.
-            public const bool PostFxShaderBundleAvailable = true;
+            // #204/#208 REOPENED 2026-06-01: the 60f1 re-bake + batchmode editor
+            // validation (14/14 OK) was a FALSE POSITIVE — the Editor recompiles
+            // stripped shaders from source, but the standalone PLAYER (WorldBox)
+            // cannot: runtime still crashes "Mismatched serialization 'Shader'
+            // (Read 80 expected 12700)" at the SafeShaders load. The bundle's
+            // shaders are variant-STRIPPED 80-byte stubs even after the 60f1 bake.
+            // Both flags stay FALSE (crash-safe; all shaders -> Shader.Find/Standard)
+            // until the bake includes full player-side variants AND a PLAYER-context
+            // load probe confirms no native abort.
+            public const bool PostFxShaderBundleAvailable = false;
 
-            // #204/#208 RESOLVED: bundle re-baked in Unity 2022.3.60f1; validated
-            // 14/14 assets OK. ShaderBundleAvailable is now true. Bundle md5=fc8b0dc6.
-            public const bool ShaderBundleAvailable = true;
+            public const bool ShaderBundleAvailable = false;
 
             // Names of the 6 postFX shaders that are stub-baked and must never be
             // loaded via GetObject<Shader> while PostFxShaderBundleAvailable=false.
