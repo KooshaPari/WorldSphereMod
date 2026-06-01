@@ -12,9 +12,10 @@ namespace WorldSphereMod.Fx
     /// and foliage use) and submitted through <see cref="MeshInstanceBatcher"/>
     /// with <see cref="FoliageMaterial"/>. The former crossed-quad / billboard
     /// path is removed entirely — clouds are real 3D voxel puffs, never flat
-    /// camera-facing quads. Gated on <see cref="SavedSettings.CrossedQuadFoliage"/>
-    /// (the legacy "3D foliage/fx" master flag) and
-    /// <see cref="EffectData.EmitCrossedQuad"/> (fx_cloud).
+    /// camera-facing quads. Activated for <see cref="EffectData.EmitCrossedQuad"/>
+    /// (fx_cloud) in 3D. The runtime <see cref="SavedSettings.CrossedQuadFoliage"/>
+    /// check was removed (voxel-or-invisible) so a stale/off flag can't resurrect the
+    /// deprecated 2D cloud billboard.
     /// </summary>
     public static class CloudCrossedQuadRender
     {
@@ -29,7 +30,7 @@ namespace WorldSphereMod.Fx
         static readonly Dictionary<int, CloudState> _active = new Dictionary<int, CloudState>(32);
 
         public static bool IsEnabled(EffectData data) =>
-            Core.IsWorld3D && Core.savedSettings.CrossedQuadFoliage && data.EmitCrossedQuad;
+            Core.IsWorld3D && data.EmitCrossedQuad;
 
         public static bool IsActive(BaseEffect effect) =>
             effect != null && _active.ContainsKey(effect.GetInstanceID());

@@ -26,9 +26,9 @@ namespace WorldSphereMod
         public static class Core
     {
         public static SavedSettings savedSettings = new SavedSettings();
-        // 2.5 -> 2.6: re-fire ApplyPhaseDefaults so persisted JSON saved at 2.5 with
-        // VoxelEntities=false (live bridge showed voxelEntitiesEnabled=false despite a
-        // true field default — settings-staleness shadow) re-migrates VoxelEntities=true.
+        // 2.6 settings migration: re-fire ApplyPhaseDefaults for both
+        // VoxelEntities and CrossedQuadFoliage when stale JSON is loaded, so
+        // older persisted states cannot re-enable 2D/deprecated foliage fallbacks.
         public static string SettingsVersion = "2.6";
 
         public static Harmony Patcher;
