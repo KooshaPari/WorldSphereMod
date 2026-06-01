@@ -160,7 +160,17 @@ namespace WorldSphereMod.PostFx
 
         static Shader? ResolveShader()
         {
-            if (Core.IsWorld3D && Core.Sphere.LoadedShaders.TryGetValue("ScreenSpaceAO", out var bundled) && bundled != null)
+            // Belt-and-suspenders: PostFxShaderBundleAvailable=false means the
+            // ScreenSpaceAO shader was never loaded into LoadedShaders (stub-baked,
+            // native-crash on GetObject). Skip cache lookup; fall through to
+            // Shader.Find / Resources / disabled. (#204)
+            if (Core.IsWorld3D
+                && !Core.Sphere.PostFxShaderBundleAvailable
+                && Core.Sphere.PostFxShaderNames.Contains("ScreenSpaceAO"))
+            {
+                Debug.Log("[WSM3D] ScreenSpaceAO: PostFxShaderBundleAvailable=false — skipping LoadedShaders lookup. (#204)");
+            }
+            else if (Core.IsWorld3D && Core.Sphere.LoadedShaders.TryGetValue("ScreenSpaceAO", out var bundled) && bundled != null)
             {
                 Debug.Log("[WSM3D] ScreenSpaceAO shader resolved via Core.Sphere.LoadedShaders cache.");
                 return bundled;

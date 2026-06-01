@@ -120,7 +120,16 @@ namespace WorldSphereMod.PostFx
             _acesMat = TryLoadMaterial("Shaders/BrpACES", "Hidden/WSM3D/BrpACES");
 
             Shader lutShader = null;
-            if (Core.IsWorld3D && Core.Sphere.LoadedShaders.TryGetValue("ColorGradingLUT", out var bundled) && bundled != null)
+            // Belt-and-suspenders: PostFxShaderBundleAvailable=false means the
+            // ColorGradingLUT shader was never loaded into LoadedShaders (stub-baked,
+            // native-crash on GetObject). Skip cache lookup. (#204)
+            if (Core.IsWorld3D
+                && !Core.Sphere.PostFxShaderBundleAvailable
+                && Core.Sphere.PostFxShaderNames.Contains("ColorGradingLUT"))
+            {
+                Debug.Log("[WSM3D] PostStack LUT: PostFxShaderBundleAvailable=false — skipping LoadedShaders lookup. (#204)");
+            }
+            else if (Core.IsWorld3D && Core.Sphere.LoadedShaders.TryGetValue("ColorGradingLUT", out var bundled) && bundled != null)
             {
                 lutShader = bundled;
                 Debug.Log("[WSM3D] PostStack LUT shader resolved via Core.Sphere.LoadedShaders cache.");
@@ -203,8 +212,22 @@ namespace WorldSphereMod.PostFx
             string cacheKey = System.IO.Path.GetFileNameWithoutExtension(resourcePath);
             Shader shader = null;
 
-            // Step 1: bundle cache (populated by Core.LoadAssets from wsm3d-shaders bundle)
-            if (Core.IsWorld3D && Core.Sphere.LoadedShaders.TryGetValue(cacheKey, out var bundled) && bundled != null)
+            // Step 1: bundle cache (populated by Core.LoadAssets from wsm3d-shaders bundle).
+            // Belt-and-suspenders: when PostFxShaderBundleAvailable=false the 6 postFX
+            // shader names were never written into LoadedShaders by Core.LoadAssets, so
+            // TryGetValue returns false here. The explicit PostFxShaderNames check below
+            // is an additional audit guard: even if LoadedShaders somehow contained a
+            // postFX entry we would skip it and fall through to Shader.Find / disabled.
+            // This ensures NO GetObject-sourced stub shader can reach new Material(shader).
+            if (Core.IsWorld3D
+                && !Core.Sphere.PostFxShaderBundleAvailable
+                && Core.Sphere.PostFxShaderNames.Contains(cacheKey))
+            {
+                // PostFX shader bundle not available — skip bundle-cache lookup entirely.
+                // Intentional fall-through to Shader.Find / Resources.Load / disabled.
+                Debug.Log($"[WSM3D] PostStack shader '{cacheKey}': PostFxShaderBundleAvailable=false — skipping LoadedShaders lookup, using Shader.Find fallback only. (#204)");
+            }
+            else if (Core.IsWorld3D && Core.Sphere.LoadedShaders.TryGetValue(cacheKey, out var bundled) && bundled != null)
             {
                 shader = bundled;
                 Debug.Log($"[WSM3D] PostStack shader '{cacheKey}' resolved via Core.Sphere.LoadedShaders cache.");

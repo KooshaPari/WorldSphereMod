@@ -1606,8 +1606,23 @@ namespace WorldSphereMod
                         // from SafeShaders until a verified re-bake lands. Each load is
                         // guarded: empty-name / !isSupported / exceptions are skipped so
                         // a bad asset degrades to Standard, never crashes.
+                        //
+                        // BELT-AND-SUSPENDERS: PostFxShaderBundleAvailable=false blocks
+                        // the 6 postFX shader names at the loop level even if they are
+                        // accidentally re-added to SafeShaders — no GetObject<Shader>
+                        // for those names can fire while the flag is false (#204/#208).
                         foreach (var shaderName in SafeShaders)
                         {
+                            // Master gate: never GetObject for any of the 6 stub-baked
+                            // postFX shaders while PostFxShaderBundleAvailable=false.
+                            // The native deserializer aborts (ManagedStream unreadable)
+                            // on these 80-byte stubs; C# try/catch cannot intercept it.
+                            if (!PostFxShaderBundleAvailable && PostFxShaderNames.Contains(shaderName))
+                            {
+                                Debug.LogWarning($"[WSM3D] Skipping GetObject for postFX shader '{shaderName}' — PostFxShaderBundleAvailable=false (stub-baked, would native-crash). (#204)");
+                                continue;
+                            }
+
                             UnityEngine.Shader sh = null;
                             try
                             {
@@ -1824,10 +1839,40 @@ namespace WorldSphereMod
             // to Standard (no postFX effects, but NO crash). Re-enable after a
             // verified-good re-bake (#204 bake unsolved).
             // ----------------------------------------------------------------
+            // MASTER GATE: postFX shaders (BrpBloom, BrpACES, ColorGradingLUT,
+            // ScreenSpaceGI, ScreenSpaceAO, ProceduralSky) are variant-stripped
+            // 80-byte stubs in the current wsm3d-shaders bundle bake. Unity's
+            // native deserializer aborts on GetObject<Shader> for these stubs with:
+            //   "Mismatched serialization in builtin class 'Shader'.
+            //    Read 80 bytes but expected 12700 bytes"
+            //   ArgumentException: ManagedStream must be readable → process crash.
+            // C# try/catch CANNOT intercept this native abort.
+            //
+            // Set to true ONLY after a verified-good re-bake where all 6 postFX
+            // shader byte counts match expected values and the bundle deserialization
+            // is confirmed non-crashing. Tracked in issue #204 / #208.
+            //
+            // When false: NO GetObject call for any of the 6 postFX shaders will
+            // execute from ANY code path. PostFX degrades to Shader.Find / Standard
+            // / disabled — no visual postFX, but the game loads crash-free.
+            public const bool PostFxShaderBundleAvailable = false;
+
+            // Names of the 6 postFX shaders that are stub-baked and must never be
+            // loaded via GetObject<Shader> while PostFxShaderBundleAvailable=false.
+            public static readonly System.Collections.Generic.HashSet<string> PostFxShaderNames =
+                new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+                {
+                    "BrpBloom", "BrpACES", "ColorGradingLUT",
+                    "ScreenSpaceGI", "ScreenSpaceAO", "ProceduralSky",
+                };
+
             public static readonly string[] SafeShaders = new[]
             {
                 // Only OpaqueVertexColor is a valid (non-stub) shader in the current
                 // wsm3d-shaders bundle bake. All postFX entries removed — see #204.
+                // PostFxShaderBundleAvailable=false provides an additional explicit
+                // master gate so any future accidental re-addition of the 6 postFX
+                // shader names here is blocked at the load site. See LoadAssets.
                 "OpaqueVertexColor",
             };
 

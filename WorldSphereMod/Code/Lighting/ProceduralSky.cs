@@ -92,15 +92,27 @@ namespace WorldSphereMod.Lighting
             // direct reference stash from Core.LoadAssets. Shader.Find
             // does NOT see bundle-loaded shaders unless they're also
             // Always-Included in Graphics Settings.
-            if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("ContinuumSkybox", out var contShader) && contShader != null)
+            // Belt-and-suspenders: PostFxShaderBundleAvailable=false means the
+            // ProceduralSky shader was never loaded into LoadedShaders (stub-baked,
+            // native-crash on GetObject). Skip cache lookup; fall through to
+            // Shader.Find / Skybox/Procedural vanilla fallback. (#204)
+            bool postFxGated = !WorldSphereMod.Core.Sphere.PostFxShaderBundleAvailable
+                && WorldSphereMod.Core.Sphere.PostFxShaderNames.Contains("ProceduralSky");
+            if (!postFxGated
+                && WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("ContinuumSkybox", out var contShader) && contShader != null)
             {
                 Debug.Log("[WSM3D] ProceduralSky shader resolved via Core.Sphere.LoadedShaders cache (ContinuumSkybox).");
                 return contShader;
             }
-            if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("ProceduralSky", out var bundledShader) && bundledShader != null)
+            if (!postFxGated
+                && WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("ProceduralSky", out var bundledShader) && bundledShader != null)
             {
                 Debug.Log("[WSM3D] ProceduralSky shader resolved via Core.Sphere.LoadedShaders cache.");
                 return bundledShader;
+            }
+            if (postFxGated)
+            {
+                Debug.Log("[WSM3D] ProceduralSky: PostFxShaderBundleAvailable=false — skipping LoadedShaders lookup, degrading to Skybox/Procedural. (#204)");
             }
             Shader? shader = Shader.Find("WorldSphereMod3D/ContinuumSkybox");
             if (shader != null)
