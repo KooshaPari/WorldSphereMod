@@ -680,12 +680,33 @@ namespace WorldSphereMod
                                     onCreated: gpuMgr =>
                                     {
                                         GpuManager = gpuMgr;
+                                        // #199 PR#37 review fix: null-guard gpuMgr before any
+                                        // member access.  Creation can legitimately fail (OOM,
+                                        // device-lost) and pass null to this callback.
+                                        if (gpuMgr == null)
+                                        {
+                                            Debug.LogWarning("[WSM3D] Sphere.Begin: GpuSphereManager onCreated received null — GPU path disabled, CPU path only.");
+                                            GpuManager = null;
+                                            return;
+                                        }
                                         // Risk #2 mitigation (a): keep the GPU tile layer INACTIVE
                                         // until terrain heights are synced (just below), so its
                                         // Height=0 tiles never z-fight the HeightField mesh.
-                                        if (gpuMgr != null && gpuMgr.gameObject != null)
+                                        if (gpuMgr.gameObject != null)
                                             gpuMgr.gameObject.SetActive(false);
                                         Debug.Log($"[WSM3D] Sphere.Begin: GpuSphereManager created (parallel actor/voxel path). Rows={gpuMgr.Rows} Cols={gpuMgr.Cols}");
+                                        // #199 PR#37 review fix: align GPU manager with the current
+                                        // shape so GpuTileScaleForCurrentShape branches correctly.
+                                        // Shapes[]: 0=Cylindrical, 1=Flat, 2=Cube (mirrors TileShape enum).
+                                        // ConfigureShape sets the internal _shape field used by the GPU
+                                        // Matrix kernel to pick per-tile position/rotation delegates.
+                                        var gpuShape = savedSettings.CurrentShape switch
+                                        {
+                                            2 => CompoundSpheres.Gpu.TileShape.Cube,
+                                            1 => CompoundSpheres.Gpu.TileShape.Flat,
+                                            _ => CompoundSpheres.Gpu.TileShape.Cylindrical,
+                                        };
+                                        gpuMgr.ConfigureShape(gpuShape);
                                         // #199 Phase 4: bind the HeightField to the GPU matrix
                                         // kernel and push terrain heights, then re-activate the
                                         // GPU layer once it sits at correct elevations.
@@ -911,10 +932,16 @@ namespace WorldSphereMod
             public static void UpdateScale(SphereTile Tile)
             {
                 Manager.UpdateScale(Tile.X, Tile.Y);
+                // #199 PR#37 review fix: mirror the dirty-queue mark to the GPU manager so
+                // RefreshScales() sees elevation edits on the GPU path, matching the
+                // UpdateColor / UpdateCustom mirrors added in Phase 3.
+                GpuManager?.UpdateScale(Tile.X, Tile.Y);
             }
             public static void UpdateTexture(SphereTile Tile)
             {
                 Manager.UpdateTexture(Tile.X, Tile.Y);
+                // #199 PR#37 review fix: mirror texture dirty-queue mark to GPU manager.
+                GpuManager?.UpdateTexture(Tile.X, Tile.Y);
             }
             private static bool _scalesDone = true;
             private static bool _texDone = true;
