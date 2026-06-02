@@ -492,7 +492,41 @@ namespace WorldSphereMod
                 return;
             }
             // Ensure world-dependent assets (textures, map layers) are prepared.
-            // PrepareWorld is idempotent — it no-ops if already called from PostInit.
+            // If _map_layers is empty (WorldBox not yet populated — common on save-load
+            // when finishMakingWorld fires before layer init), defer via coroutine and
+            // poll until Count>0 before calling PrepareWorld+Begin. (#208 terrain-white)
+            if (World.world != null && World.world._map_layers != null && World.world._map_layers.Count == 0)
+            {
+                UnityEngine.Debug.LogWarning("[WSM3D] Become3D: _map_layers empty — deferring to coroutine to wait for population.");
+                var host = UnityEngine.GameObject.FindObjectOfType<UnityEngine.MonoBehaviour>();
+                if (host != null)
+                {
+                    host.StartCoroutine(Become3DWhenLayersReady());
+                    return;
+                }
+            }
+            Become3DImmediate();
+        }
+
+        static System.Collections.IEnumerator Become3DWhenLayersReady()
+        {
+            int waited = 0;
+            while (World.world == null || World.world._map_layers == null || World.world._map_layers.Count == 0)
+            {
+                waited++;
+                if (waited > 300) // ~5s at 60fps; bail out to avoid infinite loop
+                {
+                    UnityEngine.Debug.LogError("[WSM3D] Become3DWhenLayersReady: timed out waiting for _map_layers to populate after 300 frames. Proceeding anyway.");
+                    break;
+                }
+                yield return null;
+            }
+            UnityEngine.Debug.Log($"[WSM3D] Become3DWhenLayersReady: _map_layers populated after {waited} frames (Count={World.world?._map_layers?.Count ?? -1}).");
+            Become3DImmediate();
+        }
+
+        static void Become3DImmediate()
+        {
             try { Sphere.PrepareWorld(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] Become3D: PrepareWorld failed: " + ex.Message); }
             // Sphere.Begin starts a coroutine that spreads tile+buffer init
@@ -1536,6 +1570,17 @@ namespace WorldSphereMod
                     Debug.LogWarning("[WSM3D] Sphere.PrepareWorld skipped — World.world not ready yet.");
                     return;
                 }
+                // GUARD: _map_layers can be non-null but empty (Count==0) when
+                // finishMakingWorld fires before WorldBox has populated the list.
+                // Do NOT set WorldPrepared=true here — that would poison the flag
+                // and prevent re-running once layers are populated. (#208 terrain-white)
+                int layerCount = World.world._map_layers.Count;
+                Debug.Log($"[WSM3D] Sphere.PrepareWorld: _map_layers.Count={layerCount} (0 = not yet populated, will retry)");
+                if (layerCount == 0)
+                {
+                    Debug.LogWarning("[WSM3D] Sphere.PrepareWorld deferred — _map_layers is empty (WorldBox not yet populated layers). Become3D will retry via coroutine.");
+                    return;
+                }
                 WorldPrepared = true;
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 CreateTextures();
@@ -1543,7 +1588,7 @@ namespace WorldSphereMod
                 sw.Restart();
                 BaseLayers = new List<MapLayer>(World.world._map_layers);
                 BaseLayers.Remove(FlashLayer);
-                Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.BaseLayersCopy={sw.Elapsed.TotalMilliseconds:F3}ms");
+                Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.BaseLayersCopy={sw.Elapsed.TotalMilliseconds:F3}ms (layerCount={BaseLayers.Count})");
                 sw.Restart();
                 CreateCachedColors();
                 Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.CreateCachedColors={sw.Elapsed.TotalMilliseconds:F3}ms");
