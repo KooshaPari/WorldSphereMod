@@ -511,6 +511,7 @@ namespace WorldSphereMod.Voxel
             static int _emitDiagFrameCounter;
             static bool _emitDiagSawNonZero;
             static bool _billboardDiagLogged;
+            static bool _voxelDiagLogged;
 
             public static void ResetDiag()
             {
@@ -518,6 +519,7 @@ namespace WorldSphereMod.Voxel
                 _emitDiagFrameCounter = 0;
                 _emitDiagSawNonZero = false;
                 _billboardDiagLogged = false;
+                _voxelDiagLogged = false;
             }
 
             [HarmonyPostfix]
@@ -595,10 +597,24 @@ namespace WorldSphereMod.Voxel
                 int dsSkeletalAttempt = 0, dsSkeletalSubmitOk = 0, dsSkeletalSubmitFail = 0;
                 int dsImpostorMeshNull = 0, dsImpostorMatNull = 0, dsImpostorSubmit = 0;
                 int dsSpriteNull = 0, dsVoxelMeshNull = 0, dsVoxelSubmitAttempt = 0, dsVoxelSubmitOk = 0, dsVoxelSubmitFail = 0;
+                int diagActors = 0;
+                int diagAlreadySuppressed = 0;
+                int diagSubmitAttempt = 0;
+                int diagSkipNull = 0;
                 for (int i = 0; i < n; i++)
                 {
                     Actor a = arr[i];
-                    if (a == null || a.asset == null) { dsNullActor++; continue; }
+                    if (a == null || a.asset == null)
+                    {
+                        dsNullActor++;
+                        continue;
+                    }
+
+                    diagActors++;
+                    bool suppressAlready = !rd.has_normal_render[i];
+                    if (suppressAlready) diagAlreadySuppressed++;
+                    rd.has_normal_render[i] = false;
+
                     // VOXEL-OR-INVISIBLE (user, 2026-05-30): the legacy PerpActors opt-out
                     // used to `continue` here, which LEFT has_normal_render[i] true and so
                     // re-exposed the vanilla 2D billboard for perp-marked assets (palms,
@@ -723,6 +739,7 @@ namespace WorldSphereMod.Voxel
                     if (m == null || m.vertexCount == 0)
                     {
                         dsVoxelMeshNull++;
+                        diagSkipNull++;
                         Vector3 errPos = rd.positions[i];
                         if (errPos.z < Constants.ZDisplacement * 0.5f) errPos = errPos.To3DTileHeight(false);
                         RecordActorError(RenderErrorType.VoxelNotReady,
@@ -730,6 +747,7 @@ namespace WorldSphereMod.Voxel
                         continue;
                     }
                     dsVoxelSubmitAttempt++;
+                    diagSubmitAttempt++;
 
                     Vector3 pos = rd.positions[i];
                     Vector3 posBeforeLift = pos;
@@ -780,6 +798,12 @@ namespace WorldSphereMod.Voxel
                     _billboardDiagLogged = true;
                     int skipped = dsNullActor + dsPerpSkipped + dsFrustumFail + dsSpriteNull + dsVoxelMeshNull + dsVoxelSubmitFail + dsSkeletalSubmitFail + dsTierImpostor;
                     Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Actor processed={n} skipped={skipped} reason=(nullMaterial=0,lodImpostor={dsTierImpostor},scaleZero=0,nullActor={dsNullActor},perp={dsPerpSkipped},frustumFail={dsFrustumFail},spriteNull={dsSpriteNull},meshNull={dsVoxelMeshNull},submitFail={dsVoxelSubmitFail + dsSkeletalSubmitFail}) visibleUnitsCount={LastVisibleUnitsCount} frustumCullerPassCount={LastFrustumCullerPassCount} batcherSubmitCount={LastBatcherSubmitCount}");
+                }
+
+                if (!_voxelDiagLogged)
+                {
+                    _voxelDiagLogged = true;
+                    Debug.Log($"[WSM3D][VOXEL-DIAG] actors={diagActors} already_suppressed={diagAlreadySuppressed} submit_attempted={diagSubmitAttempt} skip_null={diagSkipNull}");
                 }
                 // DIAG-SUBMIT one-shot path report — answers "where did the meshOk actors go?"
                 if (Core.savedSettings.ProfilerDump && (!_emitDiagSawNonZero || _emitDiagFrameCounter < 3))
@@ -1582,6 +1606,14 @@ namespace WorldSphereMod.Voxel
             {
                 try { Core.Sphere.PrepareWorld(); }
                 catch (System.Exception ex) { Debug.LogError($"[WSM3D] Deferred Sphere.PrepareWorld FAILED: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}"); }
+            }
+            // Belt-and-suspenders: re-apply phase patches on the first tick after world
+            // is ready, in case NML skipped PostInit (save loaded before post-init phase).
+            // EnsurePhasePatches is idempotent — already-patched types are skipped. (#208)
+            if (!_tickDiagLogged)
+            {
+                try { Core.EnsurePhasePatches(); }
+                catch (System.Exception ex) { Debug.LogWarning("[WSM3D] TickPerFrame EnsurePhasePatches failed: " + ex.Message); }
             }
 
             float deltaTime = Time.deltaTime;

@@ -347,6 +347,11 @@ namespace WorldSphereMod
             {
                 Debug.LogError($"[WSM3D] Sphere.Prepare FAILED: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
             }
+            // EnsurePhasePatches was defined but never called — this was the billboard
+            // root cause: BuildingVoxelEmit / ActorVoxelEmit Postfixes never installed,
+            // voxel emit loop never ran, processed=0, all sprites stayed 2D. (#208)
+            try { EnsurePhasePatches(); }
+            catch (System.Exception ex) { Debug.LogWarning("[WSM3D] EnsurePhasePatches failed: " + ex.Message); }
         }
         const string HarmonyID = "WorldSphereMod";
         //this mod makes the game 3D, of course im patching alot (rip compatibility)
