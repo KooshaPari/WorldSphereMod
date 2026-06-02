@@ -32,7 +32,10 @@ namespace WorldSphereMod
         // migration never re-fired — stale-false was preserved. The fix: bump to 2.7
         // AND make ApplySchemaVersionMigration FORCE-SET VoxelEntities=true +
         // CrossedQuadFoliage=true unconditionally (not relying on default-if-absent).
-        public static string SettingsVersion = "2.7";
+        // 2.7 -> 2.8: same pattern — mods_config JSON at "2.7" with VoxelEntities=false
+        // persisted from before the force-set was saved back. Version-match path skips
+        // migration so stale-false survives. Bump forces migration to re-fire. (#208)
+        public static string SettingsVersion = "2.8";
 
         public static Harmony Patcher;
         internal static bool ClearVoxelMeshCacheOnFirstFrame;
@@ -83,6 +86,11 @@ namespace WorldSphereMod
             // back to true even though our code default is false. Force it off after every
             // load until Phase 6 is stable and we promote the default to true.
             savedSettings.SkeletalAnimation = false;
+            // Force-on VoxelEntities on every load — belt-and-suspenders guard against
+            // stale-false persisted in the JSON surviving a version-match (the 2.7 user
+            // had VoxelEntities=false saved which the version-match path kept). Remove
+            // this override once the setting is confirmed stable and user-togglable. (#208)
+            savedSettings.VoxelEntities = true;
             LogPhaseFlagDefaults(savedSettings);
             return true;
         }
@@ -529,6 +537,26 @@ namespace WorldSphereMod
         {
             try { Sphere.PrepareWorld(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] Become3D: PrepareWorld failed: " + ex.Message); }
+            // ONE-SHOT DIAGNOSTIC (A): sample GetBaseColor at 5 spread positions to
+            // confirm terrain color DATA varies across biomes (not uniform). (#208)
+            try
+            {
+                if (World.world != null && MapBox.width > 0 && MapBox.height > 0)
+                {
+                    int w = MapBox.width; int h = MapBox.height;
+                    int[,] pts = { {w/8,h/8},{w/4,h/2},{w/2,h/4},{3*w/4,3*h/4},{w-2,h-2} };
+                    for (int i = 0; i < 5; i++)
+                    {
+                        int px = pts[i,0]; int py = pts[i,1];
+                        int idx = py * w + px;
+                        var c = Sphere.GetColor(idx);
+                        Debug.Log($"[WSM3D][DIAG] sampleColor[{i}] tile=({px},{py}) idx={idx} RGBA=({c.r},{c.g},{c.b},{c.a})");
+                    }
+                    if (Sphere.BaseLayers != null)
+                        Debug.Log($"[WSM3D][DIAG] BaseLayers count={Sphere.BaseLayers.Count} names={string.Join(",", System.Linq.Enumerable.Take(System.Linq.Enumerable.Select(Sphere.BaseLayers, l => l?.name ?? "<null>"), 5))}");
+                }
+            }
+            catch (System.Exception ex) { Debug.LogWarning("[WSM3D][DIAG] sampleColor diagnostic failed: " + ex.Message); }
             // Sphere.Begin starts a coroutine that spreads tile+buffer init
             // across frames; the onCreated callback fires once the Manager
             // exists (before buffers finish) and triggers the remaining 3D
