@@ -17,6 +17,12 @@ namespace WorldSphereMod.Bridge
         {
             try
             {
+                // Reset PrepareWorld guard so Become3D re-reads the newly loaded
+                // world's map layers and pixel arrays. Without this, BaseLayers
+                // stays stale from the initial (empty) world and GetBaseColor
+                // returns white for every tile. (#208 terrain-white / save-load)
+                Core.Sphere.ResetPrepared();
+
                 BridgeServer.CaptureMainThread();
                 BridgeServer.EnsureCreated();
                 BridgeServer.DrainStaticQueue();

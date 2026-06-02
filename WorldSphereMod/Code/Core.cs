@@ -1497,6 +1497,20 @@ namespace WorldSphereMod
             public static bool WorldPrepared { get; private set; }
 
             /// <summary>
+            /// Reset the PrepareWorld guard so the next PrepareWorld() / Become3D call
+            /// re-reads map layers and pixel arrays from the newly loaded world.
+            /// Must be called on every save-load and generate-new-world transition —
+            /// failing to do so leaves BaseLayers pointing at stale/empty initial data
+            /// and GetBaseColor returns white for every tile. (#208 terrain-white)
+            /// </summary>
+            public static void ResetPrepared()
+            {
+                WorldPrepared = false;
+                BaseLayers = null;
+                CachedColors = null;
+            }
+
+            /// <summary>
             /// Load the AssetBundle, shaders, mesh, and material. Has NO dependency
             /// on <c>World.world</c> so it is safe to call during <c>Init()</c>.
             /// Idempotent — subsequent calls are no-ops.

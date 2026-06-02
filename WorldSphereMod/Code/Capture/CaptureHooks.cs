@@ -94,6 +94,12 @@ namespace WorldSphereMod.Capture
         [HarmonyPostfix]
         public static void Postfix()
         {
+            // Reset PrepareWorld guard so the new world's map layers are re-read.
+            // Same fix as loadWorld path — without this, BaseLayers stays stale
+            // from the prior world and GetBaseColor returns white. (#208 terrain-white)
+            try { Core.Sphere.ResetPrepared(); }
+            catch (Exception ex) { Debug.LogWarning("[WSM3D][Capture] ResetPrepared on new world failed: " + ex.Message); }
+
             if (!CaptureRecorder.Enabled) return;
             try { CaptureRecorder.Record(CaptureRecorder.Emit(CaptureEventTypes.NewWorld)); }
             catch (Exception ex) { Debug.LogWarning("[WSM3D][Capture] new_world hook: " + ex.Message); }
