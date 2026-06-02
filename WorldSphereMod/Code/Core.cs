@@ -150,6 +150,26 @@ namespace WorldSphereMod
                 .Distinct();
         }
 
+        /// <summary>
+        /// Re-ensure critical phase patches are applied. Corrects any False toggles that
+        /// fired during init/load before Patcher was ready or from save-load clobbers.
+        /// Must be called after Patcher exists (PostInit or later). (#208 billboard fix)
+        /// </summary>
+        public static void EnsurePhasePatches()
+        {
+            if (Patcher == null) return;
+            if (savedSettings.VoxelEntities)
+            {
+                try { ApplyPhaseToggle(nameof(SavedSettings.VoxelEntities), true); }
+                catch (System.Exception ex) { Debug.LogWarning("[WSM3D] EnsurePhasePatches VoxelEntities: " + ex.Message); }
+            }
+            if (savedSettings.CrossedQuadFoliage)
+            {
+                try { ApplyPhaseToggle(nameof(SavedSettings.CrossedQuadFoliage), true); }
+                catch (System.Exception ex) { Debug.LogWarning("[WSM3D] EnsurePhasePatches CrossedQuadFoliage: " + ex.Message); }
+            }
+        }
+
         // go go gadget un-box my worldbox
         public static void Init()
         {
@@ -546,13 +566,41 @@ namespace WorldSphereMod
                 {
                     int w = MapBox.width; int h = MapBox.height;
                     int[,] pts = { { w / 8, h / 8 }, { w / 4, h / 2 }, { w / 2, h / 4 }, { 3 * w / 4, 3 * h / 4 }, { w - 2, h - 2 } };
+                    float minHeight = float.PositiveInfinity;
+                    float maxHeight = float.NegativeInfinity;
+                    int validSamples = 0;
                     for (int i = 0; i < 5; i++)
                     {
                         int px = pts[i, 0];
                         int py = pts[i, 1];
-                        WorldTile tile = World.world.GetTileSimple(px, py);
-                        float tileHeight = tile == null ? float.NaN : tile.TileHeight();
-                        Debug.Log($"[WSM3D][HEIGHT-DIAG] tile=({px},{py}) TileHeight()={tileHeight} HeightMult={Sphere.HeightMult} TileHeightSetting={savedSettings.TileHeight}");
+                        try
+                        {
+                            WorldTile tile = World.world.GetTileSimple(px, py);
+                            float tileHeight = tile == null ? float.NaN : tile.TileHeight();
+                            if (!float.IsNaN(tileHeight))
+                            {
+                                if (tileHeight < minHeight) minHeight = tileHeight;
+                                if (tileHeight > maxHeight) maxHeight = tileHeight;
+                                validSamples++;
+                            }
+                            Debug.Log($"[WSM3D][HEIGHT-DIAG] tile=({px},{py}) TileHeight()={tileHeight} HeightMult={Sphere.HeightMult} TileHeightSetting={savedSettings.TileHeight}");
+                        }
+                        catch (System.Exception tileEx)
+                        {
+                            Debug.LogWarning($"[WSM3D][HEIGHT-DIAG] sample failed at tile=({px},{py}): " + tileEx.Message);
+                        }
+                    }
+                    if (validSamples >= 3)
+                    {
+                        float span = maxHeight - minHeight;
+                        Debug.Log($"[WSM3D][HEIGHT-DIAG] terrain sample span={span:F4} min={minHeight:F4} max={maxHeight:F4} HeightMult={Sphere.HeightMult}");
+                        const float flatSpanThreshold = 0.20f;
+                        if (span <= flatSpanThreshold && savedSettings.TileHeight <= 1f)
+                        {
+                            float oldMult = Sphere.HeightMult;
+                            Sphere.HeightMult = Mathf.Clamp(savedSettings.TileHeight * 6f, 1f, 8f);
+                            Debug.LogWarning($"[WSM3D][HEIGHT-DIAG] auto-boosted flat terrain: HeightMult {oldMult} -> {Sphere.HeightMult}");
+                        }
                     }
                     _heightDiagLogged = true;
                 }
