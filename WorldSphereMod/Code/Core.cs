@@ -797,7 +797,8 @@ namespace WorldSphereMod
                 {
                     return false;
                 }
-                int idx = sample.data.tile_id;
+                // FIX: use position index (y*width+x) not tile_id (#208 terrain-gray)
+                int idx = y * MapBox.width + x;
                 Color32[] worldPixels = World.world.world_layer.pixels;
                 if (worldPixels == null || idx < 0 || idx >= worldPixels.Length)
                 {
@@ -864,7 +865,8 @@ namespace WorldSphereMod
                             continue;
                         }
 
-                        Color32 sampleColor = GetBaseColor(sample.data.tile_id);
+                        // FIX: use position index (y*width+x) not tile_id (#208 terrain-gray)
+                        Color32 sampleColor = GetBaseColor(y * MapBox.width + x);
                         if (sampleColor.a == 0)
                         {
                             continue;
@@ -1149,7 +1151,11 @@ namespace WorldSphereMod
                         int sy = Mathf.Clamp(ty, 0, h - 1);
                         WorldTile tile = World.world.GetTileSimple(sx, sy);
                         if (tile == null) return new Color32(128, 128, 128, 255);
-                        return GetColor(tile.data.tile_id);
+                        // FIX: use tile POSITION index (sy*w+sx) into world_layer.pixels,
+                        // NOT tile.data.tile_id (the tile TYPE id — a small int 0..~200
+                        // that indexed into the first pixels of world_layer, producing
+                        // grayscale background colors instead of biome RGB). (#208 terrain-gray)
+                        return GetColor(sy * w + sx);
                     },
                     sampleTexture: (tx, ty) =>
                     {
