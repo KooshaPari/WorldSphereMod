@@ -22,6 +22,13 @@ namespace WorldSphereMod.General
             Core.Generated = true;
             if(Core.savedSettings.Is3D)
             {
+                // Reset PrepareWorld guard HERE (finishMakingWorld), not on loadWorld.
+                // At loadWorld-postfix the world's _map_layers/pixels aren't populated
+                // yet — PrepareWorld runs but BaseLayersCopy+CreateCachedColors iterate
+                // empty lists in ~0.01ms, leaving all vertex colors white.
+                // finishMakingWorld fires AFTER world data is fully populated, so
+                // PrepareWorld (called inside Become3D) reads real biome pixels. (#208)
+                Core.Sphere.ResetPrepared();
                 SmoothLoader.add(delegate { Core.Become3D(); }, "Becoming 3D!");
             }
         }
