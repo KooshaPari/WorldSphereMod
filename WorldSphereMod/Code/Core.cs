@@ -1908,7 +1908,7 @@ namespace WorldSphereMod
             // Auto-reverts to false on any ManagedStream crash (game-test driven).
             public const bool PostFxShaderBundleAvailable = false;
 
-            public const bool ShaderBundleAvailable = false;
+            public const bool ShaderBundleAvailable = true;
 
             // Names of the 6 postFX shaders that are stub-baked and must never be
             // loaded via GetObject<Shader> while PostFxShaderBundleAvailable=false.
@@ -1921,19 +1921,8 @@ namespace WorldSphereMod
 
             public static readonly string[] SafeShaders = new[]
             {
-                // ADR-0013 (UPDATED 2026-06-01, #204/#208 resolved). Bundle re-baked in
-                // Unity 2022.3.60f1 — validated 14/14 OK. OpaqueVertexColor + postFX/sky
-                // set now load cleanly. Water/foliage/voxel shaders (CompoundSphere,
-                // GerstnerWater, FoliageWind, Impostor, StratumVoxelPBR) are owned by
-                // separate tasks and stay out of this list for now.
-                // Per-shader load loop retains try/catch + null + isSupported guards.
+                // #208 candidate test: keep OVC only until postFX safety is regained.
                 "OpaqueVertexColor",
-                "BrpBloom",
-                "BrpACES",
-                "ColorGradingLUT",
-                "ScreenSpaceGI",
-                "ScreenSpaceAO",
-                "ProceduralSky",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look
