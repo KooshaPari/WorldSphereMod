@@ -1,7 +1,10 @@
 ManifestFileVersion: 0
-CRC: 1358752555
+CRC: 3470959707
 AssetBundleManifest:
   AssetBundleInfos:
     Info_0:
       Name: wsm3d-shaders
+      Dependencies: {}
+    Info_1:
+      Name: worldsphere
       Dependencies: {}
