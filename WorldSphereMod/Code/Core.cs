@@ -864,21 +864,33 @@ namespace WorldSphereMod
                 long r = 0;
                 long g = 0;
                 long b = 0;
-                long a = 0;
+                long opaqueCount = 0;
+                // Average OPAQUE pixels only — transparent border pixels (alpha=0)
+                // have RGB=(0,0,0) and would drag the average to near-black, making
+                // grass/dirt/sand appear dark gray even though their sprite is colored.
+                // Snow/lava appeared correct before because their overlay/liquid paths
+                // bypass this function entirely. (#208 terrain-gray root cause)
                 for (int i = 0; i < pixels.Length; i++)
                 {
                     Color32 p = pixels[i];
+                    if (p.a < 64) continue; // skip transparent/near-transparent border pixels
                     r += p.r;
                     g += p.g;
                     b += p.b;
-                    a += p.a;
+                    opaqueCount++;
+                }
+                // If no opaque pixels found (fully transparent sprite), fall back to full avg.
+                if (opaqueCount == 0)
+                {
+                    for (int i = 0; i < pixels.Length; i++) { r += pixels[i].r; g += pixels[i].g; b += pixels[i].b; }
+                    opaqueCount = pixels.Length;
                 }
 
                 Color32 average = new Color32(
-                    (byte)Mathf.Clamp((int)(r / pixels.Length), 0, 255),
-                    (byte)Mathf.Clamp((int)(g / pixels.Length), 0, 255),
-                    (byte)Mathf.Clamp((int)(b / pixels.Length), 0, 255),
-                    (byte)Mathf.Clamp((int)(a / pixels.Length), 0, 255));
+                    (byte)Mathf.Clamp((int)(r / opaqueCount), 0, 255),
+                    (byte)Mathf.Clamp((int)(g / opaqueCount), 0, 255),
+                    (byte)Mathf.Clamp((int)(b / opaqueCount), 0, 255),
+                    255);
                 TextureAverageCache[textureIndex] = average;
                 return average;
             }
