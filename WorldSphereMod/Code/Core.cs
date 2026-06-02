@@ -1271,7 +1271,9 @@ namespace WorldSphereMod
                 );
 
                 // Translucent water material (alpha-blended) so terrain reads through.
-                Shader waterShader = ResolveShader("");
+                // GerstnerWater supports Standard-style alpha blending; falls back to
+                // Standard via ResolveShader if not in SafeShaders/LoadedShaders (#208).
+                Shader waterShader = ResolveShader("GerstnerWater");
                 if (waterShader != null)
                 {
                     Material waterMat = new Material(waterShader) { name = "WSM3D.HeightFieldWater" };
@@ -1448,7 +1450,10 @@ namespace WorldSphereMod
                         return tile == null ? 0f : tile.TileHeight();
                     });
 
-                Shader shader = ResolveShader("");
+                // Lava/swamp/acid surface overlays use OpaqueVertexColor (colored opaque/
+                // translucent mesh; Standard alpha props like _Mode/_SrcBlend are set
+                // after material creation and work on both Standard and OVC). (#208)
+                Shader shader = ResolveShader("OpaqueVertexColor");
                 if (shader == null) return;
                 Material mat = new Material(shader) { name = "WSM3D.HeightField" + kind };
                 if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
