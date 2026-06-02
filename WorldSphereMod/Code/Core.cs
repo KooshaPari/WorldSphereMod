@@ -39,6 +39,7 @@ namespace WorldSphereMod
 
         public static Harmony Patcher;
         internal static bool ClearVoxelMeshCacheOnFirstFrame;
+        private static bool _heightDiagLogged = false;
         /// <summary>True when no settings file existed at load time (fresh install).</summary>
         public static bool IsFirstInstall { get; private set; }
         public static void SaveSettings()
@@ -537,26 +538,26 @@ namespace WorldSphereMod
         {
             try { Sphere.PrepareWorld(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] Become3D: PrepareWorld failed: " + ex.Message); }
-            // ONE-SHOT DIAGNOSTIC (A): sample GetBaseColor at 5 spread positions to
-            // confirm terrain color DATA varies across biomes (not uniform). (#208)
+            // ONE-SHOT DIAGNOSTIC (A): sample 5 tile heights and core height settings.
+            // confirm terrain-height investigation (#208).
             try
             {
-                if (World.world != null && MapBox.width > 0 && MapBox.height > 0)
+                if (!_heightDiagLogged && World.world != null && MapBox.width > 0 && MapBox.height > 0)
                 {
                     int w = MapBox.width; int h = MapBox.height;
-                    int[,] pts = { {w/8,h/8},{w/4,h/2},{w/2,h/4},{3*w/4,3*h/4},{w-2,h-2} };
+                    int[,] pts = { { w / 8, h / 8 }, { w / 4, h / 2 }, { w / 2, h / 4 }, { 3 * w / 4, 3 * h / 4 }, { w - 2, h - 2 } };
                     for (int i = 0; i < 5; i++)
                     {
-                        int px = pts[i,0]; int py = pts[i,1];
-                        int idx = py * w + px;
-                        var c = Sphere.GetColor(idx);
-                        Debug.Log($"[WSM3D][DIAG] sampleColor[{i}] tile=({px},{py}) idx={idx} RGBA=({c.r},{c.g},{c.b},{c.a})");
+                        int px = pts[i, 0];
+                        int py = pts[i, 1];
+                        WorldTile tile = World.world.GetTileSimple(px, py);
+                        float tileHeight = tile == null ? float.NaN : tile.TileHeight();
+                        Debug.Log($"[WSM3D][HEIGHT-DIAG] tile=({px},{py}) TileHeight()={tileHeight} HeightMult={Sphere.HeightMult} TileHeightSetting={savedSettings.TileHeight}");
                     }
-                    if (Sphere.BaseLayers != null)
-                        Debug.Log($"[WSM3D][DIAG] BaseLayers count={Sphere.BaseLayers.Count} names={string.Join(",", System.Linq.Enumerable.Take(System.Linq.Enumerable.Select(Sphere.BaseLayers, l => l?.name ?? "<null>"), 5))}");
+                    _heightDiagLogged = true;
                 }
             }
-            catch (System.Exception ex) { Debug.LogWarning("[WSM3D][DIAG] sampleColor diagnostic failed: " + ex.Message); }
+            catch (System.Exception ex) { Debug.LogWarning("[WSM3D][HEIGHT-DIAG] sample failed: " + ex.Message); }
             // Sphere.Begin starts a coroutine that spreads tile+buffer init
             // across frames; the onCreated callback fires once the Manager
             // exists (before buffers finish) and triggers the remaining 3D
@@ -785,6 +786,32 @@ namespace WorldSphereMod
                 }
 
                 return new Color32((byte)r, (byte)g, (byte)b, (byte)Mathf.Clamp(a, 0, 255));
+            }
+
+            /// <summary>
+            /// Get biome color for a tile directly from its sprite texture average.
+            /// In 3D mode tilemap.redrawTiles() is intercepted + bypassed, so
+            /// world_layer.pixels and MapLayer.pixels are never painted — GetBaseColor
+            /// returns (0,0,0,0) for every tile. This bypasses that buffer entirely
+            /// and reads the tile's canonical sprite texture color from the same
+            /// Texture2DArray built by CreateTextures(). O(1) via TextureAverageCache.
+            /// (#208 terrain-gray root cause fix)
+            /// </summary>
+            public static Color32 GetTileColor(WorldTile tile)
+            {
+                if (tile == null) return new Color32(128, 128, 128, 255);
+                int texIdx = WorldTileTexture(tile);
+                Color32 c = GetTextureAverageColor(texIdx);
+                // If texIdx<=0 and we got the mid-gray fallback, try pixel buffer too.
+                if (texIdx <= 0)
+                {
+                    int w = MapBox.width;
+                    int idx = tile.y * w + tile.x;
+                    Color32[] wp = World.world?.world_layer?.pixels;
+                    if (wp != null && idx >= 0 && idx < wp.Length && wp[idx].a > 0)
+                        return wp[idx];
+                }
+                return c;
             }
             static Color32 GetTextureAverageColor(int textureIndex)
             {
