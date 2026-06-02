@@ -1717,25 +1717,33 @@ namespace WorldSphereMod
                     // (no per-instance _Color cbuffer -> no magenta/green class).
                     // NOTE: a ComputeShader is NOT a UnityEngine.Shader, so it loads
                     // via GetObject<ComputeShader> on the .compute asset path.
-                    try
+                    // SAFE WIN #208: OVC-only, ShaderBundleAvailable=true, compute gated behind PostFxShaderBundleAvailable
+                    if (PostFxShaderBundleAvailable)
                     {
-                        UnityEngine.ComputeShader cs =
-                            shaderAb.GetObject<UnityEngine.ComputeShader>("assets/wsm3d/shaders/compoundspherecompute.compute");
-                        if (cs == null)
-                            cs = shaderAb.GetObject<UnityEngine.ComputeShader>("Assets/WSM3D/Shaders/CompoundSphereCompute.compute");
-                        if (cs != null)
+                        try
                         {
-                            CompoundCompute = cs;
-                            Debug.Log($"[WSM3D] Loaded GPU-compute keystone: CompoundSphereCompute (kernels {CompoundSpheres.Gpu.GpuKernels.Matrix}/{CompoundSpheres.Gpu.GpuKernels.Color}) supported={SystemInfo.supportsComputeShaders}");
+                            UnityEngine.ComputeShader cs =
+                                shaderAb.GetObject<UnityEngine.ComputeShader>("assets/wsm3d/shaders/compoundspherecompute.compute");
+                            if (cs == null)
+                                cs = shaderAb.GetObject<UnityEngine.ComputeShader>("Assets/WSM3D/Shaders/CompoundSphereCompute.compute");
+                            if (cs != null)
+                            {
+                                CompoundCompute = cs;
+                                Debug.Log($"[WSM3D] Loaded GPU-compute keystone: CompoundSphereCompute (kernels {CompoundSpheres.Gpu.GpuKernels.Matrix}/{CompoundSpheres.Gpu.GpuKernels.Color}) supported={SystemInfo.supportsComputeShaders}");
+                            }
+                            else
+                            {
+                                Debug.LogWarning("[WSM3D] CompoundSphereCompute not in wsm3d-shaders bundle — GPU-compute path unavailable; legacy CPU SphereManager path stays active.");
+                            }
                         }
-                        else
+                        catch (System.Exception ex)
                         {
-                            Debug.LogWarning("[WSM3D] CompoundSphereCompute not in wsm3d-shaders bundle — GPU-compute path unavailable; legacy CPU SphereManager path stays active.");
+                            Debug.LogWarning("[WSM3D] CompoundSphereCompute load threw: " + ex.Message + " — GPU-compute path unavailable.");
                         }
                     }
-                    catch (System.Exception ex)
+                    else
                     {
-                        Debug.LogWarning("[WSM3D] CompoundSphereCompute load threw: " + ex.Message + " — GPU-compute path unavailable.");
+                        Debug.Log("[WSM3D] Skipping CompoundSphereCompute load because PostFxShaderBundleAvailable=false in SAFE WIN #208.");
                     }
                 }
 
@@ -1902,7 +1910,8 @@ namespace WorldSphereMod
             // Auto-reverts to false on any ManagedStream crash (game-test driven).
             public const bool PostFxShaderBundleAvailable = false;
 
-            public const bool ShaderBundleAvailable = false;
+            // SAFE WIN #208: OVC-only, ShaderBundleAvailable=true, compute gated behind PostFxShaderBundleAvailable
+            public const bool ShaderBundleAvailable = true;
 
             // Names of the 6 postFX shaders that are stub-baked and must never be
             // loaded via GetObject<Shader> while PostFxShaderBundleAvailable=false.
@@ -1913,21 +1922,10 @@ namespace WorldSphereMod
                     "ScreenSpaceGI", "ScreenSpaceAO", "ProceduralSky",
                 };
 
+            // SAFE WIN #208: OVC-only, ShaderBundleAvailable=true, compute gated behind PostFxShaderBundleAvailable
             public static readonly string[] SafeShaders = new[]
             {
-                // ADR-0013 (UPDATED 2026-06-01, #204/#208 resolved). Bundle re-baked in
-                // Unity 2022.3.60f1 — validated 14/14 OK. OpaqueVertexColor + postFX/sky
-                // set now load cleanly. Water/foliage/voxel shaders (CompoundSphere,
-                // GerstnerWater, FoliageWind, Impostor, StratumVoxelPBR) are owned by
-                // separate tasks and stay out of this list for now.
-                // Per-shader load loop retains try/catch + null + isSupported guards.
                 "OpaqueVertexColor",
-                "BrpBloom",
-                "BrpACES",
-                "ColorGradingLUT",
-                "ScreenSpaceGI",
-                "ScreenSpaceAO",
-                "ProceduralSky",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look
