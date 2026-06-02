@@ -11,26 +11,62 @@ description: Use when working on WorldSphereMod3D fork — building, installing,
 - You are debugging a shader, frustum cull, or material issue in the 3D conversion
 
 ## Repo facts
-- **Repo path:** `C:/Users/koosh/Dev/WorldSphereMod`
+- **Repo path:** `E:/Dev/WorldSphereMod`
 - **Game install:** `C:/Program Files (x86)/Steam/steamapps/common/worldbox`
 - **Mod destination:** `<install>/Mods/WorldSphereMod3D`
 - **Player.log:** `C:/Users/koosh/AppData/LocalLow/mkarpenko/WorldBox/Player.log` (cleared on game launch)
 - **SavedSettings JSON:** `%USERPROFILE%/AppData/Roaming/<NML path>/WorldSphereMod.json`
-- **Target:** net5.0; WorldBox runs Mono 6.12.x (no C# 9+ features)
+- **Target:** net48; WorldBox runs Mono 6.12.x (no C# 9+ features)
 - **NML workflow:** Roslyn compile at startup; compile failure = silent skip + retry on reload (no DLL written)
-- **CompoundSpheres.dll:** 23.5 KB runtime dependency at `<mod>/Assemblies/CompoundSpheres.dll`; install.ps1 excludes it to avoid CS1705 (Mono unloadable), ships source instead
-- **Git branch:** Hard fork of WorldSphereMod; PR #1 tracks KooshaPari/WorldSphereMod
+- **AssetBundle reality:** worldsphere render path is driven by bundle + bridge behavior, not legacy CompoundSpheres assumptions.
+- **Git branch:** `wip/208-*` lineage (`wip/208-ovc-good-bundle`, integ/live-fixes descendants)
 
 ## The CLI
 
 | Command | Purpose | Example |
 |---------|---------|---------|
-| `build` | Compile Code/*.cs via csproj to bin/Release/*.dll | `cd C:/Users/koosh/Dev/WorldSphereMod && dotnet build -c Release` |
-| `install` | Run install.ps1 to copy DLL + assets to mod folder | `& "C:/Users/koosh/Dev/WorldSphereMod/install.ps1"` |
-| `launch` | Steam launch WorldBox (triggers NML compile + load) | `Start-Process "steam://rungameid/1206560"` |
+| `build` | Compile Code/*.cs via csproj to bin/Release/*.dll | `cd E:/Dev/WorldSphereMod && dotnet build -c Release` |
+| `install` | Run install.ps1 to copy DLL + assets to mod folder | `& "E:/Dev/WorldSphereMod/install.ps1"` |
+| `launch` | Launch WorldBox directly (triggers NML compile + load) | `& "C:/Program Files (x86)/Steam/steamapps/common/WorldBox/worldbox.exe"` |
 | `tail-log` | Stream Player.log for [WSM3D] tags or compile errors | `Get-Content -Path "$env:USERPROFILE/AppData/LocalLow/mkarpenko/WorldBox/Player.log" -Wait -Tail 50` |
-| `journey` | Verify a render validation journey (Tools/wsm3d.ps1) | `& "C:/Users/koosh/Dev/WorldSphereMod/Tools/wsm3d.ps1" journey verify -Id us-wsm-phase-1-voxel-actors` |
+| `journey` | Verify a render validation journey (Tools/wsm3d.ps1) | `& "E:/Dev/WorldSphereMod/Tools/wsm3d.ps1" journey verify -Id us-wsm-phase-1-voxel-actors` |
 | `live-verify` | Offline CI gate: dotnet test + all journey mock verifies | `pwsh Tools/wsm-live-verify.ps1` → `Tools/.reports/live-verify-latest.json` |
+
+## Render bundle reality (2026-06, hard-won)
+
+- Two AssetBundles are the production render reality now:
+  - `worldsphere` (~12KB): `CompoundSphereMaterial` + `CompoundSphereMesh` + `SkyBox` + `OpaqueVertexColor`
+  - `wsm3d-shaders`: the shader bundle
+- The variant-strip pass can generate 80-byte `STUB` shaders in standalone PLAYER. Those can abort with an uncatchable native `ManagedStream` abort even though editor validation looks clean. This is a false positive pattern: editor recompiles from source, PLAYER loads compiled variants.
+- `Core.cs` enforces startup safety using two gates: `ShaderBundleAvailable` and `PostFxShaderBundleAvailable`, plus a `SafeShaders[]` allowlist.
+
+## Bridge HTTP API (127.0.0.1:8766, only listens once a 3D world is loaded — NOT at main menu)
+
+- `GET /health` (`bridgeAlive`)
+- `GET /world/state` (`isWorld3D`)
+- `GET /diag/full_dump`
+- `GET /diag/render_stats`
+- `POST /actions/screenshot` (`{ mode: "camera", path }`) — `camera` mode bypasses debug-console overlay
+- `POST /actions/generate_world`
+- `POST /actions/spawn_units` (`{ count }`)
+
+## Launch (the catch-22)
+
+Launch via executable path first:
+`C:/Program Files (x86)/Steam/steamapps/common/WorldBox/worldbox.exe`
+
+`steam://rungameid/1206560` is flaky. The bridge does not come up at main menu, so save-load/world-state checks require entering a world first.
+
+## Terrain color lesson
+
+`Sphere.PrepareWorld` kept `WorldPrepared` set across transitions, which could leave `BaseLayers` empty and make `GetBaseColor` return white. Fixed in `Sphere.ResetPrepared()` hooks on save-load + new-world flow (commit `4bf1c236`).
+
+## Batchmode bake
+
+Use this for shader baking when GUI ILPP runner stalls:
+`E:/Unity/Hub/Editor/2022.3.60f1/Editor/Unity.exe -batchmode -nographics -quit -projectPath E:/Dev/WorldSphereMod/Tools/Unity-Bake-Project -executeMethod BakeShaders.BakeAll -logFile <log>`
+
+Kill leftover `bee_backend`/`Unity.ILPP.Runner` first if needed.
 
 ## Common workflows
 
@@ -39,7 +75,7 @@ description: Use when working on WorldSphereMod3D fork — building, installing,
 Matches `/wsm-validate-all`, `task live-verify`, and `live-verify-gate.yml`:
 
 ```pwsh
-cd C:/Users/koosh/Dev/WorldSphereMod
+cd E:/Dev/WorldSphereMod
 pwsh Tools/wsm-live-verify.ps1
 ```
 
@@ -61,7 +97,7 @@ Phase IDs: `docs/journeys/manifests/index.json` (`us-wsm-phase-1-voxel-actors` �
 1. Ensure the Phase toggle is wired in `WorldSphereTab.cs` CreateButtons pattern
 2. Build: `dotnet build -c Release`
 3. Install: `& install.ps1`
-4. Launch: `Start-Process "steam://rungameid/1206560"`
+4. Launch: `& "C:/Program Files (x86)/Steam/steamapps/common/WorldBox/worldbox.exe"`
 5. In-game, open WorldSphere tab; toggle the Phase
 6. Tail log: `Select-String -Path "$env:USERPROFILE/AppData/LocalLow/mkarpenko/WorldBox/Player.log" -Pattern "\[WSM3D\]" | Select-Object -Last 20`
 7. Confirm Phase render call fired and no shader errors logged
@@ -112,7 +148,7 @@ Select-String -Path "$env:USERPROFILE/AppData/LocalLow/mkarpenko/WorldBox/Player
 
 ## Pitfalls (real, observed)
 
-**CompoundSpheres.dll causes CS1705 under Mono.** WorldBox runs Mono 6.12, which cannot load a net5.0 assembly. install.ps1 excludes the DLL and ships source code instead; if you manually copy the DLL, NML compile will fail silently and the mod will not load.
+**Asset bundle shader reality (2026-06):** the `worldsphere` + `wsm3d-shaders` bundles and their strip/compatibility constraints are current truth. Keep bundle changes aligned with `Core.cs` gates (`ShaderBundleAvailable`, `PostFxShaderBundleAvailable`) and `SafeShaders[]` allowlist.
 
 **Material.enableInstancing = true is silent-fail on unsupported shaders.** Setting the flag does not error if the shader lacks the instancing variant; always read back `material.enableInstancing` in Player.log to confirm it took effect, or the impostor will render as solid white.
 

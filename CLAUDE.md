@@ -19,11 +19,11 @@ day/night, post-FX, and an LOD/impostor fallback.
    install, prioritized next steps.
 2. **`docs/PLAN.md`** — the full 10-phase plan with file paths and
    verification per phase.
-3. **PR #1** on GitHub — draft, all CI green at handoff, phase-by-phase commits.
+3. **PR #1 draft** is historical; this line is now on the `wip/208-*` + `integ/live-fixes` lineage and phase history moved through in-game and MCP-verified work.
 
 ## Conventions
 
-- **Branch:** `claude/research-ultraplan-fork-DdgI5`. Push there, not `main`.
+- **Branch:** current lineage is `wip/208-*` (+ `integ` / `live-fixes` continuation branches), including `wip/208-ovc-good-bundle`.
 - **One PR per phase.** Don't bundle multiple phases into one PR.
 - **`mod.json` GUID** is `worldsphere3d.fork` — co-installable with upstream.
   Don't change it casually.
@@ -40,12 +40,17 @@ day/night, post-FX, and an LOD/impostor fallback.
 ```bash
 # Linux/macOS
 export WORLDBOX_PATH="$HOME/.steam/steam/steamapps/common/worldbox"
-dotnet build WorldSphereMod.csproj -c Release
+dotnet build WorldSphereMod.csproj -c Release -f net48
 
 # Windows PowerShell
 $env:WORLDBOX_PATH = "C:/Program Files (x86)/Steam/steamapps/common/worldbox"
-dotnet build WorldSphereMod.csproj -c Release
+dotnet build WorldSphereMod.csproj -c Release -f net48
 ```
+
+Current render state (2026-06): see `.claude/skills/wsm3d/SKILL.md` sections
+“Render bundle reality (2026-06, hard-won)”, “Launch (the catch-22)”, and
+“Bridge HTTP API” for the source-of-truth bundle, launch, and HTTP endpoint
+behavior.
 
 After a successful `dotnet build`, always launch through NML and check
 `Player.log` for **both** `error CS` **and** `Failed to compile` after
