@@ -14,6 +14,7 @@ description: Use when working on WorldSphereMod3D fork — building, installing,
 - **Repo path:** `E:/Dev/WorldSphereMod`
 - **Game install:** `C:/Program Files (x86)/Steam/steamapps/common/worldbox`
 - **Mod destination:** `<install>/Mods/WorldSphereMod3D`
+- **Install (canonical single root):** Install to `<install>/worldbox_Data/StreamingAssets/Mods/WorldSphereMod` ONLY; any folder under `<install>/Mods` with `worldsphere3d.fork` (e.g. `WorldSphereMod3D`) causes a Repeat-Mod collision and can make NML compile the stale copy.
 - **Player.log:** `C:/Users/koosh/AppData/LocalLow/mkarpenko/WorldBox/Player.log` (cleared on game launch)
 - **SavedSettings JSON:** `%USERPROFILE%/AppData/Roaming/<NML path>/WorldSphereMod.json`
 - **Target:** net48; WorldBox runs Mono 6.12.x (no C# 9+ features)
