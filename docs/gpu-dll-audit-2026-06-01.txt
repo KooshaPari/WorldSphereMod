@@ -1,0 +1,9 @@
+- Vendored DLL path + SHA256:
+  E:/wsm3d-wt/pr37/WorldSphereMod/Assemblies/CompoundSpheres.dll = 62D4DEA1138AC2EF03DA08EFE5C28511164E40B212EF943EB1304443B9DD28E7
+- Built artifact path + SHA256:
+  E:/wsm3d-sota-worktree/CompoundSpheres/bin/Release/CompoundSpheres.dll = 62D4DEA1138AC2EF03DA08EFE5C28511164E40B212EF943EB1304443B9DD28E7
+- match: YES
+- Submodule pin commit hash:
+  1f837ca35ac222b215b6027d5434f56a5a473786
+- Conclusion:
+  Needs-revendor state is now resolved: vendored DLL now matches built artifact from submodule branch sota/gpu-compute-golive at HEAD 308f2bb135eae84cca0c50dc521c3596b2f49aef.
