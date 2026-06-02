@@ -280,13 +280,23 @@ public static class BakeShaders
             // GPU-instancing draw path baked by BuildAssetBundles is stripped — the runtime
             // DrawMeshInstancedIndirect calls can't find a matching compiled program and
             // silently falls back to uninstanced draws (or worse, mismatches the blob layout).
+            //
+            // #208 SECONDARY FIX: also detect #pragma multi_compile _ WSM3D_POSTFX_KEEP.
+            // The 5 single-pass postFX shaders (BrpACES, ColorGradingLUT, ScreenSpaceGI,
+            // ScreenSpaceAO, ProceduralSky) and the 4-pass BrpBloom now declare this no-op
+            // keyword so they each have 2 variants. We register both "" and "WSM3D_POSTFX_KEEP"
+            // variants here so the SVC covers every compiled permutation.
             bool hasInstancing = false;
+            bool hasPostFxKeep = false;
             try
             {
                 string shaderSrc = File.ReadAllText(path);
                 hasInstancing = shaderSrc.Contains("#pragma multi_compile_instancing");
+                hasPostFxKeep = shaderSrc.Contains("WSM3D_POSTFX_KEEP");
                 if (hasInstancing)
                     Debug.Log($"[WSM3D-Bake] SVC: {shader.name} has #pragma multi_compile_instancing — will add INSTANCING_ON variants.");
+                if (hasPostFxKeep)
+                    Debug.Log($"[WSM3D-Bake] SVC: {shader.name} has WSM3D_POSTFX_KEEP — will add WSM3D_POSTFX_KEEP variants.");
             }
             catch (System.Exception ex)
             {
@@ -332,6 +342,27 @@ public static class BakeShaders
                         // pass types will be among the ones that DO accept INSTANCING_ON.
                     }
                 }
+
+                // WSM3D_POSTFX_KEEP variant — only for postFX shaders declaring the keep-keyword.
+                // Mirrors the INSTANCING_ON pattern above. The no-op keyword gives each
+                // single-pass postFX shader a 2nd variant so Unity does not treat it as
+                // a candidate for stripping (keep-threshold requires >1 variant in practice).
+                if (hasPostFxKeep)
+                {
+                    try
+                    {
+                        var keepVariant = new ShaderVariantCollection.ShaderVariant(shader, passType, "WSM3D_POSTFX_KEEP");
+                        if (!svc.Contains(keepVariant))
+                        {
+                            svc.Add(keepVariant);
+                            variantCount++;
+                        }
+                    }
+                    catch (System.Exception)
+                    {
+                        // This pass+keyword combo is invalid for this shader — skip silently.
+                    }
+                }
             }
 
             if (variantCount == 0)
@@ -350,12 +381,18 @@ public static class BakeShaders
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
-        // Tag the SVC itself to the same bundle so it travels with the shaders.
+        // #208 PRIMARY FIX: keep the SVC EXTERNAL — do NOT bundle it into wsm3d-shaders.
+        // Unity 2022.3 does not re-read an SVC from GraphicsSettings.m_PreloadedShaders
+        // while building the bundle that *contains* that SVC; the strip pass therefore
+        // never consults it and single-variant shaders (the 6 postFX) are stripped to
+        // 80-byte stubs. Clearing assetBundleName ensures the SVC stays in the project
+        // as a standalone asset so the strip pass can reach it via m_PreloadedShaders.
         var svcImporter = AssetImporter.GetAtPath(SvcAssetPath);
         if (svcImporter != null)
         {
-            svcImporter.assetBundleName = "wsm3d-shaders";
+            svcImporter.assetBundleName = "";
             svcImporter.SaveAndReimport();
+            Debug.Log("[WSM3D-Bake] SVC kept external (not bundled) so strip pass reads it");
         }
 
         // Register as a preloaded asset so Unity initialises the SVC before any

@@ -17,6 +17,7 @@ Shader "Hidden/ScreenSpaceAO"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma multi_compile _ WSM3D_POSTFX_KEEP
 
             #include "UnityCG.cginc"
 
