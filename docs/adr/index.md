@@ -23,6 +23,7 @@ decision with context, alternatives, and consequences. They are
 | [0018](/adr/0018-default-on-flag-cascade) | v2.0.0-alpha.10 phase-flag default-on cascade | Accepted |
 | [0020](/adr/0020-wave-19-to-25-summary) | Wave-19 to Wave-25 polish cascade | Accepted |
 | [ADR-0020](/adr/ADR-0020-wave-26-follow-up) | Wave-26 follow-up: docs posture + rig inventory | Accepted |
+| [ADR-0021](/adr/ADR-0021-assetbundle-postfx-bundle-lessons) | AssetBundle PostFX shader bake — version-mismatch, variant-stripping, crash-safe gating design (supersedes ADR-0012) | Accepted |
 
 ## How to add an ADR
 
