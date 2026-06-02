@@ -92,10 +92,6 @@ namespace WorldSphereMod
             // had VoxelEntities=false saved which the version-match path kept). Remove
             // this override once the setting is confirmed stable and user-togglable. (#208)
             savedSettings.VoxelEntities = true;
-            // LODScale=0.5 (saved JSON) gives voxelMaxDist≈4.3 world units — too small,
-            // puts 171/200 buildings into the Cull tier → all billboards. Force 4.0 so
-            // voxelMaxDist≈34 world units, voxels visible at normal zoom. (#208 billboard)
-            if (savedSettings.LODScale < 2.0f) savedSettings.LODScale = 4.0f;
             LogPhaseFlagDefaults(savedSettings);
             return true;
         }
