@@ -1,0 +1,2019 @@
+[Licensing::Module] Trying to connect to existing licensing client channel...
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-koosh" at "2026-06-02T02:25:03.9520448Z"
+[Licensing::Client] Code 10 while verifying Licensing Client signature (process Id: 67444, path: "C:/Program Files/Unity Hub/UnityLicensingClient_V1/Unity.Licensing.Client.exe")
+[Licensing::Module] LicensingClient has failed validation; ignoring
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.17.4+4293ba1
+  Session Id:              fa98c07ff5974fb38a6ca8dbbc58a10e
+  Correlation Id:          58f6659931896278b02b7938b44ccc24
+  External correlation Id: 4671365677396485721
+  Machine Id:              1URxonWXDqhd4gyhtwvDtzxLEKo=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-koosh" (connect: 0.00s, validation: 0.01s, handshake: 0.12s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-koosh-notifications" at "2026-06-02T02:25:04.0850949Z"
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully updated license
+Built from '2022.3/respin/2022.3.62f2-4af31df585-v2' branch; Version is '2022.3.62f3 (96770f904ca7) revision 9860879'; Using compiler version '192829333'; Build Type 'Release'
+OS: 'Windows 11  (10.0.28020) 64bit Professional' Language: 'en' Physical Memory: 65437 MB
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] Serial number assigned to: "6577137-UnityPersXXXX"
+BatchMode: 1, IsHumanControllingUs: 0, StartBugReporterOnCrash: 0, Is64bit: 1, IsPro: 0
+[Licensing::Client] Successfully resolved entitlement details
+
+COMMAND LINE ARGUMENTS:
+C:\Program Files\Unity\Hub\Editor\2022.3.62f3\Editor\Unity.exe
+-quit
+-batchmode
+-nographics
+-projectPath
+E:/Dev/WorldSphereMod/Tools/Unity-Bake-Project
+-executeMethod
+BakeShaders.BakeAll
+-logFile
+E:/Dev/WorldSphereMod/bake-fresh-fold.log
+Successfully changed project path to: E:/Dev/WorldSphereMod/Tools/Unity-Bake-Project
+E:/Dev/WorldSphereMod/Tools/Unity-Bake-Project
+[UnityMemory] Configuration Parameters - Can be set up in boot.config
+    "memorysetup-bucket-allocator-granularity=16"
+    "memorysetup-bucket-allocator-bucket-count=8"
+    "memorysetup-bucket-allocator-block-size=33554432"
+    "memorysetup-bucket-allocator-block-count=8"
+    "memorysetup-main-allocator-block-size=16777216"
+    "memorysetup-thread-allocator-block-size=16777216"
+    "memorysetup-gfx-main-allocator-block-size=16777216"
+    "memorysetup-gfx-thread-allocator-block-size=16777216"
+    "memorysetup-cache-allocator-block-size=4194304"
+    "memorysetup-typetree-allocator-block-size=2097152"
+    "memorysetup-profiler-bucket-allocator-granularity=16"
+    "memorysetup-profiler-bucket-allocator-bucket-count=8"
+    "memorysetup-profiler-bucket-allocator-block-size=33554432"
+    "memorysetup-profiler-bucket-allocator-block-count=8"
+    "memorysetup-profiler-allocator-block-size=16777216"
+    "memorysetup-profiler-editor-allocator-block-size=1048576"
+    "memorysetup-temp-allocator-size-main=16777216"
+    "memorysetup-job-temp-allocator-block-size=2097152"
+    "memorysetup-job-temp-allocator-block-size-background=1048576"
+    "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+    "memorysetup-allocator-temp-initial-block-size-main=262144"
+    "memorysetup-allocator-temp-initial-block-size-worker=262144"
+    "memorysetup-temp-allocator-size-background-worker=32768"
+    "memorysetup-temp-allocator-size-job-worker=262144"
+    "memorysetup-temp-allocator-size-preload-manager=33554432"
+    "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+    "memorysetup-temp-allocator-size-audio-worker=65536"
+    "memorysetup-temp-allocator-size-cloud-worker=32768"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gfx=262144"
+Player connection [121980]  Target information:
+
+Player connection [121980]  * "[IP] 192.168.1.159 [Port] 55504 [Flags] 2 [Guid] 443019208 [EditorId] 443019208 [Version] 1048832 [Id] WindowsEditor(7,kooshapari-desk) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor" 
+
+Player connection [121980]  * "[IP] 172.23.176.1 [Port] 55504 [Flags] 2 [Guid] 443019208 [EditorId] 443019208 [Version] 1048832 [Id] WindowsEditor(7,kooshapari-desk) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor" 
+
+Player connection [121980]  * "[IP] 172.28.176.1 [Port] 55504 [Flags] 2 [Guid] 443019208 [EditorId] 443019208 [Version] 1048832 [Id] WindowsEditor(7,kooshapari-desk) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor" 
+
+Player connection [121980] Host joined multi-casting on [225.0.0.222:54997]...
+Player connection [121980] Host joined alternative multi-casting on [225.0.0.222:34997]...
+Input System module state changed to: Initialized.
+[PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+[Package Manager] UpmClient::Connect -- Connected to IPC stream "Upm-135992" after 2.0 seconds.
+[Package Manager] Done resolving packages in 0.86 seconds
+[Licensing::Client] Successfully resolved entitlement details
+[Package Manager] Registered 3 packages:
+  Built-in packages:
+    com.unity.modules.assetbundle@1.0.0 (location: E:\Dev\WorldSphereMod\Tools\Unity-Bake-Project\Library\PackageCache\com.unity.modules.assetbundle@1.0.0)
+    com.unity.modules.ui@1.0.0 (location: E:\Dev\WorldSphereMod\Tools\Unity-Bake-Project\Library\PackageCache\com.unity.modules.ui@1.0.0)
+    com.unity.modules.imageconversion@1.0.0 (location: E:\Dev\WorldSphereMod\Tools\Unity-Bake-Project\Library\PackageCache\com.unity.modules.imageconversion@1.0.0)
+[Subsystems] No new subsystems found in resolved package list.
+Package Manager log level set to [2]
+[Package Manager] Done registering packages in 0.33 seconds
+Artifact Garbage Collection - Removed 6 unused hashed content files
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Initialize engine version: 2022.3.62f3 (96770f904ca7)
+[Subsystems] Discovering subsystems at path C:/Program Files/Unity/Hub/Editor/2022.3.62f3/Editor/Data/Resources/UnitySubsystems
+[Subsystems] Discovering subsystems at path E:/Dev/WorldSphereMod/Tools/Unity-Bake-Project/Assets
+Forcing GfxDevice: Null
+GfxDevice: creating device client; threaded=0; jobified=0
+NullGfxDevice:
+    Version:  NULL 1.0 [1.0]
+    Renderer: Null Device
+    Vendor:   Unity Technologies
+[Licensing::Client] Successfully resolved entitlement details
+Initialize mono
+Mono path[0] = 'C:/Program Files/Unity/Hub/Editor/2022.3.62f3/Editor/Data/Managed'
+Mono path[1] = 'C:/Program Files/Unity/Hub/Editor/2022.3.62f3/Editor/Data/MonoBleedingEdge/lib/mono/unityjit-win32'
+Mono config path = 'C:/Program Files/Unity/Hub/Editor/2022.3.62f3/Editor/Data/MonoBleedingEdge/etc'
+Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56992
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+ImportWorker Server TCP listen port: 0
+Begin MonoManager ReloadAssembly
+Registering precompiled unity dll's ...
+Register platform support module: C:/Program Files/Unity/Hub/Editor/2022.3.62f3/Editor/Data/PlaybackEngines/WindowsStandaloneSupport/UnityEditor.WindowsStandalone.Extensions.dll
+Registered in 0.496319 seconds.
+- Loaded All Assemblies, in 24.453 seconds
+Native extension for WindowsStandalone target not found
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.676 seconds
+Domain Reload Profiling: 25121ms
+	BeginReloadAssembly (18564ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (0ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (7ms)
+	RebuildCommonClasses (1320ms)
+	RebuildNativeTypeToScriptingClass (30ms)
+	initialDomainReloadingComplete (663ms)
+	LoadAllAssembliesAndSetupDomain (3866ms)
+		LoadAssemblies (18544ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (3860ms)
+			TypeCache.Refresh (3855ms)
+				TypeCache.ScanAssembly (2888ms)
+			ScanForSourceGeneratedMonoScriptInfo (2ms)
+			ResolveRequiredComponents (2ms)
+	FinalizeReload (678ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (567ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (24ms)
+			SetLoadedEditorAssemblies (15ms)
+			RefreshPlugins (0ms)
+			BeforeProcessingInitializeOnLoad (9ms)
+			ProcessInitializeOnLoadAttributes (390ms)
+			ProcessInitializeOnLoadMethodAttributes (128ms)
+			AfterProcessingInitializeOnLoad (0ms)
+			EditorAssembliesLoaded (1ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (0ms)
+[Licensing::Client] Successfully resolved entitlement details
+Application.AssetDatabase Initial Refresh Start
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:80
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Production
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: E:\Dev\WorldSphereMod\Tools\Unity-Bake-Project\
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc - - 200 - application/grpc 90.2334ms
+Clearing Bee directory 'Library/Bee', since bee backend hash ('Library/Bee/bee_backend.info') is different, previous hash was 88fda6a2aaf4ee8b76e48dd66297d519cc05beeb891d5de1e85f3bfb9cbf0def (Unity version: 2022.3.60f1), current hash is f6fe4d8f9e5a1d11a74712fea32d4b920f919070be955784ca0e8936ec93f82b (Unity version: 2022.3.62f3).
+Starting: C:\Program Files\Unity\Hub\Editor\2022.3.62f3\Editor\Data\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1900b0aE.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: E:/Dev/WorldSphereMod/Tools/Unity-Bake-Project
+ExitCode: 4 Duration: 0s96ms
+[             ] Require frontend run.  Library/Bee/1900b0aE.dag couldn't be loaded
+DisplayProgressbar: Compiling Scripts
+Starting: C:\Program Files\Unity\Hub\Editor\2022.3.62f3\Editor\Data\Tools\netcorerun\netcorerun.exe "C:\Program Files\Unity\Hub\Editor\2022.3.62f3\Editor\Data\Tools\BuildPipeline\ScriptCompilationBuildProgram.exe" "Library/Bee/1900b0aE.dag.json" "Library/Bee/1900b0aE-inputdata.json" "Library\Bee\buildprogram0.traceevents"
+WorkingDir: E:/Dev/WorldSphereMod/Tools/Unity-Bake-Project
+ExitCode: 0 Duration: 4s386ms
+Starting: C:\Program Files\Unity\Hub\Editor\2022.3.62f3\Editor\Data\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1900b0aE.dag" --continue-on-failure --dagfilejson="Library\Bee\1900b0aE.dag.json" --profile="Library/Bee/backend2.traceevents" ScriptAssemblies
+WorkingDir: E:/Dev/WorldSphereMod/Tools/Unity-Bake-Project
+ExitCode: 0 Duration: 15s
+Finished compiling graph: 97 nodes, 282 flattened edges (278 ToBuild, 2 ToUse), maximum node priority 13
+[ 1/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.UnityWebRequestTextureModule.dll_29B1E2CEDA4789DC.mvfrm
+[ 2/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.VehiclesModule.dll_2B49F7EC561A1B88.mvfrm
+[ 3/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.UnityWebRequestModule.dll_C00D2175C14AF323.mvfrm
+[ 4/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.WindModule.dll_511121F08E888839.mvfrm
+[ 5/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.VFXModule.dll_FEEF9C059DB8A89B.mvfrm
+[ 6/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.VRModule.dll_A58FAFCF95B1157D.mvfrm
+[ 7/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.UmbraModule.dll_360BBEADE16F4E5C.mvfrm
+[ 8/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEditor.DiagnosticsModule.dll_26EB2ECD32FC1A7A.mvfrm
+[ 9/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.UnityWebRequestAudioModule.dll_51928CEBC7723927.mvfrm
+[10/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.VirtualTexturingModule.dll_6C893B021039B06E.mvfrm
+[11/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEditor.DeviceSimulatorModule.dll_3CCF59A9C476932C.mvfrm
+[12/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.UnityWebRequestWWWModule.dll_ACF0AB618FB486D8.mvfrm
+[13/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.VideoModule.dll_E040970016DABE8E.mvfrm
+[14/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEditor.WindowsStandalone.Extensions.dll_05605AE3083EBA4B.mvfrm
+[15/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEditor.CoreModule.dll_B7A17375554C9EA5.mvfrm
+[16/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.XRModule.dll_D84E72D41EEB62DB.mvfrm
+[17/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.UIModule.dll_52BD8949F3F69005.mvfrm
+[18/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.UnityTestProtocolModule.dll_A93CC1394C5F6012.mvfrm
+[19/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.TLSModule.dll_7E110396C74B3F2E.mvfrm
+[20/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.UnityAnalyticsCommonModule.dll_74D4F6515AF00CED.mvfrm
+[21/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.TilemapModule.dll_99A74C14B7E3DED1.mvfrm
+[22/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.TextRenderingModule.dll_F081C1B146D7F232.mvfrm
+[23/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.UnityAnalyticsModule.dll_1247DC34E0A5BCF2.mvfrm
+[24/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.UnityCurlModule.dll_94166AD8A40279A4.mvfrm
+[25/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.TextCoreTextEngineModule.dll_E22E66059FF4CA6C.mvfrm
+[26/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.UnityWebRequestAssetBundleModule.dll_1476367436BD4543.mvfrm
+[27/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.TextCoreFontEngineModule.dll_9A462F941071114E.mvfrm
+[28/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.UnityConnectModule.dll_AE95229E6A4BA086.mvfrm
+[29/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.TerrainPhysicsModule.dll_F323143E4DC16583.mvfrm
+[30/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEditor.Graphs.dll_67842BF8639E43D7.mvfrm
+[31/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.TerrainModule.dll_FAAAE493A026FDC8.mvfrm
+[32/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.UIElementsModule.dll_DCA21A6C17C7270C.mvfrm
+[33/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.ProfilerModule.dll_E5CD37A37549D2FA.mvfrm
+[34/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.SubstanceModule.dll_F239CB40CEC93D03.mvfrm
+[35/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.SubsystemsModule.dll_D863B904149AEB15.mvfrm
+[36/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.ScreenCaptureModule.dll_C7424FA68FA0723D.mvfrm
+[37/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.SpriteMaskModule.dll_6DB652A246530302.mvfrm
+[38/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.PhysicsModule.dll_E0646924CA68B4DA.mvfrm
+[39/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.StreamingModule.dll_158EB6F783763EF5.mvfrm
+[40/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.SpriteShapeModule.dll_0F451026A3DC03CF.mvfrm
+[41/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.SharedInternalsModule.dll_327F58A12D8453F4.mvfrm
+[42/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.RuntimeInitializeOnLoadManagerInitializerModule.dll_7C16D61D56818815.mvfrm
+[43/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.Physics2DModule.dll_AD9FB997D4EB7F4C.mvfrm
+[44/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.PerformanceReportingModule.dll_D996390D41076E8F.mvfrm
+[45/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.NVIDIAModule.dll_E6E66A6F609F983C.mvfrm
+[46/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.LocalizationModule.dll_7F1EDDF7B8C7659A.mvfrm
+[47/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.PropertiesModule.dll_B1C51F5097CED1C4.mvfrm
+[48/95      1s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.ParticleSystemModule.dll_F2A86B6B347E6AF6.mvfrm
+[49/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.InputModule.dll_21ACDA45CA80C78D.mvfrm
+[50/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.InputLegacyModule.dll_8728FDEA862B81B6.mvfrm
+[51/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.HotReloadModule.dll_E24287AD0F21A339.mvfrm
+[52/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.IMGUIModule.dll_F396B1FC1A7A36CA.mvfrm
+[53/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.ImageConversionModule.dll_AE6E19CBB65658A4.mvfrm
+[54/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.JSONSerializeModule.dll_AD5AA2217B3445DB.mvfrm
+[55/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.dll_9246FFA3214676C5.mvfrm
+[56/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.GIModule.dll_EF86342A335E7273.mvfrm
+[57/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.GridModule.dll_B83362B615A69FC7.mvfrm
+[58/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.DSPGraphModule.dll_B8D85FD64E511D0E.mvfrm
+[59/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.GameCenterModule.dll_8489E01224E36D88.mvfrm
+[60/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.DirectorModule.dll_B386FE6CDBF04BED.mvfrm
+[61/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.CrashReportingModule.dll_9F96221EC66CDF68.mvfrm
+[62/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.ContentLoadModule.dll_8EFA3C0CBCBC73B2.mvfrm
+[63/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.ClusterRendererModule.dll_427C1C1B3431A0B0.mvfrm
+[64/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.CoreModule.dll_DAC246C7FD5209D0.mvfrm
+[65/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.ClusterInputModule.dll_40D213A5214B72A1.mvfrm
+[66/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.AssetBundleModule.dll_F5E3E2CBEE39CBC5.mvfrm
+[67/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.AudioModule.dll_BB3712955448A2E9.mvfrm
+[68/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.AnimationModule.dll_60F9C9A733EE87B7.mvfrm
+[69/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.AndroidJNIModule.dll_5A3C95F75EA27C97.mvfrm
+[70/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.ClothModule.dll_221F6F902E6581CD.mvfrm
+[71/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.ARModule.dll_10BCB01FF4CCE922.mvfrm
+[72/95      0s] WriteText Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp-Editor.rsp2
+[73/95      0s] WriteText Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp-Editor.UnityAdditionalFile.txt
+[74/95      0s] WriteText Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp-Editor.dll.mvfrm.rsp
+[75/95      0s] WriteText Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp-Editor.rsp
+[76/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEditor.UIElementsSamplesModule.dll_ED7A0B46F2640ABC.mvfrm
+[77/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.AIModule.dll_5749EB1C97AF8A59.mvfrm
+[78/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEditor.UnityConnectModule.dll_C1359E8F6FC39FDB.mvfrm
+[79/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEditor.TextCoreTextEngineModule.dll_63CEEAB28CF70BA1.mvfrm
+[80/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEditor.UIBuilderModule.dll_E6FCFA9ACC4A2C45.mvfrm
+[81/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEngine.AccessibilityModule.dll_4D4318E57BF8E551.mvfrm
+[82/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEditor.TextCoreFontEngineModule.dll_1BE6B440FD735283.mvfrm
+[83/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEditor.UIElementsModule.dll_DBF3AD2415830DC1.mvfrm
+[84/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEditor.SceneTemplateModule.dll_1A9DAD4E7B82BDB4.mvfrm
+[85/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEditor.SceneViewModule.dll_D12430864EB4801F.mvfrm
+[86/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEditor.QuickSearchModule.dll_B1FAAFDA8BD316D3.mvfrm
+[87/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEditor.PresetsUIModule.dll_4DDA86605BEA0B16.mvfrm
+[88/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEditor.EditorToolbarModule.dll_F6FE3C907C96137C.mvfrm
+[89/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEditor.GraphViewModule.dll_92744D7E5991B311.mvfrm
+[90/95      0s] MovedFromExtractor Library/Bee/artifacts/mvdfrm/UnityEditor.dll_5FA2B8CAC2D2E9E0.mvfrm
+[91/95      0s] MovedFromExtractorCombine Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp-Editor.dll.mvfrm
+[92/95      3s] Csc Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp-Editor.dll (+2 others)
+[93/95      0s] CopyFiles Library/ScriptAssemblies/Assembly-CSharp-Editor.pdb
+[94/95      0s] CopyFiles Library/ScriptAssemblies/Assembly-CSharp-Editor.dll
+*** Tundra build success (15.40 seconds), 94 items updated, 95 evaluated
+AssetDatabase: script compilation time: 22.157954s
+Begin MonoManager ReloadAssembly
+Total cache size 16246616
+Total cache size after purge 16246616
+- Loaded All Assemblies, in  1.007 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Native extension for WindowsStandalone target not found
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.760 seconds
+Domain Reload Profiling: 1759ms
+	BeginReloadAssembly (476ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (14ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (47ms)
+	RebuildCommonClasses (97ms)
+	RebuildNativeTypeToScriptingClass (42ms)
+	initialDomainReloadingComplete (84ms)
+	LoadAllAssembliesAndSetupDomain (299ms)
+		LoadAssemblies (618ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (10ms)
+			TypeCache.Refresh (7ms)
+				TypeCache.ScanAssembly (0ms)
+			ScanForSourceGeneratedMonoScriptInfo (1ms)
+			ResolveRequiredComponents (1ms)
+	FinalizeReload (761ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (450ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (21ms)
+			SetLoadedEditorAssemblies (12ms)
+			RefreshPlugins (0ms)
+			BeforeProcessingInitializeOnLoad (75ms)
+			ProcessInitializeOnLoadAttributes (282ms)
+			ProcessInitializeOnLoadMethodAttributes (33ms)
+			AfterProcessingInitializeOnLoad (26ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (14ms)
+Asset Pipeline Refresh (id=8312129c2331b7947ab08518aef947ee): Total: 24.248 seconds - Initiated by InitialRefreshV2(ForceSynchronousImport)
+	Summary:
+		Imports: total=0 (actual=0, local cache=0, cache server=0)
+		Asset DB Process Time: managed=0 ms, native=179 ms
+		Asset DB Callback time: managed=25 ms, native=4 ms
+		Scripting: domain reloads=1, domain reload time=1831 ms, compile time=22162 ms, other=45 ms
+		Project Asset Count: scripts=31, non-scripts=18
+		Asset File Changes: new=0, changed=0, moved=0, deleted=0
+		Scan Filter Count: 0
+	InvokeBeforeRefreshCallbacks: 3.864ms
+	ApplyChangesToAssetFolders: 0.941ms
+	Scan: 15.067ms
+	OnSourceAssetsModified: 0.005ms
+	GetAllGuidsForCategorization: 0.026ms
+	CategorizeAssets: 2.736ms
+	ImportOutOfDateAssets: 764.203ms (-21398.586ms without children)
+		CompileScripts: 22161.777ms
+		ReloadNativeAssets: 0.001ms
+		UnloadImportedAssets: 0.114ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.017ms
+		InitializingProgressBar: 0.243ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.001ms
+		OnDemandSchedulerStart: 0.636ms
+	PostProcessAllAssets: 25.843ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.001ms
+	UnloadStreamsBegin: 3.217ms
+	PersistCurrentRevisions: 0.003ms
+	UnloadStreamsEnd: 0.003ms
+	GenerateScriptTypeHashes: 0.002ms
+	Untracked: 23432.536ms
+Application.AssetDatabase Initial Refresh End
+Scanning for USB devices : 21.442ms
+Initializing Unity extensions:
+[Licensing::Client] Successfully resolved entitlement details
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+[MODES] Loading mode Default (0) for mode-current-id-Unity-Bake-Project
+[PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+ProgressiveSceneManager::Cancel()
+Unloading 4 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 15 unused Assets / (472.2 KB). Loaded Objects now: 539.
+Memory consumption went from 78.5 MB to 78.0 MB.
+Total: 7.008500 ms (FindLiveObjects: 0.086500 ms CreateObjectMapping: 0.007700 ms MarkObjects: 6.554000 ms  DeleteObjects: 0.358600 ms)
+
+[WSM3D-Bake] skip URP variant: OpaqueVertexColorURP.shader
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:29)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 29)
+
+[WSM3D-Bake] copied compute: CompoundSphereCompute.compute
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:69)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 69)
+
+[WSM3D-Bake] copied buffer-driven shader: CompoundSphere.shader
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:87)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 87)
+
+Asset Pipeline Refresh (id=8fd9d4c2a88e6a64dbe276793fe862d9): Total: 0.052 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Start importing Assets/WSM3D/Shaders/CompoundSphereCompute.compute using Guid(5e6ea7165096eaf4c9ab57bc1f4335aa) Importer(-1,00000000000000000000000000000000) [PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+Launched and connected shader compiler UnityShaderCompiler.exe after 0.19 seconds
+ -> (artifact id: '0e763f72a5b10176de03f8e1fbf67398') in 0.286033 seconds
+Loading style catalogs (6)
+	StyleSheets/Extensions/base/common.uss
+	UIPackageResources/StyleSheets/Default/Variables/Public/common.uss
+	StyleSheets/Northstar/common.uss
+	StyleSheets/Extensions/fonts/inter.uss
+	StyleSheets/Extensions/base/dark.uss
+	UIPackageResources/StyleSheets/Default/Northstar/Palette/dark.uss
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=6c132023fd38587478c18ede81534416): Total: 0.643 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+	Summary:
+		Imports: total=1 (actual=1, local cache=0, cache server=0)
+		Asset DB Process Time: managed=5 ms, native=288 ms
+		Asset DB Callback time: managed=335 ms, native=13 ms
+		Scripting: domain reloads=0, domain reload time=0 ms, compile time=0 ms, other=0 ms
+		Project Asset Count: scripts=31, non-scripts=18
+		Asset File Changes: new=0, changed=0, moved=0, deleted=0
+		Scan Filter Count: 4
+	InvokeBeforeRefreshCallbacks: 0.001ms
+	ApplyChangesToAssetFolders: 0.013ms
+	Scan: 2.564ms
+	OnSourceAssetsModified: 0.001ms
+	GetAllGuidsForCategorization: 0.006ms
+	CategorizeAssets: 0.035ms
+	ImportOutOfDateAssets: 290.139ms (-0.691ms without children)
+		ImportManagerImport: 289.610ms (2.515ms without children)
+			ImportInProcess: 287.058ms
+			UpdateCategorizedAssets: 0.037ms
+		ReloadNativeAssets: 0.001ms
+		UnloadImportedAssets: 0.284ms
+		ReloadImportedAssets: 0.808ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.011ms
+		InitializingProgressBar: 0.007ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.001ms
+		OnDemandSchedulerStart: 0.110ms
+	PostProcessAllAssets: 347.199ms
+	Hotreload: 1.718ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.009ms
+	UnloadStreamsBegin: 0.054ms
+	PersistCurrentRevisions: 0.003ms
+	UnloadStreamsEnd: 0.002ms
+	Untracked: 1.073ms
+[WSM3D-Bake] tagged wsm3d-shaders (compute): Assets/WSM3D/Shaders/CompoundSphereCompute.compute
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:100)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 100)
+
+Start importing Assets/WSM3D/Shaders/BrpACES.shader using Guid(4c49a93e85fb5474fab5d30e5f40107a) Importer(-1,00000000000000000000000000000000) [PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+ -> (artifact id: '86b8854f6fd6dae81898891adec7c82f') in 0.127031 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=4291970c13d12db4ba70e84b08ec525a): Total: 1.343 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+	Summary:
+		Imports: total=1 (actual=1, local cache=0, cache server=0)
+		Asset DB Process Time: managed=0 ms, native=134 ms
+		Asset DB Callback time: managed=1 ms, native=1207 ms
+		Scripting: domain reloads=0, domain reload time=0 ms, compile time=0 ms, other=0 ms
+		Project Asset Count: scripts=31, non-scripts=18
+		Asset File Changes: new=0, changed=0, moved=0, deleted=0
+		Scan Filter Count: 4
+	InvokeBeforeRefreshCallbacks: 0.001ms
+	ApplyChangesToAssetFolders: 0.014ms
+	Scan: 2.897ms
+	OnSourceAssetsModified: 0.000ms
+	GetAllGuidsForCategorization: 0.005ms
+	CategorizeAssets: 0.028ms
+	ImportOutOfDateAssets: 129.218ms (-0.876ms without children)
+		ImportManagerImport: 128.526ms (1.095ms without children)
+			ImportInProcess: 127.409ms
+			UpdateCategorizedAssets: 0.022ms
+		ReloadNativeAssets: 0.001ms
+		UnloadImportedAssets: 0.082ms
+		ReloadImportedAssets: 0.950ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.008ms
+		InitializingProgressBar: 0.007ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.000ms
+		OnDemandSchedulerStart: 0.520ms
+	PostProcessAllAssets: 1207.543ms
+	Hotreload: 0.996ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.009ms
+	UnloadStreamsBegin: 1.523ms
+	PersistCurrentRevisions: 0.003ms
+	UnloadStreamsEnd: 0.002ms
+	Untracked: 0.673ms
+[WSM3D-Bake] tagged worldsphere: Assets/WSM3D/Shaders/BrpACES.shader
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:131)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 131)
+
+Start importing Assets/WSM3D/Shaders/BrpBloom.shader using Guid(6a1d637528bb45c458d6e5ecbb62594b) Importer(-1,00000000000000000000000000000000) [PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+ -> (artifact id: '1a68af2780aa1a980c914d1dc6eddee9') in 0.037897 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=230cca381ec707f47af47d2d1a1901a9): Total: 0.102 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+[WSM3D-Bake] tagged worldsphere: Assets/WSM3D/Shaders/BrpBloom.shader
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:131)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 131)
+
+Start importing Assets/WSM3D/Shaders/ColorGradingLUT.shader using Guid(a858ab0bf1bce304a9f8a16e06dfc1a6) Importer(-1,00000000000000000000000000000000) [PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+ -> (artifact id: '09200ae9823474fbd3303ceddeaf36d7') in 0.031265 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=c6a6db9afe12a3b4aad00f91096e84e5): Total: 0.071 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+[WSM3D-Bake] tagged worldsphere: Assets/WSM3D/Shaders/ColorGradingLUT.shader
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:131)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 131)
+
+Start importing Assets/WSM3D/Shaders/CompoundSphere.shader using Guid(0b970160e6eed014482ff73ac7ed60fe) Importer(-1,00000000000000000000000000000000) [PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+ -> (artifact id: '68be14b78e54502c03a3c7a7ded047fb') in 0.031942 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=2c909aa1a12353d4da4e24fab49b02ed): Total: 0.070 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+[WSM3D-Bake] tagged wsm3d-shaders: Assets/WSM3D/Shaders/CompoundSphere.shader
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:131)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 131)
+
+Start importing Assets/WSM3D/Shaders/FoliageWind.shader using Guid(6c34244684341924f8405b4f57daf76b) Importer(-1,00000000000000000000000000000000) [PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+ -> (artifact id: 'c7da96b2bcd94e4024ee79e60b8270a4') in 0.034290 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=ce13df78d8f18c243bcb5fd54fb54e87): Total: 0.072 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+[WSM3D-Bake] tagged wsm3d-shaders: Assets/WSM3D/Shaders/FoliageWind.shader
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:131)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 131)
+
+Start importing Assets/WSM3D/Shaders/GerstnerWater.shader using Guid(2b026d77133e3114bbec693de8d5cc46) Importer(-1,00000000000000000000000000000000) [PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+ -> (artifact id: '1079d17ed46cdf0d56f07bc7551b8cf7') in 0.038903 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=c5afe86dde92a834c9506d3323480e53): Total: 0.095 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+[WSM3D-Bake] tagged wsm3d-shaders: Assets/WSM3D/Shaders/GerstnerWater.shader
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:131)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 131)
+
+Start importing Assets/WSM3D/Shaders/Impostor.shader using Guid(e2dc4eb810266fa498500c68fe27b76c) Importer(-1,00000000000000000000000000000000) [PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+ -> (artifact id: '22e7a727da490096aaf9e2b96e12d66d') in 0.038639 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=5424c1c5dfa25824b8e1b61e586fb93c): Total: 0.351 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+	Summary:
+		Imports: total=1 (actual=1, local cache=0, cache server=0)
+		Asset DB Process Time: managed=0 ms, native=321 ms
+		Asset DB Callback time: managed=1 ms, native=28 ms
+		Scripting: domain reloads=0, domain reload time=0 ms, compile time=0 ms, other=0 ms
+		Project Asset Count: scripts=31, non-scripts=18
+		Asset File Changes: new=0, changed=0, moved=0, deleted=0
+		Scan Filter Count: 4
+	InvokeBeforeRefreshCallbacks: 0.001ms
+	ApplyChangesToAssetFolders: 0.015ms
+	Scan: 7.694ms
+	OnSourceAssetsModified: 0.001ms
+	GetAllGuidsForCategorization: 0.015ms
+	CategorizeAssets: 0.069ms
+	ImportOutOfDateAssets: 308.834ms (-1.952ms without children)
+		ImportManagerImport: 308.041ms (2.225ms without children)
+			ImportInProcess: 305.777ms
+			UpdateCategorizedAssets: 0.040ms
+		ReloadNativeAssets: 0.001ms
+		UnloadImportedAssets: 0.211ms
+		ReloadImportedAssets: 2.046ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.012ms
+		InitializingProgressBar: 0.009ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.001ms
+		OnDemandSchedulerStart: 0.466ms
+	PostProcessAllAssets: 28.448ms
+	Hotreload: 1.156ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.010ms
+	UnloadStreamsBegin: 0.049ms
+	PersistCurrentRevisions: 0.004ms
+	UnloadStreamsEnd: 0.002ms
+	Untracked: 4.844ms
+[WSM3D-Bake] tagged wsm3d-shaders: Assets/WSM3D/Shaders/Impostor.shader
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:131)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 131)
+
+Start importing Assets/WSM3D/Shaders/OpaqueVertexColor.shader using Guid(f689cff8059f78048a2d9a94c0d21940) Importer(-1,00000000000000000000000000000000) [PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+ -> (artifact id: '1cb29737ee4c062ce098c83234201a92') in 0.037922 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=46ea73500fc09a5488a8922cf3af457d): Total: 0.079 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+[WSM3D-Bake] tagged wsm3d-shaders: Assets/WSM3D/Shaders/OpaqueVertexColor.shader
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:131)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 131)
+
+Start importing Assets/WSM3D/Shaders/ProceduralSky.shader using Guid(20ac1a39eaee92c44b5cc2d5bd1f1df1) Importer(-1,00000000000000000000000000000000) [PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+ -> (artifact id: 'f5e26c0f319e6f0a43c76f265d12d4e9') in 0.033407 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=058ad10a6f58cfd458a8e99766ac04fd): Total: 0.073 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+[WSM3D-Bake] tagged worldsphere: Assets/WSM3D/Shaders/ProceduralSky.shader
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:131)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 131)
+
+Start importing Assets/WSM3D/Shaders/ScreenSpaceAO.shader using Guid(7aa5202bf3c7cc64e8746ffcf17d1944) Importer(-1,00000000000000000000000000000000) [PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+ -> (artifact id: '58db3819305811e212b37fc0d1f62a66') in 0.034663 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=bc0f7b4269c211746a468f4e608f9b13): Total: 0.078 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+[WSM3D-Bake] tagged worldsphere: Assets/WSM3D/Shaders/ScreenSpaceAO.shader
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:131)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 131)
+
+Start importing Assets/WSM3D/Shaders/ScreenSpaceGI.shader using Guid(f47d69eeb7d7d0b4c88ac4bd89c98855) Importer(-1,00000000000000000000000000000000) [PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+ -> (artifact id: '4f59ca495f2c1132e267efde687a9e04') in 0.034073 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=b281eedcb73a7c14f951499b63907941): Total: 0.080 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+[WSM3D-Bake] tagged worldsphere: Assets/WSM3D/Shaders/ScreenSpaceGI.shader
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:131)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 131)
+
+Start importing Assets/WSM3D/Shaders/StratumVoxelPBR.shader using Guid(afcbe9fb9fc911642b7c98e57283f995) Importer(-1,00000000000000000000000000000000) [PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+ -> (artifact id: 'f26f2518df8ebdbc6be21e5c2b28fb88') in 0.035837 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=77aff9187d33e0e4d8563b00e786e679): Total: 0.084 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+[WSM3D-Bake] tagged wsm3d-shaders: Assets/WSM3D/Shaders/StratumVoxelPBR.shader
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:131)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 131)
+
+Asset Pipeline Refresh (id=c52901f7b5941734aaffff4e02497d7c): Total: 0.009 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+[WSM3D-Bake] PinShaders: all shaders already present in alwaysIncludedShaders.
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:PinShadersInGraphicsSettings (string) (at Assets/Editor/BakeShaders.cs:490)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:143)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 490)
+
+[WSM3D-Bake] SVC: Hidden/WSM3D/BrpACES has WSM3D_POSTFX_KEEP — will add WSM3D_POSTFX_KEEP variants.
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:314)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 314)
+
+[WSM3D-Bake] SVC: Hidden/WSM3D/BrpACES has no ForwardBase pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: Hidden/WSM3D/BrpACES has no ForwardAdd pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: Hidden/WSM3D/BrpACES has no Deferred pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: Hidden/WSM3D/BrpACES has no ShadowCaster pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC +2 variants: Hidden/WSM3D/BrpACES
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:392)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 392)
+
+[WSM3D-Bake] SVC: Hidden/WSM3D/BrpBloom has WSM3D_POSTFX_KEEP — will add WSM3D_POSTFX_KEEP variants.
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:314)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 314)
+
+[WSM3D-Bake] SVC: Hidden/WSM3D/BrpBloom has no ForwardBase pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: Hidden/WSM3D/BrpBloom has no ForwardAdd pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: Hidden/WSM3D/BrpBloom has no Deferred pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: Hidden/WSM3D/BrpBloom has no ShadowCaster pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC +2 variants: Hidden/WSM3D/BrpBloom
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:392)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 392)
+
+[WSM3D-Bake] SVC: WSM3D/ColorGradingLUT has no ForwardBase pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: WSM3D/ColorGradingLUT has no ForwardAdd pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: WSM3D/ColorGradingLUT has no Deferred pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: WSM3D/ColorGradingLUT has no ShadowCaster pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC +1 variants: WSM3D/ColorGradingLUT
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:392)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 392)
+
+[WSM3D-Bake] SVC: CompoundSphere has #pragma multi_compile_instancing — will add INSTANCING_ON variants.
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:312)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 312)
+
+[WSM3D-Bake] SVC: CompoundSphere has no ForwardBase pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: CompoundSphere has no ForwardAdd pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: CompoundSphere has no Deferred pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: CompoundSphere has no ShadowCaster pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC +2 variants: CompoundSphere
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:392)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 392)
+
+[WSM3D-Bake] SVC: WSM3D/FoliageWind has #pragma multi_compile_instancing — will add INSTANCING_ON variants.
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:312)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 312)
+
+[WSM3D-Bake] SVC: WSM3D/FoliageWind has no ForwardBase pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: WSM3D/FoliageWind has no ForwardAdd pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: WSM3D/FoliageWind has no Deferred pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC +4 variants: WSM3D/FoliageWind
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:392)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 392)
+
+[WSM3D-Bake] SVC: WSM3D/GerstnerWater has no Deferred pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC +4 variants: WSM3D/GerstnerWater
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:392)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 392)
+
+[WSM3D-Bake] SVC: WSM3D/Impostor has #pragma multi_compile_instancing — will add INSTANCING_ON variants.
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:312)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 312)
+
+[WSM3D-Bake] SVC: WSM3D/Impostor has no Deferred pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC +7 variants: WSM3D/Impostor
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:392)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 392)
+
+[WSM3D-Bake] SVC: WSM3D/OpaqueVertexColor has #pragma multi_compile_instancing — will add INSTANCING_ON variants.
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:312)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 312)
+
+[WSM3D-Bake] SVC: WSM3D/OpaqueVertexColor has no Deferred pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC +7 variants: WSM3D/OpaqueVertexColor
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:392)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 392)
+
+[WSM3D-Bake] SVC: WSM3D/ProceduralSky has no ForwardBase pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: WSM3D/ProceduralSky has no ForwardAdd pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: WSM3D/ProceduralSky has no Deferred pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: WSM3D/ProceduralSky has no ShadowCaster pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC +1 variants: WSM3D/ProceduralSky
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:392)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 392)
+
+[WSM3D-Bake] SVC: WSM3D/ScreenSpaceAO has no ForwardBase pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: WSM3D/ScreenSpaceAO has no ForwardAdd pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: WSM3D/ScreenSpaceAO has no Deferred pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: WSM3D/ScreenSpaceAO has no ShadowCaster pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC +1 variants: WSM3D/ScreenSpaceAO
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:392)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 392)
+
+[WSM3D-Bake] SVC: Hidden/ScreenSpaceGI has WSM3D_POSTFX_KEEP — will add WSM3D_POSTFX_KEEP variants.
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:314)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 314)
+
+[WSM3D-Bake] SVC: Hidden/ScreenSpaceGI has no ForwardBase pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: Hidden/ScreenSpaceGI has no ForwardAdd pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: Hidden/ScreenSpaceGI has no Deferred pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC: Hidden/ScreenSpaceGI has no ShadowCaster pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC +2 variants: Hidden/ScreenSpaceGI
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:392)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 392)
+
+[WSM3D-Bake] SVC: WSM3D/StratumVoxelPBR has #pragma multi_compile_instancing — will add INSTANCING_ON variants.
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:312)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 312)
+
+[WSM3D-Bake] SVC: WSM3D/StratumVoxelPBR has no Deferred pass (ArgumentException)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:338)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 338)
+
+[WSM3D-Bake] SVC +7 variants: WSM3D/StratumVoxelPBR
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:392)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 392)
+
+Start importing Assets/WSM3D/wsm3d-shader-variants.shadervariants using Guid(b3f2a1c4d5e6f7a8b9c0d1e2f3a4b5c6) Importer(-1,00000000000000000000000000000000) [PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+ -> (artifact id: 'f24036d1fd7898175db9772c908ab5c0') in 0.004666 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=f328ae37b36ca3e4f8a62664851a653d): Total: 0.010 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Asset Pipeline Refresh (id=23f34f5ad8d7d0b46a6be86d435f4f15): Total: 0.005 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Start importing Assets/WSM3D/wsm3d-shader-variants.shadervariants using Guid(b3f2a1c4d5e6f7a8b9c0d1e2f3a4b5c6) Importer(-1,00000000000000000000000000000000) [PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+ -> (artifact id: 'f24036d1fd7898175db9772c908ab5c0') in 0.013774 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=3ea5a75605677e3418fe9aa7047d76f4): Total: 0.020 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+[WSM3D-Bake] SVC kept external (not bundled) so strip pass reads it
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:410)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 410)
+
+[WSM3D-Bake] SVC already present in GraphicsSettings.m_PreloadedShaders.
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:RegisterSvcInGraphicsSettingsPreloadedShaders (UnityEngine.ShaderVariantCollection) (at Assets/Editor/BakeShaders.cs:601)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:429)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 601)
+
+[WSM3D-Bake] ShaderVariantCollection ready — 12 shaders pinned.
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:EnsureShaderVariantCollection (string) (at Assets/Editor/BakeShaders.cs:431)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:149)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 431)
+
+[WSM3D-Bake] NoStrip: GraphicsSettings keyword stripping forced to Keep All.
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:ConfigureNoStripBeforeBuild () (at Assets/Editor/BakeShaders.cs:529)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:155)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 529)
+
+Asset Pipeline Refresh (id=a2419c95c160f3c47ab74c90925bfa4c): Total: 0.005 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Asset Pipeline Refresh (id=1286de69f0d53ce4cb922ecf5d757a03): Total: 0.004 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+[WSM3D-Bake] NoStrip: pinned graphics APIs for StandaloneWindows64: Direct3D11
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:TrySetGraphicsAPIs (UnityEditor.BuildTarget,UnityEngine.Rendering.GraphicsDeviceType[]) (at Assets/Editor/BakeShaders.cs:555)
+BakeShaders:ConfigureNoStripBeforeBuild () (at Assets/Editor/BakeShaders.cs:540)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:155)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 555)
+
+Asset Pipeline Refresh (id=4e1496fb723eae94b9ee0d5407253eaf): Total: 0.004 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Asset Pipeline Refresh (id=0099d2395e140304eb1c54e9d7b2925a): Total: 0.014 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+[WSM3D-Bake] NoStrip: pinned graphics APIs for StandaloneLinux64: Vulkan,OpenGLCore
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:TrySetGraphicsAPIs (UnityEditor.BuildTarget,UnityEngine.Rendering.GraphicsDeviceType[]) (at Assets/Editor/BakeShaders.cs:555)
+BakeShaders:ConfigureNoStripBeforeBuild () (at Assets/Editor/BakeShaders.cs:542)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:155)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 555)
+
+Asset Pipeline Refresh (id=71e12e39deae5f14c87323e3c861ba59): Total: 0.017 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Asset Pipeline Refresh (id=f639bbf46e0083e4695bccfffd8b31ba): Total: 0.016 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+[WSM3D-Bake] NoStrip: pinned graphics APIs for StandaloneOSX: Metal
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:TrySetGraphicsAPIs (UnityEditor.BuildTarget,UnityEngine.Rendering.GraphicsDeviceType[]) (at Assets/Editor/BakeShaders.cs:555)
+BakeShaders:ConfigureNoStripBeforeBuild () (at Assets/Editor/BakeShaders.cs:545)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:155)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 555)
+
+[WSM3D-Bake] SVC WarmUp() complete — all registered variants pre-compiled.
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:165)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 165)
+
+Start importing ProjectSettings/ProjectSettings.asset using Guid(00000000000000004000000000000000) Importer(-1,00000000000000000000000000000000) [PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+ -> (artifact id: 'b81e8edc72e05db4ebafa5c0bba72712') in 0.012792 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=ddb7d84aff485f44982695c7e95d47e7): Total: 0.022 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Asset Pipeline Refresh (id=85d3ba48cb0e5f2479429586fc22d9b0): Total: 0.007 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc - - 200 - application/grpc 2.8851ms
+Starting: C:\Program Files\Unity\Hub\Editor\2022.3.62f3\Editor\Data\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1900b0aESkipCompile.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssembliesAndTypeDB
+WorkingDir: E:/Dev/WorldSphereMod/Tools/Unity-Bake-Project
+ExitCode: 4 Duration: 0s133ms
+[             ] Require frontend run.  Library/Bee/1900b0aESkipCompile.dag couldn't be loaded
+Starting: C:\Program Files\Unity\Hub\Editor\2022.3.62f3\Editor\Data\Tools\netcorerun\netcorerun.exe "C:\Program Files\Unity\Hub\Editor\2022.3.62f3\Editor\Data\Tools\BuildPipeline\ScriptCompilationBuildProgram.exe" "Library/Bee/1900b0aESkipCompile.dag.json" "Library/Bee/1900b0aESkipCompile-inputdata.json" "Library\Bee\buildprogram0.traceevents"
+WorkingDir: E:/Dev/WorldSphereMod/Tools/Unity-Bake-Project
+ExitCode: 0 Duration: 0s542ms
+Starting: C:\Program Files\Unity\Hub\Editor\2022.3.62f3\Editor\Data\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1900b0aESkipCompile.dag" --continue-on-failure --dagfilejson="Library\Bee\1900b0aESkipCompile.dag.json" --profile="Library/Bee/backend2.traceevents" ScriptAssembliesAndTypeDB
+WorkingDir: E:/Dev/WorldSphereMod/Tools/Unity-Bake-Project
+ExitCode: 0 Duration: 0s147ms
+Finished compiling graph: 3 nodes, 3 flattened edges (3 ToBuild, 0 ToUse), maximum node priority 3
+*** Tundra build success (0.06 seconds), 0 items updated, 2 evaluated
+Asset Pipeline Refresh (id=8745b9f5bfd5d174fbb80544851d5a7d): Total: 0.004 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+[ScriptCompilation] Requested script compilation because: Recompiling scripts for player build.
+BuildPlayer: start building target 19
+Total cache size 16246616
+Total cache size after purge 16246616
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc - - 200 - application/grpc 0.8836ms
+Starting: C:\Program Files\Unity\Hub\Editor\2022.3.62f3\Editor\Data\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1900b0aP.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssembliesAndTypeDB
+WorkingDir: E:/Dev/WorldSphereMod/Tools/Unity-Bake-Project
+ExitCode: 4 Duration: 0s196ms
+[             ] Require frontend run.  Library/Bee/1900b0aP.dag couldn't be loaded
+Starting: C:\Program Files\Unity\Hub\Editor\2022.3.62f3\Editor\Data\Tools\netcorerun\netcorerun.exe "C:\Program Files\Unity\Hub\Editor\2022.3.62f3\Editor\Data\Tools\BuildPipeline\ScriptCompilationBuildProgram.exe" "Library/Bee/1900b0aP.dag.json" "Library/Bee/1900b0aP-inputdata.json" "Library\Bee\buildprogram0.traceevents"
+WorkingDir: E:/Dev/WorldSphereMod/Tools/Unity-Bake-Project
+ExitCode: 0 Duration: 0s476ms
+Starting: C:\Program Files\Unity\Hub\Editor\2022.3.62f3\Editor\Data\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1900b0aP.dag" --continue-on-failure --dagfilejson="Library\Bee\1900b0aP.dag.json" --profile="Library/Bee/backend2.traceevents" ScriptAssembliesAndTypeDB
+WorkingDir: E:/Dev/WorldSphereMod/Tools/Unity-Bake-Project
+ExitCode: 0 Duration: 0s210ms
+Finished compiling graph: 3 nodes, 3 flattened edges (3 ToBuild, 0 ToUse), maximum node priority 3
+*** Tundra build success (0.05 seconds), 0 items updated, 2 evaluated
+Compiling shader "WSM3D/GerstnerWater" pass "GerstnerWaterPass" (vp)
+    Full variant space:         1
+    After settings filtering:   1
+    After built-in stripping:   1
+    After scriptable stripping: 1
+    Processed in 0.02 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 1 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Compiling shader "WSM3D/GerstnerWater" pass "GerstnerWaterPass" (fp)
+    Full variant space:         1
+    After settings filtering:   1
+    After built-in stripping:   1
+    After scriptable stripping: 1
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 1 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Serialized binary data for shader WSM3D/GerstnerWater in 0.00s
+    d3d11 (total internal programs: 2, unique: 2)
+Compiling shader "WSM3D/FoliageWind" pass "FoliageWind" (vp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   1
+    After scriptable stripping: 1
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 1 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Compiling shader "WSM3D/FoliageWind" pass "FoliageWind" (fp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   1
+    After scriptable stripping: 1
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 1 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Serialized binary data for shader WSM3D/FoliageWind in 0.00s
+    d3d11 (total internal programs: 2, unique: 2)
+Compiling shader "WSM3D/OpaqueVertexColor" pass "OpaqueVertexColor" (vp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   1
+    After scriptable stripping: 1
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 1 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Compiling shader "WSM3D/OpaqueVertexColor" pass "OpaqueVertexColor" (fp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   1
+    After scriptable stripping: 1
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 1 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Serialized binary data for shader WSM3D/OpaqueVertexColor in 0.00s
+    d3d11 (total internal programs: 2, unique: 2)
+Compiling shader "CompoundSphere" pass "" (vp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   1
+    After scriptable stripping: 1
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 1 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Compiling shader "CompoundSphere" pass "" (fp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   1
+    After scriptable stripping: 1
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 1 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Serialized binary data for shader CompoundSphere in 0.00s
+    d3d11 (total internal programs: 2, unique: 2)
+Compiling shader "WSM3D/Impostor" pass "ImpostorPass" (vp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   1
+    After scriptable stripping: 1
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 1 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Compiling shader "WSM3D/Impostor" pass "ImpostorPass" (fp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   1
+    After scriptable stripping: 1
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 1 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Serialized binary data for shader WSM3D/Impostor in 0.00s
+    d3d11 (total internal programs: 2, unique: 2)
+Compiling compute shader "CompoundSphereCompute"
+    starting stripping...
+    finished in 0.00 seconds. 2 of 2 variants left
+    2 variants, starting compilation...
+    finished in 0.00 seconds. Local cache hits 2, remote cache hits 0, compiled 0 variants
+Compiling shader "WSM3D/StratumVoxelPBR" pass "StratumVoxelPBR" (vp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   1
+    After scriptable stripping: 1
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 1 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Compiling shader "WSM3D/StratumVoxelPBR" pass "StratumVoxelPBR" (fp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   1
+    After scriptable stripping: 1
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 1 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Serialized binary data for shader WSM3D/StratumVoxelPBR in 0.00s
+    d3d11 (total internal programs: 2, unique: 2)
+
+***Player size statistics***
+Total compressed size 116.7 KB. Total uncompressed size 116.6 KB.
+Compiling shader "Hidden/ScreenSpaceGI" pass "SSGI" (vp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   2
+    After scriptable stripping: 2
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 2 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Compiling shader "Hidden/ScreenSpaceGI" pass "SSGI" (fp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   2
+    After scriptable stripping: 2
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.01 seconds. Local cache hits 2 (0.01s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Serialized binary data for shader Hidden/ScreenSpaceGI in 0.00s
+    d3d11 (total internal programs: 4, unique: 4)
+Shader warning in 'Hidden/ScreenSpaceGI': gradient instruction used in a loop with varying iteration; partial derivatives may have undefined value at Assets/WSM3D/Shaders/ScreenSpaceGI.shader(100) (on d3d11)
+
+Compiling Subshader: 0, Pass: SSGI, Fragment program with <no keywords>
+Platform defines: SHADER_API_DESKTOP UNITY_COLORSPACE_GAMMA UNITY_ENABLE_DETAIL_NORMALMAP UNITY_ENABLE_REFLECTION_BUFFERS UNITY_LIGHTMAP_FULL_HDR UNITY_LIGHT_PROBE_PROXY_VOLUME UNITY_PBS_USE_BRDF1 UNITY_SPECCUBE_BLENDING UNITY_SPECCUBE_BOX_PROJECTION UNITY_USE_DITHER_MASK_FOR_ALPHABLENDED_SHADOWS
+Disabled keywords: SHADER_API_GLES30 UNITY_ASTC_NORMALMAP_ENCODING UNITY_FRAMEBUFFER_FETCH_AVAILABLE UNITY_HALF_PRECISION_FRAGMENT_SHADER_REGISTERS UNITY_HARDWARE_TIER1 UNITY_HARDWARE_TIER2 UNITY_HARDWARE_TIER3 UNITY_LIGHTMAP_DLDR_ENCODING UNITY_LIGHTMAP_RGBM_ENCODING UNITY_METAL_SHADOWS_USE_POINT_FILTERING UNITY_NO_DXT5nm UNITY_NO_FULL_STANDARD_SHADER UNITY_NO_SCREENSPACE_SHADOWS UNITY_PBS_USE_BRDF2 UNITY_PBS_USE_BRDF3 UNITY_PRETRANSFORM_TO_DISPLAY_ORIENTATION UNITY_UNIFIED_SHADER_PRECISION_MODEL UNITY_VIRTUAL_TEXTURING WSM3D_POSTFX_KEEP
+Shader warning in 'Hidden/ScreenSpaceGI': gradient instruction used in a loop with varying iteration; partial derivatives may have undefined value at Assets/WSM3D/Shaders/ScreenSpaceGI.shader(103) (on d3d11)
+
+Compiling Subshader: 0, Pass: SSGI, Fragment program with <no keywords>
+Platform defines: SHADER_API_DESKTOP UNITY_COLORSPACE_GAMMA UNITY_ENABLE_DETAIL_NORMALMAP UNITY_ENABLE_REFLECTION_BUFFERS UNITY_LIGHTMAP_FULL_HDR UNITY_LIGHT_PROBE_PROXY_VOLUME UNITY_PBS_USE_BRDF1 UNITY_SPECCUBE_BLENDING UNITY_SPECCUBE_BOX_PROJECTION UNITY_USE_DITHER_MASK_FOR_ALPHABLENDED_SHADOWS
+Disabled keywords: SHADER_API_GLES30 UNITY_ASTC_NORMALMAP_ENCODING UNITY_FRAMEBUFFER_FETCH_AVAILABLE UNITY_HALF_PRECISION_FRAGMENT_SHADER_REGISTERS UNITY_HARDWARE_TIER1 UNITY_HARDWARE_TIER2 UNITY_HARDWARE_TIER3 UNITY_LIGHTMAP_DLDR_ENCODING UNITY_LIGHTMAP_RGBM_ENCODING UNITY_METAL_SHADOWS_USE_POINT_FILTERING UNITY_NO_DXT5nm UNITY_NO_FULL_STANDARD_SHADER UNITY_NO_SCREENSPACE_SHADOWS UNITY_PBS_USE_BRDF2 UNITY_PBS_USE_BRDF3 UNITY_PRETRANSFORM_TO_DISPLAY_ORIENTATION UNITY_UNIFIED_SHADER_PRECISION_MODEL UNITY_VIRTUAL_TEXTURING WSM3D_POSTFX_KEEP
+Compiling shader "Hidden/WSM3D/BrpBloom" pass "THRESHOLD" (vp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   2
+    After scriptable stripping: 2
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 2 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Compiling shader "Hidden/WSM3D/BrpBloom" pass "THRESHOLD" (fp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   2
+    After scriptable stripping: 2
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 2 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Compiling shader "Hidden/WSM3D/BrpBloom" pass "BLUR_H" (vp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   2
+    After scriptable stripping: 2
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 2 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Compiling shader "Hidden/WSM3D/BrpBloom" pass "BLUR_H" (fp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   2
+    After scriptable stripping: 2
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 2 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Compiling shader "Hidden/WSM3D/BrpBloom" pass "BLUR_V" (vp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   2
+    After scriptable stripping: 2
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 2 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Compiling shader "Hidden/WSM3D/BrpBloom" pass "BLUR_V" (fp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   2
+    After scriptable stripping: 2
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 2 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Compiling shader "Hidden/WSM3D/BrpBloom" pass "COMPOSITE" (vp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   2
+    After scriptable stripping: 2
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 2 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Compiling shader "Hidden/WSM3D/BrpBloom" pass "COMPOSITE" (fp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   2
+    After scriptable stripping: 2
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 2 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Serialized binary data for shader Hidden/WSM3D/BrpBloom in 0.00s
+    d3d11 (total internal programs: 16, unique: 10)
+Compiling shader "WSM3D/ColorGradingLUT" pass "ColorGradePass" (vp)
+    Full variant space:         1
+    After settings filtering:   1
+    After built-in stripping:   1
+    After scriptable stripping: 1
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 1 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Compiling shader "WSM3D/ColorGradingLUT" pass "ColorGradePass" (fp)
+    Full variant space:         1
+    After settings filtering:   1
+    After built-in stripping:   1
+    After scriptable stripping: 1
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 1 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Serialized binary data for shader WSM3D/ColorGradingLUT in 0.00s
+    d3d11 (total internal programs: 2, unique: 2)
+Compiling shader "Hidden/WSM3D/BrpACES" pass "ACES" (vp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   2
+    After scriptable stripping: 2
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 2 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Compiling shader "Hidden/WSM3D/BrpACES" pass "ACES" (fp)
+    Full variant space:         2
+    After settings filtering:   2
+    After built-in stripping:   2
+    After scriptable stripping: 2
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 2 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Serialized binary data for shader Hidden/WSM3D/BrpACES in 0.00s
+    d3d11 (total internal programs: 4, unique: 4)
+Compiling shader "WSM3D/ProceduralSky" pass "ProceduralSkyPass" (vp)
+    Full variant space:         1
+    After settings filtering:   1
+    After built-in stripping:   1
+    After scriptable stripping: 1
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 1 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Compiling shader "WSM3D/ProceduralSky" pass "ProceduralSkyPass" (fp)
+    Full variant space:         1
+    After settings filtering:   1
+    After built-in stripping:   1
+    After scriptable stripping: 1
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 1 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Serialized binary data for shader WSM3D/ProceduralSky in 0.00s
+    d3d11 (total internal programs: 2, unique: 2)
+Compiling shader "WSM3D/ScreenSpaceAO" pass "SSAOPass" (vp)
+    Full variant space:         1
+    After settings filtering:   1
+    After built-in stripping:   1
+    After scriptable stripping: 1
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 1 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Compiling shader "WSM3D/ScreenSpaceAO" pass "SSAOPass" (fp)
+    Full variant space:         1
+    After settings filtering:   1
+    After built-in stripping:   1
+    After scriptable stripping: 1
+    Processed in 0.00 seconds
+    starting compilation...
+    finished in 0.00 seconds. Local cache hits 1 (0.00s CPU time), remote cache hits 0 (0.00s CPU time), compiled 0 variants (0.00s CPU time), skipped 0 variants
+    Prepared data for serialisation in 0.00s
+Serialized binary data for shader WSM3D/ScreenSpaceAO in 0.00s
+    d3d11 (total internal programs: 2, unique: 2)
+
+***Player size statistics***
+Total compressed size 113.6 KB. Total uncompressed size 113.5 KB.
+Unloading 14 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 34 unused Assets / (0.7 MB). Loaded Objects now: 559.
+Memory consumption went from 81.7 MB to 81.0 MB.
+Total: 6.319700 ms (FindLiveObjects: 0.084500 ms CreateObjectMapping: 0.009600 ms MarkObjects: 5.709400 ms  DeleteObjects: 0.514200 ms)
+
+
+***Player size statistics***
+Total compressed size 4.3 KB. Total uncompressed size 4.2 KB.
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 561.
+Memory consumption went from 77.9 MB to 77.9 MB.
+Total: 7.772200 ms (FindLiveObjects: 0.128600 ms CreateObjectMapping: 0.009200 ms MarkObjects: 7.624000 ms  DeleteObjects: 0.008700 ms)
+
+
+Total cache size 16246616
+Total cache size after purge 16246616
+-------------------------------------------------------------------------------
+Bundle Name: wsm3d-shaders
+Compressed Size:116.7 kb
+Uncompressed usage by category (Percentages based on user generated assets only):
+Textures               0.0 kb	 0.0% 
+Meshes                 0.0 kb	 0.0% 
+Animations             0.0 kb	 0.0% 
+Sounds                 0.0 kb	 0.0% 
+Shaders                30.5 kb	 26.1% 
+Other Assets           3.2 kb	 2.7% 
+Levels                 0.0 kb	 0.0% 
+Scripts                0.0 kb	 0.0% 
+Included DLLs          0.0 kb	 0.0% 
+File headers           82.9 kb	 71.1% 
+Total User Assets      116.6 kb	 100.0% 
+Complete build size    116.6 kb
+Used Assets and files from the Resources folder, sorted by uncompressed size:
+ 6.4 kb	 5.5% Assets/WSM3D/Shaders/GerstnerWater.shader
+ 5.2 kb	 4.4% Assets/WSM3D/Shaders/FoliageWind.shader
+ 5.0 kb	 4.3% Assets/WSM3D/Shaders/Impostor.shader
+ 4.9 kb	 4.2% Assets/WSM3D/Shaders/OpaqueVertexColor.shader
+ 4.6 kb	 4.0% Assets/WSM3D/Shaders/StratumVoxelPBR.shader
+ 4.3 kb	 3.7% Assets/WSM3D/Shaders/CompoundSphere.shader
+ 2.4 kb	 2.1% Assets/WSM3D/Shaders/CompoundSphereCompute.compute
+ 0.7 kb	 0.6% AssetBundle Object
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+Bundle Name: worldsphere
+Compressed Size:113.6 kb
+Uncompressed usage by category (Percentages based on user generated assets only):
+Textures               0.0 kb	 0.0% 
+Meshes                 0.0 kb	 0.0% 
+Animations             0.0 kb	 0.0% 
+Sounds                 0.0 kb	 0.0% 
+Shaders                35.4 kb	 31.2% 
+Other Assets           0.6 kb	 0.5% 
+Levels                 0.0 kb	 0.0% 
+Scripts                0.0 kb	 0.0% 
+Included DLLs          0.0 kb	 0.0% 
+File headers           77.5 kb	 68.3% 
+Total User Assets      113.5 kb	 100.0% 
+Complete build size    113.5 kb
+Used Assets and files from the Resources folder, sorted by uncompressed size:
+ 12.8 kb	 11.3% Assets/WSM3D/Shaders/BrpBloom.shader
+ 5.0 kb	 4.4% Assets/WSM3D/Shaders/ScreenSpaceGI.shader
+ 4.7 kb	 4.1% Assets/WSM3D/Shaders/ScreenSpaceAO.shader
+ 4.7 kb	 4.1% Assets/WSM3D/Shaders/ProceduralSky.shader
+ 4.3 kb	 3.8% Assets/WSM3D/Shaders/ColorGradingLUT.shader
+ 4.0 kb	 3.5% Assets/WSM3D/Shaders/BrpACES.shader
+ 0.6 kb	 0.5% AssetBundle Object
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+Bundle Name: win
+Compressed Size:4.3 kb
+Uncompressed usage by category (Percentages based on user generated assets only):
+Textures               0.0 kb	 0.0% 
+Meshes                 0.0 kb	 0.0% 
+Animations             0.0 kb	 0.0% 
+Sounds                 0.0 kb	 0.0% 
+Shaders                0.0 kb	 0.0% 
+Other Assets           0.2 kb	 5.4% 
+Levels                 0.0 kb	 0.0% 
+Scripts                0.0 kb	 0.0% 
+Included DLLs          0.0 kb	 0.0% 
+File headers           3.9 kb	 94.6% 
+Total User Assets      4.2 kb	 100.0% 
+Complete build size    4.2 kb
+Used Assets and files from the Resources folder, sorted by uncompressed size:
+ 0.1 kb	 3.0% Built-in AssetBundleManifest: AssetBundleManifest
+ 0.1 kb	 2.4% AssetBundle Object
+-------------------------------------------------------------------------------
+[WSM3D-Bake] built wsm3d-shaders bundle for StandaloneWindows64 -> E:\Dev\WorldSphereMod\WorldSphereMod\AssetBundles\win
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:222)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 222)
+
+Switching to Windows, Mac, Linux:LinuxStandaloneSupport is disabled
+[WSM3D-Bake] Could not switch active build target to StandaloneLinux64; skipping linux.
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:LogError (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:198)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 198)
+
+Switching to Windows, Mac, Linux:MacStandaloneSupport is disabled
+[WSM3D-Bake] Could not switch active build target to StandaloneOSX; skipping osx.
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:LogError (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:198)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 198)
+
+[WSM3D-Bake] All platforms done (shader-only bundle).
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+BakeShaders:BakeAll () (at Assets/Editor/BakeShaders.cs:225)
+
+(Filename: Assets/Editor/BakeShaders.cs Line: 225)
+
+Batchmode quit successfully invoked - shutting down!
+[PhysX] Initialized MultithreadedTaskDispatcher with 16 workers.
+Input System module state changed to: ShutdownInProgress.
+Input System polling thread exited.
+Input System module state changed to: Shutdown.
+[Licensing::IpcConnector] LicenseClient-koosh-notifications channel disconnected successfully.
+[Licensing::IpcConnector] LicenseClient-koosh channel disconnected successfully.
+Cleanup mono
+abort_threads: Failed aborting id: 000000000001FF10, mono_thread_manage will ignore it
+
+abort_threads: Failed aborting id: 000000000001D9D8, mono_thread_manage will ignore it
+
+abort_threads: Failed aborting id: 000000000001FF10, mono_thread_manage will ignore it
+
+abort_threads: Failed aborting id: 000000000001D9D8, mono_thread_manage will ignore it
+
+debugger-agent: Unable to listen on 4824
+[Performance] WinEditorMain                                                                                                  :        1 samples, Peak.   735 ms (1.0x), Avg.   735 ms, Total. 734.9 ms (1.1%)
+[Performance] WinEditorMain.ConfigureCrashHandler                                                                            :        1 samples, Peak.  63.0 us (1.0x), Avg.  63.0 us, Total. 63.00 us (0.0%)
+[Performance] WinEditorMain.CurlRequestInitialize                                                                            :        1 samples, Peak.  3.20 ms (1.0x), Avg.  3.20 ms, Total. 3.195 ms (0.0%)
+[Performance] WinEditorMain.SetupLogFile                                                                                     :        1 samples, Peak.  1.02 ms (1.0x), Avg.  1.02 ms, Total. 1.015 ms (0.0%)
+[Performance] WinEditorMain.RunNativeTestsIfRequiredAndExit                                                                  :        1 samples, Peak.   300 ns (1.0x), Avg.   300 ns, Total. 300.0 ns (0.0%)
+[Performance] WinEditorMain.Licensing                                                                                        :        1 samples, Peak.   698 ms (1.0x), Avg.   698 ms, Total. 697.6 ms (1.1%)
+[Performance] WinEditorMain.InitializeCrashHandler                                                                           :        1 samples, Peak.  16.9 ms (1.0x), Avg.  16.9 ms, Total. 16.93 ms (0.0%)
+[Performance] WinEditorMain.CreateApplication                                                                                :        1 samples, Peak.  1.77 ms (1.0x), Avg.  1.77 ms, Total. 1.774 ms (0.0%)
+[Performance] Application.InitializeProject                                                                                  :        1 samples, Peak.  55.4 s (1.0x), Avg.  55.4 s, Total. 55.36 s (86.6%)
+[Performance] Application.PackageManager.StartServer                                                                         :        1 samples, Peak.  43.7 ms (1.0x), Avg.  43.7 ms, Total. 43.65 ms (0.1%)
+[Performance] Application.AcquireProjectLock                                                                                 :        1 samples, Peak.  14.4 ms (1.0x), Avg.  14.4 ms, Total. 14.41 ms (0.0%)
+[Performance] Application.InitializeEngineNoGraphics                                                                         :        1 samples, Peak.   382 ms (1.0x), Avg.   382 ms, Total. 381.6 ms (0.6%)
+[Performance] Application.PackageManager.Initialize                                                                          :        1 samples, Peak.  1.97 s (1.0x), Avg.  1.97 s, Total. 1.966 s (3.1%)
+[Performance] Connecting to Package Manager                                                                                  :      192 samples, Peak.   558 us (51.3x), Avg.  10.9 us, Total. 2.090 ms (0.0%)
+[Performance] PackageManager::Api::RunRequestSynchronously                                                                   :       17 samples, Peak.  24.2 us (4.7x), Avg.  5.12 us, Total. 87.10 us (0.0%)
+[Performance] Application.EngineGraphics.Initialize                                                                          :        1 samples, Peak.   118 ms (1.0x), Avg.   118 ms, Total. 117.8 ms (0.2%)
+[Performance] Application.GI.Initialize                                                                                      :        1 samples, Peak.  68.3 ms (1.0x), Avg.  68.3 ms, Total. 68.29 ms (0.1%)
+[Performance] Application.LoadAllDefaultResourcesFromEditor                                                                  :        1 samples, Peak.  5.45 ms (1.0x), Avg.  5.45 ms, Total. 5.451 ms (0.0%)
+[Performance] Application.LoadMonoAssemblies                                                                                 :        1 samples, Peak.  25.2 s (1.0x), Avg.  25.2 s, Total. 25.21 s (39.4%)
+[Performance] RestoreManagedReferences                                                                                       :        2 samples, Peak.   149 ms (2.0x), Avg.  74.5 ms, Total. 148.9 ms (0.2%)
+[Performance] InitializeOnLoad DrivenRectTransformUndo                                                                       :        2 samples, Peak.  1.38 ms (1.2x), Avg.  1.16 ms, Total. 2.321 ms (0.0%)
+[Performance] InitializeOnLoad SceneSearch                                                                                   :        2 samples, Peak.   440 us (1.4x), Avg.   325 us, Total. 650.7 us (0.0%)
+[Performance] InitializeOnLoad CloudBuild                                                                                    :        2 samples, Peak.  14.2 us (1.4x), Avg.  10.1 us, Total. 20.10 us (0.0%)
+[Performance] InitializeOnLoad NativeFormatImporterUtility                                                                   :        2 samples, Peak.  9.69 ms (1.4x), Avg.  6.98 ms, Total. 13.97 ms (0.0%)
+[Performance] InitializeOnLoad SearchService                                                                                 :        2 samples, Peak.   243 us (1.1x), Avg.   213 us, Total. 425.3 us (0.0%)
+[Performance] InitializeOnLoad SettingsService                                                                               :        2 samples, Peak.  15.7 us (1.0x), Avg.  15.1 us, Total. 30.20 us (0.0%)
+[Performance] InitializeOnLoad WindowLayout                                                                                  :        2 samples, Peak.  3.81 ms (1.6x), Avg.  2.44 ms, Total. 4.887 ms (0.0%)
+[Performance] InitializeOnLoad AssetStoreContext                                                                             :        2 samples, Peak.  91.0 ms (1.3x), Avg.  72.0 ms, Total. 143.9 ms (0.2%)
+[Performance] InitializeOnLoad PoolManager                                                                                   :        2 samples, Peak.  1.58 ms (1.0x), Avg.  1.56 ms, Total. 3.120 ms (0.0%)
+[Performance] InitializeOnLoad MixerEffectDefinitionReloader                                                                 :        2 samples, Peak.  9.64 ms (1.4x), Avg.  6.81 ms, Total. 13.61 ms (0.0%)
+[Performance] InitializeOnLoad ProjectSearch                                                                                 :        2 samples, Peak.   147 us (1.1x), Avg.   129 us, Total. 258.6 us (0.0%)
+[Performance] InitializeOnLoad UISystemProfilerRenderService                                                                 :        2 samples, Peak.  18.7 us (1.1x), Avg.  16.9 us, Total. 33.90 us (0.0%)
+[Performance] InitializeOnLoad EditMode                                                                                      :        2 samples, Peak.  2.37 ms (1.2x), Avg.  1.94 ms, Total. 3.874 ms (0.0%)
+[Performance] InitializeOnLoad UnityConnect                                                                                  :        2 samples, Peak.   211 us (1.0x), Avg.   202 us, Total. 404.5 us (0.0%)
+[Performance] InitializeOnLoad ManagedDebugger                                                                               :        2 samples, Peak.  1.59 ms (1.0x), Avg.  1.55 ms, Total. 3.100 ms (0.0%)
+[Performance] InitializeOnLoad ShortcutIntegration                                                                           :        2 samples, Peak.   153 us (1.1x), Avg.   136 us, Total. 271.8 us (0.0%)
+[Performance] InitializeOnLoad AddComponentWindow                                                                            :        2 samples, Peak.   335 us (1.2x), Avg.   290 us, Total. 580.3 us (0.0%)
+[Performance] InitializeOnLoad ManagedDebuggerWindow                                                                         :        2 samples, Peak.   353 us (1.1x), Avg.   329 us, Total. 659.0 us (0.0%)
+[Performance] InitializeOnLoad CacheServerWindow                                                                             :        2 samples, Peak.  26.2 us (1.3x), Avg.  20.9 us, Total. 41.80 us (0.0%)
+[Performance] InitializeOnLoad PlayModeDownload                                                                              :        2 samples, Peak.  11.1 ms (1.9x), Avg.  5.85 ms, Total. 11.70 ms (0.0%)
+[Performance] InitializeOnLoad MenuItems                                                                                     :        2 samples, Peak.   239 us (1.2x), Avg.   202 us, Total. 403.2 us (0.0%)
+[Performance] InitializeOnLoad PrefabInstanceChangedListener                                                                 :        2 samples, Peak.   336 us (1.0x), Avg.   332 us, Total. 664.5 us (0.0%)
+[Performance] InitializeOnLoad ObjectSelectorSearch                                                                          :        2 samples, Peak.   125 us (1.1x), Avg.   110 us, Total. 219.1 us (0.0%)
+[Performance] InitializeOnLoad EditorMonitor                                                                                 :        2 samples, Peak.  1.27 ms (1.2x), Avg.  1.08 ms, Total. 2.157 ms (0.0%)
+[Performance] InitializeOnLoad RetainedMode                                                                                  :        2 samples, Peak.  5.60 ms (1.1x), Avg.  5.02 ms, Total. 10.05 ms (0.0%)
+[Performance] InitializeOnLoad EditorShaderLoader                                                                            :        2 samples, Peak.  1.84 ms (1.2x), Avg.  1.58 ms, Total. 3.158 ms (0.0%)
+[Performance] InitializeOnLoad EditorDelegateRegistration                                                                    :        2 samples, Peak.   978 us (1.1x), Avg.   867 us, Total. 1.733 ms (0.0%)
+[Performance] InitializeOnLoad UIDocumentHierarchyWatcher                                                                    :        2 samples, Peak.   138 us (1.0x), Avg.   136 us, Total. 272.6 us (0.0%)
+[Performance] InitializeOnLoad LiveReloadTrackerCreator                                                                      :        2 samples, Peak.   550 us (1.5x), Avg.   375 us, Total. 749.2 us (0.0%)
+[Performance] InitializeOnLoad UxmlObjectEditorFactories                                                                     :        2 samples, Peak.  1.02 ms (1.2x), Avg.   850 us, Total. 1.700 ms (0.0%)
+[Performance] InitializeOnLoad UXMLEditorFactories                                                                           :        2 samples, Peak.   128 ms (1.0x), Avg.   125 ms, Total. 249.5 ms (0.4%)
+[Performance] InitializeOnLoad PurchasingService                                                                             :        2 samples, Peak.  16.0 ms (1.1x), Avg.  15.2 ms, Total. 30.49 ms (0.0%)
+[Performance] InitializeOnLoad CloudBuildPoller                                                                              :        2 samples, Peak.   214 us (1.1x), Avg.   203 us, Total. 406.7 us (0.0%)
+[Performance] InitializeOnLoad EditorGameServicesAnalytics                                                                   :        2 samples, Peak.  7.19 ms (1.4x), Avg.  5.28 ms, Total. 10.56 ms (0.0%)
+[Performance] InitializeOnLoad AnalyticsService                                                                              :        2 samples, Peak.   516 us (1.0x), Avg.   502 us, Total. 1.004 ms (0.0%)
+[Performance] InitializeOnLoad BuildService                                                                                  :        2 samples, Peak.   402 us (1.1x), Avg.   358 us, Total. 715.0 us (0.0%)
+[Performance] InitializeOnLoad AdsService                                                                                    :        2 samples, Peak.  1.47 ms (1.1x), Avg.  1.35 ms, Total. 2.698 ms (0.0%)
+[Performance] InitializeOnLoad UDPService                                                                                    :        2 samples, Peak.   446 us (1.1x), Avg.   404 us, Total. 807.1 us (0.0%)
+[Performance] InitializeOnLoad CrashService                                                                                  :        2 samples, Peak.   350 us (1.0x), Avg.   338 us, Total. 675.4 us (0.0%)
+[Performance] InitializeOnLoad ServicesRepository                                                                            :        2 samples, Peak.  4.00 us (1.6x), Avg.  2.45 us, Total. 4.900 us (0.0%)
+[Performance] InitializeOnLoad SearchWindow                                                                                  :        2 samples, Peak.   360 us (1.3x), Avg.   285 us, Total. 569.6 us (0.0%)
+[Performance] InitializeOnLoad CustomIndexers                                                                                :        2 samples, Peak.  80.6 ms (1.4x), Avg.  58.5 ms, Total. 117.0 ms (0.2%)
+[Performance] InitializeOnLoad SearchMonitor                                                                                 :        2 samples, Peak.  3.58 ms (1.2x), Avg.  2.97 ms, Total. 5.944 ms (0.0%)
+[Performance] InitializeOnLoad ParameterControllerEditor                                                                     :        2 samples, Peak.  38.6 us (1.1x), Avg.  35.9 us, Total. 71.80 us (0.0%)
+[Performance] InitializeOnLoad LayerSettingsWindow                                                                           :        2 samples, Peak.  50.9 us (1.6x), Avg.  31.3 us, Total. 62.60 us (0.0%)
+[Performance] InitializeOnLoad PackageManagerHookGUIDConverter.RegisterPackagesEventHandler                                  :        2 samples, Peak.  3.93 ms (1.5x), Avg.  2.67 ms, Total. 5.350 ms (0.0%)
+[Performance] InitializeOnLoad EditorDragAndDrop.RegisterEditorClient                                                        :        2 samples, Peak.   730 us (1.2x), Avg.   606 us, Total. 1.212 ms (0.0%)
+[Performance] InitializeOnLoad EditorEventCallbacks.InitializeFontAssetResourceChangeCallBacks                               :        2 samples, Peak.  3.08 ms (1.2x), Avg.  2.58 ms, Total. 5.151 ms (0.0%)
+[Performance] InitializeOnLoad SceneTemplateService.Init                                                                     :        2 samples, Peak.  5.99 ms (1.4x), Avg.  4.13 ms, Total. 8.269 ms (0.0%)
+[Performance] InitializeOnLoad DiagnosticSwitchesConsoleMessage.Init                                                         :        2 samples, Peak.  18.3 ms (1.8x), Avg.  10.1 ms, Total. 20.13 ms (0.0%)
+[Performance] InitializeOnLoad PackageManagerWindow.EditorInitializedInSafeMode                                              :        2 samples, Peak.  70.7 ms (2.0x), Avg.  35.4 ms, Total. 70.86 ms (0.1%)
+[Performance] InitializeOnLoad ToolShortcutContext.Init                                                                      :        2 samples, Peak.   376 us (1.2x), Avg.   310 us, Total. 620.1 us (0.0%)
+[Performance] InitializeOnLoad MemoryProfilerCompilationGuard.InjectCompileGuard                                             :        2 samples, Peak.   404 us (1.2x), Avg.   351 us, Total. 701.1 us (0.0%)
+[Performance] InitializeOnLoad AssetPostprocessingInternal.RefreshCustomDependencies                                         :        2 samples, Peak.  8.09 ms (1.3x), Avg.  6.25 ms, Total. 12.50 ms (0.0%)
+[Performance] InitializeOnLoad SysrootManager.Initialize                                                                     :        2 samples, Peak.  1.04 ms (1.1x), Avg.   945 us, Total. 1.890 ms (0.0%)
+[Performance] InitializeOnLoad ScopedRegistryAddedPopup.SubscribeToRegistriesAdded                                           :        2 samples, Peak.  15.5 ms (2.0x), Avg.  7.86 ms, Total. 15.73 ms (0.0%)
+[Performance] InitializeOnLoad SceneVisibilityManager.Initialize                                                             :        2 samples, Peak.  11.9 ms (1.8x), Avg.  6.66 ms, Total. 13.32 ms (0.0%)
+[Performance] InitializeOnLoad EditorWindow.Initialize                                                                       :        2 samples, Peak.   495 us (1.2x), Avg.   424 us, Total. 848.0 us (0.0%)
+[Performance] AssemblyReloadEvents.afterAssemblyReload: UnityEditor.SceneTemplate.SceneTemplateService.AfterAssemblyReload   :        2 samples, Peak.  10.8 ms (1.9x), Avg.  5.73 ms, Total. 11.47 ms (0.0%)
+[Performance] ProcessService.EditorAfterLoadAllAssemblies                                                                    :        2 samples, Peak.   899 us (1.2x), Avg.   777 us, Total. 1.555 ms (0.0%)
+[Performance] Application.ReadLicenseInfo                                                                                    :        1 samples, Peak.  27.9 ms (1.0x), Avg.  27.9 ms, Total. 27.92 ms (0.0%)
+[Performance] Application.InitialRefresh                                                                                     :        1 samples, Peak.  24.3 s (1.0x), Avg.  24.3 s, Total. 24.25 s (37.9%)
+[Performance] Compiling Scripts                                                                                              :        1 samples, Peak.  22.2 s (1.0x), Avg.  22.2 s, Total. 22.16 s (34.6%)
+[Performance] AssemblyReloadEvents.beforeAssemblyReload: UnityEditor.SceneTemplate.SceneTemplateService.BeforeAssemblyReload :        1 samples, Peak.  3.90 ms (1.0x), Avg.  3.90 ms, Total. 3.900 ms (0.0%)
+[Performance] DidReloadScriptsAdvancedDropdownWindow.OnScriptReload                                                          :        1 samples, Peak.   545 us (1.0x), Avg.   545 us, Total. 545.1 us (0.0%)
+[Performance] SyncVS.PostprocessSyncProject                                                                                  :       17 samples, Peak.  3.19 ms (13.8x), Avg.   230 us, Total. 3.918 ms (0.0%)
+[Performance] Application.ImportPackagesAndSetTemplateWhenCreatingProject                                                    :        1 samples, Peak.   110 ms (1.0x), Avg.   110 ms, Total. 109.9 ms (0.2%)
+[Performance] Application.SyncCurrentColorSpace                                                                              :        1 samples, Peak.  13.4 ms (1.0x), Avg.  13.4 ms, Total. 13.40 ms (0.0%)
+[Performance] Application.OnUsbDevicesChanged                                                                                :        1 samples, Peak.  21.5 ms (1.0x), Avg.  21.5 ms, Total. 21.53 ms (0.0%)
+[Performance] Application.AssetInstanceCacheUpdate                                                                           :        1 samples, Peak.   700 ns (1.0x), Avg.   700 ns, Total. 700.0 ns (0.0%)
+[Performance] Application.UnityExtensions.Initialize                                                                         :        1 samples, Peak.   605 us (1.0x), Avg.   605 us, Total. 605.5 us (0.0%)
+[Performance] CodeEditorProjectSync.SyncEditorProject                                                                        :        1 samples, Peak.   122 us (1.0x), Avg.   122 us, Total. 121.8 us (0.0%)
+[Performance] Application.ExecuteStartups                                                                                    :        1 samples, Peak.   110 ms (1.0x), Avg.   110 ms, Total. 109.8 ms (0.2%)
+[Performance] Menu.RegisterMenuInterface                                                                                     :       26 samples, Peak.  2.30 us (3.8x), Avg.   608 ns, Total. 15.80 us (0.0%)
+[Performance] Gizmo.RebuildRenderers                                                                                         :        2 samples, Peak.   104 ms (1.4x), Avg.  74.1 ms, Total. 148.2 ms (0.2%)
+[Performance] Gizmo.AddGizmoRenderers                                                                                        :       38 samples, Peak.  2.88 ms (24.4x), Avg.   118 us, Total. 4.483 ms (0.0%)
+[Performance] Application.editorInitializingProject                                                                          :        1 samples, Peak.   259 ms (1.0x), Avg.   259 ms, Total. 259.2 ms (0.4%)
+[Performance] VersionControl.Task.Wait                                                                                       :        1 samples, Peak.   248 us (1.0x), Avg.   248 us, Total. 247.9 us (0.0%)
+[Performance] Application.InitializeMenu                                                                                     :        1 samples, Peak.   212 ms (1.0x), Avg.   212 ms, Total. 212.3 ms (0.3%)
+[Performance] Menu.RebuildAll                                                                                                :        1 samples, Peak.   212 ms (1.0x), Avg.   212 ms, Total. 212.2 ms (0.3%)
+[Performance] Menu.BuildRegisteredMenuInterfaces                                                                             :        1 samples, Peak.   203 ms (1.0x), Avg.   203 ms, Total. 202.6 ms (0.3%)
+[Performance] Menu.FilterMenuItem                                                                                            :      382 samples, Peak.  39.9 ms (378.4x), Avg.   105 us, Total. 40.28 ms (0.1%)
+[Performance] UpdateAllMenus                                                                                                 :        1 samples, Peak.  1.40 ms (1.0x), Avg.  1.40 ms, Total. 1.403 ms (0.0%)
+[Performance] Menu.RebuildOSMainMenu                                                                                         :        3 samples, Peak.  7.73 ms (1.6x), Avg.  4.70 ms, Total. 14.10 ms (0.0%)
+[Performance] EditorSceneManager.sceneClosing: UnityEditor.SceneVisibilityManager.EditorSceneManagerOnSceneClosing           :        1 samples, Peak.   809 us (1.0x), Avg.   809 us, Total. 808.7 us (0.0%)
+[Performance] GUIView.RepaintAll.PlayerLoopController                                                                        :        1 samples, Peak.   277 us (1.0x), Avg.   277 us, Total. 276.8 us (0.0%)
+[Performance] EditorSceneManager.newSceneCreated: UnityEditor.SceneTemplate.SceneTemplateService.OnNewSceneCreated           :        1 samples, Peak.   492 us (1.0x), Avg.   492 us, Total. 491.6 us (0.0%)
+[Performance] EditorSceneManager.newSceneCreated: UnityEditor.SceneVisibilityManager.EditorSceneManagerOnNewSceneCreated     :        1 samples, Peak.   670 us (1.0x), Avg.   670 us, Total. 670.0 us (0.0%)
+[Performance] EditorSceneManager.newSceneCreated: UnityEditor.SceneManagement.StageNavigationManager.OnNewSceneCreated       :        1 samples, Peak.   129 us (1.0x), Avg.   129 us, Total. 128.6 us (0.0%)
+[Performance] Application.InvokeFinishedLoadingProject                                                                       :        1 samples, Peak.   821 us (1.0x), Avg.   821 us, Total. 820.9 us (0.0%)
+[Performance] ProcessService.OnProjectLoaded                                                                                 :        1 samples, Peak.  54.8 us (1.0x), Avg.  54.8 us, Total. 54.80 us (0.0%)
+[Performance] AssetDatabase.Refresh                                                                                          :        4 samples, Peak.  52.6 ms (2.8x), Avg.  18.5 ms, Total. 74.15 ms (0.1%)
+[Performance] AssetDatabase.ImportAsset                                                                                      :       14 samples, Peak.  1.34 s (5.9x), Avg.   227 ms, Total. 3.185 s (5.0%)
+[Performance] PresetManagerPostProcessor.OnPreprocessAsset                                                                   :       16 samples, Peak.  2.30 ms (10.0x), Avg.   231 us, Total. 3.692 ms (0.0%)
+[Performance] CancelSplashScreenOnAssetChange.OnPreprocessAsset                                                              :       16 samples, Peak.   549 us (14.2x), Avg.  38.8 us, Total. 620.1 us (0.0%)
+[Performance] AssetDatabase.ImportAssets                                                                                     :       22 samples, Peak.  22.1 ms (14.6x), Avg.  1.51 ms, Total. 33.28 ms (0.1%)
+[Performance] BuilderAssetPostprocessor.OnPostprocessAllAssets                                                               :       32 samples, Peak.  6.96 ms (14.2x), Avg.   489 us, Total. 15.64 ms (0.0%)
+[Performance] ArtifactBrowserPostProcessor.OnPostprocessAllAssets                                                            :       32 samples, Peak.  1.08 ms (14.6x), Avg.  74.0 us, Total. 2.368 ms (0.0%)
+[Performance] AssetEvents.OnPostprocessAllAssets                                                                             :       64 samples, Peak.  2.83 ms (28.9x), Avg.  97.8 us, Total. 6.257 ms (0.0%)
+[Performance] AudioMixerPostprocessor.OnPostprocessAllAssets                                                                 :       32 samples, Peak.   693 us (14.6x), Avg.  47.5 us, Total. 1.519 ms (0.0%)
+[Performance] StyleCatalogPostProcessor.OnPostprocessAllAssets                                                               :       32 samples, Peak.   307 ms (16.0x), Avg.  19.2 ms, Total. 614.0 ms (1.0%)
+[Performance] BuildCatalog                                                                                                   :        1 samples, Peak.   304 ms (1.0x), Avg.   304 ms, Total. 304.1 ms (0.5%)
+[Performance] EditorResources.Load                                                                                           :        6 samples, Peak.  68.0 ms (3.6x), Avg.  18.9 ms, Total. 113.4 ms (0.2%)
+[Performance] ModelImporterPostProcessor.OnPostprocessAllAssets                                                              :       32 samples, Peak.  3.13 ms (14.1x), Avg.   221 us, Total. 7.082 ms (0.0%)
+[Performance] RetainedModeAssetPostprocessor.OnPostprocessAllAssets                                                          :       32 samples, Peak.  8.01 ms (15.4x), Avg.   518 us, Total. 16.59 ms (0.0%)
+[Performance] AssetChangedListener.OnPostprocessAllAssets                                                                    :       32 samples, Peak.  3.27 ms (11.9x), Avg.   274 us, Total. 8.782 ms (0.0%)
+[Performance] SpeedTreePostProcessor.OnPostprocessAllAssets                                                                  :       32 samples, Peak.   388 us (9.2x), Avg.  41.9 us, Total. 1.341 ms (0.0%)
+[Performance] TextAssetPostProcessor.OnPostprocessAllAssets                                                                  :       32 samples, Peak.   828 us (11.6x), Avg.  71.6 us, Total. 2.291 ms (0.0%)
+[Performance] ShaderImporter.Import                                                                                          :       12 samples, Peak.   119 ms (3.2x), Avg.  37.2 ms, Total. 446.9 ms (0.7%)
+[Performance] EditorApplication.projectChanged: UnityEditor.Audio.MixerEffectDefinitionReloader.OnProjectChanged             :       24 samples, Peak.  4.38 ms (4.5x), Avg.   984 us, Total. 23.61 ms (0.0%)
+[Performance] BuilderAssetModificationProcessor.OnWillSaveAssets                                                             :        4 samples, Peak.   826 us (3.8x), Avg.   217 us, Total. 868.2 us (0.0%)
+[Performance] TerrainModificationProcessor.OnWillSaveAssets                                                                  :        4 samples, Peak.  1.38 ms (4.0x), Avg.   348 us, Total. 1.392 ms (0.0%)
+[Performance] BuildAssetBundles                                                                                              :        1 samples, Peak.  3.16 s (1.0x), Avg.  3.16 s, Total. 3.158 s (4.9%)
+[Performance] ShaderImporter.SourceAssetModified                                                                             :        1 samples, Peak.   400 ns (1.0x), Avg.   400 ns, Total. 400.0 ns (0.0%)
+[Performance] ShaderIncludeImporter.SourceAssetModified                                                                      :        1 samples, Peak.   800 ns (1.0x), Avg.   800 ns, Total. 800.0 ns (0.0%)
+[Performance] GenerateAssemblyTypeInfos                                                                                      :        2 samples, Peak.  3.08 ms (1.8x), Avg.  1.71 ms, Total. 3.427 ms (0.0%)
+[Performance] EditorApplication.quitting: callback in UnityEditor.TextCore.Text.EditorEventCallbacks                         :        1 samples, Peak.  16.3 ms (1.0x), Avg.  16.3 ms, Total. 16.34 ms (0.0%)
+[Performance] Application.Shutdown.PauseProfilerSession                                                                      :        1 samples, Peak.  1.04 ms (1.0x), Avg.  1.04 ms, Total. 1.039 ms (0.0%)
+[Performance] Application.Shutdown.PauseAssetImportWorkers                                                                   :        1 samples, Peak.  20.3 ms (1.0x), Avg.  20.3 ms, Total. 20.33 ms (0.0%)
+[Performance] Application.Shutdown.SaveAssets                                                                                :        1 samples, Peak.   616 us (1.0x), Avg.   616 us, Total. 616.3 us (0.0%)
+[Performance] Application.Shutdown.CleanupRenderPipeline                                                                     :        1 samples, Peak.  4.80 us (1.0x), Avg.  4.80 us, Total. 4.800 us (0.0%)
+[Performance] Application.Shutdown.StopPreloadManager                                                                        :        1 samples, Peak.  9.78 ms (1.0x), Avg.  9.78 ms, Total. 9.779 ms (0.0%)
+[Performance] Application.Shutdown.DestroyWorld                                                                              :        1 samples, Peak.   681 us (1.0x), Avg.   681 us, Total. 680.8 us (0.0%)
+[Performance] Application.Shutdown.CleanupAfterLoad                                                                          :        1 samples, Peak.  5.58 ms (1.0x), Avg.  5.58 ms, Total. 5.579 ms (0.0%)
+[Performance] Application.Shutdown.Progress                                                                                  :        1 samples, Peak.   291 us (1.0x), Avg.   291 us, Total. 291.1 us (0.0%)
+[Performance] Application.Shutdown.GICleanupManagers                                                                         :        1 samples, Peak.  47.2 ms (1.0x), Avg.  47.2 ms, Total. 47.17 ms (0.1%)
+[Performance] Application.Shutdown.MenuCleanupClass                                                                          :        1 samples, Peak.  3.29 ms (1.0x), Avg.  3.29 ms, Total. 3.290 ms (0.0%)
+[Performance] Application.Shutdown.ADBSaveStateBeforeShutdown                                                                :        1 samples, Peak.  11.4 us (1.0x), Avg.  11.4 us, Total. 11.40 us (0.0%)
+[Performance] Application.Shutdown.RemoteShutdown                                                                            :        1 samples, Peak.  1.60 us (1.0x), Avg.  1.60 us, Total. 1.600 us (0.0%)
+[Performance] Application.Shutdown.CleanupVCProvider                                                                         :        1 samples, Peak.  2.39 ms (1.0x), Avg.  2.39 ms, Total. 2.393 ms (0.0%)
+[Performance] Application.Shutdown.InputShutdown                                                                             :        1 samples, Peak.   280 us (1.0x), Avg.   280 us, Total. 279.8 us (0.0%)
+[Performance] Application.Shutdown.GizmoManagerDestroy                                                                       :        1 samples, Peak.  2.19 ms (1.0x), Avg.  2.19 ms, Total. 2.190 ms (0.0%)
+[Performance] Application.Shutdown.ProfilerSession                                                                           :        1 samples, Peak.  1.69 ms (1.0x), Avg.  1.69 ms, Total. 1.688 ms (0.0%)
+[Performance] Application.Shutdown.ReleaseGfxWindowOnAllGUIViews                                                             :        1 samples, Peak.   700 ns (1.0x), Avg.   700 ns, Total. 700.0 ns (0.0%)
+[Performance] Application.Shutdown.CleanupEngine                                                                             :        1 samples, Peak.   201 ms (1.0x), Avg.   201 ms, Total. 200.6 ms (0.3%)
+[Performance] Application.Shutdown.CleanupAssetDatabase                                                                      :        1 samples, Peak.  10.3 ms (1.0x), Avg.  10.3 ms, Total. 10.34 ms (0.0%)
+[Performance] Application.Shutdown.ScriptCompilationCleanUp                                                                  :        1 samples, Peak.  66.7 ms (1.0x), Avg.  66.7 ms, Total. 66.71 ms (0.1%)
+[Performance] Application.Shutdown.DestroyJobSystem                                                                          :        1 samples, Peak.   143 us (1.0x), Avg.   143 us, Total. 142.7 us (0.0%)
+[Performance] Application.Shutdown.CleanupPersistentManager                                                                  :        1 samples, Peak.   761 us (1.0x), Avg.   761 us, Total. 761.3 us (0.0%)
+[Performance] Application.Shutdown.CleanupAsyncReadManager                                                                   :        1 samples, Peak.  1.11 ms (1.0x), Avg.  1.11 ms, Total. 1.106 ms (0.0%)
+[Performance] Application.Shutdown.CleanupProgressBar                                                                        :        1 samples, Peak.   600 ns (1.0x), Avg.   600 ns, Total. 600.0 ns (0.0%)
+[Performance] Application.Shutdown.CleanupMono                                                                               :        1 samples, Peak.   104 ms (1.0x), Avg.   104 ms, Total. 104.3 ms (0.2%)
+[Performance] Application.Shutdown.CleanupStdConverters                                                                      :        1 samples, Peak.  18.4 us (1.0x), Avg.  18.4 us, Total. 18.40 us (0.0%)
+[Performance] Application.Shutdown.UnloadAllPlatformSupportModuleNativeDlls                                                  :        1 samples, Peak.   800 ns (1.0x), Avg.   800 ns, Total. 800.0 ns (0.0%)
+[Performance] Application.Shutdown.UnloadAllPlatformSupportNativeLibraries                                                   :        1 samples, Peak.   200 ns (1.0x), Avg.   200 ns, Total. 200.0 ns (0.0%)
+[Performance] Application.Shutdown.CleanupAutoDocumentation                                                                  :        1 samples, Peak.  2.71 ms (1.0x), Avg.  2.71 ms, Total. 2.706 ms (0.0%)
+[Performance] Application.Shutdown.ShaderNameManagerDestroy                                                                  :        1 samples, Peak.   148 us (1.0x), Avg.   148 us, Total. 148.0 us (0.0%)
+[Performance] Application.Shutdown.CleanupCacheServer                                                                        :        1 samples, Peak.   500 ns (1.0x), Avg.   500 ns, Total. 500.0 ns (0.0%)
+[Performance] Application.Shutdown.Virtualization_Shutdown                                                                   :        1 samples, Peak.   600 ns (1.0x), Avg.   600 ns, Total. 600.0 ns (0.0%)
+[Performance] Application.Shutdown.DevConnections                                                                            :        1 samples, Peak.  1.29 ms (1.0x), Avg.  1.29 ms, Total. 1.294 ms (0.0%)
+Exiting batchmode successfully now!
+Exiting without the bug reporter. Application will terminate with return code 0
