@@ -1922,10 +1922,17 @@ namespace WorldSphereMod
                     "ScreenSpaceGI", "ScreenSpaceAO", "ProceduralSky",
                 };
 
-            // SAFE WIN #208: OVC-only, ShaderBundleAvailable=true, compute gated behind PostFxShaderBundleAvailable
+            // Expanded to all confirmed non-postFX validated bundle shaders; postFX
+            // (BrpBloom, BrpACES, ColorGradingLUT, ScreenSpaceGI, ScreenSpaceAO,
+            // ProceduralSky) still excluded — PostFxShaderBundleAvailable=false gate remains (#208).
             public static readonly string[] SafeShaders = new[]
             {
                 "OpaqueVertexColor",
+                "CompoundSphere",
+                "GerstnerWater",
+                "FoliageWind",
+                "Impostor",
+                "StratumVoxelPBR",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look
