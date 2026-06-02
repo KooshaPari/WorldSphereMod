@@ -175,6 +175,8 @@ namespace WorldSphereMod
         {
             ClearVoxelMeshCacheOnFirstFrame = true;
             InitProfiler.Measure("LoadSettings", () => LoadSettings());
+            Sphere.HeightMult = Mathf.Max(savedSettings.TileHeight, 1f);
+            Debug.Log($"[WSM3D][HEIGHT-DIAG] Init pre-bootstrap HeightMult={Sphere.HeightMult} TileHeightSetting={savedSettings.TileHeight}");
             InitProfiler.Measure("WorldSphereTab.Begin", () => WorldSphereTab.Begin());
             InitProfiler.Measure("DimensionConverter.Prepare", () => DimensionConverter.Prepare());
             InitProfiler.Measure("Patch", () => Patch());
@@ -601,6 +603,10 @@ namespace WorldSphereMod
                             Sphere.HeightMult = Mathf.Clamp(savedSettings.TileHeight * 6f, 1f, 8f);
                             Debug.LogWarning($"[WSM3D][HEIGHT-DIAG] auto-boosted flat terrain: HeightMult {oldMult} -> {Sphere.HeightMult}");
                         }
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[WSM3D][HEIGHT-DIAG] terrain sample span unavailable: validSamples={validSamples} (using current HeightMult={Sphere.HeightMult})");
                     }
                     _heightDiagLogged = true;
                 }
