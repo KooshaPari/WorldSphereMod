@@ -1614,18 +1614,36 @@ namespace WorldSphereMod
                 CreateTextures();
                 Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.CreateTextures={sw.Elapsed.TotalMilliseconds:F3}ms");
                 sw.Restart();
-                // Force a synchronous 2D tilemap repaint so world_layer.pixels and
-                // every BaseLayers[i].pixels array is populated with real biome colors
-                // BEFORE we copy references into BaseLayers. In 3D mode,
-                // tilemap.redrawTiles() is bypassed every frame (Redraw3DTiles runs
-                // instead), so without this call the pixel arrays stay all-zero and
-                // GetBaseColor returns (0,0,0,0) for every tile → gray terrain. (#208)
+                BaseLayers = new List<MapLayer>(World.world._map_layers);
+                BaseLayers.Remove(FlashLayer);
+                Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.BaseLayersCopy={sw.Elapsed.TotalMilliseconds:F3}ms (layerCount={BaseLayers.Count})");
+                sw.Restart();
+                // CreateCachedColors BEFORE tilemap.redrawTiles() — the AddLayers
+                // transpiler redirects MapLayer pixel writes to CachedColors via
+                // GetPixelArray(Core.Sphere.CachedColors, layer). If CachedColors is
+                // null when redrawTiles fires, GetPixelArray throws ArgumentNullException
+                // and all pixel writes are lost → biome colors stay zero. (#208)
+                CreateCachedColors();
+                Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.CreateCachedColors={sw.Elapsed.TotalMilliseconds:F3}ms");
+                sw.Restart();
+                // Force a synchronous 2D tilemap repaint AFTER CachedColors is ready,
+                // so world_layer.pixels and every BaseLayers[i].pixels are populated
+                // with real biome colors. In 3D mode tilemap.redrawTiles() is bypassed
+                // every frame (Redraw3DTiles runs instead), so pixels stay all-zero
+                // and GetBaseColor returns (0,0,0,0) → vertex color (0,0,0) → gray
+                // under emission floor. (#208 terrain-gray root cause)
                 try
                 {
                     if (World.world?.tilemap != null)
                     {
                         World.world.tilemap.redrawTiles();
-                        Debug.Log($"[WSM3D] PrepareWorld: forced tilemap.redrawTiles() to populate layer pixels (world_layer.pixels.Length={World.world.world_layer?.pixels?.Length ?? -1})");
+                        // Sample a few pixels to confirm non-zero biome color in log.
+                        var wp = World.world.world_layer?.pixels;
+                        int w = MapBox.width; int h = MapBox.height;
+                        string sample = wp != null && w > 0 && h > 0
+                            ? $"[{w/4},{h/4}]=({wp[h/4*w+w/4].r},{wp[h/4*w+w/4].g},{wp[h/4*w+w/4].b}) [{w/2},{h/2}]=({wp[h/2*w+w/2].r},{wp[h/2*w+w/2].g},{wp[h/2*w+w/2].b})"
+                            : "(no pixels)";
+                        Debug.Log($"[WSM3D] PrepareWorld: tilemap.redrawTiles() done — sample pixels: {sample}");
                     }
                 }
                 catch (System.Exception ex)
@@ -1633,13 +1651,6 @@ namespace WorldSphereMod
                     Debug.LogWarning("[WSM3D] PrepareWorld: tilemap.redrawTiles() failed — biome colors may be zero: " + ex.Message);
                 }
                 Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.TilemapRepaint={sw.Elapsed.TotalMilliseconds:F3}ms");
-                sw.Restart();
-                BaseLayers = new List<MapLayer>(World.world._map_layers);
-                BaseLayers.Remove(FlashLayer);
-                Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.BaseLayersCopy={sw.Elapsed.TotalMilliseconds:F3}ms (layerCount={BaseLayers.Count})");
-                sw.Restart();
-                CreateCachedColors();
-                Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.CreateCachedColors={sw.Elapsed.TotalMilliseconds:F3}ms");
             }
 
             /// <summary>
