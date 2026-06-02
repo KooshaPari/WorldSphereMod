@@ -558,6 +558,26 @@ namespace WorldSphereMod
                 }
             }
             catch (System.Exception ex) { Debug.LogWarning("[WSM3D][HEIGHT-DIAG] sample failed: " + ex.Message); }
+            // ONE-SHOT COLOR DIAGNOSTIC: confirm GetTileColor returns non-black biome RGB.
+            // PASS: at least one tile has R≠G or G≠B (divergent channels = real biome color).
+            // FAIL: all (128,128,128) = Textures null/not built; all (0,0,0,0) = still pixel buffer.
+            try
+            {
+                if (World.world != null && MapBox.width > 0 && MapBox.height > 0)
+                {
+                    int cw = MapBox.width; int ch = MapBox.height;
+                    int[,] cpts = { {cw/8,ch/8},{cw/4,ch/2},{cw/2,ch/4},{3*cw/4,3*ch/4},{cw-2,ch-2} };
+                    for (int ci = 0; ci < 5; ci++)
+                    {
+                        int cpx = cpts[ci,0]; int cpy = cpts[ci,1];
+                        WorldTile ctile = World.world.GetTileSimple(cpx, cpy);
+                        Color32 cc = Sphere.GetTileColor(ctile);
+                        int ctex = ctile != null ? Sphere.WorldTileTexture(ctile) : -1;
+                        Debug.Log($"[WSM3D][COLOR-DIAG] tile=({cpx},{cpy}) type={ctile?.main_type?.id ?? "null"} texIdx={ctex} RGBA=({cc.r},{cc.g},{cc.b},{cc.a})");
+                    }
+                }
+            }
+            catch (System.Exception ex) { Debug.LogWarning("[WSM3D][COLOR-DIAG] failed: " + ex.Message); }
             // Sphere.Begin starts a coroutine that spreads tile+buffer init
             // across frames; the onCreated callback fires once the Manager
             // exists (before buffers finish) and triggers the remaining 3D
@@ -1240,11 +1260,11 @@ namespace WorldSphereMod
                         int sy = Mathf.Clamp(ty, 0, h - 1);
                         WorldTile tile = World.world.GetTileSimple(sx, sy);
                         if (tile == null) return new Color32(128, 128, 128, 255);
-                        // FIX: use tile POSITION index (sy*w+sx) into world_layer.pixels,
-                        // NOT tile.data.tile_id (the tile TYPE id — a small int 0..~200
-                        // that indexed into the first pixels of world_layer, producing
-                        // grayscale background colors instead of biome RGB). (#208 terrain-gray)
-                        return GetColor(sy * w + sx);
+                        // Bypass world_layer.pixels/MapLayer.pixels (always zero in 3D mode
+                        // because tilemap.redrawTiles is intercepted by Queue3D Prefix which
+                        // returns false when IsWorld3D=true). Use tile sprite texture average
+                        // color directly from the Texture2DArray built in CreateTextures(). (#208)
+                        return GetTileColor(tile);
                     },
                     sampleTexture: (tx, ty) =>
                     {
