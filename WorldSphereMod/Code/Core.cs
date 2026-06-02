@@ -1898,9 +1898,11 @@ namespace WorldSphereMod
             // positive — the editor recompiles; only the PLAYER is truth. postFX
             // shaders need their FULL variant set in the SVC (INSTANCING_ON + their
             // own keywords/passes) — not yet achieved. Crash-safe until then.
-            public const bool PostFxShaderBundleAvailable = false;
+            // #208 candidate test (bundle e6589a46): un-bundled SVC + WSM3D_POSTFX_KEEP.
+            // Auto-reverts to false on any ManagedStream crash (game-test driven).
+            public const bool PostFxShaderBundleAvailable = true;
 
-            public const bool ShaderBundleAvailable = false;
+            public const bool ShaderBundleAvailable = true;
 
             // Names of the 6 postFX shaders that are stub-baked and must never be
             // loaded via GetObject<Shader> while PostFxShaderBundleAvailable=false.

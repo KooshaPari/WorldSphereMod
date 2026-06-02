@@ -37,7 +37,6 @@ Shader "WSM3D/ProceduralSky"
             #pragma vertex vert
             #pragma fragment frag
             #pragma target 3.0
-            #pragma multi_compile _ WSM3D_POSTFX_KEEP
             #include "UnityCG.cginc"
 
             struct appdata { float4 vertex : POSITION; };

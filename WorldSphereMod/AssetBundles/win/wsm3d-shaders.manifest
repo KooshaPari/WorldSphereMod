@@ -1,22 +1,20 @@
 ManifestFileVersion: 0
-CRC: 927275143
+CRC: 783428819
 Hashes:
   AssetFileHash:
     serializedVersion: 2
-    Hash: 6c96b904aaa42ef5314939a45653dce4
+    Hash: 1a01d4435ce0e186174b268beb684f2f
   TypeTreeHash:
     serializedVersion: 2
-    Hash: 421517ddcee580ac166ffc8d80e70c25
+    Hash: cc47f627a82a59fd500d95464fa77bad
   IncrementalBuildHash:
     serializedVersion: 2
-    Hash: 6c96b904aaa42ef5314939a45653dce4
+    Hash: 1a01d4435ce0e186174b268beb684f2f
 HashAppended: 0
 ClassTypes:
 - Class: 48
   Script: {instanceID: 0}
 - Class: 72
-  Script: {instanceID: 0}
-- Class: 200
   Script: {instanceID: 0}
 SerializeReferenceClassIdentifiers: []
 Assets:
@@ -25,7 +23,6 @@ Assets:
 - Assets/WSM3D/Shaders/CompoundSphere.shader
 - Assets/WSM3D/Shaders/GerstnerWater.shader
 - Assets/WSM3D/Shaders/Impostor.shader
-- Assets/WSM3D/wsm3d-shader-variants.shadervariants
 - Assets/WSM3D/Shaders/ProceduralSky.shader
 - Assets/WSM3D/Shaders/BrpACES.shader
 - Assets/WSM3D/Shaders/CompoundSphereCompute.compute
