@@ -1900,9 +1900,9 @@ namespace WorldSphereMod
             // own keywords/passes) — not yet achieved. Crash-safe until then.
             // #208 candidate test (bundle e6589a46): un-bundled SVC + WSM3D_POSTFX_KEEP.
             // Auto-reverts to false on any ManagedStream crash (game-test driven).
-            public const bool PostFxShaderBundleAvailable = true;
+            public const bool PostFxShaderBundleAvailable = false;
 
-            public const bool ShaderBundleAvailable = true;
+            public const bool ShaderBundleAvailable = false;
 
             // Names of the 6 postFX shaders that are stub-baked and must never be
             // loaded via GetObject<Shader> while PostFxShaderBundleAvailable=false.
