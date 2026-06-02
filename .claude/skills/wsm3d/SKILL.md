@@ -159,6 +159,8 @@ Select-String -Path "$env:USERPROFILE/AppData/LocalLow/mkarpenko/WorldBox/Player
 
 **NML compile is silent on failure.** A compile error (e.g., missing using statement, syntax error) will not be logged as "[WSM3D]" error; instead, the mod DLL is not written and NML retries on next reload. Always grep for "Failed to compile mod" in Player.log.
 
+**STALE PROCESS INVALIDATES ALL TEST RESULTS.** NML compiles source into `StreamingAssets/Mods/NML/CompiledMods/WORLDSPHERE3D_FORK.dll` and caches it. If a game process was started BEFORE a source install, it runs the OLD DLL indefinitely — every `/diag`, screenshot, and log is from stale code. MANDATORY pre-test routine: (1) kill any running WorldBox process, (2) verify NML DLL timestamp is NEWER than source install timestamp (or delete it to force fresh compile), (3) launch fresh. The stale process is the single most common source of "fix not working" false negatives. frameMs, VoxelEntities, shader state — all can be wildly wrong on a stale process. When in doubt: kill + relaunch.
+
 **github-pages env branch policy.** If deploying docs to GitHub Pages, the branch policy may reject pushes to main; use `git push origin main:gh-pages` or configure the branch in Settings > Pages.
 
 **Vercel CLI 47+ required for install.ps1 env inject.** Older versions do not support the `--env` flag. Run `npm install -g vercel@latest` before invoking install.ps1 if you see "Unknown argument" errors.

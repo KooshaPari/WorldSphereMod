@@ -1614,6 +1614,26 @@ namespace WorldSphereMod
                 CreateTextures();
                 Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.CreateTextures={sw.Elapsed.TotalMilliseconds:F3}ms");
                 sw.Restart();
+                // Force a synchronous 2D tilemap repaint so world_layer.pixels and
+                // every BaseLayers[i].pixels array is populated with real biome colors
+                // BEFORE we copy references into BaseLayers. In 3D mode,
+                // tilemap.redrawTiles() is bypassed every frame (Redraw3DTiles runs
+                // instead), so without this call the pixel arrays stay all-zero and
+                // GetBaseColor returns (0,0,0,0) for every tile → gray terrain. (#208)
+                try
+                {
+                    if (World.world?.tilemap != null)
+                    {
+                        World.world.tilemap.redrawTiles();
+                        Debug.Log($"[WSM3D] PrepareWorld: forced tilemap.redrawTiles() to populate layer pixels (world_layer.pixels.Length={World.world.world_layer?.pixels?.Length ?? -1})");
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogWarning("[WSM3D] PrepareWorld: tilemap.redrawTiles() failed — biome colors may be zero: " + ex.Message);
+                }
+                Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.TilemapRepaint={sw.Elapsed.TotalMilliseconds:F3}ms");
+                sw.Restart();
                 BaseLayers = new List<MapLayer>(World.world._map_layers);
                 BaseLayers.Remove(FlashLayer);
                 Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.BaseLayersCopy={sw.Elapsed.TotalMilliseconds:F3}ms (layerCount={BaseLayers.Count})");
