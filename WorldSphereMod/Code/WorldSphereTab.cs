@@ -35,22 +35,10 @@ namespace WorldSphereMod.UI
         const string FallbackIconPath = "WorldSphereMod/ModIcon";
         const string PhasesWindowId = "3D Phases";
         const string PhasesWindowTitle = "phases_window";
-        const string SettingsWindowId = "wsm_settings_window";
-        const string SettingsWindowTitle = "wsm_settings";
         static readonly Dictionary<string, Sprite?> IconCache = new Dictionary<string, Sprite?>();
         static readonly Dictionary<string, Sprite?> PhaseIconCache = new Dictionary<string, Sprite?>();
         static GameObject Space;
         static GameObject Line;
-        static readonly string[] VoxelInflationStyleOptions =
-        {
-            "pertexel",
-            "greedy",
-            "extruded",
-            "balloon",
-            "organicblob",
-            "lathe",
-            "auto"
-        };
         static bool _isPhasesWindowSuppressionHooked;
         static void CreateTabTools()
         {
@@ -195,461 +183,71 @@ namespace WorldSphereMod.UI
         }
         static void CreateButtons()
         {
-            WindowManager.CreateWindow(SettingsWindowId, SettingsWindowTitle, new List<ButtonData>());
-            CreateButton("WSM Settings", "WorldSphereMod/ModIcon", OpenSettingsWindow);
-
-            void SetVoxelScale(float value)
+            CreateToggleButton("Is3D", "WorldSphereMod/ModIcon", "is_3d", "is_3d_description", Toggle3D, Core.savedSettings.Is3D);
+            CreateWindowButton("Sprite Settings", "WorldSphereMod/Rotate", "sprite_settings_window", new List<ButtonData>()
             {
-                Core.savedSettings.VoxelScaleMultiplier = value;
-                Core.SaveSettings();
-                WorldSphereMod.Voxel.VoxelMeshCache.Clear();
-                WorldSphereMod.Voxel.VoxelRender.Reset();
+               ///new ButtonData("sprites_rotate_to_camera", "sprites_rotate_to_camera_description", "WorldSphereMod/Rotate", Core.savedSettings.RotateStuffToCamera, ToggleRotations),
+               new ButtonData("sprites_rotate_to_camera", "sprites_rotate_to_camera_description", "WorldSphereMod/Rotate", Core.savedSettings.RotateStuffToCamera, ToggleRotations),
+               new ButtonData("building_style_procgen", "building_style_procgen_description", "WorldSphereMod/World", Core.savedSettings.BuildingStyleProcgen, ToggleBuildingStyleProcgen)
             }
-
-            void SetActorScale(float value)
-            {
-                Core.savedSettings.ActorVoxelScaleFactor = value;
-                Core.SaveSettings();
-                WorldSphereMod.Voxel.VoxelMeshCache.Clear();
-                WorldSphereMod.Voxel.VoxelRender.Reset();
-            }
-
-            void SetBuildingSize(float value)
-            {
-                Core.savedSettings.BuildingSize = value;
-                Core.SaveSettings();
-                WorldSphereMod.Voxel.VoxelMeshCache.Clear();
-                WorldSphereMod.Voxel.VoxelRender.Reset();
-            }
-
-            void SetLODScale(float value)
-            {
-                Core.savedSettings.LODScale = value;
-                Core.SaveSettings();
-                WorldSphereMod.LOD.LodSelector.ResetHysteresis();
-            }
-
-            void SetTileHeight(float value)
-            {
-                Core.savedSettings.TileHeight = value;
-                Core.SaveSettings();
-                Core.Sphere.HeightMult = Mathf.Max(value, 1f);
-            }
-
-            void SetLuminance(float value)
-            {
-                Core.savedSettings.VoxelNeutralLuminance = value;
-                Core.SaveSettings();
-            }
-
-            void SetShadowRecession(float value)
-            {
-                Core.savedSettings.VoxelShadowRecession = value;
-                Core.SaveSettings();
-            }
-
-            void SetSpriteDepth(float value)
-            {
-                int rounded = Mathf.RoundToInt(value);
-                Core.savedSettings.VoxelSpriteDepth = rounded;
-                Core.SaveSettings();
-                WorldSphereMod.Voxel.VoxelMeshCache.Clear();
-                WorldSphereMod.Voxel.VoxelRender.Reset();
-            }
-
-            void SetVoxelThreshold(float value)
-            {
-                WorldSphereMod.LOD.LodSelector.VoxelThreshold = value;
-                WorldSphereMod.LOD.LodSelector.ResetHysteresis();
-                Core.SaveSettings();
-            }
-
-            void SetSmoothingIterations(float value)
-            {
-                Core.savedSettings.SmoothingIterations = Mathf.Max(0, Mathf.RoundToInt(value));
-                Core.SaveSettings();
-            }
-
-            void SetPhaseFlag(string flag, bool value)
-            {
-                var field = typeof(SavedSettings).GetField(flag);
-                if (field != null && field.FieldType == typeof(bool))
-                {
-                    field.SetValue(Core.savedSettings, value);
-                }
-                Core.SaveSettings();
-                Core.ApplyPhaseToggle(flag, value);
-            }
-
-            void SetDebugFlag(string flag, bool value)
-            {
-                var field = typeof(SavedSettings).GetField(flag);
-                if (field != null && field.FieldType == typeof(bool))
-                {
-                    field.SetValue(Core.savedSettings, value);
-                }
-                Core.SaveSettings();
-            }
-
-            void SetInflationStyle(string value)
-            {
-                Core.savedSettings.VoxelInflationStyle = value;
-                Core.SaveSettings();
-                WorldSphereMod.Voxel.VoxelMeshCache.Clear();
-                WorldSphereMod.Voxel.VoxelRender.Reset();
-            }
-
-            WindowManager.windows[SettingsWindowId].Object.GetComponent<RectTransform>().sizeDelta =
-                new Vector2(520, 360);
-
-            CreateSettingsPanel(
-                WindowManager.windows[SettingsWindowId].Object,
-                SetVoxelScale,
-                SetActorScale,
-                SetBuildingSize,
-                SetLODScale,
-                SetVoxelThreshold,
-                SetSpriteDepth,
-                SetTileHeight,
-                SetPhaseFlag,
-                SetSmoothingIterations,
-                SetLuminance,
-                SetShadowRecession,
-                SetInflationStyle,
-                SetDebugFlag
             );
-        }
-
-        static Font GetDefaultFont()
-        {
-            Text sample = Object.FindObjectOfType<Text>();
-            return sample != null && sample.font != null
-                ? sample.font
-                : Resources.GetBuiltinResource<Font>("Arial.ttf");
-        }
-
-        static void OpenSettingsWindow()
-        {
-            WindowManager.windows[SettingsWindowId].openWindow();
-        }
-
-        static float FormatNumeric(float v, float step)
-        {
-            if (step >= 1f) return Mathf.Round(v);
-            if (step >= 0.1f) return Mathf.Round(v * 10f) / 10f;
-            return Mathf.Round(v * 100f) / 100f;
-        }
-
-        static void AddSectionHeader(string title, GameObject parent, int width)
-        {
-            GameObject textGo = new GameObject("SectionHeader", typeof(RectTransform), typeof(Text));
-            textGo.transform.SetParent(parent.transform, false);
-            Text header = textGo.GetComponent<Text>();
-            header.text = title;
-            header.font = GetDefaultFont();
-            header.fontSize = 14;
-            header.resizeTextMaxSize = 14;
-            header.color = Color.white;
-            header.alignment = TextAnchor.MiddleLeft;
-            header.fontStyle = FontStyle.Bold;
-            header.raycastTarget = false;
-            AddLayoutElement(textGo, width, width, 0f);
-        }
-
-        static GameObject AddRow(GameObject parent)
-        {
-            var row = new GameObject("SettingsRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
-            row.transform.SetParent(parent.transform, false);
-            var rt = row.GetComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(0, 30);
-
-            HorizontalLayoutGroup group = row.GetComponent<HorizontalLayoutGroup>();
-            group.childAlignment = TextAnchor.MiddleLeft;
-            group.spacing = 10f;
-            group.childControlWidth = false;
-            group.childControlHeight = false;
-            group.childForceExpandWidth = true;
-            group.childForceExpandHeight = false;
-            group.padding = new RectOffset(2, 2, 2, 2);
-            return row;
-        }
-
-        static void AddLayoutElement(GameObject go, float minWidth, float preferredWidth = 0f, float flexibleWidth = 1f)
-        {
-            LayoutElement le = go.AddComponent<LayoutElement>();
-            le.minWidth = minWidth;
-            le.preferredWidth = preferredWidth > 0f ? preferredWidth : minWidth;
-            le.flexibleWidth = flexibleWidth;
-            le.minHeight = 24;
-            le.preferredHeight = 24;
-        }
-
-        static Text MakeText(string text, int fontSize, GameObject parent)
-        {
-            GameObject textGo = new GameObject("Text", typeof(Text));
-            textGo.transform.SetParent(parent.transform, false);
-            Text textComp = textGo.GetComponent<Text>();
-            textComp.text = text;
-            textComp.font = GetDefaultFont();
-            textComp.fontSize = fontSize;
-            textComp.resizeTextMaxSize = fontSize;
-            textComp.alignment = TextAnchor.MiddleLeft;
-            textComp.color = Color.white;
-            textComp.raycastTarget = false;
-            return textComp;
-        }
-
-        static void AddLabelledToggle(string label, bool value, UnityAction<bool> onValueChanged, GameObject row, float width)
-        {
-            GameObject holder = new GameObject("ToggleCell", typeof(RectTransform));
-            holder.transform.SetParent(row.transform, false);
-            AddLayoutElement(holder, width, width, 0.75f);
-
-            var layout = holder.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = 4f;
-            layout.childAlignment = TextAnchor.MiddleLeft;
-            layout.childControlWidth = false;
-            layout.childForceExpandHeight = true;
-            layout.childForceExpandWidth = false;
-
-            Text labelText = MakeText(label, 10, holder);
-            AddLayoutElement(labelText.gameObject, width * 0.58f);
-
-            GameObject toggleGo = new GameObject("Toggle", typeof(RectTransform), typeof(Toggle), typeof(Image));
-            toggleGo.transform.SetParent(holder.transform, false);
-            Image toggleBg = toggleGo.GetComponent<Image>();
-            toggleBg.color = new Color(0.2f, 0.2f, 0.2f, 1f);
-            Toggle toggle = toggleGo.GetComponent<Toggle>();
-
-            GameObject checkGo = new GameObject("Checkmark", typeof(RectTransform), typeof(Image));
-            checkGo.transform.SetParent(toggleGo.transform, false);
-            Image checkImage = checkGo.GetComponent<Image>();
-            checkImage.color = new Color(0.8f, 0.8f, 0.8f, 1f);
-            toggle.graphic = checkImage;
-            toggle.targetGraphic = toggleBg;
-            toggle.isOn = value;
-            toggle.onValueChanged.AddListener(onValueChanged);
-        }
-
-        static void AddLabelledSlider(string label, float min, float max, float step, float value, GameObject row, UnityAction<float> onValueChanged, float width, bool integer = false)
-        {
-            GameObject holder = new GameObject("SliderCell", typeof(RectTransform));
-            holder.transform.SetParent(row.transform, false);
-            AddLayoutElement(holder, width, width, 1f);
-
-            var layout = holder.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = 5f;
-            layout.childAlignment = TextAnchor.MiddleLeft;
-            layout.childControlWidth = false;
-            layout.childForceExpandWidth = true;
-            layout.childForceExpandHeight = false;
-
-            Text labelText = MakeText($"{label}: {FormatNumeric(value, step)}", 10, holder);
-            AddLayoutElement(labelText.gameObject, 120, 120, 0.2f);
-
-            GameObject sliderGO = new GameObject("Slider", typeof(RectTransform), typeof(Slider), typeof(Image));
-            sliderGO.transform.SetParent(holder.transform, false);
-            AddLayoutElement(sliderGO, width - 132, width - 132, 1f);
-            Slider slider = sliderGO.GetComponent<Slider>();
-            slider.minValue = min;
-            slider.maxValue = max;
-            slider.value = value;
-            slider.onValueChanged.AddListener((float v) =>
+            GenerateSlider("building_size", 0.1f, 5f, Core.savedSettings.BuildingSize, (float val) => { Core.savedSettings.BuildingSize = val; Core.SaveSettings(); }, "Sprite Settings");
+            CreateWindowButton("Camera Settings", "WorldSphereMod/Camera", "camera_settings_window", new List<ButtonData>()
             {
-                if (integer) v = Mathf.Round(v);
-                labelText.text = $"{label}: {FormatNumeric(v, step)}";
-                onValueChanged(v);
+                new ButtonData("inverted_camera", "inverted_camera_description", "WorldSphereMod/Camera", Core.savedSettings.InvertedCameraMovement, ToggleCamera),
+                new ButtonData("first_person", "first_person_description", "WorldSphereMod/Camera", Core.savedSettings.FirstPerson, ToggleFirtPerson),
+                new ButtonData("camera_rotates_with_world", "camera_rotates_with_world_description", "WorldSphereMod/Camera", Core.savedSettings.CameraRotatesWithWorld, ToggleRotateToWorld),
+                new ButtonData("upside_down_movement", "upside_down_movement_description", "WorldSphereMod/Camera", Core.savedSettings.UpsideDownMovement, UpsideDown)
+            });
+            GenerateSlider("render_distance", 1, 20, Core.savedSettings.RowRange, (float val) => { Core.savedSettings.RowRange = val; Core.SaveSettings(); }, "Camera Settings");
+            CreateWindowButton("World Settings", "WorldSphereMod/World", "world_settings_window", new List<ButtonData>()
+            {
+                new ButtonData("cylindrical_shape", "cylindrical_shape_description", "WorldSphereMod/Round", Core.savedSettings.CurrentShape == 0, SetShape, false),
+                new ButtonData("flat_shape", "flat_shape_description", "WorldSphereMod/Flat", Core.savedSettings.CurrentShape == 1, SetShape, false),
+                new ButtonData("cube_shape", "cube_shape_description", "WorldSphereMod/Flat", Core.savedSettings.CurrentShape == 2, SetShape, false),
+                new ButtonData("perlin_noise", "perlin_noise_description", "WorldSphereMod/PerlinNoise", Core.savedSettings.PerlinNoise, PerlinNoise)
+            });
+            GenerateSlider("tile_length_multiplier", 1, 10, Core.savedSettings.TileHeight, (float x) => { Core.savedSettings.TileHeight = x; Core.SaveSettings(); }, "World Settings");
+
+            // v2 fork: per-phase toggles. The default values come from
+            // SavedSettings; the toggle action flips + persists. Without
+            // surfacing these here the user has no way to turn Phase 1's
+            // voxel actors on, so sprites stay 2D and the fork looks like
+            // a no-op compared to upstream.
+            CreateWindowButton(PhasesWindowId, "WorldSphereMod/ModIcon", PhasesWindowTitle, new List<ButtonData>()
+            {
+                new ButtonData("voxel_entities",       "voxel_entities_description",       "WorldSphereMod/Round",        Core.savedSettings.VoxelEntities,       TogglePhase),
+                new ButtonData("procedural_buildings", "procedural_buildings_description", "WorldSphereMod/World",         Core.savedSettings.ProceduralBuildings, TogglePhase),
+                new ButtonData("crossed_quad_foliage", "crossed_quad_foliage_description", "WorldSphereMod/Flat",          Core.savedSettings.CrossedQuadFoliage, TogglePhase),
+                new ButtonData("biome_blending",       "biome_blending_description",       "WorldSphereMod/World",         Core.savedSettings.BiomeBlending,       TogglePhase),
+                new ButtonData("mesh_water",           "mesh_water_description",           "WorldSphereMod/PerlinNoise",   Core.savedSettings.MeshWater,           TogglePhase),
+                new ButtonData("mountain_slope_smoothing", "mountain_slope_smoothing_description", "WorldSphereMod/World", Core.savedSettings.MountainSlopeSmoothing, TogglePhase),
+                new ButtonData("high_shadows",         "high_shadows_description",         "WorldSphereMod/SkyBox",        Core.savedSettings.HighShadows,         TogglePhase),
+                new ButtonData("hdr_skybox",           "hdr_skybox_description",           "WorldSphereMod/SkyBox",        Core.savedSettings.HdrSkybox,           TogglePhase),
+                new ButtonData("color_grading_lut",    "color_grading_lut_description",    "WorldSphereMod/ModIcon",       Core.savedSettings.ColorGradingLut,      TogglePhase),
+                new ButtonData("ssao_enabled",         "ssao_enabled_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.SSAOEnabled,          TogglePhase),
+                new ButtonData("ssgi_enabled",         "ssgi_enabled_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.SSGIEnabled,          TogglePhase),
+                new ButtonData("bloom_enabled",        "bloom_enabled_description",        "WorldSphereMod/ModIcon",       Core.savedSettings.BloomEnabled,         TogglePhase),
+                new ButtonData("aces_tonemapping",     "aces_tonemapping_description",     "WorldSphereMod/ModIcon",       Core.savedSettings.ACESTonemapping,      TogglePhase),
+                new ButtonData("skeletal_animation",   "skeletal_animation_description",   "WorldSphereMod/Rotate",        Core.savedSettings.SkeletalAnimation,   TogglePhase),
+                new ButtonData("worldspace_ui",        "worldspace_ui_description",        "WorldSphereMod/Camera",        Core.savedSettings.WorldspaceUI,        TogglePhase),
+                new ButtonData("worldspace_health_3d", "worldspace_health_3d_description", "WorldSphereMod/ModIcon",      Core.savedSettings.WorldspaceHealth3D,  TogglePhase),
+                new ButtonData("day_night_cycle",      "day_night_cycle_description",      "WorldSphereMod/SkyBox",        Core.savedSettings.DayNightCycle,       TogglePhase),
+                new ButtonData("weather_rain",          "weather_rain_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.WeatherRain,           TogglePhase),
+                new ButtonData("weather_snow",          "weather_snow_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.WeatherSnow,           TogglePhase),
+                new ButtonData("weather_lightning",     "weather_lightning_description",    "WorldSphereMod/ModIcon",       Core.savedSettings.WeatherLightning,      TogglePhase),
+                new ButtonData("post_fx",              "post_fx_description",              "WorldSphereMod/ModIcon",       Core.savedSettings.PostFX,              TogglePhase),
+                new ButtonData("particle_effects",     "particle_effects_description",     "WorldSphereMod/Logo",          Core.savedSettings.ParticleEffects,     TogglePhase),
+                new ButtonData("sanity_cube",           "sanity_cube_description",           "WorldSphereMod/ModIcon",       Core.savedSettings.DebugSanityCube,     ToggleDebugSanityCube),
             });
 
-            GameObject track = new GameObject("Track", typeof(RectTransform), typeof(Image));
-            track.transform.SetParent(sliderGO.transform, false);
-            Image trackImage = track.GetComponent<Image>();
-            trackImage.color = Color.gray;
+            CreateButton("Open Sprites", "WorldSphereMod/ModIcon", OpenSprites);
 
-            GameObject handleArea = new GameObject("Handle Slide Area", typeof(RectTransform));
-            handleArea.transform.SetParent(sliderGO.transform, false);
-            RectTransform handleAreaRt = handleArea.GetComponent<RectTransform>();
-            handleAreaRt.sizeDelta = new Vector2(100, 16);
-
-            GameObject handle = new GameObject("Handle", typeof(RectTransform), typeof(Image));
-            handle.transform.SetParent(handleArea.transform, false);
-            RectTransform handleRt = handle.GetComponent<RectTransform>();
-            handleRt.sizeDelta = new Vector2(14, 14);
-            Image handleImage = handle.GetComponent<Image>();
-            handleImage.color = Color.white;
-
-            slider.targetGraphic = handleImage;
-            slider.handleRect = handleRt;
-        }
-
-        static void AddStyleSwitcher(string label, string value, GameObject row, string[] options, UnityAction<string> onValueChanged, float width)
-        {
-            GameObject holder = new GameObject("StyleCell", typeof(RectTransform));
-            holder.transform.SetParent(row.transform, false);
-            AddLayoutElement(holder, width, width, 1f);
-
-            var layout = holder.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = 4f;
-            layout.childAlignment = TextAnchor.MiddleLeft;
-            layout.childControlWidth = false;
-            layout.childForceExpandHeight = false;
-            layout.childForceExpandWidth = true;
-
-            Text labelText = MakeText(label, 10, holder);
-            AddLayoutElement(labelText.gameObject, 120, 120, 0.3f);
-
-            GameObject valueGo = new GameObject("Value", typeof(RectTransform), typeof(Text));
-            valueGo.transform.SetParent(holder.transform, false);
-            Text valueText = valueGo.GetComponent<Text>();
-            valueText.text = value;
-            valueText.font = GetDefaultFont();
-            valueText.fontSize = 10;
-            valueText.resizeTextMaxSize = 10;
-            valueText.alignment = TextAnchor.MiddleCenter;
-            valueText.color = Color.white;
-            AddLayoutElement(valueGo, 84, 84, 0.5f);
-
-            void Step(int delta)
-            {
-                int currentIdx = System.Array.IndexOf(options, valueText.text);
-                if (currentIdx < 0) currentIdx = 0;
-                int next = (currentIdx + delta) % options.Length;
-                if (next < 0) next = options.Length - 1;
-                valueText.text = options[next];
-                onValueChanged(valueText.text);
-            }
-
-            GameObject prevButton = CreateMiniButton("<", holder, () => Step(-1));
-            AddLayoutElement(prevButton, 22, 22, 0.2f);
-            GameObject nextButton = CreateMiniButton(">", holder, () => Step(1));
-            AddLayoutElement(nextButton, 22, 22, 0.2f);
-        }
-
-        static GameObject CreateMiniButton(string text, GameObject parent, UnityAction action)
-        {
-            GameObject buttonGo = new GameObject("MiniButton", typeof(RectTransform), typeof(Image), typeof(Button));
-            buttonGo.transform.SetParent(parent.transform, false);
-            Image bg = buttonGo.GetComponent<Image>();
-            bg.color = new Color(0.25f, 0.25f, 0.25f, 1f);
-            Button button = buttonGo.GetComponent<Button>();
-            button.targetGraphic = bg;
-            button.onClick.AddListener(action);
-
-            Text textComponent = MakeText(text, 10, buttonGo);
-            textComponent.alignment = TextAnchor.MiddleCenter;
-            AddLayoutElement(textComponent.gameObject, 0, 0, 1f);
-            return buttonGo;
-        }
-
-        static void CreateSettingsPanel(
-            GameObject windowContent,
-            UnityAction<float> setVoxelScale,
-            UnityAction<float> setActorScale,
-            UnityAction<float> setBuildingSize,
-            UnityAction<float> setLodScale,
-            UnityAction<float> setVoxelThreshold,
-            UnityAction<float> setSpriteDepth,
-            UnityAction<float> setTileHeight,
-            UnityAction<string, bool> setPhaseFlag,
-            UnityAction<float> setSmoothingIterations,
-            UnityAction<float> setNeutralLuminance,
-            UnityAction<float> setShadowRecession,
-            UnityAction<string> setInflationStyle,
-            UnityAction<string, bool> setDebugFlag
-        )
-        {
-            GameObject panel = new GameObject("SettingsPanel", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-            panel.transform.SetParent(windowContent.transform, false);
-            VerticalLayoutGroup panelLayout = panel.GetComponent<VerticalLayoutGroup>();
-            panelLayout.spacing = 10f;
-            panelLayout.childForceExpandHeight = false;
-            panelLayout.childForceExpandWidth = true;
-            panelLayout.childAlignment = TextAnchor.UpperLeft;
-            panelLayout.childControlWidth = true;
-            panelLayout.childControlHeight = false;
-
-            ContentSizeFitter fitter = panel.GetComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-
-            AddSectionHeader("RENDER", panel, 500);
-
-            GameObject row = AddRow(panel);
-            AddLabelledSlider("Voxel Scale", 0.5f, 16f, 0.1f, Core.savedSettings.VoxelScaleMultiplier, row, setVoxelScale, 240);
-            AddLabelledSlider("Actor Scale", 0.01f, 1f, 0.01f, Core.savedSettings.ActorVoxelScaleFactor, row, setActorScale, 240);
-            AddLabelledSlider("Building Size", 0.1f, 5f, 0.05f, Core.savedSettings.BuildingSize, row, setBuildingSize, 240);
-
-            row = AddRow(panel);
-            AddLabelledSlider("LOD Scale", 0.1f, 2.5f, 0.05f, Core.savedSettings.LODScale, row, setLodScale, 240);
-            AddLabelledSlider("Voxel Threshold", 0.002f, 0.2f, 0.001f, WorldSphereMod.LOD.LodSelector.VoxelThreshold, row, setVoxelThreshold, 240);
-            AddLabelledSlider("Voxel Depth", 1f, 32f, 1f, Core.savedSettings.VoxelSpriteDepth, row, setSpriteDepth, 240, true);
-
-            AddSectionHeader("TERRAIN", panel, 500);
-            row = AddRow(panel);
-            AddLabelledSlider("Tile Height", 1f, 10f, 0.1f, Core.savedSettings.TileHeight, row, setTileHeight, 240);
-            AddLabelledToggle("Heightfield", Core.savedSettings.UseHeightFieldTerrain, (v) =>
-            {
-                Core.savedSettings.UseHeightFieldTerrain = v;
-                Core.SaveSettings();
-            }, row, 240);
-            AddLabelledToggle("Voxel Smoothing", Core.savedSettings.VoxelMeshSmoothing, (v) =>
-            {
-                Core.savedSettings.VoxelMeshSmoothing = v;
-                Core.SaveSettings();
-            }, row, 240);
-
-            row = AddRow(panel);
-            AddLabelledSlider("Smoothing Iter", 0f, 12f, 1f, Core.savedSettings.SmoothingIterations, row, setSmoothingIterations, 240);
-
-            AddSectionHeader("EFFECTS", panel, 500);
-            row = AddRow(panel);
-            AddLabelledToggle("Voxel Tonemap", Core.savedSettings.VoxelColorTonemap, (v) =>
-            {
-                Core.savedSettings.VoxelColorTonemap = v;
-                Core.SaveSettings();
-            }, row, 240);
-            AddLabelledToggle("Luminance Depth", Core.savedSettings.VoxelLuminanceDepth, (v) =>
-            {
-                Core.savedSettings.VoxelLuminanceDepth = v;
-                Core.SaveSettings();
-            }, row, 240);
-            AddLabelledSlider("Neutral Luma", 0f, 1f, 0.01f, Core.savedSettings.VoxelNeutralLuminance, row, setNeutralLuminance, 240);
-
-            row = AddRow(panel);
-            AddLabelledSlider("Shadow Recession", 0f, 4f, 0.05f, Core.savedSettings.VoxelShadowRecession, row, setShadowRecession, 240);
-            AddStyleSwitcher("Voxel Inflation", Core.savedSettings.VoxelInflationStyle, row, VoxelInflationStyleOptions, setInflationStyle, 240);
-
-            AddSectionHeader("FEATURES", panel, 500);
-            row = AddRow(panel);
-            AddLabelledToggle("Voxel Entities", Core.savedSettings.VoxelEntities, (v) => setPhaseFlag(nameof(SavedSettings.VoxelEntities), v), row, 240);
-            AddLabelledToggle("Procedural Buildings", Core.savedSettings.ProceduralBuildings, (v) => setPhaseFlag(nameof(SavedSettings.ProceduralBuildings), v), row, 240);
-            AddLabelledToggle("Procgen Style", Core.savedSettings.BuildingStyleProcgen, (v) =>
-            {
-                Core.savedSettings.BuildingStyleProcgen = v;
-                Core.SaveSettings();
-            }, row, 240);
-
-            row = AddRow(panel);
-            AddLabelledToggle("Fallback Draw Path", Core.savedSettings.ForceFallbackDrawPath, (v) =>
-            {
-                Core.savedSettings.ForceFallbackDrawPath = v;
-                Core.SaveSettings();
-                WorldSphereMod.Voxel.MeshInstanceBatcher.SetFallbackPath(v);
-            }, row, 240);
-
-            AddSectionHeader("DEBUG", panel, 500);
-            row = AddRow(panel);
-            AddLabelledToggle("Profiler Dump", Core.savedSettings.ProfilerDump, (v) => setDebugFlag(nameof(SavedSettings.ProfilerDump), v), row, 240);
-            AddLabelledToggle("Debug HUD", Core.savedSettings.DebugHUDVisible, (v) => setDebugFlag(nameof(SavedSettings.DebugHUDVisible), v), row, 240);
-            AddLabelledToggle("Sanity Cube", Core.savedSettings.DebugSanityCube, (v) => setDebugFlag(nameof(SavedSettings.DebugSanityCube), v), row, 240);
-
-            row = AddRow(panel);
-            AddLabelledToggle("Spawn Debug", Core.savedSettings.DebugSpawnBuildings, (v) => setDebugFlag(nameof(SavedSettings.DebugSpawnBuildings), v), row, 240);
-            AddLabelledToggle("Voxel Outline", Core.savedSettings.DebugVoxelOutline, (v) => setDebugFlag(nameof(SavedSettings.DebugVoxelOutline), v), row, 240);
-            AddLabelledToggle("Diag Overlay", Core.savedSettings.RenderDiagOverlay, (v) => setDebugFlag(nameof(SavedSettings.RenderDiagOverlay), v), row, 240);
-
-            row = AddRow(panel);
-            AddLabelledToggle("Render Error Props", Core.savedSettings.RenderErrorProps, (v) => setDebugFlag(nameof(SavedSettings.RenderErrorProps), v), row, 240);
+            // Phase 10 / R&D QoL: ProfilerDump toggle (also drives the in-game
+            // RuntimeStatsOverlay since the overlay's OnGUI gates on the same
+            // flag) and a destructive Reset-to-defaults action.
+            CreateToggleButton("ProfileMode", "WorldSphereMod/ModIcon", "profile_mode", "profile_mode_description", ToggleProfileMode, Core.savedSettings.ProfilerDump);
+            CreateButton("Reset Defaults", "WorldSphereMod/ModIcon", ResetToDefaults);
         }
 
         public static void PreloadPhaseIcons()
@@ -1420,3 +1018,5 @@ namespace WorldSphereMod.UI
         }
     }
 }
+
+
