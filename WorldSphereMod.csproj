@@ -15,6 +15,7 @@
     <Compile Remove="tests\**" />
     <Compile Remove="Tools\Unity-Bake-Project\**" />
     <Compile Remove="External\**" />
+    <Compile Remove="dist\**" />
     <EmbeddedResource Remove="WorldSphereAPI\**" />
     <EmbeddedResource Remove="WorldSphereTester\**" />
     <EmbeddedResource Remove="tests\**" />
