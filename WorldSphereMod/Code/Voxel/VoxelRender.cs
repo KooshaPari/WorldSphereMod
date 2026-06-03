@@ -512,6 +512,7 @@ namespace WorldSphereMod.Voxel
             static bool _emitDiagSawNonZero;
             static bool _billboardDiagLogged;
             static bool _voxelDiagLogged;
+            static bool _matDiagLogged;
 
             public static void ResetDiag()
             {
@@ -520,6 +521,7 @@ namespace WorldSphereMod.Voxel
                 _emitDiagSawNonZero = false;
                 _billboardDiagLogged = false;
                 _voxelDiagLogged = false;
+                _matDiagLogged = false;
             }
 
             [HarmonyPostfix]
@@ -583,6 +585,14 @@ namespace WorldSphereMod.Voxel
                     RenderErrorRegistry.Record(RenderErrorType.MaterialNull, "ActorManager",
                         "EnsureMaterial() returned no usable voxel material", Vector3.zero);
                     return;
+                }
+                if (!_matDiagLogged)
+                {
+                    _matDiagLogged = true;
+                    Material? matDiag = GetResolvedMaterial();
+                    string matName = matDiag?.name ?? "<null>";
+                    string shaderName = matDiag?.shader != null ? matDiag.shader.name : "<null shader>";
+                    Debug.Log($"[WSM3D][MAT-DIAG] material={matName} shader={shaderName}");
                 }
 
                 var rd = __instance.render_data;
@@ -726,6 +736,7 @@ namespace WorldSphereMod.Voxel
                         // NOTHING over a flat impostor. Keep the LOD distance logic (so near
                         // objects still voxelize) but the far tier draws nothing. Sprite is
                         // already suppressed above, so the object is invisible at distance.
+                        rd.scales[i] = Vector3.zero;
                         dsTierImpostor++;
                         dsImpostorMeshNull++;
                         continue;
