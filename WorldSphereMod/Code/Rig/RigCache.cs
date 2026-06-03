@@ -69,7 +69,7 @@ namespace WorldSphereMod.Rig
                 return VoxelMeshCache.BuildWithBoneWeights(sprite, rigType);
             }
 
-            Mesh mesh = SpriteVoxelizer.BuildPerTexel(sprite, -1, out _);
+            Mesh mesh = SpriteVoxelizer.BuildOrganicBlob(sprite, -1, out _);
             return new SkinnedVoxelMesh
             {
                 BaseMesh = mesh,

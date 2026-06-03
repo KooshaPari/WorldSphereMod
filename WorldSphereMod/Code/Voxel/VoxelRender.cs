@@ -1820,7 +1820,10 @@ namespace WorldSphereMod.Voxel
             if (Core.savedSettings?.ProceduralBuildings == true)
             {
                 Material? procBuildingMaterial = VoxelRender.GetResolvedMaterial();
-                WorldSphereMod.ProcGen.BuildingProcRender.ProcMeshEmit.FlushQueuedBuildingDraws(procBuildingMaterial);
+                WorldSphereMod.ProcGen.BuildingProcRender.ProcMeshEmit.FlushQueuedBuildingDraws(
+                    procBuildingMaterial,
+                    out _,
+                    out _);
             }
             VoxelMeshCache.DrainPendingDestroy();
 

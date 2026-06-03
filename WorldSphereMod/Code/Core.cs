@@ -920,7 +920,7 @@ namespace WorldSphereMod
             {
                 if (tile == null) return new Color32(128, 128, 128, 255);
                 int texIdx = WorldTileTexture(tile);
-                Color32 c = GetTextureAverageColor(texIdx);
+                Color32 c = GetTexturePixelColor(texIdx, tile.x, tile.y);
                 // If texIdx<=0 and we got the mid-gray fallback, try pixel buffer too.
                 if (texIdx <= 0)
                 {
@@ -932,17 +932,11 @@ namespace WorldSphereMod
                 }
                 return c;
             }
-            static Color32 GetTextureAverageColor(int textureIndex)
+            static Color32 GetTexturePixelColor(int textureIndex, int tileX, int tileY)
             {
                 if (Textures == null || textureIndex < 0 || textureIndex >= Textures.depth)
                 {
                     return new Color32(128, 128, 128, 255);
-                }
-
-                TextureCenterColorCache ??= new Dictionary<int, Color32>();
-                if (TextureCenterColorCache.TryGetValue(textureIndex, out Color32 cached))
-                {
-                    return cached;
                 }
 
                 Color32[] pixels;
@@ -967,18 +961,17 @@ namespace WorldSphereMod
                     return new Color32(128, 128, 128, 255);
                 }
 
-                int centerX = Mathf.Clamp(w / 2, 0, w - 1);
-                int centerY = Mathf.Clamp(h / 2, 0, h - 1);
-                int centerIndex = (centerY * w) + centerX;
-                if (centerIndex < 0 || centerIndex >= pixels.Length)
+                int px = ((tileX % w) + w) % w;
+                int py = ((tileY % h) + h) % h;
+                int pixelIndex = (py * w) + px;
+                if (pixelIndex < 0 || pixelIndex >= pixels.Length)
                 {
                     return new Color32(128, 128, 128, 255);
                 }
 
-                Color32 center = pixels[centerIndex];
-                center.a = 255;
-                TextureCenterColorCache[textureIndex] = center;
-                return center;
+                Color32 sample = pixels[pixelIndex];
+                sample.a = 255;
+                return sample;
             }
             // Sample a tile's base color (composed map-layer pixels) at (x,y),
             // honoring X-wrap for cylindrical worlds. Returns false when the
