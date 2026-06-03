@@ -1,8 +1,8 @@
 # ADR-sota-gpu-compute-adoption: Adopting Compound-Spheres GPU-Compute Rewrite as SOTA Renderer Base
 
-**Status:** Proposed (P1 scaffolding accepted)
+**Status:** Accepted — Implemented (P0-P5 landed, visual gate pending)
 
-**Date:** 2026-05-30
+**Date:** 2026-06-02
 
 **Author:** Claude / KooshaPari
 
@@ -11,6 +11,27 @@
 `MelvinShwuaner/Compound-Spheres`.
 
 ---
+
+## Implementation Status
+
+All phases (P0–P5) are implemented on branch `feat/gpu-compute-p4-consumer-migration`
+and CI-verified as of 2026-06-02.
+
+| Phase | Commit | Status |
+|---|---|---|
+| P0 | `3564692d` | IGridDimensions port + HeightFieldRenderer decoupled |
+| P1 | `1f8ea647` | GpuSphereManager.Creator.CreateSphereManagerAsync vendored |
+| P2 | `4c0fa34b` | GpuSphereManager wired in parallel with CPU Manager; SetActive(false) until BindGpu |
+| P3 | `2ac48ade` | RefreshSphere/UpdateLayer/UpdateBaseLayer mirrored to GpuManager |
+| P4 | `64695b45` | BindGpu: HeightField heights pushed to GPU, layer re-activated |
+| P5 | `5665df5f` | CreateGpuSettings passes CompoundCompute; null-guard fallback |
+| PR#37 fixes | `1ade9d3f` | Null-guards, ConfigureShape, UpdateScale/UpdateTexture mirrors |
+
+**CI results (2026-06-02):** Build 0 errors, 537 pass / 3 intentional skips (superproject) + 19/19 parity tests (submodule).
+
+**DLL vendor:** `WorldSphereMod/Assemblies/CompoundSpheres.dll` SHA256 `62D4DEA1138AC2EF03DA08EFE5C28511164E40B212EF943EB1304443B9DD28E7` matches sota/gpu-compute-golive @ 308f2bb.
+
+**Remaining gate:** Unity-runtime visual confirm (user-gated). See `docs/199-merge-checklist.md`.
 
 ## Context
 
@@ -134,28 +155,4 @@ delete the legacy `SphereManager`/`SphereTile`/`SphereManagerSettings` and the
 shim. Update the reflected `"SphereTiles"` lookup to `"Tiles"`.
 
 ### P5 — Rebuild DLL + 60f1 bundle
-`dotnet build WorldSphereMod.csproj -c Release`; run `Tools/bake-shaders.ps1`
-to bake the compute shader into the `wsm3d-shaders` bundle; `install.ps1`
-(stale-DLL fix). Vision-verify per the project charter.
-
----
-
-## Consequences
-
-- **Positive:** removes the entire CPU matrix/color upload (ADR-0015's
-  chunked-upload workaround becomes unnecessary), shifts work to GPU, scales to
-  large maps; SphereTile becomes a lightweight class; keeps our fork features.
-- **Negative / risk:** two parallel manager implementations during P1–P3
-  (shim cost); FrustumCuller rework is the riskiest piece; compute path requires
-  `SystemInfo.supportsComputeShaders` (already gated in `Mod.cs:29`).
-- **Reversible:** the `.compute` + additive types do not touch the old build;
-  if P4 stalls we still ship the old CPU path.
-
-## Status of this phase (P1 scaffolding)
-
-- **DONE:** authored `Default Assets/CompoundSphereCompute.compute` (kernels
-  `OutputMatrices` + `OutputColors`, contract above); this ADR; adapter-shim
-  signature stubs (if committed — see report).
-- **DEFERRED to P2+:** importing upstream `ManagerBase`/`Dynamic*`/`BufferBase`
-  types, full shim body, HeightFieldRenderer port, FrustumCuller rework,
-  consumer migration, bake-script `*.compute` support, DLL+bundle rebuild.
+`dotnet build WorldSphereMod.csproj -c Release`; run `Tools/bake-shaders.ps
