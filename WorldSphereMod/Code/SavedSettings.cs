@@ -79,7 +79,7 @@ public class SavedSettings
         // terrain VoxelScaleMultiplier made actors gigantic (clipping the camera at max zoom).
         // Effective actor render scale = VoxelScaleMultiplier * ActorVoxelScaleFactor.
         // Previous 0.25 → net 2x actors (8 * 0.25), so use a lower default for near-1-tile reads.
-        public float ActorVoxelScaleFactor = 0.20f;
+        public float ActorVoxelScaleFactor = 0.35f;
         public bool DebugVoxelOutline = false;
         public bool DebugSanityCube = false;
         public bool DebugSpawnBuildings = false;
@@ -241,7 +241,7 @@ public class SavedSettings
             // #206: re-apply the actor voxel scale so persisted JSON (which shadows the field
             // default) re-migrates to the current actor-size default. Requires SettingsVersion
             // bump (Core.cs 2.4 -> 2.5) so loadedData.Version mismatch triggers this migration.
-            s.ActorVoxelScaleFactor = 0.20f;
+            s.ActorVoxelScaleFactor = 0.35f;
             s.MeshWater = false;
             s.WorldspaceHealth3D = false;
             s.MountainSlopeSmoothing = false;
