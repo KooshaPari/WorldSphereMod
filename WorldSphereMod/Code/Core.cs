@@ -896,7 +896,7 @@ namespace WorldSphereMod
                     int idx = tile.y * w + tile.x;
                     Color32[] wp = World.world?.world_layer?.pixels;
                     if (wp != null && idx >= 0 && idx < wp.Length && wp[idx].a > 0)
-                    return wp[idx];
+                        return wp[idx];
                 }
                 return c;
             }
@@ -944,7 +944,7 @@ namespace WorldSphereMod
                 }
 
                 Color32 center = pixels[centerIndex];
-                center.a = (byte)Mathf.Max(center.a, (byte)255);
+                center.a = 255;
                 TextureCenterColorCache[textureIndex] = center;
                 return center;
             }
