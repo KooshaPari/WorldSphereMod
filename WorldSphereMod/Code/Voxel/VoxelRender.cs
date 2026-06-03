@@ -1418,6 +1418,7 @@ namespace WorldSphereMod.Voxel
 
         static bool _tickDiagLogged;
         static bool _tickPerfBreakdownLogged;
+        static bool _ensurePatchesDone;   // guards the one-shot EnsurePhasePatches call (#208)
 
         /// <summary>Per-frame voxel/FX driver; invoked from MapBox.renderStuff Harmony hook so it survives scene transitions.</summary>
         public static void TickPerFrame()
@@ -1634,11 +1635,15 @@ namespace WorldSphereMod.Voxel
                 try { Core.Sphere.PrepareWorld(); }
                 catch (System.Exception ex) { Debug.LogError($"[WSM3D] Deferred Sphere.PrepareWorld FAILED: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}"); }
             }
-            // Belt-and-suspenders: re-apply phase patches on the first tick after world
-            // is ready, in case NML skipped PostInit (save loaded before post-init phase).
-            // EnsurePhasePatches is idempotent — already-patched types are skipped. (#208)
-            if (!_tickDiagLogged)
+            // Belt-and-suspenders: re-apply phase patches on the FIRST tick only, in case
+            // NML skipped PostInit on a save-load path. _ensurePatchesDone is a dedicated
+            // one-shot flag so this never fires on subsequent frames — EnsurePhasePatches
+            // calls ApplyPhaseToggle which calls VoxelMeshCache.Clear() as a side-effect,
+            // and running that every frame was the cause of voxelCacheSize=0 + frameMs=400.
+            // (#208 voxel-cache-clear-every-frame root cause)
+            if (!_ensurePatchesDone)
             {
+                _ensurePatchesDone = true;
                 try { Core.EnsurePhasePatches(); }
                 catch (System.Exception ex) { Debug.LogWarning("[WSM3D] TickPerFrame EnsurePhasePatches failed: " + ex.Message); }
             }
