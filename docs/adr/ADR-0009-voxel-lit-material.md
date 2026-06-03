@@ -1,6 +1,6 @@
 # ADR 0009 — Voxel lit material chain for voxels
 
-**Status:** Proposed
+**Status:** Aspirational — OpaqueVertexColor (non-lit) chosen as the shipped voxel material; VoxelLit concept not implemented. Pending user review for archival.
 **Date:** 2026-05-18
 
 ## Context

@@ -1,6 +1,6 @@
 # ADR-0012 - AssetBundle shader bake plan for VoxelLit instancing
 
-**Status:** Proposed
+**Status:** Superseded by ADR-0021 (assetbundle-postfx-bundle-lessons)
 **Date:** 2026-05-19
 
 ## Context
