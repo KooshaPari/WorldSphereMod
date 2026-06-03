@@ -83,7 +83,7 @@ public class SavedSettings
         // reads at slightly under one tile; the voxel mesh extends above the tile so net 1.0x still
         // looked oversized, hence the small undershoot. Terrain (raw VoxelScaleMultiplier) and
         // buildings/projectiles (raw 8x, do NOT use this factor) are unaffected.
-        public float ActorVoxelScaleFactor = 0.10f;
+        public float ActorVoxelScaleFactor = 0.50f;
         public bool DebugVoxelOutline = false;
         public bool DebugSanityCube = false;
         public bool DebugSpawnBuildings = false;
@@ -121,7 +121,7 @@ public class SavedSettings
         // Terrain polish: blend biome colors across tile boundaries.
         public bool BiomeBlending = true;
         // Phase 4: Mesh water surface (vs. flat tile color).
-        public bool MeshWater = false;
+        public bool MeshWater = true;
         // Worldspace health bar style: true => 3D mesh bars, false => legacy billboard quads.
         public bool WorldspaceHealth3D = false;
         // Mountain slope smoothing: smooth overlay mesh that blends the upstream
@@ -245,7 +245,7 @@ public class SavedSettings
             // #206: re-apply the actor voxel scale so persisted JSON (which shadows the field
             // default) re-migrates to the smaller net 0.8x actor size. Requires SettingsVersion
             // bump (Core.cs 2.4 -> 2.5) so loadedData.Version mismatch triggers this migration.
-            s.ActorVoxelScaleFactor = 0.10f;
+            s.ActorVoxelScaleFactor = 0.50f;
             s.MeshWater = false;
             s.WorldspaceHealth3D = false;
             s.MountainSlopeSmoothing = false;
