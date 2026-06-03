@@ -653,11 +653,10 @@ namespace WorldSphereMod.Voxel
                         continue;
                     }
                     LastFrustumCullerPassCount++;
-                    // Use actor-specific rendered height for LOD so the threshold tracks the
-                    // actual actor scale (instead of sharing one fixed baseline for every actor).
-                    float actorScale = Mathf.Abs(rd.scales != null && i < rd.scales.Length ? rd.scales[i].y : 1f);
-                    if (actorScale <= 0.0001f) actorScale = 1f;
-                    float actorEntityHeight = actorScale * Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor;
+                    // Use fixed baseline height for LOD — rd.scales[i].y is the tiny vanilla
+                    // sprite render scale (~0.05), not the voxel mesh height. Fixed baseline
+                    // of 0.5 * VoxelScaleMultiplier * ActorVoxelScaleFactor matches LodSelector default.
+                    float actorEntityHeight = 0.5f * Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor;
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, a.GetHashCode(), actorEntityHeight);
                     // Two-tier ladder: Voxel (near, emit mesh) or Cull (far, draw nothing).
                     if (tier == WorldSphereMod.LOD.LodTier.Cull) dsTierImpostor++;
