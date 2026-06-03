@@ -209,7 +209,7 @@ public class SavedSettings
             if (s == null) throw new ArgumentNullException(nameof(s));
 
             s.VoxelEntities = true;
-            s.ProceduralBuildings = false;
+            s.ProceduralBuildings = true;
             s.CrossedQuadFoliage = false;
             s.BiomeBlending = false;
             s.MeshWater = false;
@@ -239,7 +239,7 @@ public class SavedSettings
             if (s == null) throw new ArgumentNullException(nameof(s));
 
             s.VoxelEntities = true;
-            s.ProceduralBuildings = false;
+            s.ProceduralBuildings = true;
             s.CrossedQuadFoliage = true; // WHY: gates the foliage patch; off = trees stay vanilla 2D
             s.UseHeightFieldTerrain = true; // #201: smooth corner-averaged terrain mesh (off = cube-step regression)
             // #206: re-apply the actor voxel scale so persisted JSON (which shadows the field
