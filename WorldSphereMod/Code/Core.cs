@@ -777,7 +777,7 @@ namespace WorldSphereMod
             const int TerrainTextureAtlasTileSize = 8;
             static SphereManagerSettings SphereManagerConfig;
             static Dictionary<Tile, int> TileIDS;
-            static Dictionary<int, Color32> TextureAverageCache;
+            static Dictionary<int, Color32> TextureCenterColorCache;
             #endregion
             public static List<MapLayer> BaseLayers;
             public static Dictionary<MapLayer, PixelArray> CachedColors;
@@ -876,13 +876,13 @@ namespace WorldSphereMod
             }
 
             /// <summary>
-            /// Get biome color for a tile directly from its sprite texture average.
-            /// In 3D mode tilemap.redrawTiles() is intercepted + bypassed, so
-            /// world_layer.pixels and MapLayer.pixels are never painted — GetBaseColor
-            /// returns (0,0,0,0) for every tile. This bypasses that buffer entirely
-            /// and reads the tile's canonical sprite texture color from the same
-            /// Texture2DArray built by CreateTextures(). O(1) via TextureAverageCache.
-            /// (#208 terrain-gray root cause fix)
+            /// Get biome color for a tile from the center texel of its terrain sprite
+            /// texture slice in the texture array built by CreateTextures(). In 3D mode,
+            /// tilemap.redrawTiles() is intercepted + bypassed, so world_layer.pixels and
+            /// MapLayer.pixels are never painted — we bypass that buffer entirely and use
+            /// a texture-slice cache here. This keeps color sampling aligned to the
+            /// source sprite data and avoids atlas-UV remap mistakes.
+            /// (#208 terrain-gray root cause fix, center-pixel fidelity follow-up)
             /// </summary>
             public static Color32 GetTileColor(WorldTile tile)
             {
@@ -896,7 +896,7 @@ namespace WorldSphereMod
                     int idx = tile.y * w + tile.x;
                     Color32[] wp = World.world?.world_layer?.pixels;
                     if (wp != null && idx >= 0 && idx < wp.Length && wp[idx].a > 0)
-                        return wp[idx];
+                    return wp[idx];
                 }
                 return c;
             }
@@ -907,8 +907,8 @@ namespace WorldSphereMod
                     return new Color32(128, 128, 128, 255);
                 }
 
-                TextureAverageCache ??= new Dictionary<int, Color32>();
-                if (TextureAverageCache.TryGetValue(textureIndex, out Color32 cached))
+                TextureCenterColorCache ??= new Dictionary<int, Color32>();
+                if (TextureCenterColorCache.TryGetValue(textureIndex, out Color32 cached))
                 {
                     return cached;
                 }
@@ -928,38 +928,25 @@ namespace WorldSphereMod
                     return new Color32(128, 128, 128, 255);
                 }
 
-                long r = 0;
-                long g = 0;
-                long b = 0;
-                long opaqueCount = 0;
-                // Average OPAQUE pixels only — transparent border pixels (alpha=0)
-                // have RGB=(0,0,0) and would drag the average to near-black, making
-                // grass/dirt/sand appear dark gray even though their sprite is colored.
-                // Snow/lava appeared correct before because their overlay/liquid paths
-                // bypass this function entirely. (#208 terrain-gray root cause)
-                for (int i = 0; i < pixels.Length; i++)
+                int w = Textures.width;
+                int h = Textures.height;
+                if (w <= 0 || h <= 0)
                 {
-                    Color32 p = pixels[i];
-                    if (p.a < 64) continue; // skip transparent/near-transparent border pixels
-                    r += p.r;
-                    g += p.g;
-                    b += p.b;
-                    opaqueCount++;
-                }
-                // If no opaque pixels found (fully transparent sprite), fall back to full avg.
-                if (opaqueCount == 0)
-                {
-                    for (int i = 0; i < pixels.Length; i++) { r += pixels[i].r; g += pixels[i].g; b += pixels[i].b; }
-                    opaqueCount = pixels.Length;
+                    return new Color32(128, 128, 128, 255);
                 }
 
-                Color32 average = new Color32(
-                    (byte)Mathf.Clamp((int)(r / opaqueCount), 0, 255),
-                    (byte)Mathf.Clamp((int)(g / opaqueCount), 0, 255),
-                    (byte)Mathf.Clamp((int)(b / opaqueCount), 0, 255),
-                    255);
-                TextureAverageCache[textureIndex] = average;
-                return average;
+                int centerX = Mathf.Clamp(w / 2, 0, w - 1);
+                int centerY = Mathf.Clamp(h / 2, 0, h - 1);
+                int centerIndex = (centerY * w) + centerX;
+                if (centerIndex < 0 || centerIndex >= pixels.Length)
+                {
+                    return new Color32(128, 128, 128, 255);
+                }
+
+                Color32 center = pixels[centerIndex];
+                center.a = (byte)Mathf.Max(center.a, (byte)255);
+                TextureCenterColorCache[textureIndex] = center;
+                return center;
             }
             // Sample a tile's base color (composed map-layer pixels) at (x,y),
             // honoring X-wrap for cylindrical worlds. Returns false when the
@@ -1395,14 +1382,7 @@ namespace WorldSphereMod
                     // the entire terrain surface renders BLACK. Force the built-in
                     // white pixel so vertex colors survive. VoxelRender has the same guard.
                     if (hfMat.HasProperty("_MainTex"))
-                    {
-                        Texture2D atlas = TerrainTextureAtlas;
-                        hfMat.SetTexture("_MainTex", atlas != null ? atlas : Texture2D.whiteTexture);
-                        if (atlas != null)
-                        {
-                            // ConfigureTerrainAtlas not available in current CompoundSpheres build
-                        }
-                    }
+                        hfMat.SetTexture("_MainTex", Texture2D.whiteTexture);
                     if (hfMat.HasProperty("_BaseMap"))
                         hfMat.SetTexture("_BaseMap", Texture2D.whiteTexture);
 
@@ -2297,8 +2277,8 @@ namespace WorldSphereMod
                     Textures.SetPixels32(GetTruePixels(Sprites[i]), i);
                 }
                 Textures.Apply();
-                BuildTerrainTextureAtlas(Sprites);
-                TextureAverageCache = new Dictionary<int, Color32>();
+                // BuildTerrainTextureAtlas disabled — atlas UV mapping not ready
+                TextureCenterColorCache = new Dictionary<int, Color32>();
                 void AddTile(TileTypeBase Tile)
                 {
                     TileSprites sprites = Tile.sprites;
