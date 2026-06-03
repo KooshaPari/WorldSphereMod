@@ -207,9 +207,13 @@ namespace WorldSphereMod.Bridge
             }
         }
 
+        // Single Update drain is sufficient — LateUpdate and FixedUpdate redundantly
+        // called DrainStaticQueue at ~170 total invocations/sec vs 60 needed.
+        // VoxelRender.LateUpdate also calls DrainStaticQueue to handle submits
+        // queued mid-frame, so bridge commands still get processed before the camera
+        // renders without needing a FixedUpdate path. (#robustness perf)
         void Update() => DrainStaticQueue();
-        void LateUpdate() => DrainStaticQueue();
-        void FixedUpdate() => DrainStaticQueue();
+        // LateUpdate and FixedUpdate DrainStaticQueue calls removed — redundant drain.
 
         void OnDestroy()
         {
