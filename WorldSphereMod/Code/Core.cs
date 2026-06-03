@@ -169,12 +169,14 @@ namespace WorldSphereMod
                 try { ApplyPhaseToggle(nameof(SavedSettings.CrossedQuadFoliage), true); }
                 catch (System.Exception ex) { Debug.LogWarning("[WSM3D] EnsurePhasePatches CrossedQuadFoliage: " + ex.Message); }
             }
-            // Explicitly re-assert ProceduralBuildings after settings load/migration so
-            // its [Phase] patch is always installed when enabled and disabled when off.
+            // Force ProceduralBuildings=true regardless of what ApplyPhaseDefaults set.
+            // ApplyPhaseDefaults runs before EnsurePhasePatches and resets it to false;
+            // this override ensures the mesh-instancing building path is always active.
+            savedSettings.ProceduralBuildings = true;
             bool proceduralBuildingsPatchInstalled = false;
             try
             {
-                ApplyPhaseToggle(nameof(SavedSettings.ProceduralBuildings), savedSettings.ProceduralBuildings);
+                ApplyPhaseToggle(nameof(SavedSettings.ProceduralBuildings), true);
                 proceduralBuildingsPatchInstalled = IsProceduralBuildingsPatchInstalled();
             }
             catch (System.Exception ex) { Debug.LogWarning("[WSM3D] EnsurePhasePatches ProceduralBuildings: " + ex.Message); }
