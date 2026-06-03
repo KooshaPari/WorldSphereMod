@@ -780,6 +780,7 @@ namespace WorldSphereMod.Voxel
         [HarmonyPatch(typeof(ActorManager), nameof(ActorManager.precalculateRenderDataParallel))]
         public static class ActorVoxelEmit
         {
+            static bool _actorLodDiagLogged;
             public static bool EmitVoxelsCalled;
             public static int LastVisibleUnitsCount;
             public static int LastFrustumCullerPassCount;
@@ -935,6 +936,11 @@ namespace WorldSphereMod.Voxel
                     // of 0.5 * VoxelScaleMultiplier * ActorVoxelScaleFactor matches LodSelector default.
                     float actorEntityHeight = 0.5f * Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor;
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, a.GetHashCode(), actorEntityHeight);
+                    if (!_actorLodDiagLogged) {
+                        float dist = (cullPos - CameraManager.MainCamera.transform.position).magnitude;
+                        Debug.Log($"[WSM3D][ACTOR-LOD-DIAG] entityH={actorEntityHeight:F2} dist={dist:F1} thr={WorldSphereMod.LOD.LodSelector.VoxelThreshold:F3} tier={tier}");
+                        _actorLodDiagLogged = true;
+                    }
                     // Two-tier ladder: Voxel (near, emit mesh) or Cull (far, draw nothing).
                     if (tier == WorldSphereMod.LOD.LodTier.Cull) dsTierImpostor++;
                     else dsTierVoxel++;
@@ -1381,7 +1387,7 @@ namespace WorldSphereMod.Voxel
                     // Lift mesh center up by half world-space height (same fix as
                     // ActorVoxelEmit): without it, mesh center sits at To3DTileHeight,
                     // which embeds half the mesh inside the terrain/foundation voxel.
-                    scl *= Core.savedSettings.VoxelScaleMultiplier;
+                    scl *= Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.BuildingVoxelScaleFactor;
                     // Clamp building voxel sprite height to prevent excessive vertical scale
                     // (e.g. 5-10 px * 16 = 80-160 uu).
                     scl.x = Mathf.Sign(scl.x) * Mathf.Min(Mathf.Abs(scl.x), BuildingMaxScale);
