@@ -303,6 +303,7 @@ namespace WorldSphereMod.ProcGen
                     batch.Clear();
                 }
 
+                // One-shot diagnostic: first non-empty flush, so we capture the first frame where queues were actually rendered.
                 if (!_buildingDrawDiagLogged && matricesTotal > 0)
                 {
                     _buildingDrawDiagLogged = true;
