@@ -101,6 +101,7 @@ namespace WorldSphereMod.ProcGen
 
                     if (tier == WorldSphereMod.LOD.LodTier.Cull)
                     {
+                        rd.scales[i] = Vector3.zero;
                         if (profile) impostorSw.Start();
                         try
                         {
