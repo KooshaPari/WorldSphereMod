@@ -10,6 +10,18 @@ using Debug = UnityEngine.Debug;
 
 namespace WorldSphereMod.Voxel
 {
+    public enum VoxelEntityType
+    {
+        Unknown,
+        Actor,
+        Building,
+        Foliage,
+        Procedural,
+        Effect,
+        Vehicle,
+        Other,
+    }
+
     /// <summary>
     /// LRU cache of voxelized meshes keyed by <see cref="Sprite.GetInstanceID"/>. Survives
     /// world rebuilds (entries live in the static dictionary), but evicts on capacity.
@@ -153,7 +165,7 @@ namespace WorldSphereMod.Voxel
                         string.Equals(kvp.Value.Snapshot.spriteName, spriteName, System.StringComparison.Ordinal))
                     {
                         // Back-fill name index for next time
-                        _nameToSpriteId[spriteName] = kvp.Key;
+                        _nameToSpriteId[spriteName] = kvp.Value.Snapshot != null ? kvp.Value.Snapshot.spriteId : key;
                         snapshot = kvp.Value.Snapshot;
                         return true;
                     }
@@ -181,14 +193,25 @@ namespace WorldSphereMod.Voxel
             int key = sprite.GetInstanceID();
             lock (_lock)
             {
-                if (!_cache.TryGetValue(key, out Entry entry) || entry.Snapshot == null)
+                foreach (var kvp in _cache)
                 {
-                    return false;
+                    if (kvp.Value.Snapshot != null && kvp.Value.Snapshot.spriteId == key)
+                    {
+                        snapshot = kvp.Value.Snapshot;
+                        return true;
+                    }
                 }
-
-                snapshot = entry.Snapshot;
-                return true;
             }
+            return false;
+        }
+
+        static int ResolveCacheKey(int spriteId, ShapeHint shapeHint, VoxelEntityType entityType)
+        {
+            if (entityType == VoxelEntityType.Actor && shapeHint == ShapeHint.OrganicBlob)
+            {
+                return spriteId == int.MinValue ? int.MinValue : -spriteId - 1;
+            }
+            return spriteId;
         }
 
         public static List<MeshSnapshot> DescribeAll()
@@ -268,10 +291,27 @@ namespace WorldSphereMod.Voxel
         }
 
         /// <summary>Return the cached voxel mesh for <paramref name="sprite"/>, building one if missing.</summary>
-        public static Mesh Get(Sprite sprite, int depth = -1, bool forceSyncBuild = false)
+        public static Mesh Get(Sprite sprite, int depth = -1, bool forceSyncBuild = false, VoxelEntityType entityType = VoxelEntityType.Unknown)
+        {
+            return Get(sprite, entityType == VoxelEntityType.Actor ? ShapeHint.OrganicBlob : ShapeHint.Auto, forceSyncBuild, entityType, depth);
+        }
+
+        public static Mesh Get(Sprite sprite, ShapeHint shapeHint, bool forceSyncBuild = false, VoxelEntityType entityType = VoxelEntityType.Unknown)
+        {
+            return Get(sprite, shapeHint, forceSyncBuild, entityType, -1);
+        }
+
+        static Mesh Get(Sprite sprite, ShapeHint shapeHint, bool forceSyncBuild, VoxelEntityType entityType, int depth)
         {
             if (sprite == null) return null;
-            int key = sprite.GetInstanceID();
+
+            if (shapeHint == ShapeHint.Auto && entityType == VoxelEntityType.Actor)
+            {
+                shapeHint = ShapeHint.OrganicBlob;
+            }
+
+            int spriteId = sprite.GetInstanceID();
+            int key = ResolveCacheKey(spriteId, shapeHint, entityType);
             lock (_lock)
             {
                 if (_cache.TryGetValue(key, out var e))
@@ -288,12 +328,12 @@ namespace WorldSphereMod.Voxel
                         e.Mesh = replacement;
                         e.LastFrame = _frame;
                         _cache[key] = e;
-                        if (sprite != null && !string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = key;
+                        if (sprite != null && !string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = spriteId;
                         return replacement;
                     }
                     e.LastFrame = _frame;
                     _cache[key] = e;
-                    if (sprite != null && !string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = key;
+                    if (sprite != null && !string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = spriteId;
                     System.Threading.Interlocked.Increment(ref _hits);
                     return e.Mesh;
                 }
@@ -307,68 +347,13 @@ namespace WorldSphereMod.Voxel
                 lock (_lock)
                 {
                     _cache[key] = new Entry { Mesh = diskMesh, Snapshot = diskSnapshot, LastFrame = _frame };
-                    if (!string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = key;
+                    if (!string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = spriteId;
                     if (_cache.Count > Capacity) Evict();
                 }
                 return diskMesh;
             }
 
-            EnqueueBuild(sprite, depth, key);
-            return GetPlaceholderVoxelMesh(sprite);
-        }
-
-        /// <summary>
-        /// Return a cached voxel mesh using an explicit shape hint.
-        /// This lets callers bypass the asset-name registry when a semantic
-        /// hint is already known.
-        /// </summary>
-        public static Mesh Get(Sprite sprite, ShapeHint shapeHint, bool forceSyncBuild = false)
-        {
-            if (sprite == null) return null;
-
-            int key = sprite.GetInstanceID();
-            lock (_lock)
-            {
-                if (_cache.TryGetValue(key, out var e))
-                {
-                    if (e.Mesh == null || e.Mesh.vertexCount == 0)
-                    {
-                        Mesh replacement = GetPlaceholderVoxelMesh(sprite);
-                        if (replacement == null)
-                        {
-                            _cache.Remove(key);
-                            return null;
-                        }
-
-                        e.Mesh = replacement;
-                        e.LastFrame = _frame;
-                        _cache[key] = e;
-                        if (sprite != null && !string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = key;
-                        return replacement;
-                    }
-                    e.LastFrame = _frame;
-                    _cache[key] = e;
-                    if (sprite != null && !string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = key;
-                    System.Threading.Interlocked.Increment(ref _hits);
-                    return e.Mesh;
-                }
-            }
-
-            System.Threading.Interlocked.Increment(ref _misses);
-
-            if (VoxelDiskCache.TryGetFromDisk(sprite, out Mesh diskMesh2))
-            {
-                var diskSnapshot2 = CreateSnapshot(sprite, diskMesh2, diskMesh2.vertices, diskMesh2.colors32, diskMesh2.triangles);
-                lock (_lock)
-                {
-                    _cache[key] = new Entry { Mesh = diskMesh2, Snapshot = diskSnapshot2, LastFrame = _frame };
-                    if (!string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = key;
-                    if (_cache.Count > Capacity) Evict();
-                }
-                return diskMesh2;
-            }
-
-            EnqueueBuild(sprite, -1, key, shapeHint);
+            EnqueueBuild(sprite, shapeHint == ShapeHint.Auto ? depth : -1, key, shapeHint);
             return GetPlaceholderVoxelMesh(sprite);
         }
 
@@ -419,7 +404,7 @@ namespace WorldSphereMod.Voxel
                 _cache[key] = new Entry { Mesh = mesh, Snapshot = snapshot, LastFrame = _frame };
                 if (sprite != null && !string.IsNullOrEmpty(sprite.name))
                 {
-                    _nameToSpriteId[sprite.name] = key;
+                    _nameToSpriteId[sprite.name] = sprite.GetInstanceID();
                 }
                 if (_cache.Count > Capacity) Evict();
             }
@@ -437,7 +422,7 @@ namespace WorldSphereMod.Voxel
                 }
 
                 _cache[key] = new Entry { Mesh = GetPlaceholderVoxelMesh(sprite), Snapshot = null, LastFrame = _frame };
-                if (sprite != null && !string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = key;
+                if (sprite != null && !string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = sprite.GetInstanceID();
                 _pendingBuilds.Add(key);
                 Interlocked.Increment(ref _totalBuilds);
                 if (_cache.Count > Capacity) Evict();

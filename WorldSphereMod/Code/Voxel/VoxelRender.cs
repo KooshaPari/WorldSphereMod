@@ -512,7 +512,6 @@ namespace WorldSphereMod.Voxel
             static bool _emitDiagSawNonZero;
             static bool _billboardDiagLogged;
             static bool _voxelDiagLogged;
-            static bool _actorLodDiagLogged;
             static bool _matDiagLogged;
 
             public static void ResetDiag()
@@ -659,11 +658,6 @@ namespace WorldSphereMod.Voxel
                     // of 0.5 * VoxelScaleMultiplier * ActorVoxelScaleFactor matches LodSelector default.
                     float actorEntityHeight = 0.5f * Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor;
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, a.GetHashCode(), actorEntityHeight);
-                    if (!_actorLodDiagLogged) {
-                        float dist = (cullPos - CameraManager.MainCamera.transform.position).magnitude;
-                        Debug.Log($"[WSM3D][ACTOR-LOD-DIAG] entityH={actorEntityHeight:F3} dist={dist:F1} lodScale={Core.savedSettings.LODScale} tier={tier} cullPos={cullPos}");
-                        _actorLodDiagLogged = true;
-                    }
                     // Two-tier ladder: Voxel (near, emit mesh) or Cull (far, draw nothing).
                     if (tier == WorldSphereMod.LOD.LodTier.Cull) dsTierImpostor++;
                     else dsTierVoxel++;
