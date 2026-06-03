@@ -169,10 +169,10 @@ namespace WorldSphereMod
                 try { ApplyPhaseToggle(nameof(SavedSettings.CrossedQuadFoliage), true); }
                 catch (System.Exception ex) { Debug.LogWarning("[WSM3D] EnsurePhasePatches CrossedQuadFoliage: " + ex.Message); }
             }
-            // Force ProceduralBuildings=true regardless of what ApplyPhaseDefaults set.
-            // ApplyPhaseDefaults runs before EnsurePhasePatches and resets it to false;
-            // this override ensures the mesh-instancing building path is always active.
+            // Force these flags=true regardless of what ApplyPhaseDefaults set.
+            // ApplyPhaseDefaults runs before EnsurePhasePatches and resets them to false.
             savedSettings.ProceduralBuildings = true;
+            savedSettings.MeshWater = true;
             bool proceduralBuildingsPatchInstalled = false;
             try
             {
@@ -180,6 +180,8 @@ namespace WorldSphereMod
                 proceduralBuildingsPatchInstalled = IsProceduralBuildingsPatchInstalled();
             }
             catch (System.Exception ex) { Debug.LogWarning("[WSM3D] EnsurePhasePatches ProceduralBuildings: " + ex.Message); }
+            try { ApplyPhaseToggle(nameof(SavedSettings.MeshWater), true); }
+            catch (System.Exception ex) { Debug.LogWarning("[WSM3D] EnsurePhasePatches MeshWater: " + ex.Message); }
             if (!_phaseDiagLogged)
             {
                 Debug.Log($"[WSM3D][PHASE-DIAG] ProceduralBuildings={savedSettings.ProceduralBuildings} patchInstalled={proceduralBuildingsPatchInstalled}");
