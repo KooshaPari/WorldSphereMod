@@ -1448,11 +1448,12 @@ namespace WorldSphereMod
 
                 // Water now lives IN THE FORK as a corner-averaged sub-mesh at the
                 // water level (below sand) — no more main-mod billboard overlay.
-                // Sea level mirrors the retired WaterMaskBuffer: sink it 0.5 below
-                // the sea-reference height so water never clips above the shore.
+                // Sea level uses the sea-reference height (ice boundary). Keeping this
+                // fixed flat at sea level matches world-box water intent and avoids a
+                // painted-seabed look when shore elevation rises above the old sink.
                 // Heights are passed RAW (pre-HeightMult) because projectPosition
                 // applies HeightMult, matching the land sampleHeight units.
-                float seaLevel = Tools.TrueHeight(17) - 0.5f;
+                float seaLevel = Tools.TrueHeight(17);
                 bool meshWaterEnabled = savedSettings.MeshWater;
                 hf.ConfigureWater(
                     sampleIsWater: (tx, ty) =>
