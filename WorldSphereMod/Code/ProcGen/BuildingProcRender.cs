@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Diagnostics;
 using HarmonyLib;
 using UnityEngine;
@@ -12,6 +13,9 @@ namespace WorldSphereMod.ProcGen
         static bool _firstBuildingPosLogged;
         // Per-frame budget cycling offset (same pattern as BuildingVoxelEmit).
         static int _budgetOffset;
+        const int MaxMeshInstancedBatch = 1023;
+        static readonly Dictionary<Mesh, List<Matrix4x4>> _buildingDrawBatches = new();
+        static readonly Matrix4x4[] _meshInstancedMatrices = new Matrix4x4[MaxMeshInstancedBatch];
 
         [Phase(nameof(SavedSettings.ProceduralBuildings))]
         [HarmonyPatch(typeof(BuildingManager), nameof(BuildingManager.precalculateRenderDataParallel))]
@@ -21,7 +25,8 @@ namespace WorldSphereMod.ProcGen
             public static void EmitMeshes(BuildingManager __instance)
             {
                 if (!Core.IsWorld3D || !Core.savedSettings.ProceduralBuildings) return;
-                if (!VoxelRender.EnsureMaterial()) return;
+                Material? procBuildingMaterial = VoxelRender.GetResolvedMaterial();
+                if (procBuildingMaterial == null) return;
 
                 var rd = __instance.render_data;
                 var arr = __instance._array_visible_buildings;
@@ -109,6 +114,7 @@ namespace WorldSphereMod.ProcGen
                             scl *= Core.savedSettings.VoxelScaleMultiplier;
                             Sprite? sp = rd.main_sprites[i];
                             if (sp == null) continue;
+                            Matrix4x4 legacyTrs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
 
                             if (rules.Shape == BuildingShape.CrossedQuad || rules.Shape == BuildingShape.Single)
                             {
@@ -123,7 +129,7 @@ namespace WorldSphereMod.ProcGen
                                     rd.scales[i] = Vector3.zero;
                                     continue;
                                 }
-                                Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
+                                Matrix4x4 trs = legacyTrs;
                                 if (!FoliageMaterial.EnsureMaterial()) continue;
                                 ShapeHint hint = rules.Shape == BuildingShape.Single
                                     ? ShapeHint.Flat
@@ -143,10 +149,10 @@ namespace WorldSphereMod.ProcGen
                                 if (Core.savedSettings.BuildingStyleProcgen)
                                 {
                                     LogFirstBuildingPos(rawPos, pos, scl);
-                                    Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
                                     Mesh? m = ProcGenCache.GetOrGenerate(b.asset, rules);
                                     if (m == null) continue;
-                                    if (VoxelRender.Submit(m, trs, Color.white))
+                                    Matrix4x4 procTrs = Matrix4x4.TRS(cullPos, Quaternion.identity, Vector3.one * Core.savedSettings.BuildingSize);
+                                    if (TryQueueBuildingDraw(m, procTrs))
                                     {
                                         submitted = true;
                                     }
@@ -154,10 +160,9 @@ namespace WorldSphereMod.ProcGen
                                 else
                                 {
                                     LogFirstBuildingPos(rawPos, pos, scl);
-                                    Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
                                     Mesh m = VoxelMeshCache.Get(sp);
                                     if (m == null || m.vertexCount == 0) continue;
-                                    if (VoxelRender.Submit(m, trs, Color.white))
+                                    if (VoxelRender.Submit(m, legacyTrs, Color.white))
                                     {
                                         submitted = true;
                                     }
@@ -179,6 +184,7 @@ namespace WorldSphereMod.ProcGen
                         rd.scales[i] = Vector3.zero;
                     }
                 }
+                FlushQueuedBuildingDraws(procBuildingMaterial);
 
                 if (profile)
                 {
@@ -194,6 +200,44 @@ namespace WorldSphereMod.ProcGen
                 if (_firstBuildingPosLogged) return;
                 _firstBuildingPosLogged = true;
                 Debug.Log($"[WSM3D] First-building pos: raw={rawPos}, lifted={liftedPos}, scl={scl}");
+            }
+
+            static bool TryQueueBuildingDraw(Mesh mesh, Matrix4x4 matrix)
+            {
+                if (mesh == null) return false;
+
+                if (!_buildingDrawBatches.TryGetValue(mesh, out var matrices))
+                {
+                    matrices = new List<Matrix4x4>(16);
+                    _buildingDrawBatches[mesh] = matrices;
+                }
+
+                matrices.Add(matrix);
+                return true;
+            }
+
+            static void FlushQueuedBuildingDraws(Material material)
+            {
+                foreach (var pair in _buildingDrawBatches)
+                {
+                    List<Matrix4x4> matrices = pair.Value;
+                    if (matrices.Count == 0) continue;
+
+                    Mesh mesh = pair.Key;
+                    int start = 0;
+                    while (start < matrices.Count)
+                    {
+                        int count = Mathf.Min(MaxMeshInstancedBatch, matrices.Count - start);
+                        matrices.CopyTo(start, _meshInstancedMatrices, 0, count);
+                        Graphics.DrawMeshInstanced(mesh, 0, material, _meshInstancedMatrices, count);
+                        start += count;
+                    }
+                }
+
+                foreach (var batch in _buildingDrawBatches.Values)
+                {
+                    batch.Clear();
+                }
             }
         }
     }
