@@ -183,30 +183,37 @@ namespace WorldSphereMod.UI
         }
         static void CreateButtons()
         {
-            CreateToggleButton("Is3D", "WorldSphereMod/ModIcon", "is_3d", "is_3d_description", Toggle3D, Core.savedSettings.Is3D);
-            CreateWindowButton("Sprite Settings", "WorldSphereMod/Rotate", "sprite_settings_window", new List<ButtonData>()
-            {
-               ///new ButtonData("sprites_rotate_to_camera", "sprites_rotate_to_camera_description", "WorldSphereMod/Rotate", Core.savedSettings.RotateStuffToCamera, ToggleRotations),
-               new ButtonData("sprites_rotate_to_camera", "sprites_rotate_to_camera_description", "WorldSphereMod/Rotate", Core.savedSettings.RotateStuffToCamera, ToggleRotations),
-               new ButtonData("building_style_procgen", "building_style_procgen_description", "WorldSphereMod/World", Core.savedSettings.BuildingStyleProcgen, ToggleBuildingStyleProcgen)
-            }
-            );
-            GenerateSlider("building_size", 0.1f, 5f, Core.savedSettings.BuildingSize, (float val) => { Core.savedSettings.BuildingSize = val; Core.SaveSettings(); }, "Sprite Settings");
+            var renderSection = CreateSettingsSection("RENDER");
+            var renderRow1 = BeginSettingsRow(renderSection);
+            CreateToggleButton("Is3D", "WorldSphereMod/ModIcon", "is_3d", "is_3d_description", Toggle3D, Core.savedSettings.Is3D, renderRow1);
             CreateWindowButton("Camera Settings", "WorldSphereMod/Camera", "camera_settings_window", new List<ButtonData>()
             {
                 new ButtonData("inverted_camera", "inverted_camera_description", "WorldSphereMod/Camera", Core.savedSettings.InvertedCameraMovement, ToggleCamera),
                 new ButtonData("first_person", "first_person_description", "WorldSphereMod/Camera", Core.savedSettings.FirstPerson, ToggleFirtPerson),
                 new ButtonData("camera_rotates_with_world", "camera_rotates_with_world_description", "WorldSphereMod/Camera", Core.savedSettings.CameraRotatesWithWorld, ToggleRotateToWorld),
                 new ButtonData("upside_down_movement", "upside_down_movement_description", "WorldSphereMod/Camera", Core.savedSettings.UpsideDownMovement, UpsideDown)
-            });
+            }, renderRow1);
             GenerateSlider("render_distance", 1, 20, Core.savedSettings.RowRange, (float val) => { Core.savedSettings.RowRange = val; Core.SaveSettings(); }, "Camera Settings");
+
+            var terrainSection = CreateSettingsSection("TERRAIN");
+            var terrainRow1 = BeginSettingsRow(terrainSection);
+            CreateWindowButton("Sprite Settings", "WorldSphereMod/Rotate", "sprite_settings_window", new List<ButtonData>()
+            {
+               ///new ButtonData("sprites_rotate_to_camera", "sprites_rotate_to_camera_description", "WorldSphereMod/Rotate", Core.savedSettings.RotateStuffToCamera, ToggleRotations),
+               new ButtonData("sprites_rotate_to_camera", "sprites_rotate_to_camera_description", "WorldSphereMod/Rotate", Core.savedSettings.RotateStuffToCamera, ToggleRotations),
+               new ButtonData("building_style_procgen", "building_style_procgen_description", "WorldSphereMod/World", Core.savedSettings.BuildingStyleProcgen, ToggleBuildingStyleProcgen)
+            }
+            , terrainRow1);
+            GenerateSlider("building_size", 0.1f, 5f, Core.savedSettings.BuildingSize, (float val) => { Core.savedSettings.BuildingSize = val; Core.SaveSettings(); }, "Sprite Settings");
+
+            var terrainRow2 = BeginSettingsRow(terrainSection);
             CreateWindowButton("World Settings", "WorldSphereMod/World", "world_settings_window", new List<ButtonData>()
             {
                 new ButtonData("cylindrical_shape", "cylindrical_shape_description", "WorldSphereMod/Round", Core.savedSettings.CurrentShape == 0, SetShape, false),
                 new ButtonData("flat_shape", "flat_shape_description", "WorldSphereMod/Flat", Core.savedSettings.CurrentShape == 1, SetShape, false),
                 new ButtonData("cube_shape", "cube_shape_description", "WorldSphereMod/Flat", Core.savedSettings.CurrentShape == 2, SetShape, false),
                 new ButtonData("perlin_noise", "perlin_noise_description", "WorldSphereMod/PerlinNoise", Core.savedSettings.PerlinNoise, PerlinNoise)
-            });
+            }, terrainRow2);
             GenerateSlider("tile_length_multiplier", 1, 10, Core.savedSettings.TileHeight, (float x) => { Core.savedSettings.TileHeight = x; Core.SaveSettings(); }, "World Settings");
 
             // v2 fork: per-phase toggles. The default values come from
@@ -214,6 +221,8 @@ namespace WorldSphereMod.UI
             // surfacing these here the user has no way to turn Phase 1's
             // voxel actors on, so sprites stay 2D and the fork looks like
             // a no-op compared to upstream.
+            var featuresSection = CreateSettingsSection("FEATURES");
+            var featuresRow1 = BeginSettingsRow(featuresSection);
             CreateWindowButton(PhasesWindowId, "WorldSphereMod/ModIcon", PhasesWindowTitle, new List<ButtonData>()
             {
                 new ButtonData("voxel_entities",       "voxel_entities_description",       "WorldSphereMod/Round",        Core.savedSettings.VoxelEntities,       TogglePhase),
@@ -239,15 +248,74 @@ namespace WorldSphereMod.UI
                 new ButtonData("post_fx",              "post_fx_description",              "WorldSphereMod/ModIcon",       Core.savedSettings.PostFX,              TogglePhase),
                 new ButtonData("particle_effects",     "particle_effects_description",     "WorldSphereMod/Logo",          Core.savedSettings.ParticleEffects,     TogglePhase),
                 new ButtonData("sanity_cube",           "sanity_cube_description",           "WorldSphereMod/ModIcon",       Core.savedSettings.DebugSanityCube,     ToggleDebugSanityCube),
-            });
-
-            CreateButton("Open Sprites", "WorldSphereMod/ModIcon", OpenSprites);
+            }, featuresRow1);
+            CreateButton("Open Sprites", "WorldSphereMod/ModIcon", OpenSprites, featuresRow1);
 
             // Phase 10 / R&D QoL: ProfilerDump toggle (also drives the in-game
             // RuntimeStatsOverlay since the overlay's OnGUI gates on the same
             // flag) and a destructive Reset-to-defaults action.
-            CreateToggleButton("ProfileMode", "WorldSphereMod/ModIcon", "profile_mode", "profile_mode_description", ToggleProfileMode, Core.savedSettings.ProfilerDump);
-            CreateButton("Reset Defaults", "WorldSphereMod/ModIcon", ResetToDefaults);
+            var debugSection = CreateSettingsSection("DEBUG");
+            var debugRow1 = BeginSettingsRow(debugSection);
+            CreateToggleButton("ProfileMode", "WorldSphereMod/ModIcon", "profile_mode", "profile_mode_description", ToggleProfileMode, Core.savedSettings.ProfilerDump, debugRow1);
+            CreateButton("Reset Defaults", "WorldSphereMod/ModIcon", ResetToDefaults, debugRow1);
+        }
+
+        static Transform CreateSettingsSection(string sectionTitle)
+        {
+            GameObject section = new GameObject(sectionTitle + " Section", typeof(RectTransform), typeof(VerticalLayoutGroup));
+            section.transform.SetParent(Tab.transform, false);
+
+            VerticalLayoutGroup layout = section.GetComponent<VerticalLayoutGroup>();
+            layout.childControlHeight = false;
+            layout.childControlWidth = false;
+            layout.childForceExpandHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childAlignment = TextAnchor.UpperLeft;
+            layout.spacing = 4;
+
+            GameObject header = new GameObject("Header", typeof(RectTransform), typeof(Text));
+            header.transform.SetParent(section.transform, false);
+            Text headerText = header.GetComponent<Text>();
+            Font fallbackFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            if (fallbackFont != null)
+            {
+                headerText.font = fallbackFont;
+            }
+            headerText.fontSize = 12;
+            headerText.alignment = TextAnchor.MiddleLeft;
+            headerText.text = sectionTitle;
+            headerText.color = new Color(0.95f, 0.95f, 1f, 1f);
+            headerText.raycastTarget = false;
+
+            RectTransform headerRect = header.GetComponent<RectTransform>();
+            headerRect.sizeDelta = new Vector2(520, 22);
+
+            return section.transform;
+        }
+
+        static Transform BeginSettingsRow(Transform section)
+        {
+            GameObject row = new GameObject("Settings Row", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+            row.transform.SetParent(section, false);
+
+            HorizontalLayoutGroup rowLayout = row.GetComponent<HorizontalLayoutGroup>();
+            rowLayout.spacing = 8;
+            rowLayout.childControlHeight = false;
+            rowLayout.childControlWidth = false;
+            rowLayout.childForceExpandHeight = false;
+            rowLayout.childForceExpandWidth = false;
+
+            return row.transform;
+        }
+
+        static void AddButtonToRow(PowerButton button, Transform row)
+        {
+            if (button == null || row == null)
+            {
+                return;
+            }
+            button.gameObject.GetComponent<RectTransform>().sizeDelta = new Vector2(64, 64);
+            button.gameObject.transform.SetParent(row, false);
         }
 
         public static void PreloadPhaseIcons()
@@ -673,18 +741,19 @@ namespace WorldSphereMod.UI
             Core.SaveSettings();
         }
         #region Buttons
-        static PowerWindow CreateWindowButton(string ID, string IconPath, string WindowDescription, List<ButtonData> Buttons)
+        static PowerWindow CreateWindowButton(string ID, string IconPath, string WindowDescription, List<ButtonData> Buttons, Transform parent = null)
         {
             WindowManager.CreateWindow(ID, WindowDescription, Buttons);
-            CreateButton(ID, IconPath, delegate () { WindowManager.OpenWindow(ID); });
+            CreateButton(ID, IconPath, delegate () { WindowManager.OpenWindow(ID); }, parent);
             return WindowManager.windows[ID];
         }
-        static void CreateButton(string ID, string IconPath, UnityAction Action)
+        static void CreateButton(string ID, string IconPath, UnityAction Action, Transform parent = null)
         {
             PowerButton button = PowerButtonCreator.CreateSimpleButton(ID, Action, SafeLoadSprite(IconPath));
             PowerButtonCreator.AddButtonToTab(button, Tab);
+            AddButtonToRow(button, parent);
         }
-        static void CreateToggleButton(string ID, string IconPath, string name, string Description, UnityAction toggleAction, bool Enabled)
+        static void CreateToggleButton(string ID, string IconPath, string name, string Description, UnityAction toggleAction, bool Enabled, Transform parent = null)
         {
             GodPower power = new GodPower()
             {
@@ -716,6 +785,7 @@ namespace WorldSphereMod.UI
                 id = ID
             });
             PowerButtonCreator.AddButtonToTab(Button, Tab);
+            AddButtonToRow(Button, parent);
             // PlayerConfig.dict.Add() sets boolVal=false by default.
             // Set to match the Enabled parameter passed in — without this,
             // 'Enabled=true' phases came up disabled after every game launch
@@ -1018,5 +1088,3 @@ namespace WorldSphereMod.UI
         }
     }
 }
-
-
