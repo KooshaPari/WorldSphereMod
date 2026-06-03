@@ -39,10 +39,15 @@ jobs:
       - name: Discover coverage-focused E2E tests
         run: |
           dotnet test tests/WorldSphereMod.Tests.E2E/WorldSphereMod.Tests.E2E.csproj \
-            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests|FullyQualifiedName~CiWorkflowInvariantsTests" \
+            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests|FullyQualifiedName~CiWorkflowInvariantsTests|FullyQualifiedName~GpuManagerBoundaryTests" \
             --list-tests
 
       - name: Run coverage-focused E2E tests
         run: |
           dotnet test tests/WorldSphereMod.Tests.E2E/WorldSphereMod.Tests.E2E.csproj \
-            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests|FullyQualifiedName~CiWorkflowInvariantsTests"
+            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests|FullyQualifiedName~CiWorkflowInvariantsTests|FullyQualifiedName~GpuManagerBoundaryTests"
+
+      - name: Run full test suite (non-blocking — all 537 + 3-skip)
+        continue-on-error: true
+        run: |
+          dotnet test WorldSphereMod.sln --verbosity minimal
