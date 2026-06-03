@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
@@ -37,6 +38,14 @@ namespace WorldSphereMod.Voxel
         static bool _actorImpostorDiagnosticLogged;
         static bool _actorSkeletalDiagnosticLogged;
         static readonly List<Vector3> _actorVoxelSubmitTranslations = new(5);
+        static readonly Dictionary<ActorSpriteCardMeshKey, Mesh> _actorSpriteCardMeshes = new();
+        static readonly Dictionary<Texture2D, Material> _actorSpriteCardMaterials = new();
+        static readonly Dictionary<ActorSpriteCardBatchKey, List<Matrix4x4>> _actorSpriteCardBatches = new();
+        static readonly Matrix4x4[] _actorSpriteCardMatrices = new Matrix4x4[1023];
+        const int MaxSpriteCardInstancedBatch = 1023;
+        static readonly int _actorSpriteCardMainTexId = Shader.PropertyToID("_MainTex");
+        static readonly int _actorSpriteCardColorId = Shader.PropertyToID("_Color");
+        static readonly int _actorSpriteCardBaseColorId = Shader.PropertyToID("_BaseColor");
 
         /// <summary>
         /// Destroy the cached material and clear the resolve-attempted latch. Call when
@@ -51,7 +60,7 @@ namespace WorldSphereMod.Voxel
             // destroyed-Unity-null after this method runs, causing NRE in
             // DrawFallbackPath when Flush iterates stale bucket keys.
             MeshInstanceBatcher.Reset();
-            if (_material != null) Object.Destroy(_material);
+            if (_material != null) UnityEngine.Object.Destroy(_material);
             _material = null;
             _materialAttempted = false;
             _materialProbeLogged = false;
@@ -63,6 +72,7 @@ namespace WorldSphereMod.Voxel
             _actorImpostorDiagnosticLogged = false;
             _actorSkeletalDiagnosticLogged = false;
             _actorVoxelSubmitTranslations.Clear();
+            ClearActorSpriteCardState();
             _flushDiagLogged = false;
             _submitDiagLogged = false;
             ActorVoxelEmit.ResetDiag();
@@ -71,6 +81,27 @@ namespace WorldSphereMod.Voxel
             // from a prior world would otherwise pollute /diag/errors.
             RenderErrorRegistry.Reset();
             RenderErrorMarkers.Reset();
+        }
+
+        static void ClearActorSpriteCardState()
+        {
+            foreach (var kv in _actorSpriteCardMeshes)
+            {
+                if (kv.Value != null) UnityEngine.Object.Destroy(kv.Value);
+            }
+            _actorSpriteCardMeshes.Clear();
+
+            foreach (var kv in _actorSpriteCardMaterials)
+            {
+                if (kv.Value != null) UnityEngine.Object.Destroy(kv.Value);
+            }
+            _actorSpriteCardMaterials.Clear();
+
+            foreach (var batch in _actorSpriteCardBatches.Values)
+            {
+                batch.Clear();
+            }
+            _actorSpriteCardBatches.Clear();
         }
 
         /// <summary>
@@ -90,7 +121,7 @@ namespace WorldSphereMod.Voxel
                     Material? upgrade = TryCompileInlineVoxelShader();
                     if (upgrade != null)
                     {
-                        Object.Destroy(_material);
+                        UnityEngine.Object.Destroy(_material);
                         _material = upgrade;
                         McPackLoader.ApplyToMaterial(_material);
                         Debug.Log("[WSM3D] Voxel material upgraded from Standard to OpaqueVertexColor (late bundle load).");
@@ -495,6 +526,252 @@ namespace WorldSphereMod.Voxel
             return Camera.main;
         }
 
+        readonly struct ActorSpriteCardMeshKey : IEquatable<ActorSpriteCardMeshKey>
+        {
+            public readonly int TextureId;
+            public readonly int X;
+            public readonly int Y;
+            public readonly int Width;
+            public readonly int Height;
+            public readonly int ScaleKey;
+
+            public ActorSpriteCardMeshKey(Texture2D tex, Sprite sprite, float scaleMultiplier)
+            {
+                TextureId = tex != null ? tex.GetInstanceID() : 0;
+                Rect r = sprite != null ? sprite.rect : default;
+                X = Mathf.RoundToInt(r.x);
+                Y = Mathf.RoundToInt(r.y);
+                Width = Mathf.Max(1, Mathf.RoundToInt(r.width));
+                Height = Mathf.Max(1, Mathf.RoundToInt(r.height));
+                ScaleKey = Mathf.Max(1, Mathf.RoundToInt(scaleMultiplier * 10000f));
+            }
+
+            public bool Equals(ActorSpriteCardMeshKey other)
+            {
+                return TextureId == other.TextureId &&
+                       X == other.X &&
+                       Y == other.Y &&
+                       Width == other.Width &&
+                       Height == other.Height &&
+                       ScaleKey == other.ScaleKey;
+            }
+
+            public override bool Equals(object? obj) => obj is ActorSpriteCardMeshKey other && Equals(other);
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = 17;
+                    hash = hash * 31 + TextureId;
+                    hash = hash * 31 + X;
+                    hash = hash * 31 + Y;
+                    hash = hash * 31 + Width;
+                    hash = hash * 31 + Height;
+                    hash = hash * 31 + ScaleKey;
+                    return hash;
+                }
+            }
+        }
+
+        readonly struct ActorSpriteCardBatchKey : IEquatable<ActorSpriteCardBatchKey>
+        {
+            public readonly Mesh Mesh;
+            public readonly Material Material;
+
+            public ActorSpriteCardBatchKey(Mesh mesh, Material material)
+            {
+                Mesh = mesh;
+                Material = material;
+            }
+
+            public bool Equals(ActorSpriteCardBatchKey other)
+            {
+                return Mesh == other.Mesh && Material == other.Material;
+            }
+
+            public override bool Equals(object? obj) => obj is ActorSpriteCardBatchKey other && Equals(other);
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = 17;
+                    hash = hash * 31 + (Mesh != null ? Mesh.GetInstanceID() : 0);
+                    hash = hash * 31 + (Material != null ? Material.GetInstanceID() : 0);
+                    return hash;
+                }
+            }
+        }
+
+        static Mesh? GetActorSpriteCardMesh(Sprite? sprite, float scaleMultiplier)
+        {
+            if (sprite == null || sprite.texture == null)
+            {
+                return null;
+            }
+
+            ActorSpriteCardMeshKey key = new(sprite.texture, sprite, scaleMultiplier);
+            if (_actorSpriteCardMeshes.TryGetValue(key, out Mesh cachedMesh))
+            {
+                return cachedMesh;
+            }
+
+            Rect rect = sprite.rect;
+            float scale = scaleMultiplier;
+            float width = rect.width * scale;
+            float height = rect.height * scale;
+            float halfWidth = width * 0.5f;
+            float halfHeight = height * 0.5f;
+
+            Texture2D tex = sprite.texture;
+            float texWidth = Mathf.Max(1f, tex.width);
+            float texHeight = Mathf.Max(1f, tex.height);
+            Vector2 uvMin = new Vector2(rect.x / texWidth, rect.y / texHeight);
+            Vector2 uvMax = new Vector2((rect.x + rect.width) / texWidth, (rect.y + rect.height) / texHeight);
+
+            Mesh mesh = new Mesh
+            {
+                name = $"WSM3D.ActorCard_{tex.name}_{rect.x}_{rect.y}_{rect.width}_{rect.height}"
+            };
+            mesh.vertices = new[]
+            {
+                new Vector3(-halfWidth, -halfHeight, 0f),
+                new Vector3(halfWidth, -halfHeight, 0f),
+                new Vector3(-halfWidth, halfHeight, 0f),
+                new Vector3(halfWidth, halfHeight, 0f),
+            };
+            mesh.uv = new[]
+            {
+                new Vector2(uvMin.x, uvMin.y),
+                new Vector2(uvMax.x, uvMin.y),
+                new Vector2(uvMin.x, uvMax.y),
+                new Vector2(uvMax.x, uvMax.y),
+            };
+            mesh.triangles = new[] { 0, 1, 2, 1, 3, 2 };
+            mesh.normals = new[]
+            {
+                Vector3.forward,
+                Vector3.forward,
+                Vector3.forward,
+                Vector3.forward
+            };
+            mesh.RecalculateBounds();
+
+            _actorSpriteCardMeshes[key] = mesh;
+            return mesh;
+        }
+
+        static Material? GetActorSpriteCardMaterial(Texture2D? texture)
+        {
+            if (texture == null)
+            {
+                return null;
+            }
+
+            if (_actorSpriteCardMaterials.TryGetValue(texture, out Material existing))
+            {
+                return existing;
+            }
+
+            Shader? shader = Shader.Find("Sprites/Default");
+            if (shader == null)
+            {
+                shader = Shader.Find("Standard");
+            }
+            if (shader == null)
+            {
+                return null;
+            }
+
+            Material material = new Material(shader)
+            {
+                name = $"WSM3D.ActorSpriteCard.{texture.name}",
+                enableInstancing = true
+            };
+            material.EnableKeyword("INSTANCING_ON");
+            if (MeshInstanceBatcher.UseFallbackPath)
+            {
+                material.enableInstancing = false;
+            }
+            material.SetTexture(_actorSpriteCardMainTexId, texture);
+            material.SetColor(_actorSpriteCardColorId, Color.white);
+            material.SetColor(_actorSpriteCardBaseColorId, Color.white);
+            _actorSpriteCardMaterials[texture] = material;
+            return material;
+        }
+
+        static bool TryQueueActorSpriteCardRender(Material? material, Mesh mesh, Matrix4x4 trs)
+        {
+            if (material == null || mesh == null || mesh.vertexCount == 0)
+            {
+                return false;
+            }
+
+            ActorSpriteCardBatchKey key = new(mesh, material);
+            if (!_actorSpriteCardBatches.TryGetValue(key, out var list))
+            {
+                list = new List<Matrix4x4>(16);
+                _actorSpriteCardBatches[key] = list;
+            }
+
+            list.Add(trs);
+            return true;
+        }
+
+        static Quaternion GetActorCardRotation(Vector3 position)
+        {
+            Camera? cam = CameraManager.MainCamera;
+            Vector3 toCamera = cam != null
+                ? (cam.transform.position - position)
+                : Vector3.back;
+            if (toCamera.sqrMagnitude < 0.0001f)
+            {
+                toCamera = Vector3.back;
+            }
+
+            // Slightly tilt toward the camera for the intended "card" look.
+            Quaternion facing = Quaternion.LookRotation(toCamera, Vector3.up);
+            return facing * Quaternion.Euler(-12f, 0f, 0f);
+        }
+
+        internal static void FlushQueuedActorSpriteCards()
+        {
+            if (MeshInstanceBatcher.UseFallbackPath || _actorSpriteCardBatches.Count == 0) return;
+
+            foreach (KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>> pair in _actorSpriteCardBatches)
+            {
+                Mesh mesh = pair.Key.Mesh;
+                Material material = pair.Key.Material;
+                if (mesh == null || material == null)
+                {
+                    pair.Value.Clear();
+                    continue;
+                }
+
+                List<Matrix4x4> matrices = pair.Value;
+                int total = matrices.Count;
+                int start = 0;
+                while (start < total)
+                {
+                    int count = Mathf.Min(MaxSpriteCardInstancedBatch, total - start);
+                    matrices.CopyTo(start, _actorSpriteCardMatrices, 0, count);
+                    try
+                    {
+                        Graphics.DrawMeshInstanced(mesh, 0, material, _actorSpriteCardMatrices, count);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError($"[WSM3D] Actor sprite-card DrawMeshInstanced failed: {ex.GetType().Name}: {ex.Message}");
+                        break;
+                    }
+                    start += count;
+                }
+
+                matrices.Clear();
+            }
+        }
+
         // ---------------------------------------------------------------------
         // Harmony hooks. Registered automatically via Patcher.PatchAll on the
         // existing Core.Patch() pass because [HarmonyPatch] is declared here.
@@ -746,11 +1023,10 @@ namespace WorldSphereMod.Voxel
                         continue;
                     }
 
-                    // Near tier: emit the full voxel mesh via the shared VoxelMeshCache.
-                    Mesh m = VoxelMeshCache.Get(sp, ShapeHint.OrganicBlob, true, VoxelEntityType.Actor);
-                    // Mesh not built yet (async) or empty → INVISIBLE until ready. Sprite
-                    // already suppressed; do NOT draw a placeholder billboard. Record so the
-                    // operator can tell "still building" (VoxelNotReady) from "build failed".
+                    float actorScale = Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor;
+                    Mesh m = GetActorSpriteCardMesh(sp, actorScale);
+                    // Sprite-card mesh not ready yet (cache miss) is not expected in
+                    // current implementation, but handle defensively as a skipped submit.
                     if (m == null || m.vertexCount == 0)
                     {
                         dsVoxelMeshNull++;
@@ -758,7 +1034,16 @@ namespace WorldSphereMod.Voxel
                         Vector3 errPos = rd.positions[i];
                         if (errPos.z < Constants.ZDisplacement * 0.5f) errPos = errPos.To3DTileHeight(false);
                         RecordActorError(RenderErrorType.VoxelNotReady,
-                            a, sp != null ? "voxel mesh null/empty (async build pending) sprite=" + sp.name : "voxel mesh null/empty", errPos);
+                            a, sp != null ? "sprite-card mesh null/empty (cache build pending) sprite=" + sp.name : "sprite-card mesh null/empty", errPos);
+                        continue;
+                    }
+                    Material? cardMaterial = GetActorSpriteCardMaterial(sp.texture);
+                    if (cardMaterial == null)
+                    {
+                        dsVoxelSubmitFail++;
+                        Vector3 errPos = rd.positions[i];
+                        if (errPos.z < Constants.ZDisplacement * 0.5f) errPos = errPos.To3DTileHeight(false);
+                        RecordActorError(RenderErrorType.MaterialNull, a, "actor sprite card material null (could not resolve Sprites/Default or Standard)", errPos);
                         continue;
                     }
                     dsVoxelSubmitAttempt++;
@@ -773,26 +1058,16 @@ namespace WorldSphereMod.Voxel
                     LogActorSubmitDiagnostic("voxel", ref _actorVoxelDiagnosticLogged, a, sp, posBeforeLift, pos, rd.colors[i]);
                     SanityTestCube.CaptureFirstActorPos(pos);
                     Vector3 rot = rd.rotations[i];
-                    Vector3 scl = rd.scales[i];
-                    if (rd.flip_x_states[i]) scl.x = -scl.x;
-                    scl.z = scl.x;
-                    // WHY: actors use VoxelScaleMultiplier * ActorVoxelScaleFactor so they read
-                    // sprite-sized at zoom instead of 8x gigantic / camera-clipping when close.
-                    scl *= Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor;
-                    // Lift the mesh CENTER up by half the world-space mesh height so the
-                    // mesh BOTTOM sits ON the terrain surface instead of being embedded
-                    // inside the terrain/water voxel cube (which sits at y~2-3, exactly
-                    // where Tools.To3DTileHeight(false) puts the actor center). Without
-                    // this, half the actor mesh is hidden inside the cube and at
-                    // strategy-zoom altitudes it reads as 100% invisible.
-                    float halfHeight = m.bounds.size.y * 0.5f * scl.y;
+                    Quaternion faceRot = GetActorCardRotation(pos);
+                    Vector3 scl = Vector3.one;
+                    if (rd.flip_x_states[i]) scl.x = -1f;
+                    float halfHeight = m.bounds.size.y * 0.5f;
                     pos.y += halfHeight;
                     LogFirstActorPos(posBeforeLift, pos, scl);
-                    // Z/X axes encode sprite-billboard lean; on a 3D mesh they topple the body. Yaw only here; lean returns in Phase 6 as a spine-bone tilt.
-                    Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
+                    Matrix4x4 trs = Matrix4x4.TRS(pos, faceRot, scl);
                     RecordActorVoxelTrs(trs);
                     // Hide the sprite quad for this actor — we drew the 3D mesh instead.
-                    if (Submit(m, trs, rd.colors[i]))
+                    if (TryQueueActorSpriteCardRender(cardMaterial, m, trs))
                     {
                         LastBatcherSubmitCount++;
                         dsVoxelSubmitOk++;
@@ -1816,6 +2091,7 @@ namespace WorldSphereMod.Voxel
             bool hadPending = MeshInstanceBatcher.HasPendingSubmissions;
             int submitsBeforeFlush = Volatile.Read(ref MeshInstanceBatcher._submitCountThisFrame);
             VoxelRender.Flush();
+            VoxelRender.FlushQueuedActorSpriteCards();
             if (Core.savedSettings?.ProceduralBuildings == true)
             {
                 Material? procBuildingMaterial = VoxelRender.GetResolvedMaterial();
