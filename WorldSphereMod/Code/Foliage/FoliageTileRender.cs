@@ -129,7 +129,7 @@ namespace WorldSphereMod.Foliage
                 // shared VoxelScaleMultiplier (8x) they render sub-pixel against the
                 // 8x-scaled 3D world and are effectively invisible (same fix as the
                 // actor/building/drop voxel paths in VoxelRender).
-                float foliageScale = Mathf.Max(1f, Core.savedSettings.VoxelScaleMultiplier);
+                float foliageScale = Mathf.Max(1f, Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.FoliageVoxelScaleFactor);
                 Matrix4x4 trs = Matrix4x4.TRS(pos3, rot, Vector3.one * foliageScale);
 
                 if (!t.road && t.life)

@@ -75,11 +75,17 @@ public class SavedSettings
         // "auto" defers to AssetShapeRegistry per sprite name. See spec Known gaps.
         public string VoxelInflationStyle = "pertexel";
         public float VoxelScaleMultiplier = 8.0f;
+        // Additional per-building multiplier used by building-procgen paths.
+        public float BuildingVoxelScaleFactor = 0.25f;
         // WHY: actor/drop voxel meshes are already sprite-sized in world units; the full 8x
         // terrain VoxelScaleMultiplier made actors gigantic (clipping the camera at max zoom).
         // Effective actor render scale = VoxelScaleMultiplier * ActorVoxelScaleFactor.
         // Previous 0.25 → net 2x actors (8 * 0.25), so use a lower default for near-1-tile reads.
         public float ActorVoxelScaleFactor = 0.35f;
+        // Foliage and environment objects (trees, rocks, bushes, decals) are sprite-sized
+        // in the source content; separate the multiplier so they stay near intended scale.
+        // Net foliage scale = VoxelScaleMultiplier * FoliageVoxelScaleFactor = 1.6 when defaulted to 8 * 0.2.
+        public float FoliageVoxelScaleFactor = 0.20f;
         public bool DebugVoxelOutline = false;
         public bool DebugSanityCube = false;
         public bool DebugSpawnBuildings = false;
@@ -204,6 +210,7 @@ public class SavedSettings
         {
             if (s == null) throw new ArgumentNullException(nameof(s));
 
+            s.FoliageVoxelScaleFactor = 0.20f;
             s.VoxelEntities = true;
             s.ProceduralBuildings = true;
             s.CrossedQuadFoliage = false;
@@ -234,6 +241,7 @@ public class SavedSettings
         {
             if (s == null) throw new ArgumentNullException(nameof(s));
 
+            s.FoliageVoxelScaleFactor = 0.20f;
             s.VoxelEntities = true;
             s.ProceduralBuildings = true;
             s.CrossedQuadFoliage = true; // WHY: gates the foliage patch; off = trees stay vanilla 2D
@@ -269,6 +277,7 @@ public class SavedSettings
         {
             if (s == null) throw new ArgumentNullException(nameof(s));
 
+            s.FoliageVoxelScaleFactor = 0.20f;
             s.VoxelEntities = true;
             s.ProceduralBuildings = true;
             s.CrossedQuadFoliage = true;
