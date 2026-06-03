@@ -55,6 +55,19 @@ namespace WorldSphereMod.LOD
 
         public static LodTier Select(Vector3 worldPos, int instanceId)
         {
+            return Select(worldPos, instanceId, 0f);
+        }
+
+        /// <summary>
+        /// Select the LOD tier for an entity at <paramref name="worldPos"/>.
+        /// <paramref name="entityHeightOverride"/> lets callers supply the actual rendered
+        /// world-space height when it differs from the actor default
+        /// (_baseEntityHeight * VoxelScaleMultiplier * ActorVoxelScaleFactor). Buildings
+        /// do not use ActorVoxelScaleFactor — pass their real mesh height so the distance
+        /// threshold is consistent with what the user sees on screen. (#208 lodImpostor fix)
+        /// </summary>
+        public static LodTier Select(Vector3 worldPos, int instanceId, float entityHeightOverride)
+        {
             if (ImpostorOnlyMode) return LodTier.Cull;
 
             Camera cam = CameraManager.MainCamera;
@@ -62,22 +75,35 @@ namespace WorldSphereMod.LOD
 
             float fov = cam.fieldOfView;
             float lodScale = Core.savedSettings.LODScale;
-            // WHY: LOD distance must track the ACTUAL rendered actor height, which is now
-            // VoxelScaleMultiplier * ActorVoxelScaleFactor (actors render reduced). Folding the
-            // factor in keeps the tier boundary matched to real on-screen size.
-            float voxelScale = Mathf.Max(0.0001f, Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor);
-            if (fov != _cachedFov || lodScale != _cachedLodScale
-                || VoxelThreshold != _cachedVoxelThreshold
-                || voxelScale != _cachedVoxelScale)
+            // Compute the squared-distance threshold. Use entityHeightOverride when provided
+            // (e.g. buildings) so the threshold matches the actual rendered size, not the
+            // actor-specific ActorVoxelScaleFactor. Use the shared cache only for the default
+            // actor path to avoid inter-entity cache collisions.
+            float voxelMaxDistSqr;
+            if (entityHeightOverride > 0f)
             {
-                float entityHeight = _baseEntityHeight * voxelScale;
+                // Per-call computation — no shared cache since entity heights vary.
                 float tanHalfFov = Mathf.Max(0.0001f, Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad));
-                float voxelMaxDist = entityHeight * lodScale / (VoxelThreshold * tanHalfFov);
-                _voxelMaxDistSqr = voxelMaxDist * voxelMaxDist;
-                _cachedFov = fov;
-                _cachedLodScale = lodScale;
-                _cachedVoxelThreshold = VoxelThreshold;
-                _cachedVoxelScale = voxelScale;
+                float d = entityHeightOverride * lodScale / (VoxelThreshold * tanHalfFov);
+                voxelMaxDistSqr = d * d;
+            }
+            else
+            {
+                float voxelScale = Mathf.Max(0.0001f, Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor);
+                if (fov != _cachedFov || lodScale != _cachedLodScale
+                    || VoxelThreshold != _cachedVoxelThreshold
+                    || voxelScale != _cachedVoxelScale)
+                {
+                    float entityHeight = _baseEntityHeight * voxelScale;
+                    float tanHalfFov = Mathf.Max(0.0001f, Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad));
+                    float voxelMaxDist = entityHeight * lodScale / (VoxelThreshold * tanHalfFov);
+                    _voxelMaxDistSqr = voxelMaxDist * voxelMaxDist;
+                    _cachedFov = fov;
+                    _cachedLodScale = lodScale;
+                    _cachedVoxelThreshold = VoxelThreshold;
+                    _cachedVoxelScale = voxelScale;
+                }
+                voxelMaxDistSqr = _voxelMaxDistSqr;
             }
 
             Vector3 camPos = cam.transform.position;
@@ -87,7 +113,7 @@ namespace WorldSphereMod.LOD
             float distSqr = dx * dx + dy * dy + dz * dz;
 
             // Raw tier from the bare threshold (no hysteresis).
-            LodTier rawTier = distSqr < _voxelMaxDistSqr ? LodTier.Voxel : LodTier.Cull;
+            LodTier rawTier = distSqr < voxelMaxDistSqr ? LodTier.Voxel : LodTier.Cull;
 
             if (!_hyst.TryGetValue(instanceId, out LodHysteresis h))
             {
@@ -100,7 +126,7 @@ namespace WorldSphereMod.LOD
             // change once distance crosses the boundary by _hystMargin. An object that
             // stays inside the band keeps its tier no matter how the camera pans — this
             // kills the wave.
-            LodTier proposed = ProposeWithDeadband(distSqr, h.current);
+            LodTier proposed = ProposeWithDeadband(distSqr, h.current, voxelMaxDistSqr);
 
             if (h.current == proposed)
             {
@@ -129,10 +155,10 @@ namespace WorldSphereMod.LOD
         // (near) requires distance to drop well below the boundary; leaving Voxel for Cull
         // (far) requires it to rise well above. A small per-frame distance jitter therefore
         // never flips the tier.
-        static LodTier ProposeWithDeadband(float distSqr, LodTier current)
+        static LodTier ProposeWithDeadband(float distSqr, LodTier current, float voxelMaxDistSqr)
         {
-            float voxelEnter = _voxelMaxDistSqr * (1f - _hystMargin); // closer than this to ENTER Voxel
-            float voxelExit  = _voxelMaxDistSqr * (1f + _hystMargin); // farther than this to LEAVE Voxel
+            float voxelEnter = voxelMaxDistSqr * (1f - _hystMargin); // closer than this to ENTER Voxel
+            float voxelExit  = voxelMaxDistSqr * (1f + _hystMargin); // farther than this to LEAVE Voxel
 
             switch (current)
             {

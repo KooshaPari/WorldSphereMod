@@ -1028,7 +1028,18 @@ namespace WorldSphereMod.Voxel
                         continue;
                     }
                     frustumPass++;
-                    WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode());
+                    // Buildings use BuildingSize * VoxelScaleMultiplier for their actual
+                    // world height — not ActorVoxelScaleFactor (actor-only). Pass it as
+                    // entityHeightOverride so the LOD distance threshold is consistent with
+                    // the rendered building scale. (#208 lodImpostor=76 fix)
+                    float bldEntityH = Core.savedSettings.BuildingSize * Core.savedSettings.VoxelScaleMultiplier;
+                    WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode(), bldEntityH);
+                    // One-shot LOD DIAG: log the LOD decision inputs for the first building.
+                    if (!_buildingBillboardDiagLogged && frustumPass == 1)
+                    {
+                        float distSqr = (cullPos - CameraManager.MainCamera.transform.position).sqrMagnitude;
+                        Debug.Log($"[WSM3D][LOD-DIAG] building[0] cullPos={cullPos} dist={Mathf.Sqrt(distSqr):F1} entityH={bldEntityH:F2} lodScale={Core.savedSettings.LODScale} tier={tier}");
+                    }
 
                     Sprite sp = rd.main_sprites[i];
                     if (sp == null)
