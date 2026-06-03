@@ -35,7 +35,6 @@ namespace WorldSphereMod.Voxel
         static bool _firstActorPosLogged;
         static int _actorVoxelColorSampleCount;
         static bool _actorVoxelDiagnosticLogged;
-        static bool _actorImpostorDiagnosticLogged;
         static bool _actorSkeletalDiagnosticLogged;
         static readonly List<Vector3> _actorVoxelSubmitTranslations = new(5);
         static readonly Dictionary<ActorSpriteCardMeshKey, Mesh> _actorSpriteCardMeshes = new();
@@ -69,7 +68,6 @@ namespace WorldSphereMod.Voxel
             _firstActorPosLogged = false;
             _actorVoxelDiagnosticLogged = false;
             _actorVoxelColorSampleCount = 0;
-            _actorImpostorDiagnosticLogged = false;
             _actorSkeletalDiagnosticLogged = false;
             _actorVoxelSubmitTranslations.Clear();
             ClearActorSpriteCardState();
@@ -858,7 +856,7 @@ namespace WorldSphereMod.Voxel
                     if (!_billboardDiagLogged)
                     {
                         _billboardDiagLogged = true;
-                        Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Actor processed={__instance.visible_units.count} skipped={__instance.visible_units.count} reason=(nullMaterial=1,lodImpostor=0,scaleZero=0) visibleUnitsCount={__instance.visible_units.count} frustumCullerPassCount=0 batcherSubmitCount=0");
+                        Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Actor processed={__instance.visible_units.count} skipped={__instance.visible_units.count} reason=(nullMaterial=1,lodCull=0,scaleZero=0) visibleUnitsCount={__instance.visible_units.count} frustumCullerPassCount=0 batcherSubmitCount=0");
                     }
                     RenderErrorRegistry.Record(RenderErrorType.MaterialNull, "ActorManager",
                         "EnsureMaterial() returned no usable voxel material", Vector3.zero);
@@ -881,9 +879,9 @@ namespace WorldSphereMod.Voxel
                 LastBatcherSubmitCount = 0;
                 // DIAG-SUBMIT path counters — find where the 8 meshOk actors are being dropped
                 int dsNullActor = 0, dsPerpSkipped = 0, dsFrustumFail = 0;
-                int dsTierImpostor = 0, dsTierProxy = 0, dsTierVoxel = 0, dsTierOther = 0;
+                int dsTierCull = 0, dsTierVoxel = 0;
                 int dsSkeletalAttempt = 0, dsSkeletalSubmitOk = 0, dsSkeletalSubmitFail = 0;
-                int dsImpostorMeshNull = 0, dsImpostorMatNull = 0, dsImpostorSubmit = 0;
+                int dsCullMeshNull = 0;
                 int dsSpriteNull = 0, dsVoxelMeshNull = 0, dsVoxelSubmitAttempt = 0, dsVoxelSubmitOk = 0, dsVoxelSubmitFail = 0;
                 int diagActors = 0;
                 int diagAlreadySuppressed = 0;
@@ -942,7 +940,7 @@ namespace WorldSphereMod.Voxel
                         _actorLodDiagLogged = true;
                     }
                     // Two-tier ladder: Voxel (near, emit mesh) or Cull (far, draw nothing).
-                    if (tier == WorldSphereMod.LOD.LodTier.Cull) dsTierImpostor++;
+                    if (tier == WorldSphereMod.LOD.LodTier.Cull) dsTierCull++;
                     else dsTierVoxel++;
 
                     if (Core.savedSettings.SkeletalAnimation && tier != WorldSphereMod.LOD.LodTier.Cull)
@@ -1020,12 +1018,12 @@ namespace WorldSphereMod.Voxel
                     if (tier == WorldSphereMod.LOD.LodTier.Cull)
                     {
                         // FAR TIER = CULL, NOT BILLBOARD. The user explicitly prefers seeing
-                        // NOTHING over a flat impostor. Keep the LOD distance logic (so near
+                        // NOTHING over a flat fallback tier. Keep the LOD distance logic (so near
                         // objects still voxelize) but the far tier draws nothing. Sprite is
                         // already suppressed above, so the object is invisible at distance.
                         rd.scales[i] = Vector3.zero;
-                        dsTierImpostor++;
-                        dsImpostorMeshNull++;
+                        dsTierCull++;
+                        dsCullMeshNull++;
                         continue;
                     }
 
@@ -1092,8 +1090,8 @@ namespace WorldSphereMod.Voxel
                 if (!_billboardDiagLogged)
                 {
                     _billboardDiagLogged = true;
-                    int skipped = dsNullActor + dsPerpSkipped + dsFrustumFail + dsSpriteNull + dsVoxelMeshNull + dsVoxelSubmitFail + dsSkeletalSubmitFail + dsTierImpostor;
-                    Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Actor processed={n} skipped={skipped} reason=(nullMaterial=0,lodImpostor={dsTierImpostor},scaleZero=0,nullActor={dsNullActor},perp={dsPerpSkipped},frustumFail={dsFrustumFail},spriteNull={dsSpriteNull},meshNull={dsVoxelMeshNull},submitFail={dsVoxelSubmitFail + dsSkeletalSubmitFail}) visibleUnitsCount={LastVisibleUnitsCount} frustumCullerPassCount={LastFrustumCullerPassCount} batcherSubmitCount={LastBatcherSubmitCount}");
+                    int skipped = dsNullActor + dsPerpSkipped + dsFrustumFail + dsSpriteNull + dsVoxelMeshNull + dsVoxelSubmitFail + dsSkeletalSubmitFail + dsTierCull;
+                    Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Actor processed={n} skipped={skipped} reason=(nullMaterial=0,lodCull={dsTierCull},scaleZero=0,nullActor={dsNullActor},perp={dsPerpSkipped},frustumFail={dsFrustumFail},spriteNull={dsSpriteNull},meshNull={dsVoxelMeshNull},submitFail={dsVoxelSubmitFail + dsSkeletalSubmitFail}) visibleUnitsCount={LastVisibleUnitsCount} frustumCullerPassCount={LastFrustumCullerPassCount} batcherSubmitCount={LastBatcherSubmitCount}");
                 }
 
                 if (!_voxelDiagLogged)
@@ -1105,7 +1103,7 @@ namespace WorldSphereMod.Voxel
                 if (Core.savedSettings.ProfilerDump && (!_emitDiagSawNonZero || _emitDiagFrameCounter < 3))
                 {
                     _emitDiagFrameCounter++;
-                    Debug.Log($"[WSM3D][DIAG-SUBMIT] EmitVoxels paths n={n} nullActor={dsNullActor} perpSkip={dsPerpSkipped} frustumFail={dsFrustumFail} frustumPass={LastFrustumCullerPassCount} | tier(Imp={dsTierImpostor} Proxy={dsTierProxy} Voxel={dsTierVoxel} Other={dsTierOther}) | skel(attempt={dsSkeletalAttempt} ok={dsSkeletalSubmitOk} fail={dsSkeletalSubmitFail}) | spriteNull={dsSpriteNull} | impostor(meshNull={dsImpostorMeshNull} matNull={dsImpostorMatNull} submit={dsImpostorSubmit}) | voxel(meshNull={dsVoxelMeshNull} attempt={dsVoxelSubmitAttempt} ok={dsVoxelSubmitOk} fail={dsVoxelSubmitFail}) | LastBatcherSubmitCount={LastBatcherSubmitCount} SkeletalAnimation={Core.savedSettings.SkeletalAnimation}");
+                        Debug.Log($"[WSM3D][DIAG-SUBMIT] EmitVoxels paths n={n} nullActor={dsNullActor} perpSkip={dsPerpSkipped} frustumFail={dsFrustumFail} frustumPass={LastFrustumCullerPassCount} | tier(Cull={dsTierCull} Voxel={dsTierVoxel}) | skel(attempt={dsSkeletalAttempt} ok={dsSkeletalSubmitOk} fail={dsSkeletalSubmitFail}) | spriteNull={dsSpriteNull} | cull(meshNull={dsCullMeshNull}) | voxel(meshNull={dsVoxelMeshNull} attempt={dsVoxelSubmitAttempt} ok={dsVoxelSubmitOk} fail={dsVoxelSubmitFail}) | LastBatcherSubmitCount={LastBatcherSubmitCount} SkeletalAnimation={Core.savedSettings.SkeletalAnimation}");
                 }
             }
 
@@ -1240,7 +1238,7 @@ namespace WorldSphereMod.Voxel
                     {
                         _buildingBillboardDiagLogged = true;
                         int visible = __instance._visible_buildings_count;
-                        Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Building processed={visible} skipped={visible} reason=(materialNull=1,lodImpostor=0,scaleZero=0) visibleUnitsCount={visible} frustumCullerPassCount=0 batcherSubmitCount=0");
+                        Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Building processed={visible} skipped={visible} reason=(materialNull=1,lodCull=0,scaleZero=0) visibleUnitsCount={visible} frustumCullerPassCount=0 batcherSubmitCount=0");
                     }
                     RenderErrorRegistry.Record(RenderErrorType.MaterialNull, "BuildingManager",
                         "EnsureMaterial() returned no usable voxel material", Vector3.zero);
@@ -1327,7 +1325,7 @@ namespace WorldSphereMod.Voxel
                     // Buildings use BuildingSize * VoxelScaleMultiplier for their actual
                     // world height — not ActorVoxelScaleFactor (actor-only). Pass it as
                     // entityHeightOverride so the LOD distance threshold is consistent with
-                    // the rendered building scale. (#208 lodImpostor=76 fix)
+                    // the rendered building scale. (#208 lodCull=76 fix)
                     float bldEntityH = Core.savedSettings.BuildingSize * Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.BuildingVoxelScaleFactor;
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode(), bldEntityH);
                     // One-shot LOD DIAG: log the LOD decision inputs for the first building.
@@ -1358,7 +1356,7 @@ namespace WorldSphereMod.Voxel
                     if (tier == WorldSphereMod.LOD.LodTier.Cull)
                     {
                         // FAR TIER = CULL. Sprite already suppressed → building invisible at
-                        // distance rather than a flat impostor billboard.
+                        // distance rather than the flat fallback tier.
                         skippedLod++;
                         continue;
                     }
@@ -1415,7 +1413,7 @@ namespace WorldSphereMod.Voxel
                 {
                     _buildingBillboardDiagLogged = true;
                     int skipped = skippedNull + skippedPerp + skippedFrustum + skippedLod + skippedSpriteNull + skippedScaleZero + skippedMeshNull;
-                    Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Building processed={processed} skipped={skipped} reason=(materialNull=0,lodImpostor={skippedLod},scaleZero={skippedScaleZero},spriteNull={skippedSpriteNull},meshNull={skippedMeshNull},frustumFail={skippedFrustum},null={skippedNull},perp={skippedPerp}) visibleUnitsCount={n} frustumCullerPassCount={frustumPass} batcherSubmitCount={submitCount}");
+                    Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Building processed={processed} skipped={skipped} reason=(materialNull=0,lodCull={skippedLod},scaleZero={skippedScaleZero},spriteNull={skippedSpriteNull},meshNull={skippedMeshNull},frustumFail={skippedFrustum},null={skippedNull},perp={skippedPerp}) visibleUnitsCount={n} frustumCullerPassCount={frustumPass} batcherSubmitCount={submitCount}");
                 }
             }
         }
@@ -1488,7 +1486,7 @@ namespace WorldSphereMod.Voxel
                 if (tier == WorldSphereMod.LOD.LodTier.Cull)
                 {
                     // FAR TIER = CULL. Sprite suppressed → drop invisible at distance, never
-                    // a flat impostor billboard.
+                    // a flat fallback tier.
                     return;
                 }
 
