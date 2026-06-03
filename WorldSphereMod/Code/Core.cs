@@ -1400,7 +1400,7 @@ namespace WorldSphereMod
                         hfMat.SetTexture("_MainTex", atlas != null ? atlas : Texture2D.whiteTexture);
                         if (atlas != null)
                         {
-                            hf.ConfigureTerrainAtlas(TerrainTextureAtlasCols, TerrainTextureAtlasRows);
+                            // ConfigureTerrainAtlas not available in current CompoundSpheres build
                         }
                     }
                     if (hfMat.HasProperty("_BaseMap"))
