@@ -61,6 +61,10 @@ namespace WorldSphereMod.Foliage
                                     && !t.liquid && !t.ocean && !t.lava;
                 if (!isFoliage) return true;
 
+                // VOXEL-OR-INVISIBLE for both branches (voxel mesh + cull/placeholder):
+                // force the vanilla tilemap sprite off before any other processing.
+                SuppressVanillaTileSprite(__instance, pTile, t);
+
                 // Resolve the variation sprite the vanilla path would have flushed.
                 // WorldTilemap.getVariation returns a UnityEngine.Tilemaps.Tile whose
                 // .sprite is the atlas-resolved frame. Assembly-CSharp-Publicized
@@ -85,16 +89,16 @@ namespace WorldSphereMod.Foliage
                         try { sprite = ts.main?.sprite; } catch { /* fall through */ }
                     }
                 }
-                if (sprite == null) return true;
+                if (sprite == null) return false;
 
                 if (t.life && !FoliageDensity.ShouldRender(pTile.pos.x, pTile.pos.y, sprite.name, Core.savedSettings.FoliageDensity))
                 {
                     return false;
                 }
 
-                if (!FoliageMaterial.EnsureMaterial()) return true;
+                if (!FoliageMaterial.EnsureMaterial()) return false;
                 Material? mat = FoliageMaterial.Get();
-                if (mat == null) return true;
+                if (mat == null) return false;
 
                 // VOXEL-OR-INVISIBLE POLICY (user, 2026-05-30): foliage must be a REAL
                 // voxel volume or NOTHING — NEVER a crossed-quad X / 2.5D slab. The
@@ -164,6 +168,39 @@ namespace WorldSphereMod.Foliage
             {
                 Debug.LogError("[WSM3D] FoliageTileRender.Prefix: " + ex);
                 return true;
+            }
+        }
+
+        static void SuppressVanillaTileSprite(WorldTilemap tilemap, WorldTile tile, TileTypeBase tileType)
+        {
+            if (tilemap == null || tile == null || tileType == null) return;
+
+            try
+            {
+                int renderZ = tileType.render_z;
+                if (renderZ < 0 || tilemap._layers == null) return;
+
+                Vector3Int renderPos = new Vector3Int(tile.pos.x, tile.pos.y, renderZ);
+                Vector3Int lastRenderPos = tile.last_rendered_pos_tile;
+                if (lastRenderPos.z != WorldTilemap.EMPTY_Z)
+                {
+                    if (tilemap._layers.TryGetValue(lastRenderPos.z, out TilemapExtended oldLayer))
+                    {
+                        oldLayer.addToQueueToRedraw(tile, lastRenderPos, null);
+                    }
+                    tile.last_rendered_pos_tile = WorldTilemap.EMPTY_TILE_POS;
+                }
+
+                if (tilemap._layers.TryGetValue(renderZ, out TilemapExtended layer))
+                {
+                    layer.addToQueueToRedraw(tile, renderPos, null);
+                }
+
+                tile.last_rendered_tile_type = tileType;
+                tile.last_rendered_pos_tile = renderPos;
+            }
+            catch
+            {
             }
         }
 
