@@ -565,7 +565,7 @@ namespace WorldSphereMod.Voxel
                             frustumPass++;
                             Sprite dSp = ResolveActorSprite(diagRd, di, da);
                             if (dSp == null) { meshNull++; continue; }
-                            Mesh dm = VoxelMeshCache.Get(dSp, -1, true);
+                            Mesh dm = VoxelMeshCache.Get(dSp, ShapeHint.OrganicBlob, true);
                             if (dm == null || dm.vertexCount == 0) meshNull++; else meshOk++;
                         }
                     }
@@ -653,7 +653,12 @@ namespace WorldSphereMod.Voxel
                         continue;
                     }
                     LastFrustumCullerPassCount++;
-                    WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, a.GetHashCode());
+                    // Use actor-specific rendered height for LOD so the threshold tracks the
+                    // actual actor scale (instead of sharing one fixed baseline for every actor).
+                    float actorScale = Mathf.Abs(rd.scales != null && i < rd.scales.Length ? rd.scales[i].y : 1f);
+                    if (actorScale <= 0.0001f) actorScale = 1f;
+                    float actorEntityHeight = actorScale * Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor;
+                    WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, a.GetHashCode(), actorEntityHeight);
                     // Two-tier ladder: Voxel (near, emit mesh) or Cull (far, draw nothing).
                     if (tier == WorldSphereMod.LOD.LodTier.Cull) dsTierImpostor++;
                     else dsTierVoxel++;
@@ -743,7 +748,7 @@ namespace WorldSphereMod.Voxel
                     }
 
                     // Near tier: emit the full voxel mesh via the shared VoxelMeshCache.
-                    Mesh m = VoxelMeshCache.Get(sp, -1, true);
+                    Mesh m = VoxelMeshCache.Get(sp, ShapeHint.OrganicBlob, true);
                     // Mesh not built yet (async) or empty → INVISIBLE until ready. Sprite
                     // already suppressed; do NOT draw a placeholder billboard. Record so the
                     // operator can tell "still building" (VoxelNotReady) from "build failed".
@@ -1043,7 +1048,7 @@ namespace WorldSphereMod.Voxel
                     // world height — not ActorVoxelScaleFactor (actor-only). Pass it as
                     // entityHeightOverride so the LOD distance threshold is consistent with
                     // the rendered building scale. (#208 lodImpostor=76 fix)
-                    float bldEntityH = Core.savedSettings.BuildingSize * Core.savedSettings.VoxelScaleMultiplier;
+                    float bldEntityH = Core.savedSettings.BuildingSize * Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.BuildingVoxelScaleFactor;
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode(), bldEntityH);
                     // One-shot LOD DIAG: log the LOD decision inputs for the first building.
                     if (!_buildingBillboardDiagLogged && frustumPass == 1)
