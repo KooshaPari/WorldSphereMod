@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.7] - 2026-06-03
+
+Windows-tested pre-release from the #208 render sprint. Mac/Linux bundles ship untested; see [`docs/release-notes/v2.0.0-beta.7.md`](docs/release-notes/v2.0.0-beta.7.md) for honest known-issue list and voxel-flash workaround.
+
+### Fixed (#208)
+
+- **Terrain** — save-load white terrain, biome color pipeline, OVC shader gate, PrepareWorld ordering
+- **Voxel** — EnsurePhasePatches guard, settings v2.8, empty-cache placeholder mesh fallback
+- **LOD** — building height to LodSelector, threshold/hysteresis tuning, flash regression fix
+- **Billboard** — tile-coord cull position; phase patches via PostInit + TickPerFrame
+- **Install** — canonical `StreamingAssets/Mods/WorldSphereMod` path documented in `docs/CANONICAL.md`
+
+### Added
+
+- E2E regression tests (sun registration, voxel pipeline, load-path safety)
+- ADR-0021 assetbundle/postfx lessons; robustness doc hygiene
+- Live-verification diagnosis docs synced from 6/2 session
+
+### Known issues
+
+- Smooth RGB terrain tint still rough; voxel actor LOD flashes — disable **Voxel Actors** in WSM Extended settings (3rd toggle, between Cam and Profiler dump)
+- GPU/compute paths primarily D3D11-validated; Mac Metal / Linux Vulkan may crash
+
+[2.0.0-beta.7]: https://github.com/kooshapari/WorldSphereMod/compare/v2.0.0-beta.6...v2.0.0-beta.7
+
 ## [2.0.0-beta.6] - 2026-05-24
 
 E2E invariant wave (+26 tests since beta.5) and live-verification documentation hardening. Offline gate: **473 passed / 0 failed** (476 total, 3 skipped).
