@@ -179,7 +179,9 @@ namespace WorldSphereMod.ProcGen
                                     LogFirstBuildingPos(rawPos, pos, scl);
                                     Mesh? m = ProcGenCache.GetOrGenerate(b.asset, rules);
                                     if (m == null) continue;
-                                    Matrix4x4 procTrs = Matrix4x4.TRS(cullPos, Quaternion.identity, Vector3.one * Core.savedSettings.BuildingSize);
+                                    float procScale = Core.savedSettings.BuildingSize;
+                                    if (rd.flip_x_states[i]) procScale = -procScale;
+                                    Matrix4x4 procTrs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), Vector3.one * procScale);
                                     if (TryQueueBuildingDraw(m, procTrs))
                                     {
                                         submitted = true;
