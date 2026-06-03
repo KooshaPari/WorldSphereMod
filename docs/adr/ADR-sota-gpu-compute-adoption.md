@@ -155,4 +155,28 @@ delete the legacy `SphereManager`/`SphereTile`/`SphereManagerSettings` and the
 shim. Update the reflected `"SphereTiles"` lookup to `"Tiles"`.
 
 ### P5 — Rebuild DLL + 60f1 bundle
-`dotnet build WorldSphereMod.csproj -c Release`; run `Tools/bake-shaders.ps
+`dotnet build WorldSphereMod.csproj -c Release`; run `Tools/bake-shaders.ps1`
+to bake the compute shader into the `wsm3d-shaders` bundle; `install.ps1`
+(stale-DLL fix). Vision-verify per the project charter.
+
+---
+
+## Consequences
+
+- **Positive:** removes the entire CPU matrix/color upload (ADR-0015's
+  chunked-upload workaround becomes unnecessary), shifts work to GPU, scales to
+  large maps; SphereTile becomes a lightweight class; keeps our fork features.
+- **Negative / risk:** two parallel manager implementations during P1–P3
+  (shim cost); FrustumCuller rework is the riskiest piece; compute path requires
+  `SystemInfo.supportsComputeShaders` (already gated in `Mod.cs:29`).
+- **Reversible:** the `.compute` + additive types do not touch the old build;
+  if P4 stalls we still ship the old CPU path.
+
+## Status of this phase (P1 scaffolding)
+
+- **DONE:** authored `Default Assets/CompoundSphereCompute.compute` (kernels
+  `OutputMatrices` + `OutputColors`, contract above); this ADR; adapter-shim
+  signature stubs (if committed — see report).
+- **DEFERRED to P2+:** importing upstream `ManagerBase`/`Dynamic*`/`BufferBase`
+  types, full shim body, HeightFieldRenderer port, FrustumCuller rework,
+  consumer migration, bake-script `*.compute` support, DLL+bundle rebuild.
