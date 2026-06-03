@@ -1801,6 +1801,11 @@ namespace WorldSphereMod.Voxel
             bool hadPending = MeshInstanceBatcher.HasPendingSubmissions;
             int submitsBeforeFlush = Volatile.Read(ref MeshInstanceBatcher._submitCountThisFrame);
             VoxelRender.Flush();
+            if (Core.savedSettings?.ProceduralBuildings == true)
+            {
+                Material? procBuildingMaterial = VoxelRender.GetResolvedMaterial();
+                WorldSphereMod.ProcGen.BuildingProcRender.ProcMeshEmit.FlushQueuedBuildingDraws(procBuildingMaterial);
+            }
             VoxelMeshCache.DrainPendingDestroy();
 
             // Per-frame Submit/Flush diagnostic. Snapshot live counters and reset.

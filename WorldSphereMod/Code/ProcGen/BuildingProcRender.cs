@@ -214,7 +214,9 @@ namespace WorldSphereMod.ProcGen
                         rd.scales[i] = Vector3.zero;
                     }
                 }
-                FlushQueuedBuildingDraws(procBuildingMaterial);
+                // Build-time queue is now rendered every Unity frame from the shared
+                // VoxelRender LateUpdate sink so DrawMeshInstanced is not tied to
+                // precalculateRenderDataParallel cadence.
 
                 if (profile)
                 {
@@ -246,7 +248,7 @@ namespace WorldSphereMod.ProcGen
                 return true;
             }
 
-            static void FlushQueuedBuildingDraws(Material material)
+            internal static void FlushQueuedBuildingDraws(Material? material)
             {
                 if (material != null) material.enableInstancing = true;
                 foreach (var pair in _buildingDrawBatches)
