@@ -1945,6 +1945,14 @@ namespace WorldSphereMod
                         //
                         foreach (var shaderName in SafeShaders)
                         {
+                            // Final hard stop: in this crash-safe phase only the
+                            // one validated shader is loaded from the shader bundle.
+                            if (!string.Equals(shaderName, "OpaqueVertexColor", System.StringComparison.OrdinalIgnoreCase))
+                            {
+                                Debug.LogWarning($"[WSM3D] Skipping shader '{shaderName}' from bundle load because crash-safe phase loads only OpaqueVertexColor.");
+                                continue;
+                            }
+
                             // Never call GetObject for known-bad post-FX shader names
                             // from this bundle (BrpBloom / BrpACES) even if they are
                             // reintroduced later by another branch.
