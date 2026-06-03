@@ -168,6 +168,10 @@ namespace WorldSphereMod
                 try { ApplyPhaseToggle(nameof(SavedSettings.CrossedQuadFoliage), true); }
                 catch (System.Exception ex) { Debug.LogWarning("[WSM3D] EnsurePhasePatches CrossedQuadFoliage: " + ex.Message); }
             }
+            // Explicitly re-assert ProceduralBuildings after settings load/migration so
+            // its [Phase] patch is always installed when enabled and disabled when off.
+            try { ApplyPhaseToggle(nameof(SavedSettings.ProceduralBuildings), savedSettings.ProceduralBuildings); }
+            catch (System.Exception ex) { Debug.LogWarning("[WSM3D] EnsurePhasePatches ProceduralBuildings: " + ex.Message); }
         }
 
         // go go gadget un-box my worldbox
@@ -767,6 +771,10 @@ namespace WorldSphereMod
             // bind its CSMatrices/CSColors kernels to it. Null => legacy CPU path.
             internal static UnityEngine.ComputeShader CompoundCompute;
             static Texture2DArray Textures;
+            static Texture2D TerrainTextureAtlas;
+            static int TerrainTextureAtlasCols;
+            static int TerrainTextureAtlasRows;
+            const int TerrainTextureAtlasTileSize = 8;
             static SphereManagerSettings SphereManagerConfig;
             static Dictionary<Tile, int> TileIDS;
             static Dictionary<int, Color32> TextureAverageCache;
@@ -1387,7 +1395,14 @@ namespace WorldSphereMod
                     // the entire terrain surface renders BLACK. Force the built-in
                     // white pixel so vertex colors survive. VoxelRender has the same guard.
                     if (hfMat.HasProperty("_MainTex"))
-                        hfMat.SetTexture("_MainTex", Texture2D.whiteTexture);
+                    {
+                        Texture2D atlas = TerrainTextureAtlas;
+                        hfMat.SetTexture("_MainTex", atlas != null ? atlas : Texture2D.whiteTexture);
+                        if (atlas != null)
+                        {
+                            hf.ConfigureTerrainAtlas(TerrainTextureAtlasCols, TerrainTextureAtlasRows);
+                        }
+                    }
                     if (hfMat.HasProperty("_BaseMap"))
                         hfMat.SetTexture("_BaseMap", Texture2D.whiteTexture);
 
@@ -1430,18 +1445,15 @@ namespace WorldSphereMod
                 // Heights are passed RAW (pre-HeightMult) because projectPosition
                 // applies HeightMult, matching the land sampleHeight units.
                 float seaLevel = Tools.TrueHeight(17) - 0.5f;
+                bool meshWaterEnabled = savedSettings.MeshWater;
                 hf.ConfigureWater(
                     sampleIsWater: (tx, ty) =>
                     {
                         int sx = wrapped ? ((tx % w) + w) % w : Mathf.Clamp(tx, 0, w - 1);
                         int sy = Mathf.Clamp(ty, 0, h - 1);
                         WorldTile tile = World.world.GetTileSimple(sx, sy);
-                        if (tile == null) return false;
-                        var tt = tile.main_type;
-                        if (tt == null) return false;
-                        // Open water only: liquid/ocean, not sand/ground shore, and at/below sea.
-                        return (tt.liquid || tt.ocean) && !tt.sand && !tt.ground
-                            && tile.TileHeight() <= seaLevel;
+                        if (tile == null || !meshWaterEnabled) return false;
+                        return IsWaterTile(tile.main_type, tile.top_type, tile.TileHeight(), seaLevel);
                     },
                     sampleWaterLevel: (tx, ty) => seaLevel,
                     sampleSeabed: (tx, ty) =>
@@ -1454,13 +1466,34 @@ namespace WorldSphereMod
                 );
 
                 // Translucent water material (alpha-blended) so terrain reads through.
-                Shader waterShader = ResolveShader("");
-                if (waterShader != null)
+                if (meshWaterEnabled)
                 {
+                    Color waterColor = new Color(0.20f, 0.45f, 0.65f, 0.72f);
+                    Shader waterShader = null;
+
+                    if (HasBundleShader("GerstnerWater"))
+                    {
+                        Shader bundledWater = Sphere.LoadedShaders["GerstnerWater"];
+                        if (bundledWater != null && bundledWater.passCount > 0)
+                        {
+                            waterShader = bundledWater;
+                        }
+                    }
+                    if (waterShader == null)
+                    {
+                        waterShader = ResolveShader("");
+                    }
+
+                    if (waterShader == null)
+                    {
+                        Debug.LogWarning("[WSM3D] ConfigureHeightField water shader unresolved; skipping water material.");
+                        return;
+                    }
+
                     Material waterMat = new Material(waterShader) { name = "WSM3D.HeightFieldWater" };
                     if (waterMat.HasProperty("_Color"))
-                        waterMat.SetColor("_Color", new Color(0.20f, 0.45f, 0.65f, 0.70f));
-                    waterMat.color = new Color(0.20f, 0.45f, 0.65f, 0.70f);
+                        waterMat.SetColor("_Color", waterColor);
+                    waterMat.color = waterColor;
                     // Standard Transparent mode: ZWrite off, SrcAlpha/OneMinusSrcAlpha, queue 3000.
                     if (waterMat.HasProperty("_Mode")) waterMat.SetFloat("_Mode", 3f);
                     waterMat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
@@ -1587,6 +1620,31 @@ namespace WorldSphereMod
                 if (tt == null) return false;
                 string id = tt.id;
                 return !string.IsNullOrEmpty(id) && id.IndexOf(needle, System.StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+
+            /// <summary>
+            /// Resolve whether a tile should render as open water for the mesh-water
+            /// surface. Covers canonical liquid/ocean flags plus name-based river/lake
+            /// cases where the flagging is inconsistent across map packs.
+            /// </summary>
+            static bool IsWaterTile(TileTypeBase mainType, TileTypeBase topType, float tileHeight, float seaLevel)
+            {
+                if (mainType == null)
+                {
+                    return false;
+                }
+
+                bool looksLikeWater = mainType.liquid || mainType.ocean
+                    || IdContains(mainType, "water")
+                    || IdContains(mainType, "river")
+                    || IdContains(mainType, "lake")
+                    || IdContains(mainType, "sea")
+                    || (topType != null && (IdContains(topType, "water") || IdContains(topType, "river") || IdContains(topType, "lake") || IdContains(topType, "sea")));
+
+                return looksLikeWater
+                    && !mainType.sand
+                    && !mainType.ground
+                    && tileHeight <= seaLevel;
             }
 
             /// <summary>
@@ -2239,6 +2297,7 @@ namespace WorldSphereMod
                     Textures.SetPixels32(GetTruePixels(Sprites[i]), i);
                 }
                 Textures.Apply();
+                BuildTerrainTextureAtlas(Sprites);
                 TextureAverageCache = new Dictionary<int, Color32>();
                 void AddTile(TileTypeBase Tile)
                 {
@@ -2264,6 +2323,52 @@ namespace WorldSphereMod
                         return sprite.PixelsFromSpriteAtlas();
                     }
                     return Tools.ExpandArray(sprite.texture.GetPixels32(), 64);
+                }
+
+                void BuildTerrainTextureAtlas(List<Sprite> sprites)
+                {
+                    int count = sprites.Count;
+                    if (count <= 0)
+                    {
+                        TerrainTextureAtlasCols = 1;
+                        TerrainTextureAtlasRows = 1;
+                        TerrainTextureAtlas = Texture2D.whiteTexture;
+                        return;
+                    }
+
+                    TerrainTextureAtlasCols = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(count)));
+                    TerrainTextureAtlasRows = Mathf.CeilToInt((float)count / TerrainTextureAtlasCols);
+                    TerrainTextureAtlas = new Texture2D(
+                        TerrainTextureAtlasCols * TerrainTextureAtlasTileSize,
+                        TerrainTextureAtlasRows * TerrainTextureAtlasTileSize,
+                        TextureFormat.RGBA32,
+                        false,
+                        false)
+                    {
+                        filterMode = FilterMode.Point,
+                        wrapMode = TextureWrapMode.Clamp
+                    };
+
+                    for (int i = 0; i < count; i++)
+                    {
+                        int tileCol = i % TerrainTextureAtlasCols;
+                        int tileRow = i / TerrainTextureAtlasCols;
+                        int baseX = tileCol * TerrainTextureAtlasTileSize;
+                        int baseY = tileRow * TerrainTextureAtlasTileSize;
+                        Color32[] pixels = GetTruePixels(sprites[i]);
+
+                        for (int py = 0; py < TerrainTextureAtlasTileSize; py++)
+                        {
+                            for (int px = 0; px < TerrainTextureAtlasTileSize; px++)
+                            {
+                                int sourceIndex = (py * TerrainTextureAtlasTileSize) + px;
+                                TerrainTextureAtlas.SetPixel(baseX + px, baseY + py,
+                                    sourceIndex < pixels.Length ? pixels[sourceIndex] : Color.clear);
+                            }
+                        }
+                    }
+
+                    TerrainTextureAtlas.Apply();
                 }
             }
         }
