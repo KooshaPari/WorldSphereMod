@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 using System.Diagnostics;
 using HarmonyLib;
 using UnityEngine;
@@ -10,9 +11,15 @@ namespace WorldSphereMod.ProcGen
 {
     public static class BuildingProcRender
     {
+        static bool _procRenderTargetDiagLogged;
         static bool _firstBuildingPosLogged;
         // Per-frame budget cycling offset (same pattern as BuildingVoxelEmit).
         static int _budgetOffset;
+        static bool _earlyReturnDiagLogged;
+        static readonly MethodInfo? TargetPrecalculateMethod = AccessTools.Method(
+            typeof(BuildingManager),
+            nameof(BuildingManager.precalculateRenderDataParallel));
+
         const int MaxMeshInstancedBatch = 1023;
         static readonly Dictionary<Mesh, List<Matrix4x4>> _buildingDrawBatches = new();
         static readonly Matrix4x4[] _meshInstancedMatrices = new Matrix4x4[MaxMeshInstancedBatch];
@@ -24,9 +31,27 @@ namespace WorldSphereMod.ProcGen
             [HarmonyPostfix]
             public static void EmitMeshes(BuildingManager __instance)
             {
-                if (!Core.IsWorld3D || !Core.savedSettings.ProceduralBuildings) return;
+                bool isWorld3D = Core.IsWorld3D;
+                bool proceduralBuildings = Core.savedSettings?.ProceduralBuildings ?? false;
+                int visibleBuildingCount = __instance == null ? -1 : __instance._visible_buildings_count;
+                if (!isWorld3D)
+                {
+                    LogEarlyReturn("!IsWorld3D", isWorld3D, proceduralBuildings, visibleBuildingCount);
+                    return;
+                }
+
+                if (!proceduralBuildings)
+                {
+                    LogEarlyReturn("!ProceduralBuildings", isWorld3D, proceduralBuildings, visibleBuildingCount);
+                    return;
+                }
+
                 Material? procBuildingMaterial = VoxelRender.GetResolvedMaterial();
-                if (procBuildingMaterial == null) return;
+                if (procBuildingMaterial == null)
+                {
+                    LogEarlyReturn("procBuildingMaterial == null", isWorld3D, proceduralBuildings, visibleBuildingCount);
+                    return;
+                }
 
                 var rd = __instance.render_data;
                 var arr = __instance._array_visible_buildings;
@@ -241,6 +266,63 @@ namespace WorldSphereMod.ProcGen
                 {
                     batch.Clear();
                 }
+            }
+
+            static void LogEarlyReturn(
+                string reason,
+                bool isWorld3D,
+                bool proceduralBuildings,
+                int buildingCount)
+            {
+                if (_earlyReturnDiagLogged) return;
+                _earlyReturnDiagLogged = true;
+                Debug.Log($"[WSM3D][PROCRENDER-DIAG] early-return reason={reason} IsWorld3D={isWorld3D} ProceduralBuildings={proceduralBuildings} buildingCount={buildingCount}");
+            }
+        }
+
+        [HarmonyPatch(typeof(BuildingManager), nameof(BuildingManager.precalculateRenderDataParallel))]
+        public static class ProcRenderTargetProbe
+        {
+            [HarmonyPrefix]
+            public static void PrecalculateTargetProbe(BuildingManager __instance)
+            {
+                if (_procRenderTargetDiagLogged) return;
+                _procRenderTargetDiagLogged = true;
+
+                int buildingCount = __instance == null ? -1 : __instance._visible_buildings_count;
+                bool hasTarget = TargetPrecalculateMethod != null;
+                bool hasPatcher = Core.Patcher != null;
+                bool hasEmitPatch = false;
+                int patchedMethodCount = 0;
+                string patchedMethods = "N/A";
+                bool hasPhaseAttr = typeof(ProcMeshEmit).GetCustomAttribute<PhaseAttribute>() != null;
+                string phaseSetting = hasPhaseAttr ? nameof(SavedSettings.ProceduralBuildings) : "n/a";
+                bool phaseFlagValue = Core.savedSettings != null && Core.savedSettings.ProceduralBuildings;
+                string targetMethodName = hasTarget ? $"{TargetPrecalculateMethod!.DeclaringType?.Name}.{TargetPrecalculateMethod.Name}" : "null";
+
+                if (hasPatcher)
+                {
+                    try
+                    {
+                        var methods = Core.Patcher!.GetPatchedMethods();
+                        foreach (var method in methods)
+                        {
+                            patchedMethodCount++;
+                            if (method != null && method.DeclaringType == typeof(ProcMeshEmit))
+                            {
+                                hasEmitPatch = true;
+                            }
+                        }
+
+                        patchedMethods = $"count={patchedMethodCount}";
+                    }
+                    catch (System.Exception ex)
+                    {
+                        patchedMethods = $"ERROR:{ex.Message}";
+                    }
+                }
+
+                Debug.Log($"[WSM3D][PROCRENDER-DIAG] patch-state phaseFlag={phaseSetting}:{phaseFlagValue} patchInstalled={hasEmitPatch} targetMethod={targetMethodName} targetFound={hasTarget} isWorld3D={Core.IsWorld3D} buildingCount={buildingCount} patcherReady={hasPatcher} patchedMethods={patchedMethods}");
             }
         }
     }
