@@ -1000,11 +1000,27 @@ namespace WorldSphereMod.Voxel
                         skippedScaleZero++;
                     }
 
-                    Vector3 cullPos = rd.positions[i];
-                    if (cullPos.z < Constants.ZDisplacement * 0.5f)
+                    // Derive the 3D cull position from the building's tile coords rather
+                    // than rd.positions[i] — the parallel calculatebuildindata3D pass may
+                    // not have completed when this Postfix runs (Parallel.For race), leaving
+                    // rd.positions stale from the prior frame. Tile coords are always valid.
+                    // (#208 frustumFail=200 root cause: stale/wrong positions in rd.positions)
+                    Vector3 cullPos;
+                    if (b.current_position != null)
                     {
-                        cullPos = cullPos.To3DTileHeight(false);
+                        Vector2 tp = b.current_position;
+                        cullPos = Tools.To3D(new Vector3(tp.x, tp.y, 0), Tools.GetTileHeightSmooth(new Vector3(tp.x, tp.y, 0)));
                     }
+                    else
+                    {
+                        cullPos = rd.positions[i];
+                        if (cullPos.z < Constants.ZDisplacement * 0.5f)
+                            cullPos = cullPos.To3DTileHeight(false);
+                    }
+                    // One-shot DIAG: log the actual cullPos for the first building so the
+                    // lifted coordinate is visible in Player.log. (#208)
+                    if (!_buildingBillboardDiagLogged && i == start)
+                        Debug.Log($"[WSM3D][FRUSTUM-DIAG] building[0] tile={b.current_position} cullPos={cullPos} rdPos={rd.positions[i]}");
                     float radius = 3f * Mathf.Max(1f, Core.savedSettings.VoxelScaleMultiplier * 0.5f);
                     if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, radius))
                     {
