@@ -295,7 +295,7 @@ public class SavedSettings
             s.ACESTonemapping = true;
             s.ParticleEffects = true;
             s.WeatherRain = true;
-            s.DebugSanityCube = true;
+            s.DebugSanityCube = false;
             s.ProfilerDump = true;
         }
     }
