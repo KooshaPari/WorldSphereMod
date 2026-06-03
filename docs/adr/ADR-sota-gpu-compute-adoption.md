@@ -1,6 +1,6 @@
 # ADR-sota-gpu-compute-adoption: Adopting Compound-Spheres GPU-Compute Rewrite as SOTA Renderer Base
 
-**Status:** Proposed (P1 scaffolding accepted)
+**Status:** Accepted (P1 GPU-compute scaffold shipped in sota/gpu-compute-golive; P4 consumer migration in progress on feat/gpu-compute-p4-consumer-migration; 2026-06-01)
 
 **Date:** 2026-05-30
 

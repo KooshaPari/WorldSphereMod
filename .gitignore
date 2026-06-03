@@ -55,3 +55,15 @@ docs/journeys/scratch/in-mod-*.png
 Tools/Unity-Bake-Project/Library/
 Tools/Unity-Bake-Project/Logs/
 Tools/Unity-Bake-Project/Temp/
+
+# WorldSphereAPI / Tester build outputs (tracked by mistake; use Assemblies/ for intentional refs)
+WorldSphereAPI/bin/
+WorldSphereAPI/obj/
+WorldSphereTester/bin/
+WorldSphereTester/obj/
+
+# Journey scratch screenshots (large PNGs/JPGs that accumulate fast; named captures kept separately)
+docs/journeys/scratch/*.png
+docs/journeys/scratch/*.jpg
+# Exclude the explicit before/after baseline pairs that are intentionally committed
+!docs/journeys/scratch/user-actors-AFTER-fix-190314.png

@@ -1,6 +1,6 @@
 # ADR-0007: NML precompiled detection signal
 
-**Status:** Proposed  
+**Status:** Accepted (shipped — NML precompiled detection in use)
 **Date:** 2026-05-19  
 **Author:** WorldSphereMod agent  
 **Stakeholders:** WorldSphereMod install/build pipeline, NeoModLoader integration
