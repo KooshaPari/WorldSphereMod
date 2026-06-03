@@ -42,6 +42,11 @@ namespace WorldSphereMod.LOD
         const float _hystMargin = 0.25f;   // 25% squared-distance deadband around the boundary
         const int _hystFrames = 3;          // proposed tier must persist N frames before promotion
 
+        // Building path uses a wider deadband and no multi-frame wait to avoid
+        // synchronized full-frame Cull/voxel flips.
+        const float _buildingHystMargin = 0.45f;
+        const int _buildingHystFrames = 1;
+
         // Cached squared-distance LOD threshold; recomputed only when any of the inputs
         // (camera FOV, LODScale, VoxelThreshold, VoxelScaleMultiplier) change. Saves an
         // Mathf.Tan, a divide and a mul per actor per frame; per-actor cost collapses to a
@@ -60,7 +65,7 @@ namespace WorldSphereMod.LOD
 
         public static LodTier Select(Vector3 worldPos, int instanceId)
         {
-            return Select(worldPos, instanceId, 0f);
+            return Select(worldPos, instanceId, 0f, _hystMargin, _hystFrames);
         }
 
         /// <summary>
@@ -72,6 +77,26 @@ namespace WorldSphereMod.LOD
         /// threshold is consistent with what the user sees on screen. (#208 lodImpostor fix)
         /// </summary>
         public static LodTier Select(Vector3 worldPos, int instanceId, float entityHeightOverride)
+        {
+            return Select(worldPos, instanceId, entityHeightOverride, _hystMargin, _hystFrames);
+        }
+
+        /// <summary>
+        /// Building-specific LOD selection with a wider deadband and no multi-frame
+        /// promotion delay to keep procedurally-rendered buildings from flapping
+        /// all at once at the far threshold.
+        /// </summary>
+        public static LodTier SelectForBuilding(Vector3 worldPos, int instanceId, float entityHeightOverride)
+        {
+            return Select(worldPos, instanceId, entityHeightOverride, _buildingHystMargin, _buildingHystFrames);
+        }
+
+        static LodTier Select(
+            Vector3 worldPos,
+            int instanceId,
+            float entityHeightOverride,
+            float hysteresisMargin,
+            int hysteresisFrames)
         {
             if (ImpostorOnlyMode) return LodTier.Cull;
 
@@ -128,10 +153,10 @@ namespace WorldSphereMod.LOD
             }
 
             // WHY: apply a deadband around the CURRENT tier's boundary. Only propose a
-            // change once distance crosses the boundary by _hystMargin. An object that
+            // change once distance crosses the boundary by the configured margin. An object that
             // stays inside the band keeps its tier no matter how the camera pans — this
             // kills the wave.
-            LodTier proposed = ProposeWithDeadband(distSqr, h.current, voxelMaxDistSqr);
+            LodTier proposed = ProposeWithDeadband(distSqr, h.current, voxelMaxDistSqr, hysteresisMargin);
 
             if (h.current == proposed)
             {
@@ -144,7 +169,7 @@ namespace WorldSphereMod.LOD
             if (h.pending == proposed)
             {
                 h.pendingFrames++;
-                if (h.pendingFrames >= _hystFrames)
+                if (h.pendingFrames >= hysteresisFrames)
                 {
                     h.current = proposed;
                     h.pendingFrames = 0;
@@ -160,10 +185,10 @@ namespace WorldSphereMod.LOD
         // (near) requires distance to drop well below the boundary; leaving Voxel for Cull
         // (far) requires it to rise well above. A small per-frame distance jitter therefore
         // never flips the tier.
-        static LodTier ProposeWithDeadband(float distSqr, LodTier current, float voxelMaxDistSqr)
+        static LodTier ProposeWithDeadband(float distSqr, LodTier current, float voxelMaxDistSqr, float hysteresisMargin)
         {
-            float voxelEnter = voxelMaxDistSqr * (1f - _hystMargin); // closer than this to ENTER Voxel
-            float voxelExit  = voxelMaxDistSqr * (1f + _hystMargin); // farther than this to LEAVE Voxel
+            float voxelEnter = voxelMaxDistSqr * (1f - hysteresisMargin); // closer than this to ENTER Voxel
+            float voxelExit  = voxelMaxDistSqr * (1f + hysteresisMargin); // farther than this to LEAVE Voxel
 
             switch (current)
             {

@@ -102,7 +102,7 @@ public class SavedSettings
         // re-enable when running phase-budget regression tests.
         public bool AutoTest = false;
         // Phase 2: Procedural building meshes (vs. billboarded building sprites).
-        public bool ProceduralBuildings = false;
+        public bool ProceduralBuildings = true;
         // Optional Phase 2 style override: keep the old stylized procgen architecture
         // path instead of voxelizing building sprites directly.
         public bool BuildingStyleProcgen = false;

@@ -68,7 +68,10 @@ namespace WorldSphereMod.ProcGen
                     {
                         continue;
                     }
-                    WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode(), Core.savedSettings.BuildingSize * Core.savedSettings.VoxelScaleMultiplier);
+                    WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.SelectForBuilding(
+                        cullPos,
+                        b.GetHashCode(),
+                        Core.savedSettings.BuildingSize * Core.savedSettings.VoxelScaleMultiplier);
                     bool submitted = false;
 
                     if (tier == WorldSphereMod.LOD.LodTier.Cull)
