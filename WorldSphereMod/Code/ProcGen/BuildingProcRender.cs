@@ -248,6 +248,7 @@ namespace WorldSphereMod.ProcGen
 
             static void FlushQueuedBuildingDraws(Material material)
             {
+                if (material != null) material.enableInstancing = true;
                 foreach (var pair in _buildingDrawBatches)
                 {
                     List<Matrix4x4> matrices = pair.Value;
