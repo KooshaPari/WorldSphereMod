@@ -15,6 +15,7 @@ namespace WorldSphereMod.LOD
 
     public static class LodSelector
     {
+        const float FAR_RING_MULTIPLIER = 4f;
         // When the GPU can't run the voxel path at all (no compute/indirect), everything
         // is culled rather than billboarded — voxel-or-invisible holds even on the
         // compatibility path. (No impostor fallback tier exists anymore.)
@@ -56,6 +57,7 @@ namespace WorldSphereMod.LOD
         static float _cachedVoxelThreshold = float.NaN;
         static float _cachedVoxelScale = float.NaN;
         static float _voxelMaxDistSqr;
+        static bool _loggedLodPolicy;
         // Base vanilla actor sprite half-height in world units. Actual rendered
         // height = _baseEntityHeight * VoxelScaleMultiplier. Read VoxelScaleMultiplier
         // at runtime so the LOD math tracks the live setting (otherwise stale JSON or
@@ -102,6 +104,9 @@ namespace WorldSphereMod.LOD
 
             Camera cam = CameraManager.MainCamera;
             if (cam == null) return LodTier.Voxel;
+            FrustumCuller.UpdatePlanes();
+            if (!FrustumCuller.IsVisible(worldPos, 2f))
+                return LodTier.Cull;
 
             float fov = cam.fieldOfView;
             float lodScale = Core.savedSettings.LODScale;
@@ -115,7 +120,8 @@ namespace WorldSphereMod.LOD
                 // Per-call computation — no shared cache since entity heights vary.
                 float tanHalfFov = Mathf.Max(0.0001f, Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad));
                 float d = entityHeightOverride * lodScale / (VoxelThreshold * tanHalfFov);
-                voxelMaxDistSqr = d * d;
+                float voxelMaxDist = d * FAR_RING_MULTIPLIER;
+                voxelMaxDistSqr = voxelMaxDist * voxelMaxDist;
             }
             else
             {
@@ -127,6 +133,7 @@ namespace WorldSphereMod.LOD
                     float entityHeight = _baseEntityHeight * voxelScale;
                     float tanHalfFov = Mathf.Max(0.0001f, Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad));
                     float voxelMaxDist = entityHeight * lodScale / (VoxelThreshold * tanHalfFov);
+                    voxelMaxDist *= FAR_RING_MULTIPLIER;
                     _voxelMaxDistSqr = voxelMaxDist * voxelMaxDist;
                     _cachedFov = fov;
                     _cachedLodScale = lodScale;
@@ -141,6 +148,13 @@ namespace WorldSphereMod.LOD
             float dy = worldPos.y - camPos.y;
             float dz = worldPos.z - camPos.z;
             float distSqr = dx * dx + dy * dy + dz * dz;
+
+            if (!_loggedLodPolicy)
+            {
+                _loggedLodPolicy = true;
+                float voxelMaxDist = Mathf.Sqrt(voxelMaxDistSqr);
+                Debug.Log($"[WSM3D][LOD-POLICY] farRingMult={FAR_RING_MULTIPLIER:F1} voxelMaxDist={voxelMaxDist:F3}");
+            }
 
             // Raw tier from the bare threshold (no hysteresis).
             LodTier rawTier = distSqr < voxelMaxDistSqr ? LodTier.Voxel : LodTier.Cull;
