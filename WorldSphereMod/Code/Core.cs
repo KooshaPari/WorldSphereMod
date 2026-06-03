@@ -39,6 +39,7 @@ namespace WorldSphereMod
 
         public static Harmony Patcher;
         internal static bool ClearVoxelMeshCacheOnFirstFrame;
+        private static bool _phaseDiagLogged;
         private static bool _heightDiagLogged = false;
         /// <summary>True when no settings file existed at load time (fresh install).</summary>
         public static bool IsFirstInstall { get; private set; }
@@ -170,8 +171,35 @@ namespace WorldSphereMod
             }
             // Explicitly re-assert ProceduralBuildings after settings load/migration so
             // its [Phase] patch is always installed when enabled and disabled when off.
-            try { ApplyPhaseToggle(nameof(SavedSettings.ProceduralBuildings), savedSettings.ProceduralBuildings); }
+            bool proceduralBuildingsPatchInstalled = false;
+            try
+            {
+                ApplyPhaseToggle(nameof(SavedSettings.ProceduralBuildings), savedSettings.ProceduralBuildings);
+                proceduralBuildingsPatchInstalled = IsProceduralBuildingsPatchInstalled();
+            }
             catch (System.Exception ex) { Debug.LogWarning("[WSM3D] EnsurePhasePatches ProceduralBuildings: " + ex.Message); }
+            if (!_phaseDiagLogged)
+            {
+                Debug.Log($"[WSM3D][PHASE-DIAG] ProceduralBuildings={savedSettings.ProceduralBuildings} patchInstalled={proceduralBuildingsPatchInstalled}");
+                _phaseDiagLogged = true;
+            }
+        }
+
+        static bool IsProceduralBuildingsPatchInstalled()
+        {
+            if (Patcher == null) return false;
+            try
+            {
+                foreach (var method in Patcher.GetPatchedMethods())
+                {
+                    if (method != null && method.DeclaringType == typeof(WorldSphereMod.ProcGen.BuildingProcRender.ProcMeshEmit))
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch { }
+            return false;
         }
 
         // go go gadget un-box my worldbox
