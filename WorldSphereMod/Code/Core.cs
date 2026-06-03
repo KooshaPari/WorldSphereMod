@@ -1685,6 +1685,9 @@ namespace WorldSphereMod
                 WorldPrepared = false;
                 BaseLayers = null;
                 CachedColors = null;
+                // Reset LOD hysteresis so stale Cull entries from the prior world don't
+                // delay voxel-tier entry for the new world's entities. (#208 lod-impostor)
+                WorldSphereMod.LOD.LodSelector.ResetHysteresis();
             }
 
             /// <summary>

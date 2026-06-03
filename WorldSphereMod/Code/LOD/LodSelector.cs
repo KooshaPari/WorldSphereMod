@@ -19,7 +19,12 @@ namespace WorldSphereMod.LOD
         // is culled rather than billboarded — voxel-or-invisible holds even on the
         // compatibility path. (No impostor fallback tier exists anymore.)
         public static bool ImpostorOnlyMode;
-        public static float VoxelThreshold = 0.08f;
+        // Apparent-size threshold: entity voxelizes when its angular size (height/dist/tanHalfFov)
+        // exceeds this fraction. Lower = larger voxel-render radius.
+        // 0.08 → voxelMaxDist≈43 for buildings (entityH=4, lodScale=0.5) — too small, buildings
+        // at dist=110 (normal zoom) all cull. 0.02 → voxelMaxDist≈173 — covers observed distances
+        // with margin; truly far buildings (>173 units) still cull. (#208 lod-impostor fix)
+        public static float VoxelThreshold = 0.02f;
 
         struct LodHysteresis
         {
