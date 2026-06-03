@@ -356,6 +356,8 @@ namespace WorldSphereMod
             // voxel emit loop never ran, processed=0, all sprites stayed 2D. (#208)
             try { EnsurePhasePatches(); }
             catch (System.Exception ex) { Debug.LogWarning("[WSM3D] EnsurePhasePatches failed: " + ex.Message); }
+            try { ApplyPhaseToggle(nameof(SavedSettings.ProceduralBuildings), savedSettings.ProceduralBuildings); }
+            catch (System.Exception ex) { Debug.LogWarning("[WSM3D] PostInit procedural-buildings patch assert failed: " + ex.Message); }
         }
         const string HarmonyID = "WorldSphereMod";
         //this mod makes the game 3D, of course im patching alot (rip compatibility)
@@ -1400,7 +1402,17 @@ namespace WorldSphereMod
                         hfMat.SetTexture("_MainTex", atlas != null ? atlas : Texture2D.whiteTexture);
                         if (atlas != null)
                         {
-                            hf.ConfigureTerrainAtlas(TerrainTextureAtlasCols, TerrainTextureAtlasRows);
+                            var configureAtlas = hf?.GetType().GetMethod("ConfigureTerrainAtlas", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+                            if (configureAtlas != null)
+                            {
+                                var parameters = configureAtlas.GetParameters();
+                                if (parameters != null && parameters.Length == 2
+                                    && parameters[0].ParameterType == typeof(int)
+                                    && parameters[1].ParameterType == typeof(int))
+                                {
+                                    configureAtlas.Invoke(hf, new object[] { TerrainTextureAtlasCols, TerrainTextureAtlasRows });
+                                }
+                            }
                         }
                     }
                     if (hfMat.HasProperty("_BaseMap"))
