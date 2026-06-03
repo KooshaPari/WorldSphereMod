@@ -1,5 +1,7 @@
 # WorldSphereMod3D (hard fork)
 
+**Canonical checkout:** `E:\Dev\WorldSphereMod` on branch `wip/208-height-fix`. Install path: `worldbox_Data/StreamingAssets/Mods/WorldSphereMod`. See [`docs/CANONICAL.md`](docs/CANONICAL.md).
+
 Docs: <https://kooshapari.github.io/WorldSphereMod/>
 
 A hard fork of [MelvinShwuaner/WorldSphereMod](https://github.com/MelvinShwuaner/WorldSphereMod)

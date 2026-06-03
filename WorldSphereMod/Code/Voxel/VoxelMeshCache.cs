@@ -278,8 +278,18 @@ namespace WorldSphereMod.Voxel
                 {
                     if (e.Mesh == null || e.Mesh.vertexCount == 0)
                     {
-                        _cache.Remove(key);
-                        return null;
+                        Mesh replacement = GetPlaceholderVoxelMesh(sprite);
+                        if (replacement == null)
+                        {
+                            _cache.Remove(key);
+                            return null;
+                        }
+
+                        e.Mesh = replacement;
+                        e.LastFrame = _frame;
+                        _cache[key] = e;
+                        if (sprite != null && !string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = key;
+                        return replacement;
                     }
                     e.LastFrame = _frame;
                     _cache[key] = e;
@@ -323,8 +333,18 @@ namespace WorldSphereMod.Voxel
                 {
                     if (e.Mesh == null || e.Mesh.vertexCount == 0)
                     {
-                        _cache.Remove(key);
-                        return null;
+                        Mesh replacement = GetPlaceholderVoxelMesh(sprite);
+                        if (replacement == null)
+                        {
+                            _cache.Remove(key);
+                            return null;
+                        }
+
+                        e.Mesh = replacement;
+                        e.LastFrame = _frame;
+                        _cache[key] = e;
+                        if (sprite != null && !string.IsNullOrEmpty(sprite.name)) _nameToSpriteId[sprite.name] = key;
+                        return replacement;
                     }
                     e.LastFrame = _frame;
                     _cache[key] = e;
