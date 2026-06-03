@@ -809,7 +809,6 @@ namespace WorldSphereMod
             const int TerrainTextureAtlasTileSize = 8;
             static SphereManagerSettings SphereManagerConfig;
             static Dictionary<Tile, int> TileIDS;
-            static Dictionary<int, Color32> TextureCenterColorCache;
             #endregion
             public static List<MapLayer> BaseLayers;
             public static Dictionary<MapLayer, PixelArray> CachedColors;
@@ -2304,7 +2303,6 @@ namespace WorldSphereMod
                 }
                 Textures.Apply();
                 // BuildTerrainTextureAtlas disabled — atlas UV mapping not ready
-                TextureCenterColorCache = new Dictionary<int, Color32>();
                 void AddTile(TileTypeBase Tile)
                 {
                     TileSprites sprites = Tile.sprites;
