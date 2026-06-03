@@ -16,6 +16,7 @@ namespace WorldSphereMod.ProcGen
         // Per-frame budget cycling offset (same pattern as BuildingVoxelEmit).
         static int _budgetOffset;
         static bool _earlyReturnDiagLogged;
+        static bool _buildingDrawDiagLogged;
         static readonly MethodInfo? TargetPrecalculateMethod = AccessTools.Method(
             typeof(BuildingManager),
             nameof(BuildingManager.precalculateRenderDataParallel));
@@ -93,10 +94,11 @@ namespace WorldSphereMod.ProcGen
                     {
                         continue;
                     }
+                    float buildingScale = Core.savedSettings.BuildingSize * Core.savedSettings.BuildingVoxelScaleFactor;
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.SelectForBuilding(
                         cullPos,
                         b.GetHashCode(),
-                        Core.savedSettings.BuildingSize * Core.savedSettings.VoxelScaleMultiplier);
+                        buildingScale * Core.savedSettings.VoxelScaleMultiplier);
                     bool submitted = false;
 
                     if (tier == WorldSphereMod.LOD.LodTier.Cull)
@@ -140,7 +142,7 @@ namespace WorldSphereMod.ProcGen
                             Vector3 scl = rd.scales[i];
                             if (rd.flip_x_states[i]) scl.x = -scl.x;
                             scl.z = scl.x;
-                            scl *= Core.savedSettings.VoxelScaleMultiplier;
+                            scl *= Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.BuildingVoxelScaleFactor;
                             Sprite? sp = rd.main_sprites[i];
                             if (sp == null) continue;
                             Matrix4x4 legacyTrs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
@@ -180,7 +182,7 @@ namespace WorldSphereMod.ProcGen
                                     LogFirstBuildingPos(rawPos, pos, scl);
                                     Mesh? m = ProcGenCache.GetOrGenerate(b.asset, rules);
                                     if (m == null) continue;
-                                    float procScale = Core.savedSettings.BuildingSize;
+                                    float procScale = buildingScale;
                                     if (rd.flip_x_states[i]) procScale = -procScale;
                                     Matrix4x4 procTrs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), Vector3.one * procScale);
                                     if (TryQueueBuildingDraw(m, procTrs))
@@ -249,9 +251,34 @@ namespace WorldSphereMod.ProcGen
                 return true;
             }
 
-            internal static void FlushQueuedBuildingDraws(Material? material)
+            internal static void FlushQueuedBuildingDraws(Material? material, out int flushCount, out int matricesTotal)
             {
-                if (material != null) material.enableInstancing = true;
+                flushCount = 0;
+                matricesTotal = 0;
+
+                int queuedMatricesTotal = 0;
+                foreach (var pair in _buildingDrawBatches)
+                {
+                    queuedMatricesTotal += pair.Value.Count;
+                }
+
+                if (material == null)
+                {
+                    if (!_buildingDrawDiagLogged && queuedMatricesTotal > 0)
+                    {
+                        _buildingDrawDiagLogged = true;
+                        Debug.Log($"[WSM3D][BUILDING-DRAW-DIAG] flushCount=0 matricesTotal={queuedMatricesTotal} materialMissing=true");
+                    }
+
+                    foreach (var batch in _buildingDrawBatches.Values)
+                    {
+                        batch.Clear();
+                    }
+
+                    return;
+                }
+
+                material.enableInstancing = true;
                 foreach (var pair in _buildingDrawBatches)
                 {
                     List<Matrix4x4> matrices = pair.Value;
@@ -265,12 +292,21 @@ namespace WorldSphereMod.ProcGen
                         matrices.CopyTo(start, _meshInstancedMatrices, 0, count);
                         Graphics.DrawMeshInstanced(mesh, 0, material, _meshInstancedMatrices, count);
                         start += count;
+                        flushCount++;
                     }
+
+                    matricesTotal += matrices.Count;
                 }
 
                 foreach (var batch in _buildingDrawBatches.Values)
                 {
                     batch.Clear();
+                }
+
+                if (!_buildingDrawDiagLogged && matricesTotal > 0)
+                {
+                    _buildingDrawDiagLogged = true;
+                    Debug.Log($"[WSM3D][BUILDING-DRAW-DIAG] flushCount={flushCount} matricesTotal={matricesTotal} materialMissing=false");
                 }
             }
 
