@@ -1084,7 +1084,12 @@ namespace WorldSphereMod.Voxel
                     }
 
                     float actorScale = Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor;
-                    Mesh m = GetActorSpriteCardMesh(sp, actorScale);
+                    // REAL 3D VOLUME (not flat card): route through the OrganicBlob voxelizer that
+                    // extrudes the sprite into an actual rounded 3D volume (per-pixel, kMinDepthScale
+                    // 0.60 = real depth). The earlier "sprite-card" flat 4-vert quad (GetActorSpriteCardMesh)
+                    // made every entity a same-width slab (trees thin, grass odd) — that was a regression
+                    // of this proven path (d186ad45). Mesh is unit-sized; scl applies actorScale below.
+                    Mesh m = VoxelMeshCache.Get(sp, ShapeHint.OrganicBlob, true, VoxelEntityType.Actor);
                     // Sprite-card mesh not ready yet (cache miss) is not expected in
                     // current implementation, but handle defensively as a skipped submit.
                     if (m == null || m.vertexCount == 0)
@@ -1118,10 +1123,11 @@ namespace WorldSphereMod.Voxel
                     LogActorSubmitDiagnostic("voxel", ref _actorVoxelDiagnosticLogged, a, sp, posBeforeLift, pos, rd.colors[i]);
                     SanityTestCube.CaptureFirstActorPos(pos);
                     Vector3 rot = rd.rotations[i];
-                    Quaternion faceRot = GetActorCardRotation(pos);
-                    Vector3 scl = Vector3.one;
-                    if (rd.flip_x_states[i]) scl.x = -1f;
-                    float halfHeight = m.bounds.size.y * 0.5f;
+                    // Real 3D volume: upright (Y-up), no camera-facing billboard. Uniform actorScale.
+                    Quaternion faceRot = Quaternion.identity;
+                    Vector3 scl = new Vector3(actorScale, actorScale, actorScale);
+                    if (rd.flip_x_states[i]) scl.x = -scl.x;
+                    float halfHeight = m.bounds.size.y * 0.5f * actorScale;
                     pos.y += halfHeight;
                     LogFirstActorPos(posBeforeLift, pos, scl);
                     Matrix4x4 trs = Matrix4x4.TRS(pos, faceRot, scl);
