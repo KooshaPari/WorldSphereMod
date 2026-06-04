@@ -249,7 +249,10 @@ namespace WorldSphereMod.NewCamera
             int camX = (int)Position.x;
             _drawTilesFrameCounter++;
             bool columnChanged = camX != _lastDrawTilesX;
-            bool heartbeat = _drawTilesFrameCounter - _lastDrawTilesFrame >= 30;
+            // Heartbeat at ~300 frames (≈5s at 60fps, more at low fps): terrain content
+            // (painted tiles, biome growth) changes slowly, so a rare safety-net rebuild
+            // suffices. 30 was too eager — each rebuild is 2-3s so it dominated the frame.
+            bool heartbeat = _drawTilesFrameCounter - _lastDrawTilesFrame >= 300;
             if (columnChanged || heartbeat)
             {
                 _lastDrawTilesX = camX;
