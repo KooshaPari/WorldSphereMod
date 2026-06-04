@@ -755,8 +755,9 @@ namespace WorldSphereMod.Voxel
             lock (_actorSpriteCardBatchLock)
             {
                 if (_actorSpriteCardBatches.Count == 0) return;
+                // Do NOT clear here — keep the matrices so we redraw EVERY frame (DrawMeshInstanced
+                // is a 1-frame command). Emit clears+refills at its start. This kills the flicker.
                 batches = new List<KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>>>(_actorSpriteCardBatches);
-                _actorSpriteCardBatches.Clear();
             }
 
             int flushedBatches = 0;
@@ -863,6 +864,17 @@ namespace WorldSphereMod.Voxel
                 // "voxel actors back to billboards".
                 EmitVoxelsCalled = true;
                 Tools.ClearTileHeightSmoothCache();
+                // FLICKER FIX: clear the sprite-card queue at the START of each emit (here),
+                // NOT in the flush. The flush draws via Graphics.DrawMeshInstanced (a 1-frame
+                // command) so it must redraw the SAME matrices EVERY frame; but emit only runs
+                // on intermittent precalculateRenderDataParallel ticks. If the flush cleared the
+                // queue, frames between emits drew nothing → actors flickered/vanished. Now the
+                // queue persists across frames (flush redraws it every frame) and is replaced
+                // wholesale only when a fresh emit repopulates it.
+                lock (_actorSpriteCardBatchLock)
+                {
+                    foreach (var b in _actorSpriteCardBatches.Values) b.Clear();
+                }
                 // TEMPORARY DIAGNOSTIC: one-shot log to verify the Harmony postfix fires
                 if (!_emitDiagLogged && Core.savedSettings.ProfilerDump)
                 {
