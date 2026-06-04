@@ -691,11 +691,16 @@ namespace WorldSphereMod.Voxel
                 return existing;
             }
 
-            Shader? shader = Shader.Find("Sprites/Default");
-            if (shader == null)
-            {
-                shader = Shader.Find("Standard");
-            }
+            // FOUNDATION FIX (research-backed): the OrganicBlob actor mesh is a real 3D volume,
+            // but Sprites/Default is UNLIT — so the volume read flat/dark (no ambient+directional
+            // shading on the 164-vert mesh). Prefer a LIT shader so the 3D shape actually shows.
+            // Chain: WSM3D/OpaqueVertexColor (lit + vertex-color, if the bundle loaded) ->
+            // Mobile/Diffuse (lit, guaranteed built-in) -> Standard -> Sprites/Default (last resort).
+            // Caller ensures the mesh has normals so lit shaders can shade it.
+            Shader? shader = Shader.Find("WSM3D/OpaqueVertexColor");
+            if (shader == null) shader = Shader.Find("Mobile/Diffuse");
+            if (shader == null) shader = Shader.Find("Standard");
+            if (shader == null) shader = Shader.Find("Sprites/Default");
             if (shader == null)
             {
                 return null;
