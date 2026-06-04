@@ -22,7 +22,12 @@ namespace WorldSphereMod.ProcGen
             nameof(BuildingManager.precalculateRenderDataParallel));
 
         const int MaxMeshInstancedBatch = 1023;
-        static readonly Dictionary<Mesh, List<Matrix4x4>> _buildingDrawBatches = new();
+        static readonly Dictionary<Mesh, List<Matrix4x4>> _buildingDrawBatches = new(); // BACK (emit fills)
+        // FRONT buffer drawn EVERY frame by the flush; replaced wholesale at emit-end. Same
+        // double-buffer fix as actor sprite cards — kills the building/tree FLASH (DrawMeshInstanced
+        // is a 1-frame command but EmitMeshes runs intermittently, so clear-on-flush blanked them).
+        static readonly Dictionary<Mesh, List<Matrix4x4>> _buildingFront = new();
+        static readonly object _buildingBufLock = new object();
         static readonly Matrix4x4[] _meshInstancedMatrices = new Matrix4x4[MaxMeshInstancedBatch];
 
         [Phase(nameof(SavedSettings.ProceduralBuildings))]
@@ -52,6 +57,12 @@ namespace WorldSphereMod.ProcGen
                 {
                     LogEarlyReturn("procBuildingMaterial == null", isWorld3D, proceduralBuildings, visibleBuildingCount);
                     return;
+                }
+
+                // Double-buffer: clear BACK at emit start; emit fills back; swap to FRONT at end.
+                lock (_buildingBufLock)
+                {
+                    foreach (var b in _buildingDrawBatches.Values) b.Clear();
                 }
 
                 var rd = __instance.render_data;
@@ -220,6 +231,18 @@ namespace WorldSphereMod.ProcGen
                 // Build-time queue is now rendered every Unity frame from the shared
                 // VoxelRender LateUpdate sink so DrawMeshInstanced is not tied to
                 // precalculateRenderDataParallel cadence.
+                // DOUBLE-BUFFER SWAP: emit complete — replace FRONT (drawn every frame) with this
+                // emit's BACK contents so buildings/trees stay drawn across the intermittent-emit
+                // gap (no flash). Front never goes empty between emits.
+                lock (_buildingBufLock)
+                {
+                    _buildingFront.Clear();
+                    foreach (var kv in _buildingDrawBatches)
+                    {
+                        if (kv.Value.Count == 0) continue;
+                        _buildingFront[kv.Key] = new List<Matrix4x4>(kv.Value);
+                    }
+                }
 
                 if (profile)
                 {
@@ -256,35 +279,25 @@ namespace WorldSphereMod.ProcGen
                 flushCount = 0;
                 matricesTotal = 0;
 
-                int queuedMatricesTotal = 0;
-                foreach (var pair in _buildingDrawBatches)
-                {
-                    queuedMatricesTotal += pair.Value.Count;
-                }
-
+                // Draw the FRONT buffer every frame (NOT cleared here — emit replaces it). Kills flash.
                 if (material == null)
                 {
-                    if (!_buildingDrawDiagLogged && queuedMatricesTotal > 0)
-                    {
-                        _buildingDrawDiagLogged = true;
-                        Debug.Log($"[WSM3D][BUILDING-DRAW-DIAG] flushCount=0 matricesTotal={queuedMatricesTotal} materialMissing=true");
-                    }
-
-                    foreach (var batch in _buildingDrawBatches.Values)
-                    {
-                        batch.Clear();
-                    }
-
                     return;
                 }
 
                 material.enableInstancing = true;
-                foreach (var pair in _buildingDrawBatches)
+                List<KeyValuePair<Mesh, List<Matrix4x4>>> front;
+                lock (_buildingBufLock)
+                {
+                    front = new List<KeyValuePair<Mesh, List<Matrix4x4>>>(_buildingFront);
+                }
+                foreach (var pair in front)
                 {
                     List<Matrix4x4> matrices = pair.Value;
-                    if (matrices.Count == 0) continue;
+                    if (matrices == null || matrices.Count == 0) continue;
 
                     Mesh mesh = pair.Key;
+                    if (mesh == null) continue;
                     int start = 0;
                     while (start < matrices.Count)
                     {
@@ -292,16 +305,12 @@ namespace WorldSphereMod.ProcGen
                         matrices.CopyTo(start, _meshInstancedMatrices, 0, count);
                         Graphics.DrawMeshInstanced(mesh, 0, material, _meshInstancedMatrices, count);
                         MeshInstanceBatcher.FrameDrawCalls++;
+                        WorldSphereMod.Voxel.VoxelRender.ActorDrawCallsCumulative++; // shared cumulative draw counter
                         start += count;
                         flushCount++;
                     }
 
                     matricesTotal += matrices.Count;
-                }
-
-                foreach (var batch in _buildingDrawBatches.Values)
-                {
-                    batch.Clear();
                 }
 
                 // One-shot diagnostic: first non-empty flush, so we capture the first frame where queues were actually rendered.
