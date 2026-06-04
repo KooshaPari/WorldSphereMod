@@ -37,6 +37,7 @@ namespace WorldSphereMod.Voxel
         static bool _actorVoxelDiagnosticLogged;
         static bool _actorSkeletalDiagnosticLogged;
         static bool _actorSpriteDrawDiagLogged;
+        static int _actorDrawDiagThrottle;
         static bool _normalRenderDiagLogged;
         static readonly List<Vector3> _actorVoxelSubmitTranslations = new(5);
         static readonly Dictionary<ActorSpriteCardMeshKey, Mesh> _actorSpriteCardMeshes = new();
@@ -781,12 +782,9 @@ namespace WorldSphereMod.Voxel
                 {
                     int count = Mathf.Min(MaxSpriteCardInstancedBatch, total - start);
                     matrices.CopyTo(start, _actorSpriteCardMatrices, 0, count);
-                    if (!_actorSpriteDrawDiagLogged)
-                    {
-                        diagMaterialName = material != null ? material.name : "<null>";
-                        diagMeshName = mesh != null ? mesh.name : "<null>";
-                        diagMeshVerts = mesh != null ? mesh.vertexCount : 0;
-                    }
+                    diagMaterialName = material != null ? material.name : "<null>";
+                    diagMeshName = mesh != null ? mesh.name : "<null>";
+                    diagMeshVerts = mesh != null ? mesh.vertexCount : 0;
                     try
                     {
                         Graphics.DrawMeshInstanced(mesh, 0, material, _actorSpriteCardMatrices, count);
@@ -812,9 +810,11 @@ namespace WorldSphereMod.Voxel
                         }
                     }
 
-                    if (!_actorSpriteDrawDiagLogged && totalMatrices > 0)
+                    // Throttled (every 120 flushes) NOT one-shot — so we can see whether the
+                    // mesh upgrades from Placeholder (24-vert box) to the real OrganicBlob volume
+                    // over time, instead of capturing only the first (always-placeholder) frame.
+                    if (totalMatrices > 0 && (_actorDrawDiagThrottle++ % 120) == 0)
                     {
-                        _actorSpriteDrawDiagLogged = true;
                         Debug.Log($"[WSM3D][ACTOR-DRAW-DIAG] flushedBatches={flushedBatches} totalMatrices={totalMatrices} material={diagMaterialName} mesh={diagMeshName} meshVerts={diagMeshVerts}");
                     }
                     start += count;
