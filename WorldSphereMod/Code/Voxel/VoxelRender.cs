@@ -36,6 +36,7 @@ namespace WorldSphereMod.Voxel
         static int _actorVoxelColorSampleCount;
         static bool _actorVoxelDiagnosticLogged;
         static bool _actorSkeletalDiagnosticLogged;
+        static bool _actorSpriteDrawDiagLogged;
         static readonly List<Vector3> _actorVoxelSubmitTranslations = new(5);
         static readonly Dictionary<ActorSpriteCardMeshKey, Mesh> _actorSpriteCardMeshes = new();
         static readonly Dictionary<Texture2D, Material> _actorSpriteCardMaterials = new();
@@ -69,6 +70,7 @@ namespace WorldSphereMod.Voxel
             _actorVoxelDiagnosticLogged = false;
             _actorVoxelColorSampleCount = 0;
             _actorSkeletalDiagnosticLogged = false;
+            _actorSpriteDrawDiagLogged = false;
             _actorVoxelSubmitTranslations.Clear();
             ClearActorSpriteCardState();
             _flushDiagLogged = false;
@@ -737,6 +739,12 @@ namespace WorldSphereMod.Voxel
         {
             if (MeshInstanceBatcher.UseFallbackPath || _actorSpriteCardBatches.Count == 0) return;
 
+            int flushedBatches = 0;
+            int totalMatrices = 0;
+            string diagMaterialName = "<none>";
+            string diagMeshName = "<none>";
+            int diagMeshVerts = 0;
+
             foreach (KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>> pair in _actorSpriteCardBatches)
             {
                 Mesh mesh = pair.Key.Mesh;
@@ -757,6 +765,15 @@ namespace WorldSphereMod.Voxel
                     try
                     {
                         Graphics.DrawMeshInstanced(mesh, 0, material, _actorSpriteCardMatrices, count);
+                        MeshInstanceBatcher.FrameDrawCalls++;
+                        flushedBatches++;
+                        totalMatrices += count;
+                        if (!_actorSpriteDrawDiagLogged)
+                        {
+                            diagMaterialName = material != null ? material.name : "<null>";
+                            diagMeshName = mesh != null ? mesh.name : "<null>";
+                            diagMeshVerts = mesh != null ? mesh.vertexCount : 0;
+                        }
                     }
                     catch (System.Exception ex)
                     {
@@ -767,6 +784,12 @@ namespace WorldSphereMod.Voxel
                 }
 
                 matrices.Clear();
+            }
+
+            if (!_actorSpriteDrawDiagLogged && flushedBatches > 0)
+            {
+                _actorSpriteDrawDiagLogged = true;
+                Debug.Log($"[WSM3D][ACTOR-DRAW-DIAG] flushedBatches={flushedBatches} totalMatrices={totalMatrices} material={diagMaterialName} mesh={diagMeshName} meshVerts={diagMeshVerts}");
             }
         }
 

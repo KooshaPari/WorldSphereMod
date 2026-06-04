@@ -291,6 +291,7 @@ namespace WorldSphereMod.ProcGen
                         int count = Mathf.Min(MaxMeshInstancedBatch, matrices.Count - start);
                         matrices.CopyTo(start, _meshInstancedMatrices, 0, count);
                         Graphics.DrawMeshInstanced(mesh, 0, material, _meshInstancedMatrices, count);
+                        MeshInstanceBatcher.FrameDrawCalls++;
                         start += count;
                         flushCount++;
                     }
