@@ -5,25 +5,23 @@ using WorldSphereMod.NewCamera;
 namespace WorldSphereMod.LOD
 {
     // VOXEL-OR-INVISIBLE (user, 2026-05-30): the render ladder has exactly TWO tiers —
-    // Voxel (near: emit a real voxel mesh) and Cull (far: draw NOTHING). The legacy
-    // research lineage carried a third Impostor/Proxy billboard tier that fix/ removed;
-    // the f1b0ad9e merge re-fused it, producing the left-to-right LOD WAVE where objects
-    // oscillated between an impostor billboard and the voxel state every frame
-    // (project_wsm3d_lod_threshold_bug). There is NO intermediate billboard tier: far =
-    // cull. Hysteresis keeps a near/far flip from happening every frame.
+    // Voxel (near: emit a real voxel mesh) and Cull (far: draw NOTHING).
+    // The architecture is intentionally two-tier only; there is no intermediate billboard
+    // fallback tier. Hysteresis keeps near/far flips from oscillating every frame.
     public enum LodTier { Voxel, Cull }
 
     public static class LodSelector
     {
+        const float FAR_RING_MULTIPLIER = 4f;
         // When the GPU can't run the voxel path at all (no compute/indirect), everything
-        // is culled rather than billboarded — voxel-or-invisible holds even on the
-        // compatibility path. (No impostor fallback tier exists anymore.)
-        public static bool ImpostorOnlyMode;
+        // is culled rather than rendering sprites or billboards — voxel-or-invisible
+        // holds even on the compatibility path.
+        public static bool FallbackOnlyMode;
         // Apparent-size threshold: entity voxelizes when its angular size (height/dist/tanHalfFov)
         // exceeds this fraction. Lower = larger voxel-render radius.
         // 0.08 → voxelMaxDist≈43 for buildings (entityH=4, lodScale=0.5) — too small, buildings
         // at dist=110 (normal zoom) all cull. 0.02 → voxelMaxDist≈173 — covers observed distances
-        // with margin; truly far buildings (>173 units) still cull. (#208 lod-impostor fix)
+        // with margin; truly far buildings (>173 units) still cull. (#208 lod-cull fix)
         public static float VoxelThreshold = 0.01f;
 
         struct LodHysteresis
@@ -56,6 +54,7 @@ namespace WorldSphereMod.LOD
         static float _cachedVoxelThreshold = float.NaN;
         static float _cachedVoxelScale = float.NaN;
         static float _voxelMaxDistSqr;
+        static bool _loggedLodPolicy;
         // Base vanilla actor sprite half-height in world units. Actual rendered
         // height = _baseEntityHeight * VoxelScaleMultiplier. Read VoxelScaleMultiplier
         // at runtime so the LOD math tracks the live setting (otherwise stale JSON or
@@ -74,7 +73,7 @@ namespace WorldSphereMod.LOD
         /// world-space height when it differs from the actor default
         /// (_baseEntityHeight * VoxelScaleMultiplier * ActorVoxelScaleFactor). Buildings
         /// do not use ActorVoxelScaleFactor — pass their real mesh height so the distance
-        /// threshold is consistent with what the user sees on screen. (#208 lodImpostor fix)
+        /// threshold is consistent with what the user sees on screen. (#208 lodCull fix)
         /// </summary>
         public static LodTier Select(Vector3 worldPos, int instanceId, float entityHeightOverride)
         {
@@ -98,10 +97,13 @@ namespace WorldSphereMod.LOD
             float hysteresisMargin,
             int hysteresisFrames)
         {
-            if (ImpostorOnlyMode) return LodTier.Cull;
+            if (FallbackOnlyMode) return LodTier.Cull;
 
             Camera cam = CameraManager.MainCamera;
             if (cam == null) return LodTier.Voxel;
+            FrustumCuller.UpdatePlanes();
+            if (!FrustumCuller.IsVisible(worldPos, 2f))
+                return LodTier.Cull;
 
             float fov = cam.fieldOfView;
             float lodScale = Core.savedSettings.LODScale;
@@ -115,7 +117,8 @@ namespace WorldSphereMod.LOD
                 // Per-call computation — no shared cache since entity heights vary.
                 float tanHalfFov = Mathf.Max(0.0001f, Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad));
                 float d = entityHeightOverride * lodScale / (VoxelThreshold * tanHalfFov);
-                voxelMaxDistSqr = d * d;
+                float voxelMaxDist = d * FAR_RING_MULTIPLIER;
+                voxelMaxDistSqr = voxelMaxDist * voxelMaxDist;
             }
             else
             {
@@ -127,6 +130,7 @@ namespace WorldSphereMod.LOD
                     float entityHeight = _baseEntityHeight * voxelScale;
                     float tanHalfFov = Mathf.Max(0.0001f, Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad));
                     float voxelMaxDist = entityHeight * lodScale / (VoxelThreshold * tanHalfFov);
+                    voxelMaxDist *= FAR_RING_MULTIPLIER;
                     _voxelMaxDistSqr = voxelMaxDist * voxelMaxDist;
                     _cachedFov = fov;
                     _cachedLodScale = lodScale;
@@ -141,6 +145,13 @@ namespace WorldSphereMod.LOD
             float dy = worldPos.y - camPos.y;
             float dz = worldPos.z - camPos.z;
             float distSqr = dx * dx + dy * dy + dz * dz;
+
+            if (!_loggedLodPolicy)
+            {
+                _loggedLodPolicy = true;
+                float voxelMaxDist = Mathf.Sqrt(voxelMaxDistSqr);
+                Debug.Log($"[WSM3D][LOD-POLICY] farRingMult={FAR_RING_MULTIPLIER:F1} voxelMaxDist={voxelMaxDist:F3}");
+            }
 
             // Raw tier from the bare threshold (no hysteresis).
             LodTier rawTier = distSqr < voxelMaxDistSqr ? LodTier.Voxel : LodTier.Cull;

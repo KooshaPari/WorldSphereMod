@@ -182,7 +182,7 @@ namespace WorldSphereMod.ProcGen
                                     LogFirstBuildingPos(rawPos, pos, scl);
                                     Mesh? m = ProcGenCache.GetOrGenerate(b.asset, rules);
                                     if (m == null) continue;
-                                    float procScale = buildingScale;
+                                float procScale = buildingScale * Core.savedSettings.VoxelScaleMultiplier;
                                     if (rd.flip_x_states[i]) procScale = -procScale;
                                     Matrix4x4 procTrs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), Vector3.one * procScale);
                                     if (TryQueueBuildingDraw(m, procTrs))
@@ -291,6 +291,7 @@ namespace WorldSphereMod.ProcGen
                         int count = Mathf.Min(MaxMeshInstancedBatch, matrices.Count - start);
                         matrices.CopyTo(start, _meshInstancedMatrices, 0, count);
                         Graphics.DrawMeshInstanced(mesh, 0, material, _meshInstancedMatrices, count);
+                        MeshInstanceBatcher.FrameDrawCalls++;
                         start += count;
                         flushCount++;
                     }

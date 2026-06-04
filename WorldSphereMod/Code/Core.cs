@@ -1938,25 +1938,27 @@ namespace WorldSphereMod
                     try
                     {
                         // SafeShaders is the per-name allowlist (see ADR-0013 / #204).
-                        // postFX shaders are variant-stripped stubs (80 bytes) in the
-                        // current bundle bake and native-crash on deserialize — excluded
-                        // from SafeShaders until a verified re-bake lands. Each load is
-                        // guarded: empty-name / !isSupported / exceptions are skipped so
-                        // a bad asset degrades to Standard, never crashes.
+                        // only WSM3D/OpaqueVertexColor is known-good right now.
+                        // Keep the loop narrow and explicitly skip any post-FX/broken
+                        // names before touching AssetBundle.GetObject<Shader> so native
+                        // deserialize crashes cannot occur from shader loading.
                         //
-                        // BELT-AND-SUSPENDERS: PostFxShaderBundleAvailable=false blocks
-                        // the 6 postFX shader names at the loop level even if they are
-                        // accidentally re-added to SafeShaders — no GetObject<Shader>
-                        // for those names can fire while the flag is false (#204/#208).
                         foreach (var shaderName in SafeShaders)
                         {
-                            // Master gate: never GetObject for any of the 6 stub-baked
-                            // postFX shaders while PostFxShaderBundleAvailable=false.
-                            // The native deserializer aborts (ManagedStream unreadable)
-                            // on these 80-byte stubs; C# try/catch cannot intercept it.
-                            if (!PostFxShaderBundleAvailable && PostFxShaderNames.Contains(shaderName))
+                            // Final hard stop: in this crash-safe phase only the
+                            // one validated shader is loaded from the shader bundle.
+                            if (!string.Equals(shaderName, "OpaqueVertexColor", System.StringComparison.OrdinalIgnoreCase))
                             {
-                                Debug.LogWarning($"[WSM3D] Skipping GetObject for postFX shader '{shaderName}' — PostFxShaderBundleAvailable=false (stub-baked, would native-crash). (#204)");
+                                Debug.LogWarning($"[WSM3D] Skipping shader '{shaderName}' from bundle load because crash-safe phase loads only OpaqueVertexColor.");
+                                continue;
+                            }
+
+                            // Never call GetObject for known-bad post-FX shader names
+                            // from this bundle (BrpBloom / BrpACES) even if they are
+                            // reintroduced later by another branch.
+                            if (CorruptedShaderNames.Contains(shaderName))
+                            {
+                                Debug.LogWarning($"[WSM3D] Skipping GetObject for corrupted shader '{shaderName}' to avoid native crash during asset deserialization.");
                                 continue;
                             }
 
@@ -2205,12 +2207,15 @@ namespace WorldSphereMod
             // own keywords/passes) — not yet achieved. Crash-safe until then.
             // #208 candidate test (bundle e6589a46): un-bundled SVC + WSM3D_POSTFX_KEEP.
             // Auto-reverts to false on any ManagedStream crash (game-test driven).
+            // PostFX remains disabled until shader re-bake is fixed; keep bundle
+            // enumeration for post-FX shaders fully disabled.
             public const bool PostFxShaderBundleAvailable = false;
 
             public const bool ShaderBundleAvailable = true;
 
-            // Names of the 6 postFX shaders that are stub-baked and must never be
-            // loaded via GetObject<Shader> while PostFxShaderBundleAvailable=false.
+            // Names of corrupted postFX shaders that must never be loaded via
+            // GetObject<Shader> because they can crash the runtime during native
+            // shader deserialization.
             public static readonly System.Collections.Generic.HashSet<string> PostFxShaderNames =
                 new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
                 {
@@ -2218,9 +2223,15 @@ namespace WorldSphereMod
                     "ScreenSpaceGI", "ScreenSpaceAO", "ProceduralSky",
                 };
 
+            public static readonly System.Collections.Generic.HashSet<string> CorruptedShaderNames =
+                new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+                {
+                    "BrpBloom",
+                    "BrpACES",
+                };
+
             public static readonly string[] SafeShaders = new[]
             {
-                // #208 candidate test: keep OVC only until postFX safety is regained.
                 "OpaqueVertexColor",
             };
 

@@ -29,7 +29,7 @@ using WorldSphereMod;
         if (!SystemInfo.supportsComputeShaders || !SystemInfo.supportsIndirectArgumentsBuffer)
         {
             Debug.LogWarning("[WSM3D] Compute/IndirectArgs not supported; impostor-only mode.");
-            WorldSphereMod.LOD.LodSelector.ImpostorOnlyMode = true;
+            WorldSphereMod.LOD.LodSelector.FallbackOnlyMode = true;
         }
         WorldSphereMod.Bridge.BridgeServer.EnsureCreated();
         IsAutoTest = System.Environment.GetEnvironmentVariable("WSM3D_AUTOTEST") == "1"
