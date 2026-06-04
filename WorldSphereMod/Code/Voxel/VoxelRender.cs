@@ -810,13 +810,10 @@ namespace WorldSphereMod.Voxel
                         }
                     }
 
-                    // Throttled (every 120 flushes) NOT one-shot — so we can see whether the
-                    // mesh upgrades from Placeholder (24-vert box) to the real OrganicBlob volume
-                    // over time, instead of capturing only the first (always-placeholder) frame.
-                    if (totalMatrices > 0 && (_actorDrawDiagThrottle++ % 120) == 0)
-                    {
-                        Debug.Log($"[WSM3D][ACTOR-DRAW-DIAG] flushedBatches={flushedBatches} totalMatrices={totalMatrices} material={diagMaterialName} mesh={diagMeshName} meshVerts={diagMeshVerts}");
-                    }
+                    // ACTOR-DRAW-DIAG removed — confirmed actors use voxel-organicblob meshVerts=164
+                    // (real 3D volume, not the flat card). Per-frame Debug.Log floods the console
+                    // overlay; gate any future re-add behind ProfilerDump + a mesh-name-change check.
+                    _ = _actorDrawDiagThrottle; _ = diagMaterialName; _ = diagMeshName; _ = diagMeshVerts;
                     start += count;
                 }
 
