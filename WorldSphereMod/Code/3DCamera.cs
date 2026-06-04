@@ -242,9 +242,26 @@ namespace WorldSphereMod.NewCamera
                 Manager._target_zoom = maxSurface;
             }
             Bench.bench("Draw Sphere", "game_total"); //im not even sure if the lag is actually tracked
-            Core.Sphere.DrawTiles((int)Position.x);
+            // PERF (7s/frame freeze fix): DrawTiles does a full 256x256 heightfield rebuild
+            // (~2-3s each). Calling it EVERY frame froze the game (frameMs~7000). Only redraw
+            // when the camera column actually moved, or on a low-frequency heartbeat (every
+            // ~30 frames) so painted-tile/biome changes still propagate without a per-frame storm.
+            int camX = (int)Position.x;
+            _drawTilesFrameCounter++;
+            bool columnChanged = camX != _lastDrawTilesX;
+            bool heartbeat = _drawTilesFrameCounter - _lastDrawTilesFrame >= 30;
+            if (columnChanged || heartbeat)
+            {
+                _lastDrawTilesX = camX;
+                _lastDrawTilesFrame = _drawTilesFrameCounter;
+                Core.Sphere.DrawTiles(camX);
+            }
             Bench.benchEnd("Draw Sphere", "game_total");
         }
+
+        static int _lastDrawTilesX = int.MinValue;
+        static int _drawTilesFrameCounter;
+        static int _lastDrawTilesFrame = int.MinValue;
         
         public static WorldTile CameraTile
         {
