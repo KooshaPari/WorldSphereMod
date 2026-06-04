@@ -125,7 +125,7 @@ public class SavedSettings
         // Phase 4: Mesh water surface (vs. flat tile color).
         public bool MeshWater = true;
         // Worldspace health bar style: true => 3D mesh bars, false => legacy billboard quads.
-        public bool WorldspaceHealth3D = false;
+        public bool WorldspaceHealth3D = true;
         // Mountain slope smoothing: smooth overlay mesh that blends the upstream
         // blocky terrain around cliff and ridge transitions.
         public bool MountainSlopeSmoothing = false;
@@ -147,8 +147,8 @@ public class SavedSettings
         public float NameplateFadeFar = 30f;
         public float NameplateReferenceDistance = 10f;
         public float NameplateMinScale = 0.25f;
-        public float NameplateMaxScale = 4f;
-        public float NameplateBaseScale = 0.15f;
+        public float NameplateMaxScale = 2f;
+        public float NameplateBaseScale = 0.08f;
         // Phase 8: Day/night cycle + procedural sky + fog.
         public bool DayNightCycle = false;
         public float FogDensity = 0.05f;
@@ -216,7 +216,7 @@ public class SavedSettings
             s.CrossedQuadFoliage = false;
             s.BiomeBlending = false;
             s.MeshWater = false;
-            s.WorldspaceHealth3D = false;
+            s.WorldspaceHealth3D = true;
             s.MountainSlopeSmoothing = false;
             s.HighShadows = false;
             s.HdrSkybox = false;
@@ -251,7 +251,7 @@ public class SavedSettings
             // bump (Core.cs 2.4 -> 2.5) so loadedData.Version mismatch triggers this migration.
             s.ActorVoxelScaleFactor = 0.35f;
             s.MeshWater = false;
-            s.WorldspaceHealth3D = false;
+            s.WorldspaceHealth3D = true;
             s.MountainSlopeSmoothing = false;
             s.HighShadows = false;
             s.HdrSkybox = false;
