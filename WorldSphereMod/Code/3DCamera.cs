@@ -242,29 +242,14 @@ namespace WorldSphereMod.NewCamera
                 Manager._target_zoom = maxSurface;
             }
             Bench.bench("Draw Sphere", "game_total"); //im not even sure if the lag is actually tracked
-            // PERF (7s/frame freeze fix): DrawTiles does a full 256x256 heightfield rebuild
-            // (~2-3s each). Calling it EVERY frame froze the game (frameMs~7000). Only redraw
-            // when the camera column actually moved, or on a low-frequency heartbeat (every
-            // ~30 frames) so painted-tile/biome changes still propagate without a per-frame storm.
-            int camX = (int)Position.x;
-            _drawTilesFrameCounter++;
-            bool columnChanged = camX != _lastDrawTilesX;
-            // Heartbeat at ~300 frames (≈5s at 60fps, more at low fps): terrain content
-            // (painted tiles, biome growth) changes slowly, so a rare safety-net rebuild
-            // suffices. 30 was too eager — each rebuild is 2-3s so it dominated the frame.
-            bool heartbeat = _drawTilesFrameCounter - _lastDrawTilesFrame >= 300;
-            if (columnChanged || heartbeat)
-            {
-                _lastDrawTilesX = camX;
-                _lastDrawTilesFrame = _drawTilesFrameCounter;
-                Core.Sphere.DrawTiles(camX);
-            }
+            // DrawTiles MUST run every frame: it contains the per-frame Graphics.DrawMesh for
+            // the terrain mesh (a 1-frame command). Gating it caused terrain to vanish when idle
+            // and flash on move. The EXPENSIVE part (full 256² heightfield Rebuild) is gated
+            // INSIDE the submodule's HeightFieldRenderer (debounce + incremental-first dirty path),
+            // NOT here — so calling DrawTiles every frame is cheap (just a DrawMesh) when no rebuild.
+            Core.Sphere.DrawTiles((int)Position.x);
             Bench.benchEnd("Draw Sphere", "game_total");
         }
-
-        static int _lastDrawTilesX = int.MinValue;
-        static int _drawTilesFrameCounter;
-        static int _lastDrawTilesFrame = int.MinValue;
         
         public static WorldTile CameraTile
         {
