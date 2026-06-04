@@ -101,10 +101,11 @@ namespace WorldSphereMod.Foliage
                 if (mat == null) return false;
 
                 // VOXEL-OR-INVISIBLE POLICY (user, 2026-05-30): foliage must be a REAL
-                // voxel volume or NOTHING — NEVER a crossed-quad X / 2.5D slab. The
-                // crossed-quad render path is removed entirely: trees/bushes (.life) now
-                // route through the OrganicBlob VOXEL mesh. Road remains a flat ground
-                // decal (it is genuinely a ground surface, not an upright object).
+                // voxel volume or NOTHING — NEVER a crossed-quad X / 2.5D slab. Grass
+                // now routes through the rounded balloon voxelizer so it reads as a tuft,
+                // while trees/bushes (.life) route through the OrganicBlob volume mesh.
+                // Road remains a flat ground decal (it is genuinely a ground surface,
+                // not an upright object).
                 //
                 // If the voxel mesh isn't ready this frame (async build pending) the tile
                 // renders nothing — we return false to suppress the vanilla 2D Tilemap
@@ -113,11 +114,15 @@ namespace WorldSphereMod.Foliage
                 Mesh? mesh;
                 if (t.road)
                 {
-                    mesh = VoxelMeshCache.Get(sprite, ShapeHint.Flat);
+                    mesh = VoxelMeshCache.Get(sprite, ShapeHint.Flat, true, VoxelEntityType.Unknown);
+                }
+                else if (t.grass)
+                {
+                    mesh = VoxelMeshCache.Get(sprite, ShapeHint.Mirror, true, VoxelEntityType.Unknown);
                 }
                 else
                 {
-                    mesh = VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob);
+                    mesh = VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob, true, VoxelEntityType.Unknown);
                 }
                 if (mesh == null || mesh.vertexCount == 0)
                 {
