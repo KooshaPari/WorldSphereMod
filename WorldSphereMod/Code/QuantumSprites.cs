@@ -483,14 +483,37 @@ namespace WorldSphereMod.QuantumSprites
             {
                 return;
             }
-            if (pAsset.id == "highlight_cursor_zones" || pAsset.id == "square_selection")
+            if (IsMapOverlayAsset(pAsset))
             {
-                pPos.z = 4 * Core.Sphere.HeightMult;
+                pPos.z = GetOverlayHeight(pPos);
             }
             else
             {
                 pPos.z += 1 + Tools.GetTileHeightSmooth(pPos);
             }
+        }
+
+        static bool IsMapOverlayAsset(QuantumSpriteAsset pAsset)
+        {
+            if (pAsset == null)
+            {
+                return false;
+            }
+            return pAsset.id == "highlight_cursor_zones"
+                || pAsset.id == "selected_kingdom"
+                || pAsset.id == "whisper_of_war"
+                || pAsset.id == "capturing_zones"
+                || pAsset.id == "cursor_power"
+                || pAsset.id == "square_selection"
+                || pAsset.id == "debug_show_highlighted_zones"
+                || pAsset.id == "debug_show_kingdom_icons";
+        }
+
+        static float GetOverlayHeight(Vector3 pPos)
+        {
+            float terrainHeight = Tools.GetTileHeightSmooth(pPos);
+            float overlayLift = Mathf.Max(4f * Core.Sphere.HeightMult, 6f);
+            return terrainHeight + overlayLift;
         }
         static void Postfix(QuantumSpriteAsset pAsset, ref QuantumSprite __result)
         {

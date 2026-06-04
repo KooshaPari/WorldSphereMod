@@ -161,6 +161,10 @@ namespace WorldSphereMod.NewCamera
         {
             OriginalCamera.enabled = false;
             MainCamera.enabled = true;
+            if (OriginalCamera != null)
+            {
+                MainCamera.cullingMask = OriginalCamera.cullingMask;
+            }
             Manager.main_camera = MainCamera;
             float defaultZoom = Core.savedSettings != null ? Core.savedSettings.CameraDefaultStrategyZoomHeight : 10f;
             Height = defaultZoom;
