@@ -45,6 +45,12 @@ namespace WorldSphereMod.Voxel
         static readonly Dictionary<ActorSpriteCardBatchKey, List<Matrix4x4>> _actorSpriteCardBatches = new(); // BACK (emit fills)
         // FRONT buffer: the per-frame flush redraws this every frame. Replaced wholesale at emit-end.
         static readonly Dictionary<ActorSpriteCardBatchKey, List<Matrix4x4>> _actorSpriteCardFront = new();
+        // CUMULATIVE actor draw counter — NOTHING else resets this (unlike MeshInstanceBatcher.
+        // FrameDrawCalls which the batcher zeroes mid-frame, corrupting the bridge reading). Lets us
+        // measure whether the actor flush actually draws every frame: sample twice, delta should
+        // grow by ~1/frame steadily if drawing stably, or stay flat/jump if flickering.
+        public static long ActorDrawCallsCumulative;
+        public static int ActorFrontCount;
         static readonly object _actorSpriteCardBatchLock = new();
         static readonly Matrix4x4[] _actorSpriteCardMatrices = new Matrix4x4[1023];
         const int MaxSpriteCardInstancedBatch = 1023;
@@ -758,6 +764,7 @@ namespace WorldSphereMod.Voxel
             {
                 // Draw the FRONT buffer (populated at emit-end). Never cleared here — redraws
                 // every frame so actors persist across the intermittent-emit gap (no flicker).
+                ActorFrontCount = _actorSpriteCardFront.Count;
                 if (_actorSpriteCardFront.Count == 0) return;
                 batches = new List<KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>>>(_actorSpriteCardFront);
             }
@@ -792,6 +799,7 @@ namespace WorldSphereMod.Voxel
                     {
                         Graphics.DrawMeshInstanced(mesh, 0, material, _actorSpriteCardMatrices, count);
                         MeshInstanceBatcher.FrameDrawCalls++;
+                        ActorDrawCallsCumulative++;
                         flushedBatches++;
                         totalMatrices += count;
                     }

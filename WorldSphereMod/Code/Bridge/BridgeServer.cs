@@ -1158,6 +1158,10 @@ namespace WorldSphereMod.Bridge
             drawCalls = _cachedDrawCalls,
             lastNonZeroDrawCalls = _cachedLastNonZeroDrawCalls,
             instances = _cachedInstances,
+            // Dedicated actor-draw counters (NOT reset by the batcher) so we can measure actual
+            // per-frame actor draws: actorDrawCumulative grows ~1/frame if drawing stably.
+            actorDrawCumulative = WorldSphereMod.Voxel.VoxelRender.ActorDrawCallsCumulative,
+            actorFrontCount = WorldSphereMod.Voxel.VoxelRender.ActorFrontCount,
         };
 
         string BuildSettingsJson() => JsonConvert.SerializeObject(Core.savedSettings ?? new SavedSettings(), Formatting.Indented);
