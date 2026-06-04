@@ -42,7 +42,9 @@ namespace WorldSphereMod.Voxel
         static readonly List<Vector3> _actorVoxelSubmitTranslations = new(5);
         static readonly Dictionary<ActorSpriteCardMeshKey, Mesh> _actorSpriteCardMeshes = new();
         static readonly Dictionary<Texture2D, Material> _actorSpriteCardMaterials = new();
-        static readonly Dictionary<ActorSpriteCardBatchKey, List<Matrix4x4>> _actorSpriteCardBatches = new();
+        static readonly Dictionary<ActorSpriteCardBatchKey, List<Matrix4x4>> _actorSpriteCardBatches = new(); // BACK (emit fills)
+        // FRONT buffer: the per-frame flush redraws this every frame. Replaced wholesale at emit-end.
+        static readonly Dictionary<ActorSpriteCardBatchKey, List<Matrix4x4>> _actorSpriteCardFront = new();
         static readonly object _actorSpriteCardBatchLock = new();
         static readonly Matrix4x4[] _actorSpriteCardMatrices = new Matrix4x4[1023];
         const int MaxSpriteCardInstancedBatch = 1023;
@@ -754,10 +756,10 @@ namespace WorldSphereMod.Voxel
             List<KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>>> batches;
             lock (_actorSpriteCardBatchLock)
             {
-                if (_actorSpriteCardBatches.Count == 0) return;
-                // Do NOT clear here — keep the matrices so we redraw EVERY frame (DrawMeshInstanced
-                // is a 1-frame command). Emit clears+refills at its start. This kills the flicker.
-                batches = new List<KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>>>(_actorSpriteCardBatches);
+                // Draw the FRONT buffer (populated at emit-end). Never cleared here — redraws
+                // every frame so actors persist across the intermittent-emit gap (no flicker).
+                if (_actorSpriteCardFront.Count == 0) return;
+                batches = new List<KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>>>(_actorSpriteCardFront);
             }
 
             int flushedBatches = 0;
@@ -864,13 +866,12 @@ namespace WorldSphereMod.Voxel
                 // "voxel actors back to billboards".
                 EmitVoxelsCalled = true;
                 Tools.ClearTileHeightSmoothCache();
-                // FLICKER FIX: clear the sprite-card queue at the START of each emit (here),
-                // NOT in the flush. The flush draws via Graphics.DrawMeshInstanced (a 1-frame
-                // command) so it must redraw the SAME matrices EVERY frame; but emit only runs
-                // on intermittent precalculateRenderDataParallel ticks. If the flush cleared the
-                // queue, frames between emits drew nothing → actors flickered/vanished. Now the
-                // queue persists across frames (flush redraws it every frame) and is replaced
-                // wholesale only when a fresh emit repopulates it.
+                // FLICKER FIX (double-buffer): emit fills the BACK buffer (_actorSpriteCardBatches),
+                // cleared here at start. At emit END we atomically copy it to the FRONT buffer
+                // (_actorSpriteCardFront) which the per-frame flush redraws EVERY frame. Because
+                // emit runs intermittently (precalculateRenderDataParallel postfix) but the flush
+                // + DrawMeshInstanced run every frame, the front buffer must never go empty between
+                // emits — so we only REPLACE front when a fresh emit completes, never clear it mid-gap.
                 lock (_actorSpriteCardBatchLock)
                 {
                     foreach (var b in _actorSpriteCardBatches.Values) b.Clear();
@@ -1156,6 +1157,18 @@ namespace WorldSphereMod.Voxel
                         // variant missing / InternalError). Distinct from "not ready".
                         RecordActorError(RenderErrorType.ShaderFailed,
                             a, "Submit() returned false (material/shader unusable)", pos);
+                    }
+                }
+                // DOUBLE-BUFFER SWAP: emit complete — atomically replace the FRONT (draw) buffer
+                // with this emit's BACK contents. The per-frame flush redraws FRONT every frame, so
+                // actors stay drawn across the gap until the next emit. Never leaves front empty.
+                lock (_actorSpriteCardBatchLock)
+                {
+                    _actorSpriteCardFront.Clear();
+                    foreach (var kv in _actorSpriteCardBatches)
+                    {
+                        if (kv.Value.Count == 0) continue;
+                        _actorSpriteCardFront[kv.Key] = new List<Matrix4x4>(kv.Value);
                     }
                 }
                 if (!_billboardDiagLogged)
