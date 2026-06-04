@@ -724,7 +724,8 @@ namespace WorldSphereMod.Voxel
                 list.Add(trs);
                 string meshName = mesh != null ? mesh.name : "<null-mesh>";
                 string materialName = material != null ? material.name : "<null-material>";
-                Debug.Log($"[WSM3D][CARD-QUEUE] added key={meshName}|{materialName} listCount={list.Count} dictCount={_actorSpriteCardBatches.Count}");
+                // (CARD-QUEUE diag removed — fired per-actor-per-frame = 522K Debug.Log calls,
+                //  flooded the WorldBox console overlay and tanked FPS. Chain confirmed working.)
             }
             return true;
         }
@@ -747,7 +748,7 @@ namespace WorldSphereMod.Voxel
 
         internal static void FlushQueuedActorSpriteCards()
         {
-            Debug.Log($"[WSM3D][CARD-FLUSH-ENTER] dictCount={_actorSpriteCardBatches.Count}");
+            // (CARD-FLUSH-ENTER diag removed — per-frame log spam.)
 
             List<KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>>> batches;
             lock (_actorSpriteCardBatchLock)
@@ -1160,7 +1161,7 @@ namespace WorldSphereMod.Voxel
                     Debug.Log($"[WSM3D][NORMAL-RENDER-DIAG] actors_processed={diagActors} already_false={diagAlreadySuppressed} now_false={diagHasNormalRenderSetFalse}");
                 }
                 // DIAG-SUBMIT one-shot path report — answers "where did the meshOk actors go?"
-                if (!_emitDiagSawNonZero || _emitDiagFrameCounter < 3)
+                if (Core.savedSettings.ProfilerDump && (!_emitDiagSawNonZero || _emitDiagFrameCounter < 3))
                 {
                     _emitDiagFrameCounter++;
                         Debug.Log($"[WSM3D][DIAG-SUBMIT] EmitVoxels paths n={n} nullActor={dsNullActor} perpSkip={dsPerpSkipped} frustumFail={dsFrustumFail} frustumPass={LastFrustumCullerPassCount} | tier(Cull={dsTierCull} Voxel={dsTierVoxel}) | skel(attempt={dsSkeletalAttempt} ok={dsSkeletalSubmitOk} fail={dsSkeletalSubmitFail}) | spriteNull={dsSpriteNull} | cull(meshNull={dsCullMeshNull}) | voxel(meshNull={dsVoxelMeshNull} attempt={dsVoxelSubmitAttempt} ok={dsVoxelSubmitOk} fail={dsVoxelSubmitFail}) | LastBatcherSubmitCount={LastBatcherSubmitCount} SkeletalAnimation={Core.savedSettings.SkeletalAnimation}");
