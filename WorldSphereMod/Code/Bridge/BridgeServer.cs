@@ -508,6 +508,11 @@ namespace WorldSphereMod.Bridge
                     WriteJson(context.Response, QueueAction("save", BridgeActions.Save));
                     return;
                 }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/close_dialog", StringComparison.OrdinalIgnoreCase))
+                {
+                    WriteJson(context.Response, QueueAction("close_dialog", BridgeActions.CloseDialog));
+                    return;
+                }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/pause", StringComparison.OrdinalIgnoreCase))
                 {
                     WriteJson(context.Response, QueueAction("pause", BridgeActions.Pause));
