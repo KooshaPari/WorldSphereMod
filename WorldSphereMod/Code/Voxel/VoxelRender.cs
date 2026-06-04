@@ -37,10 +37,12 @@ namespace WorldSphereMod.Voxel
         static bool _actorVoxelDiagnosticLogged;
         static bool _actorSkeletalDiagnosticLogged;
         static bool _actorSpriteDrawDiagLogged;
+        static bool _normalRenderDiagLogged;
         static readonly List<Vector3> _actorVoxelSubmitTranslations = new(5);
         static readonly Dictionary<ActorSpriteCardMeshKey, Mesh> _actorSpriteCardMeshes = new();
         static readonly Dictionary<Texture2D, Material> _actorSpriteCardMaterials = new();
         static readonly Dictionary<ActorSpriteCardBatchKey, List<Matrix4x4>> _actorSpriteCardBatches = new();
+        static readonly object _actorSpriteCardBatchLock = new();
         static readonly Matrix4x4[] _actorSpriteCardMatrices = new Matrix4x4[1023];
         const int MaxSpriteCardInstancedBatch = 1023;
         static readonly int _actorSpriteCardMainTexId = Shader.PropertyToID("_MainTex");
@@ -85,23 +87,26 @@ namespace WorldSphereMod.Voxel
 
         static void ClearActorSpriteCardState()
         {
-            foreach (var kv in _actorSpriteCardMeshes)
+            lock (_actorSpriteCardBatchLock)
             {
-                if (kv.Value != null) UnityEngine.Object.Destroy(kv.Value);
-            }
-            _actorSpriteCardMeshes.Clear();
+                foreach (var kv in _actorSpriteCardMeshes)
+                {
+                    if (kv.Value != null) UnityEngine.Object.Destroy(kv.Value);
+                }
+                _actorSpriteCardMeshes.Clear();
 
-            foreach (var kv in _actorSpriteCardMaterials)
-            {
-                if (kv.Value != null) UnityEngine.Object.Destroy(kv.Value);
-            }
-            _actorSpriteCardMaterials.Clear();
+                foreach (var kv in _actorSpriteCardMaterials)
+                {
+                    if (kv.Value != null) UnityEngine.Object.Destroy(kv.Value);
+                }
+                _actorSpriteCardMaterials.Clear();
 
-            foreach (var batch in _actorSpriteCardBatches.Values)
-            {
-                batch.Clear();
+                foreach (var batch in _actorSpriteCardBatches.Values)
+                {
+                    batch.Clear();
+                }
+                _actorSpriteCardBatches.Clear();
             }
-            _actorSpriteCardBatches.Clear();
         }
 
         /// <summary>
@@ -618,9 +623,12 @@ namespace WorldSphereMod.Voxel
             }
 
             Rect rect = sprite.rect;
+            // Size the card in WORLD units like the vanilla sprite render: pixels / pixelsPerUnit.
+            // Raw rect.width(px) * scaleMultiplier produced ~45-tile-wide giants (px not divided by PPU).
+            float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
             float scale = scaleMultiplier;
-            float width = rect.width * scale;
-            float height = rect.height * scale;
+            float width = (rect.width / ppu) * scale;
+            float height = (rect.height / ppu) * scale;
             float halfWidth = width * 0.5f;
             float halfHeight = height * 0.5f;
 
@@ -709,13 +717,19 @@ namespace WorldSphereMod.Voxel
             }
 
             ActorSpriteCardBatchKey key = new(mesh, material);
-            if (!_actorSpriteCardBatches.TryGetValue(key, out var list))
+            lock (_actorSpriteCardBatchLock)
             {
-                list = new List<Matrix4x4>(16);
-                _actorSpriteCardBatches[key] = list;
-            }
+                if (!_actorSpriteCardBatches.TryGetValue(key, out var list))
+                {
+                    list = new List<Matrix4x4>(16);
+                    _actorSpriteCardBatches[key] = list;
+                }
 
-            list.Add(trs);
+                list.Add(trs);
+                string meshName = mesh != null ? mesh.name : "<null-mesh>";
+                string materialName = material != null ? material.name : "<null-material>";
+                Debug.Log($"[WSM3D][CARD-QUEUE] added key={meshName}|{materialName} listCount={list.Count} dictCount={_actorSpriteCardBatches.Count}");
+            }
             return true;
         }
 
@@ -737,7 +751,15 @@ namespace WorldSphereMod.Voxel
 
         internal static void FlushQueuedActorSpriteCards()
         {
-            if (_actorSpriteCardBatches.Count == 0) return;
+            Debug.Log($"[WSM3D][CARD-FLUSH-ENTER] dictCount={_actorSpriteCardBatches.Count}");
+
+            List<KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>>> batches;
+            lock (_actorSpriteCardBatchLock)
+            {
+                if (_actorSpriteCardBatches.Count == 0) return;
+                batches = new List<KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>>>(_actorSpriteCardBatches);
+                _actorSpriteCardBatches.Clear();
+            }
 
             int flushedBatches = 0;
             int totalMatrices = 0;
@@ -745,7 +767,7 @@ namespace WorldSphereMod.Voxel
             string diagMeshName = "<none>";
             int diagMeshVerts = 0;
 
-            foreach (KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>> pair in _actorSpriteCardBatches)
+            foreach (KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>> pair in batches)
             {
                 Mesh mesh = pair.Key.Mesh;
                 Material material = pair.Key.Material;
@@ -922,6 +944,7 @@ namespace WorldSphereMod.Voxel
                 int diagAlreadySuppressed = 0;
                 int diagSubmitAttempt = 0;
                 int diagSkipNull = 0;
+                int diagHasNormalRenderSetFalse = 0;
                 for (int i = 0; i < n; i++)
                 {
                     Actor a = arr[i];
@@ -935,6 +958,7 @@ namespace WorldSphereMod.Voxel
                     bool suppressAlready = !rd.has_normal_render[i];
                     if (suppressAlready) diagAlreadySuppressed++;
                     rd.has_normal_render[i] = false;
+                    if (!rd.has_normal_render[i]) diagHasNormalRenderSetFalse++;
 
                     // VOXEL-OR-INVISIBLE (user, 2026-05-30): the legacy PerpActors opt-out
                     // used to `continue` here, which LEFT has_normal_render[i] true and so
@@ -1134,8 +1158,13 @@ namespace WorldSphereMod.Voxel
                     _voxelDiagLogged = true;
                     Debug.Log($"[WSM3D][VOXEL-DIAG] actors={diagActors} already_suppressed={diagAlreadySuppressed} submit_attempted={diagSubmitAttempt} skip_null={diagSkipNull}");
                 }
+                if (!_normalRenderDiagLogged)
+                {
+                    _normalRenderDiagLogged = true;
+                    Debug.Log($"[WSM3D][NORMAL-RENDER-DIAG] actors_processed={diagActors} already_false={diagAlreadySuppressed} now_false={diagHasNormalRenderSetFalse}");
+                }
                 // DIAG-SUBMIT one-shot path report — answers "where did the meshOk actors go?"
-                if (Core.savedSettings.ProfilerDump && (!_emitDiagSawNonZero || _emitDiagFrameCounter < 3))
+                if (!_emitDiagSawNonZero || _emitDiagFrameCounter < 3)
                 {
                     _emitDiagFrameCounter++;
                         Debug.Log($"[WSM3D][DIAG-SUBMIT] EmitVoxels paths n={n} nullActor={dsNullActor} perpSkip={dsPerpSkipped} frustumFail={dsFrustumFail} frustumPass={LastFrustumCullerPassCount} | tier(Cull={dsTierCull} Voxel={dsTierVoxel}) | skel(attempt={dsSkeletalAttempt} ok={dsSkeletalSubmitOk} fail={dsSkeletalSubmitFail}) | spriteNull={dsSpriteNull} | cull(meshNull={dsCullMeshNull}) | voxel(meshNull={dsVoxelMeshNull} attempt={dsVoxelSubmitAttempt} ok={dsVoxelSubmitOk} fail={dsVoxelSubmitFail}) | LastBatcherSubmitCount={LastBatcherSubmitCount} SkeletalAnimation={Core.savedSettings.SkeletalAnimation}");
