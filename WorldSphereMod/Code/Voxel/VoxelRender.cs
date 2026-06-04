@@ -737,7 +737,7 @@ namespace WorldSphereMod.Voxel
 
         internal static void FlushQueuedActorSpriteCards()
         {
-            if (MeshInstanceBatcher.UseFallbackPath || _actorSpriteCardBatches.Count == 0) return;
+            if (_actorSpriteCardBatches.Count == 0) return;
 
             int flushedBatches = 0;
             int totalMatrices = 0;
@@ -778,7 +778,19 @@ namespace WorldSphereMod.Voxel
                     catch (System.Exception ex)
                     {
                         Debug.LogError($"[WSM3D] Actor sprite-card DrawMeshInstanced failed: {ex.GetType().Name}: {ex.Message}");
-                        break;
+                        for (int i = start; i < start + count; i++)
+                        {
+                            try
+                            {
+                                Graphics.DrawMesh(mesh, _actorSpriteCardMatrices[i - start], material, 0, null);
+                                MeshInstanceBatcher.FrameDrawCalls++;
+                                totalMatrices++;
+                            }
+                            catch (System.Exception fallbackEx)
+                            {
+                                Debug.LogError($"[WSM3D] Actor sprite-card DrawMesh fallback failed: {fallbackEx.GetType().Name}: {fallbackEx.Message}");
+                            }
+                        }
                     }
                     start += count;
                 }
