@@ -88,9 +88,9 @@ Get-Content (Join-Path $outputRoot "Summary.txt")
 # fast on coverage loss. CI workflows that want to assert their own floor can
 # pass -SkipGate.
 $summaryPath = Join-Path $outputRoot "Summary.txt"
-$lineLine = Get-Content $summaryPath | Where-Object { $_ -match '^Line coverage:\s*(\d+(?:\.\d+)?)%' } | Select-Object -First 1
+$lineLine = Get-Content $summaryPath | Where-Object { $_ -match 'Line coverage:\s*(\d+(?:\.\d+)?)%' } | Select-Object -First 1
 if ($lineLine) {
-    $linePct = [double]($lineLine -replace '^Line coverage:\s*(\d+(?:\.\d+)?)%.*', '$1')
+    $linePct = [double]($lineLine -replace '.*?Line coverage:\s*(\d+(?:\.\d+)?)%.*', '$1')
     Write-Host ("Line coverage: {0}% (gate: {1}%)" -f $linePct, $MinLineCoverage)
     if (-not $SkipGate -and $linePct -lt $MinLineCoverage) {
         throw "Coverage gate failed: ${linePct}% < ${MinLineCoverage}%"

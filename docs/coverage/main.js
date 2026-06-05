@@ -290,7 +290,7 @@ var assemblies = [
   {
     "name": "WorldSphereAPI",
     "classes": [
-      { "name": "WorldSphereAPI", "rp": "WorldSphereAPI_WorldSphereAPI.html", "cl": 40, "ucl": 10, "cal": 50, "tl": 180, "cb": 10, "tb": 18, "cm": 0, "fcm": 0, "tm": 0, "lch": [], "bch": [], "mch": [], "mfch": [], "hc": [], "metrics": { } },
+      { "name": "WorldSphereAPI", "rp": "WorldSphereAPI_WorldSphereAPI.html", "cl": 55, "ucl": 11, "cal": 66, "tl": 180, "cb": 10, "tb": 18, "cm": 0, "fcm": 0, "tm": 0, "lch": [], "bch": [], "mch": [], "mfch": [], "hc": [], "metrics": { } },
     ]},
 ];
 

@@ -1,23 +1,23 @@
 Summary
-  Generated on: 6/5/2026 - 5:11:06 AM
-  Coverage date: 6/5/2026 - 5:07:19 AM - 6/5/2026 - 5:08:11 AM
+  Generated on: 6/5/2026 - 10:10:24 AM
+  Coverage date: 6/5/2026 - 10:10:09 AM - 6/5/2026 - 10:10:23 AM
   Parser: MultiReport (3x Cobertura)
   Assemblies: 1
   Classes: 1
   Files: 1
-  Line coverage: 80%
-  Covered lines: 40
-  Uncovered lines: 10
-  Coverable lines: 50
+  Line coverage: 83.3%
+  Covered lines: 55
+  Uncovered lines: 11
+  Coverable lines: 66
   Total lines: 180
   Branch coverage: 55.5% (10 of 18)
   Covered branches: 10
   Total branches: 18
   Method coverage: 100% (16 of 16)
-  Full method coverage: 50% (8 of 16)
+  Full method coverage: 56.2% (9 of 16)
   Covered methods: 16
-  Fully covered methods: 8
+  Fully covered methods: 9
   Total methods: 16
 
-WorldSphereAPI       80%
-  WorldSphereAPI     80%
+WorldSphereAPI     83.3%
+  WorldSphereAPI   83.3%
