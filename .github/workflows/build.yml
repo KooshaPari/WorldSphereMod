@@ -46,3 +46,12 @@ jobs:
         run: |
           dotnet test tests/WorldSphereMod.Tests.E2E/WorldSphereMod.Tests.E2E.csproj \
             --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests|FullyQualifiedName~CiWorkflowInvariantsTests"
+
+      # TODO(xdd-coverage): wire up coverage gate here once test projects are healthy.
+      # - Install reportgenerator: dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.5.1
+      # - Run: dotnet test --collect:"XPlat Code Coverage" (Unit + Integration + E2E)
+      # - Generate report: reportgenerator -reports:**/coverage.cobertura.xml -targetdir:./coverage -reporttypes:Html,MarkdownSummary
+      # - Enforce threshold via reportgenerator -reporttypes:HtmlSummary and parsing Summary.txt
+      # - Upload artifact: actions/upload-artifact@v4 with path: coverage/
+      # Gated on: Unit/Integration projects green for 3 consecutive runs (see docs/xdd-status.md)
+      # Reference: Tools/coverage.ps1 for the local equivalent.
