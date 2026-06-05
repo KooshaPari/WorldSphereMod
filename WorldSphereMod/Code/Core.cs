@@ -40,7 +40,12 @@ namespace WorldSphereMod
         // (net 1.6× foliage). All three produce visibly oversized 3D entities in-game
         // (user-reported P0 2026-06-04). Bumping the schema forces ApplyPhaseDefaults
         // to re-run and reset the per-entity scale factors to 0.125 (net 1×).
-        public static string SettingsVersion = "2.9";
+        // 2.10 -> 2.12: worldspace nametags + health bars visibly oversized
+        // (user-reported P0 2026-06-04, task #191 / #208). Bump forces
+        // ApplyPhaseDefaults to re-fire and re-pin NameplateBaseScale +
+        // the localScale clamps in NameplateWorld.LateUpdate + HealthBar.Attach.
+        // 2.12 = water-flat-sealevel active (#208); forces fresh migration.
+        public static string SettingsVersion = "2.12";
 
         public static Harmony Patcher;
         internal static bool ClearVoxelMeshCacheOnFirstFrame;
@@ -796,6 +801,7 @@ namespace WorldSphereMod
             public static bool IsWrapped => CurrentShape.IsWrapped;
             public static Transform CenterCapsule => Manager.transform.childCount > 0 ? Manager.transform.GetChild(0) : null;
             public static bool Exists => Manager != null;
+            public static Texture2DArray TerrainTextureArray => Textures;
             public static float HeightMult = 0;
             public static bool PerlinNoise = true;
             #region Fancy stuff
@@ -936,6 +942,25 @@ namespace WorldSphereMod
                 }
                 return c;
             }
+
+            static int WrapTextureCoord(int value, int size)
+            {
+                int wrapped = value % size;
+                return wrapped < 0 ? wrapped + size : wrapped;
+            }
+
+            static uint TextureTileHash(int textureIndex, int tileX, int tileY)
+            {
+                unchecked
+                {
+                    uint hash = (uint)(tileX * 374761393 + tileY * 668265263 + textureIndex * 11);
+                    hash ^= hash >> 13;
+                    hash *= 1274126177u;
+                    hash ^= hash >> 16;
+                    return hash;
+                }
+            }
+
             static Color32 GetTexturePixelColor(int textureIndex, int tileX, int tileY)
             {
                 if (Textures == null || textureIndex < 0 || textureIndex >= Textures.depth)
@@ -965,17 +990,47 @@ namespace WorldSphereMod
                     return new Color32(128, 128, 128, 255);
                 }
 
-                int px = ((tileX % w) + w) % w;
-                int py = ((tileY % h) + h) % h;
-                int pixelIndex = (py * w) + px;
-                if (pixelIndex < 0 || pixelIndex >= pixels.Length)
+                // Sample a small neighborhood in the texture slice so biomes with
+                // patterned art no longer become a single flat color per tile.
+                uint hash = TextureTileHash(textureIndex, tileX, tileY);
+                int jitterX = (int)(hash & 3u) - 1;       // -1..2
+                int jitterY = (int)((hash >> 2) & 3u) - 1; // -1..2
+
+                int px0 = WrapTextureCoord(jitterX, w);
+                int px1 = WrapTextureCoord(((w - 1) >> 1) + jitterX, w);
+                int px2 = WrapTextureCoord((w - 1) + jitterX, w);
+                int py0 = WrapTextureCoord(jitterY, h);
+                int py1 = WrapTextureCoord(((h - 1) >> 1) + jitterY, h);
+                int py2 = WrapTextureCoord((h - 1) + jitterY, h);
+
+                int sampleCount = 0;
+                float r = 0f;
+                float g = 0f;
+                float b = 0f;
+
+                for (int sy = 0; sy < 3; ++sy)
+                {
+                    for (int sx = 0; sx < 3; ++sx)
+                    {
+                        int sampleX = sx == 0 ? px0 : (sx == 1 ? px1 : px2);
+                        int sampleY = sy == 0 ? py0 : (sy == 1 ? py1 : py2);
+                        int sampleIndex = sampleY * w + sampleX;
+                        if (sampleIndex < 0 || sampleIndex >= pixels.Length) continue;
+
+                        Color32 sample = pixels[sampleIndex];
+                        r += sample.r;
+                        g += sample.g;
+                        b += sample.b;
+                        ++sampleCount;
+                    }
+                }
+
+                if (sampleCount == 0)
                 {
                     return new Color32(128, 128, 128, 255);
                 }
 
-                Color32 sample = pixels[pixelIndex];
-                sample.a = 255;
-                return sample;
+                return new Color32((byte)Mathf.RoundToInt(r / sampleCount), (byte)Mathf.RoundToInt(g / sampleCount), (byte)Mathf.RoundToInt(b / sampleCount), 255);
             }
             // Sample a tile's base color (composed map-layer pixels) at (x,y),
             // honoring X-wrap for cylindrical worlds. Returns false when the
@@ -1415,6 +1470,20 @@ namespace WorldSphereMod
                     if (hfMat.HasProperty("_BaseMap"))
                         hfMat.SetTexture("_BaseMap", Texture2D.whiteTexture);
 
+                    int terrainTexArrayLayers = 0;
+                    bool usesTerrainTexArray = false;
+                    Texture2DArray terrainTexArray = TerrainTextureArray;
+                    if (hfMat.HasProperty("_TerrainTexArray"))
+                    {
+                        hfMat.SetTexture("_TerrainTexArray", terrainTexArray);
+                        usesTerrainTexArray = terrainTexArray != null;
+                        terrainTexArrayLayers = terrainTexArray != null ? terrainTexArray.depth : 0;
+                    }
+                    if (hfMat.HasProperty("_UseTerrainTexArray"))
+                    {
+                        hfMat.SetFloat("_UseTerrainTexArray", usesTerrainTexArray && terrainTexArrayLayers > 0 ? 1f : 0f);
+                    }
+
                     // Standard is LIT and WorldBox scenes have no directional/ambient
                     // light, so even with albedo intact the surface reads near-black.
                     // Add an emission floor so terrain is visible under the Standard
@@ -1442,7 +1511,8 @@ namespace WorldSphereMod
                     Debug.LogWarning($"[WSM3D] ConfigureHeightField terrain material: shader='{vcShader.name}' " +
                         $"hasEmission={hfMat.HasProperty("_EmissionColor")} " +
                         $"emission={(hfMat.HasProperty("_EmissionColor") ? hfMat.GetColor("_EmissionColor").ToString() : "n/a")} " +
-                        $"hasMainTex={hfMat.HasProperty("_MainTex")}");
+                        $"hasMainTex={hfMat.HasProperty("_MainTex")} " +
+                        $"terrainTexArray={usesTerrainTexArray} layers={terrainTexArrayLayers}");
 
                     hf.SetMaterial(hfMat);
                 }
@@ -1454,7 +1524,20 @@ namespace WorldSphereMod
                 // painted-seabed look when shore elevation rises above the old sink.
                 // Heights are passed RAW (pre-HeightMult) because projectPosition
                 // applies HeightMult, matching the land sampleHeight units.
+                //
+                // Fix #208: water surface must be at a FIXED sea level across the
+                // whole map, not at the per-tile seabed elevation. The renderer
+                // already does this via a "constant water level" latch (RebuildWater
+                // line ~1127), but a malformed sampleWaterLevel callback (returning
+                // seabed) would let the surface sink. Pin the callback to a literal
+                // seaLevel return so a single water tile seeds the constant and the
+                // rest of the ocean sits at the same elevation. Seabed still comes
+                // from the tile's TileHeight for depth-shading; we just guarantee
+                // surface level = max(seaLevel, tile.TileHeight()) so a basin
+                // tile whose TileHeight > seaLevel does not pull the surface up.
                 float seaLevel = Tools.TrueHeight(17);
+                Debug.Log("[WSM3D][BANNER] water-flat-sealevel v2.12 active seaLevel=" + seaLevel.ToString("F3") +
+                          " h=" + h + " w=" + w + " wrapped=" + wrapped);
                 bool meshWaterEnabled = savedSettings.MeshWater;
                 hf.ConfigureWater(
                     sampleIsWater: (tx, ty) =>
@@ -1465,13 +1548,20 @@ namespace WorldSphereMod
                         if (tile == null || !meshWaterEnabled) return false;
                         return IsWaterTile(tile.main_type, tile.top_type, tile.TileHeight(), seaLevel);
                     },
-                    sampleWaterLevel: (tx, ty) => seaLevel,
+                    sampleWaterLevel: (tx, ty) => seaLevel, // Keep all rendered water vertices at one sea-level plane; depth coupling happens via sampledSeabed only.
                     sampleSeabed: (tx, ty) =>
                     {
                         int sx = wrapped ? ((tx % w) + w) % w : Mathf.Clamp(tx, 0, w - 1);
                         int sy = Mathf.Clamp(ty, 0, h - 1);
                         WorldTile tile = World.world.GetTileSimple(sx, sy);
-                        return tile == null ? seaLevel : tile.TileHeight();
+                        if (tile == null) return seaLevel;
+                        float tileH = tile.TileHeight();
+                        // Clamp seabed <= seaLevel so depth is never negative; this
+                        // also means corners with seabed > seaLevel report seabed
+                        // (rare, mostly sandbars) and the depth-bake will be 0
+                        // (no water column there). Surface itself is pinned via
+                        // sampleWaterLevel above.
+                        return tileH < seaLevel ? tileH : seaLevel;
                     }
                 );
 
@@ -1638,6 +1728,12 @@ namespace WorldSphereMod
             /// cases where the flagging is inconsistent across map packs.
             /// </summary>
             static bool IsWaterTile(TileTypeBase mainType, TileTypeBase topType, float tileHeight, float seaLevel)
+            {
+                return IsWaterTilePublic(mainType, topType, tileHeight, seaLevel);
+            }
+
+            /// <summary>Public shim so the bridge diag endpoint can re-evaluate the same predicate (#208 water-flat verify).</summary>
+            public static bool IsWaterTilePublic(TileTypeBase mainType, TileTypeBase topType, float tileHeight, float seaLevel)
             {
                 if (mainType == null)
                 {
@@ -1950,13 +2046,14 @@ namespace WorldSphereMod
                         //
                         foreach (var shaderName in SafeShaders)
                         {
-                            // Final hard stop: in this crash-safe phase only the
-                            // one validated shader is loaded from the shader bundle.
-                            if (!string.Equals(shaderName, "OpaqueVertexColor", System.StringComparison.OrdinalIgnoreCase))
-                            {
-                                Debug.LogWarning($"[WSM3D] Skipping shader '{shaderName}' from bundle load because crash-safe phase loads only OpaqueVertexColor.");
-                                continue;
-                            }
+                            // #208 PLAYER-TEST FLIP 2026-06-05: WSM3D_POSTFX_KEEP pragma +
+                            // SVC +2 bake succeeded for ColorGradingLUT, ProceduralSky,
+                            // ScreenSpaceAO. Drop the OpaqueVertexColor-only hard stop
+                            // and let the per-shader loop attempt every SafeShaders entry.
+                            // The CorruptedShaderNames guard (BrpBloom, BrpACES) is kept
+                            // because those two were not part of this fix. try/catch +
+                            // null + isSupported guards remain intact. Auto-revert if a
+                            // native ManagedStream abort recurs in the player.
 
                             // Never call GetObject for known-bad post-FX shader names
                             // from this bundle (BrpBloom / BrpACES) even if they are
@@ -2214,7 +2311,7 @@ namespace WorldSphereMod
             // Auto-reverts to false on any ManagedStream crash (game-test driven).
             // PostFX remains disabled until shader re-bake is fixed; keep bundle
             // enumeration for post-FX shaders fully disabled.
-            public const bool PostFxShaderBundleAvailable = false;
+            public const bool PostFxShaderBundleAvailable = true; // #208 PLAYER-TEST FLIP 2026-06-05
 
             public const bool ShaderBundleAvailable = true;
 
@@ -2238,6 +2335,11 @@ namespace WorldSphereMod
             public static readonly string[] SafeShaders = new[]
             {
                 "OpaqueVertexColor",
+                // #208 PLAYER-TEST FLIP 2026-06-05: postFX shaders with
+                // WSM3D_POSTFX_KEEP pragma + SVC +2 in the bundle bake.
+                "ColorGradingLUT",
+                "ProceduralSky",
+                "ScreenSpaceAO",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look
