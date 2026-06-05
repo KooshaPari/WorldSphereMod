@@ -163,12 +163,28 @@ namespace WorldSphereMod.ProcGen
                     {
                         continue;
                     }
+                    // DISTANCE GATE (#208 fps): buildings beyond the camera-visible radius
+                    // can't be on-screen; the postfix walks the full visible-buildings list
+                    // every cycle, so pruning these here cuts per-frame cost on big kingdoms
+                    // (2364 buildings -> 8-15fps idle spikes from BuildingManager.precalculate
+                    // RenderDataParallel). Gate uses RenderRange scaled by the unified building
+                    // scale + 1.5x LOD-tier headroom. (#208)
+                    float buildingScale = Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.BuildingVoxelScaleFactor;
+                    float maxDist = Core.savedSettings.RenderRange * buildingScale * 1.5f;
+                    float maxDistSqr = maxDist * maxDist;
+                    Vector3 camPos = WorldSphereMod.NewCamera.CameraManager.transform.position;
+                    if ((cullPos - camPos).sqrMagnitude > maxDistSqr)
+                    {
+                        rd.scales[i] = Vector3.zero;
+                        continue;
+                    }
                     // Unified building scale: same multiplication the legacy (non-procgen)
                     // path applies below (`scl *= VoxelScaleMultiplier * BuildingVoxelScaleFactor`).
                     // BuildingSize is NOT folded in here — it was double-counting with the
                     // rd.scales[i] upstream sprite scale and made procgen buildings ~2× smaller
                     // than voxel-path buildings for the same asset. (#208)
-                    float buildingScale = Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.BuildingVoxelScaleFactor;
+                    // ^ NOTE: buildingScale is now declared above the distance gate so both the
+                    //   gate and the LOD/legacy paths can read it.
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.SelectForBuilding(
                         cullPos,
                         b.GetHashCode(),
