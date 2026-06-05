@@ -7,8 +7,9 @@ using System.IO;
 using System.Reflection;
 using UnityEngine;
 using WorldSphereMod;
-    public class Mod : MonoBehaviour, IMod, IStagedLoad, ILocalizable
+public class Mod : MonoBehaviour, IMod, IStagedLoad, ILocalizable
 {
+    private const string PerfBuildTag = "wsm3d-perf-208-hfquiet-v1";
     public ModDeclare GetDeclaration()
     {
         return declare;
@@ -22,6 +23,7 @@ using WorldSphereMod;
         declare = pModDecl;
         Object = pGameObject;
         WorldSphereMod.Rig.RigDriver.Clear();
+        Debug.Log($"[WSM3D][PERF] banner={PerfBuildTag}");
         if (!SystemInfo.supportsInstancing)
         {
             throw new IncompatibleHardwareException();

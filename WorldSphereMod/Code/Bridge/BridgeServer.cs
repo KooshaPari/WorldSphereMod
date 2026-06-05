@@ -739,6 +739,9 @@ namespace WorldSphereMod.Bridge
             visibleUnitsCount = WorldSphereMod.Voxel.VoxelRender.ActorVoxelEmit.LastVisibleUnitsCount,
             frustumCullerPassCount = WorldSphereMod.Voxel.VoxelRender.ActorVoxelEmit.LastFrustumCullerPassCount,
             batcherSubmitCount = WorldSphereMod.Voxel.VoxelRender.ActorVoxelEmit.LastBatcherSubmitCount,
+            // (#208 fps) counts of building-emit postfix invocations that were short-circuited
+            // because the visible-buildings identity hash was unchanged from the prior frame
+            skippedStaticBuildingFrames = WorldSphereMod.Voxel.VoxelRender.BuildingVoxelEmit.SkippedStaticFrames,
         };
 
 

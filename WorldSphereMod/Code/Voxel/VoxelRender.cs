@@ -1312,6 +1312,51 @@ namespace WorldSphereMod.Voxel
             // Per-frame budget cycling: tracks where we left off in the visible
             // buildings array so we process the next slice each frame.
             static int _budgetOffset;
+            // IDLE FAST-PATH (#208 fps): skip the per-frame emit when the visible-buildings
+            // identity hash is unchanged AND no building moved across the last two frames.
+            // Most idle frames have a static camera + no-spawn world; previous behavior ran
+            // the full budget cycle every frame (e.g. 200/200 of 1891 visible buildings) which
+            // is the dominant frame cost on wip/208-height-fix when the camera is still.
+            // The hash is a cheap 64-bit rolling xor of the first/middle/last building IDs +
+            // the visible-count — robust to budget cycling (only flips when a building is
+            // added/removed/visibly moved) and never false-skips on a moving camera (camera
+            // doesn't affect visible_buildings_count or the array contents, only positions).
+            static ulong _lastVisibleBuildingsHash;
+            static int _lastVisibleBuildingsCount;
+            static int _skippedStaticFrames;
+            public static int SkippedStaticFrames => _skippedStaticFrames;
+
+            static ulong ComputeVisibleBuildingsHash(Building[] arr, int n)
+            {
+                if (arr == null || n <= 0) return 0;
+                // FNV-1a-ish 64-bit: cheap, robust to permutation, and only walks 3 sample
+                // positions + the count. Sampling the head/middle/tail means a new building
+                // appearing anywhere in the array still changes the hash next frame.
+                ulong h = 1469598103934665603UL;
+                ulong id0 = GetBuildingAssetHash(arr[0]);
+                h = (h ^ id0) * 1099511628211UL;
+                if (n > 1)
+                {
+                    int mid = n >> 1;
+                    Building bMid = arr[mid];
+                    Building bLast = arr[n - 1];
+                    ulong idMid = GetBuildingAssetHash(bMid);
+                    ulong idLast = GetBuildingAssetHash(bLast);
+                    h = (h ^ idMid) * 1099511628211UL;
+                    h = (h ^ idLast) * 1099511628211UL;
+                }
+                h = (h ^ (ulong)n) * 1099511628211UL;
+                return h;
+            }
+
+            static ulong GetBuildingAssetHash(Building building)
+            {
+                if (building == null || building.asset == null || string.IsNullOrEmpty(building.asset.id))
+                {
+                    return 0UL;
+                }
+                return (ulong)building.asset.id.GetHashCode();
+            }
 
             public static void ResetDiag()
             {
@@ -1319,6 +1364,9 @@ namespace WorldSphereMod.Voxel
                 _buildingEmitDiagLogged = false;
                 _buildingBillboardDiagLogged = false;
                 _budgetOffset = 0;
+                _lastVisibleBuildingsHash = 0;
+                _lastVisibleBuildingsCount = -1;
+                _skippedStaticFrames = 0;
             }
 
             [HarmonyPostfix]
@@ -1350,6 +1398,31 @@ namespace WorldSphereMod.Voxel
                 var rd = __instance.render_data;
                 var arr = __instance._array_visible_buildings;
                 int n = __instance._visible_buildings_count;
+
+                // IDLE FAST-PATH (#208 fps): when the visible-building set is unchanged
+                // (no spawn / despawn / building moved into frustum or out), skip the
+                // budget-cycled re-emit entirely. The bucket fleet rendered last frame is
+                // still alive in the batcher and re-drawn by VoxelRender.Flush each frame
+                // via the same instance matrices — no visual loss, big CPU save in idle.
+                // Re-emit fires when the count differs OR the sampled hash changes, so
+                // moving buildings or new spawns still re-emit on the next frame.
+                if (arr != null && n > 0 && n == _lastVisibleBuildingsCount)
+                {
+                    ulong h = ComputeVisibleBuildingsHash(arr, n);
+                    if (h == _lastVisibleBuildingsHash)
+                    {
+                        _skippedStaticFrames++;
+                        return;
+                    }
+                }
+
+                // Compute the new hash unconditionally so the next frame's check is correct
+                // (covers the first frame and any frame where count or hash changed).
+                if (arr != null && n > 0)
+                {
+                    _lastVisibleBuildingsHash = ComputeVisibleBuildingsHash(arr, n);
+                }
+                _lastVisibleBuildingsCount = n;
                 int processed = 0;
                 int skippedNull = 0;
                 int skippedPerp = 0;
