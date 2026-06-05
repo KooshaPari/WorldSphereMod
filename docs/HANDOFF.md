@@ -108,11 +108,11 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 | Setting | Default | Phase | Note |
 |---|---|---|---|
 | `VoxelEntities` | `true` | 1 | Default-on voxel actors/items/projectiles |
-| `ProceduralBuildings` | `false` | 2 | Default-off building meshes |
+| `ProceduralBuildings` | `true` | 2 | Default-on building meshes |
 | `CrossedQuadFoliage` | `true` | 3a | Default-on crossed-quad foliage |
-| `BiomeBlending` | `false` | n/a | Terrain polish |
-| `MeshWater` | `false` | 4 | Default-off mesh water (Phase 4-lite) |
-| `WorldspaceHealth3D` | `false` | 7 | Worldspace HP bar style |
+| `BiomeBlending` | `true` | n/a | Default-on terrain polish |
+| `MeshWater` | `true` | 4 | Default-on mesh water (Phase 4-lite) |
+| `WorldspaceHealth3D` | `true` | 7 | Worldspace HP bar style (live default) |
 | `MountainSlopeSmoothing` | `false` | n/a | Terrain polish |
 | `HighShadows` | `false` | 5 | Default-off shadow cascades |
 | `HdrSkybox` | `false` | 5 | Current live default |
@@ -142,13 +142,15 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 ### Default-on / currently enabled
 
 - `VoxelEntities` — Phase 1
+- `ProceduralBuildings` — Phase 2
 - `CrossedQuadFoliage` — Phase 3a/3b
+- `MeshWater` — Phase 4
+- `BiomeBlending` — terrain polish
+- `WorldspaceHealth3D` — worldspace HP bar style
 - `ACESTonemapping` — Phase 9
 
 ### Default-off / opt-in
 
-- `ProceduralBuildings` — Phase 2
-- `MeshWater` — Phase 4
 - `HighShadows` — Phase 5
 - `HdrSkybox` — Phase 5b
 - `ColorGradingLut` — Phase 5b
@@ -159,8 +161,6 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 - `PostFX` — Phase 9
 - `SSAOEnabled` — Phase 9
 - `ParticleEffects` — Phase 9 (decals + bursts)
-- `BiomeBlending` — terrain polish
-- `WorldspaceHealth3D` — worldspace HP bar style
 - `MountainSlopeSmoothing` — terrain polish
 - `WeatherRain` — weather
 - `ProfilerDump` — diagnostic overlay (default-off)

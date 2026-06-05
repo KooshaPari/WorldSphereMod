@@ -20,9 +20,9 @@ This fork lands a real 3D pipeline on top of that foundation:
 |---|---|---|
 | 0  | CODE_LANDED | Fork metadata, build portability (`WORLDBOX_PATH`), CI, settings/API v2 |
 | 1  | PROVEN | Voxelized actors + buildings. **default ON** — `VoxelEntities = true`. visible_units=46 confirmed in-game. |
-| 2  | CODE_LANDED | Procedural building meshes. **default OFF** — `ProceduralBuildings = false`. |
+| 2  | CODE_LANDED | Procedural building meshes. **default ON** — `ProceduralBuildings = true`. |
 | 3  | CODE_LANDED | 3a trees/bushes/rocks crossed-quads + 3b surface overlays + walls as 3D prisms. Current code default: `CrossedQuadFoliage = false`. |
-| 4  | CODE_LANDED | Mesh water — WaterGerstner shader source landed; AssetBundle bake deferred. **default OFF** — `MeshWater = false`. |
+| 4  | CODE_LANDED | Mesh water — WaterGerstner shader source landed; AssetBundle bake deferred. **default ON** — `MeshWater = true`. |
 | 5  | CODE_LANDED | Sun driver + shadow cascade config + procedural sky landed. Current code defaults: `HighShadows = false`, `HdrSkybox = false`, `ColorGradingLut = false`. |
 | 6  | CODE_LANDED | Skeletal pipeline. Current code default: `SkeletalAnimation = false`. |
 | 7  | CODE_LANDED | Worldspace UI: nameplate, HP bar, damage popups, selection ring all landed; SelectionHooks wired via `SelectedUnit`. Current code defaults: `WorldspaceUI = false`, `WorldspaceLabel3D = false`. |
