@@ -224,6 +224,11 @@ namespace WorldSphereMod.ProcGen
                             {
                                 pos = pos.To3DTileHeight(false);
                             }
+                            float renderRange = Core.savedSettings.RenderRange;
+                            if (pos.sqrMagnitude > renderRange * renderRange * 4f)
+                            {
+                                continue;
+                            }
                             Vector3 rot = rd.rotations[i];
                             Vector3 scl = rd.scales[i];
                             if (rd.flip_x_states[i]) scl.x = -scl.x;
