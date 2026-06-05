@@ -806,6 +806,7 @@ namespace WorldSphereMod
             public static bool PerlinNoise = true;
             #region Fancy stuff
             static SphereManager Manager;
+            public static SphereManager ManagerInstance => Manager;
             static Mesh CompoundSphereMesh;
             internal static Material CompoundSphereMaterial;
             // GPU-compute keystone shader (CompoundSphereCompute), loaded from the
@@ -2046,14 +2047,13 @@ namespace WorldSphereMod
                         //
                         foreach (var shaderName in SafeShaders)
                         {
-                            // #208 PLAYER-TEST FLIP 2026-06-05: WSM3D_POSTFX_KEEP pragma +
-                            // SVC +2 bake succeeded for ColorGradingLUT, ProceduralSky,
-                            // ScreenSpaceAO. Drop the OpaqueVertexColor-only hard stop
-                            // and let the per-shader loop attempt every SafeShaders entry.
-                            // The CorruptedShaderNames guard (BrpBloom, BrpACES) is kept
-                            // because those two were not part of this fix. try/catch +
-                            // null + isSupported guards remain intact. Auto-revert if a
-                            // native ManagedStream abort recurs in the player.
+                            // Final hard stop: in this crash-safe phase only the
+                            // one validated shader is loaded from the shader bundle.
+                            if (!string.Equals(shaderName, "OpaqueVertexColor", System.StringComparison.OrdinalIgnoreCase))
+                            {
+                                Debug.LogWarning($"[WSM3D] Skipping shader '{shaderName}' from bundle load because crash-safe phase loads only OpaqueVertexColor.");
+                                continue;
+                            }
 
                             // Never call GetObject for known-bad post-FX shader names
                             // from this bundle (BrpBloom / BrpACES) even if they are
@@ -2311,7 +2311,7 @@ namespace WorldSphereMod
             // Auto-reverts to false on any ManagedStream crash (game-test driven).
             // PostFX remains disabled until shader re-bake is fixed; keep bundle
             // enumeration for post-FX shaders fully disabled.
-            public const bool PostFxShaderBundleAvailable = true; // #208 PLAYER-TEST FLIP 2026-06-05
+            public const bool PostFxShaderBundleAvailable = false;
 
             public const bool ShaderBundleAvailable = true;
 
@@ -2335,11 +2335,6 @@ namespace WorldSphereMod
             public static readonly string[] SafeShaders = new[]
             {
                 "OpaqueVertexColor",
-                // #208 PLAYER-TEST FLIP 2026-06-05: postFX shaders with
-                // WSM3D_POSTFX_KEEP pragma + SVC +2 in the bundle bake.
-                "ColorGradingLUT",
-                "ProceduralSky",
-                "ScreenSpaceAO",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look

@@ -1,0 +1,46 @@
+You are an L1 codex worker for WSM3D. Repo E:/Dev/WorldSphereMod, branch wip/208-height-fix, edit MAIN DIRECTORY (no worktree). Hard rules: never stash, never run builds in chat, all commands PowerShell-safe, no visual claims, no false-success narratives — measure programmatically with /telemetry numbers only.
+
+GOAL: Build + install the committed changes (fd4fa9cd already has the distance-gate + BuildingRenderBudget 50) and capture 120 idle frames' frameMs to compare against baseline.
+
+STEPS:
+1. cd E:/Dev/WorldSphereMod
+2. Confirm worldbox.exe NOT running: tasklist | findstr worldbox.exe ; if still running, taskkill /F /IM worldbox.exe
+3. Confirm stale DLL gone: Test-Path "C:/Program Files (x86)/Steam/steamapps/common/Worldbox/worldbox_Data/StreamingAssets/Mods/NML/CompiledMods/WORLDSPHERE3D_FORK.dll" must be $false
+4. Run build: pwsh -File Tools/install.ps1 -SkipBuild:$false 2>&1 | tee build.log
+   - If it errors, STOP, report the error verbatim + last 30 lines
+5. After build success, kill worldbox AGAIN (in case install spawned a process): taskkill /F /IM worldbox.exe
+6. Launch: pwsh -File Tools/headless-launch.ps1 -Strategy auto -BridgePort 8766 -BridgeTimeout 120
+   - Capture stdout. Should return 0 when bridge is up.
+7. Wait an extra 30 seconds for the game to settle into 3D mode (it boots 2D then transitions to 3D).
+8. Sample /telemetry 120 times at 100ms intervals. Use this exact PowerShell loop (PowerShell-safe):
+   $samples = @()
+   for ($i = 0; $i -lt 120; $i++) {
+     try {
+       $r = Invoke-RestMethod -Uri http://127.0.0.1:8766/telemetry -TimeoutSec 5
+       $samples += [pscustomobject]@{ FrameMs = $r.frameMs; Frame = $r.frame; DrawCalls = $r.lastNonZeroDrawCalls; IsWorld3D = $r.isWorld3D; BuildingRenderBudget = $r.buildingRenderBudget; BuildingsVisible = $r.buildingsVisible; BuildingsInFrustum = $r.buildingsInFrustum }
+     } catch { $samples += [pscustomobject]@{ FrameMs = $null; Frame = -1; Error = $_.Exception.Message } }
+     Start-Sleep -Milliseconds 100
+   }
+9. Compute median, p95, min, max, count-null from $samples. Output to telemetry-after.csv and write SUMMARY.
+10. ALSO count "[WSM3D][PERF] SLOW" lines from the WorldBox Player.log ($env:USERPROFILE/AppData/LocalLow/mkarpenko/WorldBox/Player.log) in the last 60 seconds. Use: Select-String -Path ... -Pattern 'SLOW' | Where-Object { $_.LineNumber -ge $startLine } | Measure-Object | Select Count
+11. ALSO count "render3DStuff" SLOW log lines per the L1 report (a4a71a8de54583625). Select-String -Path ... -Pattern 'render3DStuff.*SLOW|render3DStuff.*[0-9]+ms' | ... count in last 60s.
+12. ALSO count buildings visible in frustum at "center zoom" — query /telemetry for buildingsInFrustum and report median.
+
+RETURN FORMAT (terse, no narrative padding):
+- exit_code: <0-4>
+- fix_sha: edddd01a (HEAD already includes fd4fa9cd)
+- install_ok: true/false
+- bridge_up: true/false
+- telemetry: { median_ms, p95_ms, min_ms, max_ms, valid_count, null_count, mean_ms, stdev_ms }
+- slow_log_count_60s: <int>
+- render3DStuff_slow_count_60s: <int>
+- buildings_in_frustum_median: <int>
+- buildings_visible_median: <int>
+- blocker: <string or "DONE">
+
+If bridge is not up after 8m, kill codex and report blocker.
+If /telemetry returns no frameMs (null_count > 0), note it but continue.
+If build fails, return exit_code=1 + last 30 lines of build.log.
+Do NOT make any commits. Do NOT push. Just build, install, launch, measure, report.
+
+After you're done, leave WorldBox RUNNING (don't kill it after measurement) — I'll review the state and either kill it or keep it for follow-up work.

@@ -1845,8 +1845,54 @@ namespace WorldSphereMod.Bridge
                 surfaceFlat = flat,
                 deepSample,
                 shallowSample,
+                waterMesh = ProbeWaterMesh(),
                 samples
             };
+        }
+
+        static object ProbeWaterMesh()
+        {
+            try
+            {
+                CompoundSpheres.SphereManager mgr = null;
+                try { mgr = Core.Sphere.ManagerInstance; } catch { }
+                CompoundSpheres.HeightFieldRenderer hf = null;
+                try { hf = mgr != null ? mgr.HeightField : null; } catch { }
+                if (hf == null) return new { exists = false, reason = "no HeightField" };
+                Mesh wm = hf.WaterMesh;
+                if (wm == null) return new { exists = false, reason = "WaterMesh null" };
+                Bounds b = wm.bounds;
+                Vector3[] verts = wm.vertices;
+                float minY = float.PositiveInfinity, maxY = float.NegativeInfinity, minX = float.PositiveInfinity, maxX = float.NegativeInfinity, minZ = float.PositiveInfinity, maxZ = float.NegativeInfinity;
+                int n = verts != null ? verts.Length : 0;
+                for (int i = 0; i < n; i++)
+                {
+                    Vector3 v = verts[i];
+                    if (v.y < minY) minY = v.y;
+                    if (v.y > maxY) maxY = v.y;
+                    if (v.x < minX) minX = v.x;
+                    if (v.x > maxX) maxX = v.x;
+                    if (v.z < minZ) minZ = v.z;
+                    if (v.z > maxZ) maxZ = v.z;
+                }
+                return new
+                {
+                    exists = true,
+                    vertexCount = wm.vertexCount,
+                    triangleCount = wm.triangles != null ? wm.triangles.Length / 3 : 0,
+                    boundsMin = new { x = b.min.x, y = b.min.y, z = b.min.z },
+                    boundsMax = new { x = b.max.x, y = b.max.y, z = b.max.z },
+                    computedMinY = minY, computedMaxY = maxY,
+                    computedMinX = minX, computedMaxX = maxX,
+                    computedMinZ = minZ, computedMaxZ = maxZ,
+                    spanY = (float.IsInfinity(maxY - minY) ? 0f : maxY - minY),
+                    name = wm.name
+                };
+            }
+            catch (Exception ex)
+            {
+                return new { exists = false, reason = ex.GetType().Name + ": " + ex.Message };
+            }
         }
 
         object BuildFullDumpPayload()

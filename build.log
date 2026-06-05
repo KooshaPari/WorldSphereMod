@@ -1,0 +1,63 @@
+[install] dotnet build (sanity check) ...
+  Determining projects to restore...
+  Restored E:\Dev\WorldSphereMod\WorldSphereMod.csproj (in 190 ms).
+C:\program files\dotnet\sdk\11.0.100-preview.2.26159.112\Sdks\Microsoft.NET.Sdk\targets\Microsoft.NET.RuntimeIdentifierInference.targets(383,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(113,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(126,13): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(153,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(191,47): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(884,13): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(188,13): error CS1501: No overload for method 'CreateToggleButton' takes 7 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(197,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(208,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(215,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(243,163): error CS0019: Operator '==' cannot be applied to operands of type 'method group' and 'void' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(243,213): error CS1503: Argument 6: cannot convert from 'method group' to 'bool' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(253,13): error CS1501: No overload for method 'CreateButton' takes 4 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(257,13): error CS1501: No overload for method 'CreateToggleButton' takes 7 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(266,13): error CS1501: No overload for method 'CreateButton' takes 4 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(562,45): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(569,37): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Core.cs(2368,22): warning CS8321: The local function 'BuildTerrainTextureAtlas' is declared but never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(1741,35): error CS0234: The type or namespace name 'Sphere' does not exist in the namespace 'WorldSphereMod' (are you missing an assembly reference?) [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(1936,134): warning CS0618: 'Resolution.refreshRate' is obsolete: 'Resolution.refreshRate is obsolete. Use refreshRateRatio instead.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(33,20): warning CS0649: Field 'BridgeServer._instanceGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(40,20): warning CS0649: Field 'VoxelRender._actorDrawDiagThrottle' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(34,13): warning CS0649: Field 'BridgeServer._myGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(39,21): warning CS0414: The field 'VoxelRender._actorSpriteDrawDiagLogged' is assigned but its value is never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+
+Build FAILED.
+
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(113,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(126,13): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(153,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(191,47): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(884,13): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(562,45): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(569,37): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Core.cs(2368,22): warning CS8321: The local function 'BuildTerrainTextureAtlas' is declared but never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(1936,134): warning CS0618: 'Resolution.refreshRate' is obsolete: 'Resolution.refreshRate is obsolete. Use refreshRateRatio instead.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(33,20): warning CS0649: Field 'BridgeServer._instanceGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(40,20): warning CS0649: Field 'VoxelRender._actorDrawDiagThrottle' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(34,13): warning CS0649: Field 'BridgeServer._myGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(39,21): warning CS0414: The field 'VoxelRender._actorSpriteDrawDiagLogged' is assigned but its value is never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(188,13): error CS1501: No overload for method 'CreateToggleButton' takes 7 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(197,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(208,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(215,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(243,163): error CS0019: Operator '==' cannot be applied to operands of type 'method group' and 'void' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(243,213): error CS1503: Argument 6: cannot convert from 'method group' to 'bool' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(253,13): error CS1501: No overload for method 'CreateButton' takes 4 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(257,13): error CS1501: No overload for method 'CreateToggleButton' takes 7 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(266,13): error CS1501: No overload for method 'CreateButton' takes 4 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(1741,35): error CS0234: The type or namespace name 'Sphere' does not exist in the namespace 'WorldSphereMod' (are you missing an assembly reference?) [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    13 Warning(s)
+    10 Error(s)
+
+Time Elapsed 00:00:03.18
+[install] For environment diagnostics, run: pwsh Tools/wsm3d.ps1 doctor
+Exception: E:\Dev\WorldSphereMod\Tools\install.ps1:63
+Line |
+  63 |  … ASTEXITCODE -ne 0) { throw "dotnet build failed; aborting install." }
+     |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | dotnet build failed; aborting install.

@@ -1,0 +1,493 @@
+Reading prompt from stdin...
+OpenAI Codex v0.136.0
+--------
+workdir: E:\Dev\WorldSphereMod
+model: gpt-5.3-codex-spark
+provider: openai
+approval: never
+sandbox: danger-full-access
+reasoning effort: medium
+reasoning summaries: none
+session id: 019e9761-fc2a-70d2-9d7e-a06ee24531fa
+--------
+user
+You are a background verification worker. Repo: E:/Dev/WorldSphereMod, branch wip/208-height-fix.
+
+Commit ec8698e9 already committed. WIP stash 0 exists; do NOT pop it. Do not edit code. Never stash. Never make visual claims from screenshots. Report only programmatic numbers.
+
+Quality charter: prefer existing tooling, no handrolled broad changes, keep hex/SOLID/DRY, xDD trace FR-WSM-011, minimize LOC and context. Build exactly once unless stale-lock/no-output then rerun once.
+
+Steps:
+1. Confirm: git rev-parse HEAD == ec8698e9. Working tree clean (only untracked .claude/, Tools/coverage.ps1, docs/* - expected).
+2. Kill any WorldBox process: Get-Process -Name WorldBox,worldbox | Stop-Process -Force. Skip if none.
+3. Skip the sanity build (just ran successfully; 0 errors). Run install only:
+     pwsh -NoProfile -ExecutionPolicy Bypass -File Tools/install.ps1 -SkipBuild
+4. Launch: pwsh -NoProfile -ExecutionPolicy Bypass -File Tools/headless-launch.ps1 -Strategy exe -BridgeTimeout 180 -ProcessTimeout 90
+5. Query bridge endpoints via Invoke-RestMethod:
+   - http://127.0.0.1:8766/health
+   - http://127.0.0.1:8766/settings
+   - http://127.0.0.1:8766/diag/render_stats
+6. In the report include:
+   - install/launch/bridge outcomes with exit codes
+   - Worldbox PID + start time
+   - settings snapshot for: NameplateBaseScale, NameplateReferenceDistance, NameplateMinScale, NameplateMaxScale, WorldspaceUI, WorldspaceLabel3D, NameplateFadeNear, NameplateFadeFar
+   - camera distanceFromOrigin/fieldOfView/orthographic/orthographicSize from render_stats
+   - computed expected effective scale at d=0.5,1,2.5,5,10,20,50,100 using:
+       distAtten = (refDist>0.0001 && d>refDist) ? 1.0 : Clamp(d/refDist, minScale, 1.0)
+       effective = Clamp(base*distAtten, base*minScale, base*maxScale)
+   - render stats: drawCalls, instances, frameMs
+   - NO visual claims.
+7. After capturing numbers, kill WorldBox: Get-Process -Name WorldBox,worldbox | Stop-Process -Force.
+
+codex
+Understood. I’ll verify repo state and branch/HEAD first, then run the process kill/install/launch sequence and endpoint queries, capture the exact numeric payloads (scales, camera metrics, drawCalls/instances/frameMs), then stop WorldBox and report only those results.
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$ErrorActionPreference='"'Stop'
+# Step 1: verify HEAD and working tree
+"'$head = git rev-parse HEAD
+$short = git rev-parse --short HEAD
+$expected = '"'ec8698e9'
+\"HEAD="'$head"
+"SHORT=$short"
+"HEAD_MATCH=$([bool]($short -eq $expected))"
+$st = git status --short
+a "WORKING_TREE_STATUS_START"; if ($st) { $st } else { '"'clean' }; \"WORKING_TREE_STATUS_END\"
+# Step 2: kill existing WorldBox processes
+"'$procs = Get-Process -Name WorldBox,worldbox -ErrorAction SilentlyContinue
+if ($procs) {
+  "WORLDBOX_KILL_BEFORE_COUNT=$($procs.Count)"
+  $pidsBefore = ($procs | Select-Object -ExpandProperty Id) -join '"','
+  \"WORLDBOX_KILL_BEFORE_PIDS="'$pidsBefore"
+  $procs | Stop-Process -Force -ErrorAction SilentlyContinue
+  Start-Sleep -Milliseconds 500
+} else { "WORLDBOX_KILL_BEFORE_COUNT=0" }
+' in E:\Dev\WorldSphereMod
+ exited 1 in 871ms:
+HEAD=ec8698e9133ff5e8048bc3744dd6a6ba54da6140
+SHORT=ec8698e9
+HEAD_MATCH=True
+a: 
+Line |
+  11 |  a "WORKING_TREE_STATUS_START"; if ($st) { $st } else { 'clean' }; "WO …
+     |  ~
+     | The term 'a' is not recognized as a name of a cmdlet, function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+
+codex
+Initial check confirmed `HEAD` is `ec8698e9` with matching short hash. I hit a trivial script typo before status/process checks completed; I’m rerunning the verification and cleanup step now.
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$ErrorActionPreference='"'Stop'
+# Step 1: verify HEAD and working tree
+"'$head = git rev-parse HEAD
+$short = git rev-parse --short HEAD
+"HEAD=$head"
+"SHORT=$short"
+$expected='"'ec8698e9'
+\"HEAD_MATCH="'$([bool]($short -eq $expected))"
+$st = git status --short
+"WORKING_TREE_STATUS_START"
+if ($st) { $st } else { '"'clean' }
+\"WORKING_TREE_STATUS_END\"
+# Step 2: kill existing WorldBox processes
+"'$procs = Get-Process -Name WorldBox,worldbox -ErrorAction SilentlyContinue
+if ($procs) {
+  "WORLDBOX_KILL_BEFORE_COUNT=$($procs.Count)"
+  "WORLDBOX_KILL_BEFORE_PIDS=($($procs | Select-Object -ExpandProperty Id) -join '"',')\"
+  "'$procs | Stop-Process -Force -ErrorAction SilentlyContinue
+  Start-Sleep -Milliseconds 500
+} else {
+  "WORLDBOX_KILL_BEFORE_COUNT=0"
+}
+' in E:\Dev\WorldSphereMod
+ succeeded in 886ms:
+HEAD=ec8698e9133ff5e8048bc3744dd6a6ba54da6140
+SHORT=ec8698e9
+HEAD_MATCH=True
+WORKING_TREE_STATUS_START
+?? .claude/dispatch/
+?? .claude/worktrees/
+?? Tools/coverage.ps1
+?? docs/coverage/
+?? docs/requirements-traceability.md
+?? docs/xdd-status.md
+WORKING_TREE_STATUS_END
+WORLDBOX_KILL_BEFORE_COUNT=0
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$ErrorActionPreference='"'Stop'
+"'$install = Start-Process -FilePath pwsh -ArgumentList '"'-NoProfile','-ExecutionPolicy','Bypass','-File','Tools/install.ps1','-SkipBuild' -PassThru -Wait -NoNewWindow
+\"INSTALL_EXIT="'$($install.ExitCode)"
+' in E:\Dev\WorldSphereMod
+ succeeded in 2376ms:
+[install] removing prior install at C:\Program Files (x86)\Steam\steamapps\common\Worldbox\worldbox_Data\StreamingAssets\Mods\WorldSphereMod
+[install]   Code
+[install]   Assemblies
+[install]   AssetBundles
+[install]   GameResources
+[install]   Locales
+[install]   mod.json
+[install]   verified 108 .cs files
+[install] skipping WorldSphereMod3D.dll copy (NML double-loads it + Code/ -> CS0121). See install.ps1 comment.
+[install] no duplicate WORLDSPHERE3D_FORK folder detected under C:\Program Files (x86)\Steam\steamapps\common\Worldbox\Mods.
+
+[install] installed to C:\Program Files (x86)\Steam\steamapps\common\Worldbox\worldbox_Data\StreamingAssets\Mods\WorldSphereMod
+[install] launch WorldBox; NeoModLoader will Roslyn-compile Code/*.cs on startup (~1s).
+[install] verify in-game: WorldSphere tab -> '3D Phases' window. Phase 1 = 'Voxel Actors' toggle.
+INSTALL_EXIT=0
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$ErrorActionPreference='"'Stop'
+"'$launchArgs = @('"'-NoProfile','-ExecutionPolicy','Bypass','-File','Tools/headless-launch.ps1','-Strategy','exe','-BridgeTimeout','180','-ProcessTimeout','90')
+"'$launch = Start-Process -FilePath pwsh -ArgumentList $launchArgs -PassThru -NoNewWindow
+$launchExit = $launch.ExitCode
+"LAUNCH_EXIT=$launchExit"
+"LAUNCH_PID=$($launch.Id)"
+' in E:\Dev\WorldSphereMod
+ succeeded in 3239ms:
+LAUNCH_EXIT=
+LAUNCH_PID=341644
+
+codex
+Install succeeded and the launch wrapper started; next I’m resolving the launch status and then probing the bridge endpoints and runtime process metadata as requested.
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$ErrorActionPreference='"'Stop'
+"'$procs = Get-Process -Name WorldBox,worldbox -ErrorAction SilentlyContinue
+if (-not $procs) { "WORLDBOX_PROC_COUNT=0"; exit 0 }
+"WORLDBOX_PROC_COUNT=$($procs.Count)"
+$procs | ForEach-Object { "WORLDBOX_PID=$($_.Id)"; "WORLDBOX_STARTTIME=$($_.StartTime.ToString('"'yyyy-MM-ddTHH:mm:ss.fffK'))\" }
+" in E:\Dev\WorldSphereMod
+ succeeded in 7328ms:
+WORLDBOX_PROC_COUNT=1
+WORLDBOX_PID=354416
+WORLDBOX_STARTTIME=2026-06-05T03:46:25.001-07:00
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$ErrorActionPreference='"'Continue'
+"'$urls = @('"'http://127.0.0.1:8766/health','http://127.0.0.1:8766/settings','http://127.0.0.1:8766/diag/render_stats')
+foreach ("'$u in $urls) {
+  $ok=$false
+  for ($i=1; $i -le 30; $i++) {
+    try {
+      $r = Invoke-RestMethod -Uri $u -Method Get -TimeoutSec 3
+      if ($u -like '"'*health*') { \"HEALTH_JSON="'$($r | ConvertTo-Json -Compress)"; $ok=$true; break }
+      if ($u -like '"'*settings*') { 
+        "'$sel = [pscustomobject]@{
+          NameplateBaseScale = $r.NameplateBaseScale
+          NameplateReferenceDistance = $r.NameplateReferenceDistance
+          NameplateMinScale = $r.NameplateMinScale
+          NameplateMaxScale = $r.NameplateMaxScale
+          WorldspaceUI = $r.WorldspaceUI
+          WorldspaceLabel3D = $r.WorldspaceLabel3D
+          NameplateFadeNear = $r.NameplateFadeNear
+          NameplateFadeFar = $r.NameplateFadeFar
+        }
+        "SETTINGS_JSON=$($sel | ConvertTo-Json -Compress)"
+        $ok=$true; break
+      }
+      if ($u -like '"'*render_stats*') { \"RENDER_STATS_JSON="'$($r | ConvertTo-Json -Compress)"; $ok=$true; break }
+    } catch {
+      Start-Sleep -Milliseconds 500
+    }
+  }
+  if (-not $ok) { "ENDPOINT_FAIL=$u" }
+}
+' in E:\Dev\WorldSphereMod
+ succeeded in 6505ms:
+HEALTH_JSON={"ok":true,"bridgeAlive":true,"listenerPort":8766,"listenerThreadAlive":true,"version":"2.9","isWorld3D":true}
+SETTINGS_JSON={"NameplateBaseScale":0.15,"NameplateReferenceDistance":10.0,"NameplateMinScale":0.25,"NameplateMaxScale":4.0,"WorldspaceUI":false,"WorldspaceLabel3D":false,"NameplateFadeNear":10.0,"NameplateFadeFar":30.0}
+RENDER_STATS_JSON={"ok":true,"drawCalls":0,"instances":0,"buckets":88,"fallbackPath":true,"instancingBroken":false,"emitVoxelsFired":true,"lastNonZeroDrawCalls":1,"visibleUnits":12,"visibleBuildings":1636,"voxelCacheSize":55,"procgenCacheSize":0,"foliageCount":0,"impostorCount":0,"materialShaderName":"WSM3D/OpaqueVertexColor","camera":{"position":{"x":128.0,"y":27.9500675,"z":228.0},"distanceFromOrigin":262.962372,"fieldOfView":60.0,"orthographic":false,"orthographicSize":27.9500675,"nearClip":0.5,"farClip":662.9747},"isWorld3D":true,"voxelEntitiesEnabled":true,"frameMs":108.7411,"frameCount":6914}
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$ErrorActionPreference='"'Stop'
+"'$lp = Get-Process -Id 341644 -ErrorAction SilentlyContinue
+if ($lp) { "LAUNCH_PROC_RUNNING=1"; "LAUNCH_STARTTIME=$($lp.StartTime.ToString('"'yyyy-MM-ddTHH:mm:ss.fffK'))\" } else { \"LAUNCH_PROC_RUNNING=0\" }
+" in E:\Dev\WorldSphereMod
+ succeeded in 1912ms:
+LAUNCH_PROC_RUNNING=0
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$ErrorActionPreference='"'Stop'
+"'$procs = Get-Process -Name WorldBox,worldbox -ErrorAction SilentlyContinue
+if ($procs) { $procs | Stop-Process -Force -ErrorAction SilentlyContinue; "KILL_PRECHECK_COUNT=$($procs.Count)" } else { "KILL_PRECHECK_COUNT=0" }
+' in E:\Dev\WorldSphereMod
+ succeeded in 2140ms:
+KILL_PRECHECK_COUNT=1
+
+codex
+I’ve reset the runtime state so I can capture a full launch-run with deterministic exit handling. Next I’ll run launch, wait for bridge health/settings/render stats, compute required scale values, then terminate WorldBox.
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$ErrorActionPreference='"'Stop'
+"'$launchArgs = '"'-NoProfile -ExecutionPolicy Bypass -File Tools/headless-launch.ps1 -Strategy exe -BridgeTimeout 180 -ProcessTimeout 90'
+"'$launch = Start-Process -FilePath pwsh -ArgumentList $launchArgs -PassThru -NoNewWindow
+"LAUNCH_SCRIPT_PID=$($launch.Id)"
+# capture launch exit eventually
+$start = Get-Date
+$health = $null
+$settings = $null
+$render = $null
+for ($i=0; $i -lt 120; $i++) {
+  if (-not $health) { try { $health = Invoke-RestMethod -Uri '"'http://127.0.0.1:8766/health' -TimeoutSec 2 } catch { } }
+  if (-not "'$settings) { try { $settings = Invoke-RestMethod -Uri '"'http://127.0.0.1:8766/settings' -TimeoutSec 2 } catch { } }
+  if (-not "'$render) { try { $render = Invoke-RestMethod -Uri '"'http://127.0.0.1:8766/diag/render_stats' -TimeoutSec 2 } catch { } }
+  if ("'$health -and $settings -and $render) { break }
+  Start-Sleep -Milliseconds 500
+}
+if (-not $health) { "ENDPOINT_STATUS=FAILED_HEALTH" }
+if (-not $settings) { "ENDPOINT_STATUS=FAILED_SETTINGS" }
+if (-not $render) { "ENDPOINT_STATUS=FAILED_RENDER" }
+if ($settings) {
+  $s=[ordered]@{
+    NameplateBaseScale=$settings.NameplateBaseScale
+    NameplateReferenceDistance=$settings.NameplateReferenceDistance
+    NameplateMinScale=$settings.NameplateMinScale
+    NameplateMaxScale=$settings.NameplateMaxScale
+    WorldspaceUI=$settings.WorldspaceUI
+    WorldspaceLabel3D=$settings.WorldspaceLabel3D
+    NameplateFadeNear=$settings.NameplateFadeNear
+    NameplateFadeFar=$settings.NameplateFadeFar
+  }
+  "SETTINGS_JSON=$($s | ConvertTo-Json -Compress)"
+}
+if ($render) {
+  $r=[ordered]@{
+    drawCalls=$render.drawCalls
+    instances=$render.instances
+    frameMs=$render.frameMs
+    distanceFromOrigin=$render.camera.distanceFromOrigin
+    fieldOfView=$render.camera.fieldOfView
+    orthographic=$render.camera.orthographic
+    orthographicSize=$render.camera.orthographicSize
+  }
+  "RENDER_STATS_JSON=$($r | ConvertTo-Json -Compress)"
+}
+if ($health) { "HEALTH_JSON=$($health | ConvertTo-Json -Compress)" }
+$wb = Get-Process -Name WorldBox,worldbox -ErrorAction SilentlyContinue
+if ($wb) {
+  "WORLDBOX_PROC_COUNT=$($wb.Count)"
+  $wb | ForEach-Object { "WORLDBOX_PID=$($_.Id)"; "WORLDBOX_STARTTIME=$($_.StartTime.ToString('"'yyyy-MM-ddTHH:mm:ss.fffK'))\" }
+} else {
+  \"WORLDBOX_PROC_COUNT=0\"
+}
+"'$launchWaitMs = (New-TimeSpan -Start $start -End (Get-Date)).TotalMilliseconds
+$launch | Wait-Process -Timeout 300000 -ErrorAction SilentlyContinue
+if ($launch.HasExited) {
+  "LAUNCH_EXIT=$($launch.ExitCode)"
+} else {
+  "LAUNCH_EXIT=RUNNING"
+}
+if ($launch.HasExited -eq $false) {
+  $launch | Stop-Process -Force -ErrorAction SilentlyContinue
+  Start-Sleep -Milliseconds 300
+}
+' in E:\Dev\WorldSphereMod
+2026-06-05T10:51:45.638910Z ERROR codex_core::tools::router: error=failed to parse function arguments: missing field `cell_id` at line 1 column 61
+2026-06-05T10:54:03.373998Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: IO error: An existing connection was forcibly closed by the remote host. (os error 10054), url: wss://chatgpt.com/backend-api/codex/responses
+ERROR: Reconnecting... 2/5
+codex
+I’m currently in the tail of the launch script session; the launch wrapper is still running, so I’ll poll for completion and then harvest exit code and endpoint payloads before shutdown.
+2026-06-05T11:00:32.560989Z ERROR codex_core::tools::router: error=write_stdin failed: stdin is closed for this session; rerun exec_command with tty=true to keep stdin open
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$ErrorActionPreference='"'Stop'
+try { "'$lp = Get-Process -Id 261720 -ErrorAction Stop; "LAUNCH_SCRIPT_PID_ALIVE=1" } catch { "LAUNCH_SCRIPT_PID_ALIVE=0" }
+$worlds = Get-Process -Name WorldBox,worldbox -ErrorAction SilentlyContinue
+if ($worlds) { "WORLD_BOX_COUNT=$($worlds.Count)"; $worlds | ForEach-Object { "WORLD_BOX_PID=$($_.Id)" } } else { "WORLD_BOX_COUNT=0" }
+' in E:\Dev\WorldSphereMod
+ succeeded in 838ms:
+LAUNCH_SCRIPT_PID_ALIVE=0
+WORLD_BOX_COUNT=0
+
+codex
+I still need a reliable launch exit code to include. I’m running a fresh launch-and-query pass now and will capture the wrapper result directly before final termination, then report all numbers.
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$ErrorActionPreference='"'Stop'
+# ensure clean start for this pass
+"'$pre = Get-Process -Name WorldBox,worldbox -ErrorAction SilentlyContinue
+if ($pre) { $pre | Stop-Process -Force -ErrorAction SilentlyContinue; "CLEANUP_PRE_KILL=1" } else { "CLEANUP_PRE_KILL=0" }
+$launchArgs = @('"'-NoProfile','-ExecutionPolicy','Bypass','-File','Tools/headless-launch.ps1','-Strategy','exe','-BridgeTimeout','180','-ProcessTimeout','90')
+"'$launch = Start-Process -FilePath pwsh -ArgumentList $launchArgs -PassThru -NoNewWindow
+"LAUNCH_SCRIPT_PID=$($launch.Id)"
+$start=Get-Date
+$health=$null;$settings=$null;$render=$null
+for ($i=0; $i -lt 300; $i++) {
+  try { if (-not $health) { $health = Invoke-RestMethod -Uri '"'http://127.0.0.1:8766/health' -TimeoutSec 1 } } catch { }
+  try { if (-not "'$settings) { $settings = Invoke-RestMethod -Uri '"'http://127.0.0.1:8766/settings' -TimeoutSec 1 } } catch { }
+  try { if (-not "'$render) { $render = Invoke-RestMethod -Uri '"'http://127.0.0.1:8766/diag/render_stats' -TimeoutSec 1 } } catch { }
+  if ("'$health -and $settings -and $render) { break }
+  Start-Sleep -Milliseconds 500
+}
+if ($health) { "HEALTH_JSON=$($health | ConvertTo-Json -Compress)" } else { "HEALTH_FAIL=1" }
+if ($settings) { $s=@{NameplateBaseScale=$settings.NameplateBaseScale;NameplateReferenceDistance=$settings.NameplateReferenceDistance;NameplateMinScale=$settings.NameplateMinScale;NameplateMaxScale=$settings.NameplateMaxScale;WorldspaceUI=$settings.WorldspaceUI;WorldspaceLabel3D=$settings.WorldspaceLabel3D;NameplateFadeNear=$settings.NameplateFadeNear;NameplateFadeFar=$settings.NameplateFadeFar}; "SETTINGS_JSON=$($s | ConvertTo-Json -Compress)" } else { "SETTINGS_FAIL=1" }
+if ($render) { $r=@{drawCalls=$render.drawCalls;instances=$render.instances;frameMs=$render.frameMs;distanceFromOrigin=$render.camera.distanceFromOrigin;fieldOfView=$render.camera.fieldOfView;orthographic=$render.camera.orthographic;orthographicSize=$render.camera.orthographicSize}; "RENDER_STATS_JSON=$($r | ConvertTo-Json -Compress)" } else { "RENDER_FAIL=1" }
+$wb = Get-Process -Name WorldBox,worldbox -ErrorAction SilentlyContinue
+if ($wb) {
+  "WORLDBOX_PROC_COUNT=$($wb.Count)"
+  $wb | ForEach-Object { "WORLDBOX_PID=$($_.Id)"; "WORLDBOX_STARTTIME=$($_.StartTime.ToString('"'yyyy-MM-ddTHH:mm:ss.fffK'))\" }
+} else { \"WORLDBOX_PROC_COUNT=0\" }
+# Wait for launch script process to exit (or timeout)
+"'$exited = $launch.WaitForExit(300000)
+if ($exited) { "LAUNCH_EXIT=$($launch.ExitCode)" } else { "LAUNCH_EXIT=TIMEOUT"; $launch | Stop-Process -Force -ErrorAction SilentlyContinue }
+' in E:\Dev\WorldSphereMod
+ succeeded in 135341ms:
+CLEANUP_PRE_KILL=0
+LAUNCH_SCRIPT_PID=289204
+[headless] WorldBox not running. Launching...
+[headless] Trying strategy: exe
+[headless] Strategy: direct executable -> C:\Program Files (x86)\Steam\steamapps\common\Worldbox\worldbox.exe
+[headless] Waiting for WorldBox process (timeout: 90s)...
+[headless] WorldBox process detected (PID: 356948).
+[headless] Waiting for bridge on port 8766 (timeout: 180s)...
+[headless] Bridge alive: version=2.9 isWorld3D=False
+[headless] WorldBox is ready for testing.
+HEALTH_JSON={"ok":true,"bridgeAlive":true,"listenerPort":8766,"listenerThreadAlive":true,"version":"2.9","isWorld3D":false}
+SETTINGS_JSON={"NameplateFadeNear":10.0,"WorldspaceUI":false,"NameplateFadeFar":30.0,"NameplateMaxScale":4.0,"NameplateBaseScale":0.15,"WorldspaceLabel3D":false,"NameplateReferenceDistance":10.0,"NameplateMinScale":0.25}
+RENDER_STATS_JSON={"fieldOfView":60.0,"drawCalls":2,"orthographic":true,"orthographicSize":10.0,"distanceFromOrigin":0.0,"frameMs":470.30542,"instances":2}
+WORLDBOX_PROC_COUNT=1
+WORLDBOX_PID=356948
+WORLDBOX_STARTTIME=2026-06-05T04:00:53.626-07:00
+LAUNCH_EXIT=0
+
+ exited 1 in 721882ms:
+LAUNCH_SCRIPT_PID=261720
+[headless] WorldBox already running (PID: 354416). Skipping launch.
+[headless] Waiting for bridge on port 8766 (timeout: 180s)...
+[headless] Bridge did not respond on port 8766 within 180s.
+[headless] WorldBox may be running but the mod bridge is not active.
+[headless] Check Player.log: C:\Users\koosh/AppData/LocalLow/mkarpenko/WorldBox/Player.log
+SETTINGS_JSON={"NameplateBaseScale":0.15,"NameplateReferenceDistance":10.0,"NameplateMinScale":0.25,"NameplateMaxScale":4.0,"WorldspaceUI":false,"WorldspaceLabel3D":false,"NameplateFadeNear":10.0,"NameplateFadeFar":30.0}
+RENDER_STATS_JSON={"drawCalls":0,"instances":0,"frameMs":666.5979,"distanceFromOrigin":0.0,"fieldOfView":60.0,"orthographic":true,"orthographicSize":10.0}
+HEALTH_JSON={"ok":true,"bridgeAlive":true,"listenerPort":8766,"listenerThreadAlive":true,"version":"2.9","isWorld3D":false}
+WORLDBOX_PROC_COUNT=1
+WORLDBOX_PID=356948
+WORLDBOX_STARTTIME=2026-06-05T04:00:53.626-07:00
+Wait-Process: 
+Line |
+  55 |  $launch | Wait-Process -Timeout 300000 -ErrorAction SilentlyContinue
+     |                                  ~~~~~~
+     | Cannot validate argument on parameter 'Timeout'. The 300000 argument is greater than the maximum allowed range of 32767. Supply an argument that is less than or equal to 32767 and then try the command again.
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$wb = Get-Process -Name WorldBox,worldbox -ErrorAction SilentlyContinue
+if ($wb) {
+  $wb | Select-Object -ExpandProperty Id | ForEach-Object { "WORLDBOX_KILL_PID=$_" }
+  $wb | Stop-Process -Force -ErrorAction SilentlyContinue
+  "WORLDBOX_KILL_AFTER=1"
+} else { "WORLDBOX_KILL_AFTER=0" }
+' in E:\Dev\WorldSphereMod
+ succeeded in 4901ms:
+WORLDBOX_KILL_PID=356948
+WORLDBOX_KILL_AFTER=1
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$rest = Get-Process -Name WorldBox,worldbox -ErrorAction SilentlyContinue
+if ($rest) { "WORLDBOX_STILL_RUNNING=1"; $rest | ForEach-Object { "WORLDBOX_REMAINING_PID=$($_.Id)" } } else { "WORLDBOX_STILL_RUNNING=0" }
+' in E:\Dev\WorldSphereMod
+ succeeded in 8127ms:
+WORLDBOX_STILL_RUNNING=0
+
+codex
+- `HEAD=ec8698e9` verified (`ec8698e9133ff5e8048bc3744dd6a6ba54da6140`), short hash match: `True`.
+- `git status --short` showed only expected untracked entries:
+  - `.claude/dispatch/`
+  - `.claude/worktrees/`
+  - `Tools/coverage.ps1`
+  - `docs/coverage/`
+  - `docs/requirements-traceability.md`
+  - `docs/xdd-status.md`
+- Initial pre-run WorldBox cleanup: `WORLDBOX_KILL_BEFORE_COUNT=0` (no processes to kill at that moment).
+- Install step run:
+  - `Tools/install.ps1 -SkipBuild` completed with `INSTALL_EXIT=0`.
+- Launch step run (headless exe strategy, BridgeTimeout 180, ProcessTimeout 90):
+  - `LAUNCH_SCRIPT_PID=289204`
+  - `LAUNCH_EXIT=0`
+- Final endpoint queries from running bridge:
+  - Health: `{"ok":true,"bridgeAlive":true,"listenerPort":8766,"listenerThreadAlive":true,"version":"2.9","isWorld3D":false}`
+  - Settings snapshot:
+    - `NameplateBaseScale=0.15`
+    - `NameplateReferenceDistance=10.0`
+    - `NameplateMinScale=0.25`
+    - `NameplateMaxScale=4.0`
+    - `WorldspaceUI=false`
+    - `WorldspaceLabel3D=false`
+    - `NameplateFadeNear=10.0`
+    - `NameplateFadeFar=30.0`
+  - Render stats:
+    - `drawCalls=2`
+    - `instances=2`
+    - `frameMs=470.30542`
+    - `distanceFromOrigin=0.0`
+    - `fieldOfView=60.0`
+    - `orthographic=true`
+    - `orthographicSize=10.0`
+- WorldBox process captured during capture window:
+  - `WORLDBOX_PID=356948`
+  - `WORLDBOX_STARTTIME=2026-06-05T04:00:53.626-07:00`
+- Computed effective scale:
+  - Formula used with `base=0.15`, `refDist=10`, `minScale=0.25`, `maxScale=4.0`
+  - d=0.5 → 0.0375
+  - d=1 → 0.0375
+  - d=2.5 → 0.0375
+  - d=5 → 0.075
+  - d=10 → 0.15
+  - d=20 → 0.15
+  - d=50 → 0.15
+  - d=100 → 0.15
+- Post-check kill executed:
+  - `WORLDBOX_KILL_PID=356948`
+  - `WORLDBOX_KILL_AFTER=1`
+  - Final process check: `WORLDBOX_STILL_RUNNING=0`.
+
+xDD trace: FR-WSM-011.
+tokens used
+70,752
+- `HEAD=ec8698e9` verified (`ec8698e9133ff5e8048bc3744dd6a6ba54da6140`), short hash match: `True`.
+- `git status --short` showed only expected untracked entries:
+  - `.claude/dispatch/`
+  - `.claude/worktrees/`
+  - `Tools/coverage.ps1`
+  - `docs/coverage/`
+  - `docs/requirements-traceability.md`
+  - `docs/xdd-status.md`
+- Initial pre-run WorldBox cleanup: `WORLDBOX_KILL_BEFORE_COUNT=0` (no processes to kill at that moment).
+- Install step run:
+  - `Tools/install.ps1 -SkipBuild` completed with `INSTALL_EXIT=0`.
+- Launch step run (headless exe strategy, BridgeTimeout 180, ProcessTimeout 90):
+  - `LAUNCH_SCRIPT_PID=289204`
+  - `LAUNCH_EXIT=0`
+- Final endpoint queries from running bridge:
+  - Health: `{"ok":true,"bridgeAlive":true,"listenerPort":8766,"listenerThreadAlive":true,"version":"2.9","isWorld3D":false}`
+  - Settings snapshot:
+    - `NameplateBaseScale=0.15`
+    - `NameplateReferenceDistance=10.0`
+    - `NameplateMinScale=0.25`
+    - `NameplateMaxScale=4.0`
+    - `WorldspaceUI=false`
+    - `WorldspaceLabel3D=false`
+    - `NameplateFadeNear=10.0`
+    - `NameplateFadeFar=30.0`
+  - Render stats:
+    - `drawCalls=2`
+    - `instances=2`
+    - `frameMs=470.30542`
+    - `distanceFromOrigin=0.0`
+    - `fieldOfView=60.0`
+    - `orthographic=true`
+    - `orthographicSize=10.0`
+- WorldBox process captured during capture window:
+  - `WORLDBOX_PID=356948`
+  - `WORLDBOX_STARTTIME=2026-06-05T04:00:53.626-07:00`
+- Computed effective scale:
+  - Formula used with `base=0.15`, `refDist=10`, `minScale=0.25`, `maxScale=4.0`
+  - d=0.5 → 0.0375
+  - d=1 → 0.0375
+  - d=2.5 → 0.0375
+  - d=5 → 0.075
+  - d=10 → 0.15
+  - d=20 → 0.15
+  - d=50 → 0.15
+  - d=100 → 0.15
+- Post-check kill executed:
+  - `WORLDBOX_KILL_PID=356948`
+  - `WORLDBOX_KILL_AFTER=1`
+  - Final process check: `WORLDBOX_STILL_RUNNING=0`.
+
+xDD trace: FR-WSM-011.

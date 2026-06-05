@@ -1,0 +1,57 @@
+WORKER: codex exec, model gpt-5.3-codex-spark, medium effort, channel PRIMARY (codex is apex-preferred over sonnet/haiku).
+
+WORKING DIRECTORY: E:/Dev/WorldSphereMod (already on branch wip/208-height-fix). Do NOT switch branches. Do NOT touch External/Compound-Spheres submodule (sota/gpu-compute-golive is owned by another agent on a separate branch — do not run two agents in this superproject tree on diverging branches).
+
+TASK — WSM3D #208 water surface flat at sea level. FR-render-water-surface.
+
+BUG: water surface reportedly follows seabed (depth-coupled). User wants flat water surface at sea level; only seabed varies depth.
+
+INVESTIGATION ENTRY POINTS (read these first, in this order):
+
+1) WorldSphereMod/Code/Core.cs
+   - `ConfigureHeightField` around lines 1470-1496: wires `ConfigureWater(sampleIsWater, sampleWaterLevel, sampleSeabed)`.
+     Currently `sampleWaterLevel: (tx, ty) => seaLevel` (a constant from `Tools.TrueHeight(17)`),
+     and `sampleSeabed: (tx, ty) => tile.TileHeight()`.
+   - `BuildWaterSamplesPayload` around line 1699 (regression-test payload).
+   - `IsWaterTile` around line 1660.
+   - `ConfigureLiquidSurface` around line 1687 (used for Lava/Swamp/Acid — NOT water; water goes via ConfigureWater).
+
+2) External/Compound-Spheres/CompoundSpheres/HeightFieldRenderer.cs
+   - `RebuildWater` around line 1144. Look at lines ~1185-1216: there is already a `constantWaterLevel` capture pattern (uses the first seen `_sampleWaterLevel` and reuses it for every corner). VERIFY this is actually flat — and verify `_projectPosition(worldX, worldY, wl)` with `wl = constantWaterLevel` produces a flat surface in world space.
+   - `RebuildLiquidLayer` around line 997 (used for Lava/Swamp/Acid only — uses per-tile lvlSum/liquidCount, so it IS depth-coupled by design; not the water bug).
+   - `ConfigureWater` around line 388.
+
+3) WorldSphereMod/Code/QuantumSprites.cs and any other file that touches water — `grep -rn "sampleWaterLevel\|ConfigureWater\|RebuildWater\|waterSurface" WorldSphereMod/Code`.
+
+4) `Tools.TrueHeight(17)` — confirm this is a constant per world, not per tile.
+
+ROOT-CAUSE HUNT (be specific — name file:line):
+- Find the exact code path that couples water-vertex Y to seabed Y. If the existing constant-level machinery in `RebuildWater` is already correct, find the OTHER path (e.g. a billboard overlay, a shader uniform, a per-corner callback that ignores the constant, a stale `RebuildLiquidLayer` invocation that was meant for water, a water shader that vertex-displaces via seabed uniform, a per-tile sampleSeabed being read by the water vertex position instead of seaLevel).
+- Decouple it. Keep seabed->depth as the only coupling (depth is needed for vertex-color shore/darkening).
+- Add a 1-line comment explaining why water Y is constant.
+
+HARD RULES (from project memory — these are mandatory, not suggestions):
+- DO NOT touch External/Compound-Spheres submodule or switch its branch.
+- DO NOT use `git stash` (banned — use WIP commits instead).
+- DO NOT use `git rebase -i` or skip hooks.
+- Run everything in foreground; do NOT spawn background subagents (we are a CLI worker).
+- Visual self-verification is BANNED. Verify by PROGRAMMATIC measurement only.
+- Track size+perf briefly in the commit body. One-liner benchmark: capture rebuild ms if logging is gated by ProfilerDump (read Core.cs SavedSettings.ProfilerDump; if not exposed, skip perf line).
+
+PROGRAMMATIC TEST (this is the bar — must produce these numbers):
+- Launch the world (or run the headless path: dump via `BuildWaterSamplesPayload` / equivalent regression hook).
+- Sample at least one DEEP water tile and one SHALLOW water tile (distinct seabed Y).
+- Measure three values per tile: tile Y, seabed Y, water Y.
+- PASS criterion: water Y identical across both tiles (within float epsilon); seabed Y differs.
+- If no programmatic sampler exists, add a minimal one in `BuildWaterSamplesPayload` (already exists at Core.cs:1699 — extend it) and run it from in-game (or via a one-shot `Debug.Log` driven by a SavedSettings flag) and read Player.log.
+
+COMMIT (exactly this subject, body is your own):
+  fix(208): water surface flat at sea level, decoupled from seabed
+
+REPORT BACK (in your final response — no .md files, just text):
+- commit SHA (full 40 hex)
+- 3 measured Y values per tile: tile Y, seabed Y, water Y (deep + shallow; 2 tiles minimum, 6 numbers total)
+- next blocker (or "none")
+- 1-line assessment: was the coupling in `RebuildWater` itself, or in a different path (name it)
+
+Begin. Pipe the prompt to codex via stdin: `Get-Content .claude/dispatch/208-water-flat.prompt.txt | codex exec -m gpt-5.3-codex-spark --dangerously-bypass-approvals-and-sandbox -C E:/Dev/WorldSphereMod`

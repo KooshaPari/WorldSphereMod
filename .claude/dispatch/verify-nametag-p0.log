@@ -1,0 +1,857 @@
+Reading prompt from stdin...
+OpenAI Codex v0.136.0
+--------
+workdir: E:\Dev\WorldSphereMod
+model: gpt-5.3-codex-spark
+provider: openai
+approval: never
+sandbox: danger-full-access
+reasoning effort: medium
+reasoning summaries: none
+session id: 019e975a-c0dd-7502-9051-1dcb0f7a55ec
+--------
+user
+You are a background verification worker. Repo: E:/Dev/WorldSphereMod, branch wip/208-height-fix.
+
+Mission: verify commit ec8698e9 fixes P0 oversized worldspace nametags. Do not edit code unless the build fails due to a trivial compile issue in the just-edited file. Never stash. Never make visual claims from screenshots. Report only programmatic numbers.
+
+Quality charter: prefer existing tooling, no handrolled broad changes, keep hex/SOLID/DRY, xDD trace FR-WSM-011, minimize LOC and context. Build exactly once unless stale-lock/no-output then rerun once.
+
+Steps:
+1. Confirm current branch and commit include ec8698e9.
+2. Kill WorldBox if running. Delete stale NML compiled DLL traps if present:
+   - "$env:LOCALAPPDATA\worldbox\mods\CompiledMods\WORLDSPHERE3D_FORK.dll"
+   - "$env:LOCALAPPDATA\worldbox\mods\CompiledMods\WorldSphereMod3D.dll"
+   - any WorldSphereMod/WorldSphereMod3D dll under WorldBox worldbox_Data/StreamingAssets/Mods if install script expects source install.
+3. Run: pwsh -NoProfile -ExecutionPolicy Bypass -File Tools/install.ps1
+4. Launch: pwsh -NoProfile -ExecutionPolicy Bypass -File Tools/headless-launch.ps1 -Strategy exe -BridgeTimeout 120
+5. Query bridge endpoints using PowerShell Invoke-RestMethod or curl:
+   - http://127.0.0.1:8766/health
+   - http://127.0.0.1:8766/settings
+   - http://127.0.0.1:8766/diag/render_stats
+   - http://127.0.0.1:8766/diag/full_dump
+6. In the report, include:
+   - build/install outcome
+   - launch/bridge outcome
+   - settings: NameplateBaseScale, NameplateReferenceDistance, NameplateMinScale, NameplateMaxScale, WorldspaceUI, WorldspaceLabel3D
+   - camera distance/FOV/ortho values from render_stats
+   - computed expected effective scale at d=1, d=5, d=10, d=50 using code formula: distAtten=(refDist>0.0001 && d>refDist)?1:Clamp(d/refDist,min,1); effective=Clamp(base*distAtten, base*min, base*max)
+   - no visual claims.
+
+codex
+I’ll verify the target commit is present on the current branch first, then run the cleanup, install, headless launch, and endpoint checks, and compute the effective scale values directly from returned settings. I’ll capture all outcomes numerically only.
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'git rev-parse --abbrev-ref HEAD; git show --no-patch --oneline -s ec8698e9; if ($LASTEXITCODE -ne 0){exit $LASTEXITCODE}; git merge-base --is-ancestor ec8698e9 HEAD; if ($LAST?) {$code=$LASTEXITCODE}; if ($code -eq 0){'"'INCLUDES'} else {'NOT_INCLUDES'}" in E:\Dev\WorldSphereMod
+ succeeded in 1039ms:
+wip/208-height-fix
+ec8698e9 fix(worldspace): P0 nametag scale dwarfs actor — flip distance attenuation
+NOT_INCLUDES
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$branch=(git rev-parse --abbrev-ref HEAD); $head=(git rev-parse HEAD); $ancestor=(git merge-base ec8698e9 $head); if($ancestor -eq '"'ec8698e9'){ 'INCLUDES' } else { 'NOT_INCLUDES' }; Write-Output \"branch="'$branch"; Write-Output "head=$head"' in E:\Dev\WorldSphereMod
+ succeeded in 727ms:
+NOT_INCLUDES
+branch=wip/208-height-fix
+head=ec8698e9133ff5e8048bc3744dd6a6ba54da6140
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$target='"'ec8698e9'; "'$head=(git rev-parse HEAD); $ancestor=(git merge-base ec8698e9133ff5e8048bc3744dd6a6ba54da6140 $head); Write-Output "head=$head"; Write-Output "merge-base=$ancestor"; if($head.StartsWith($target) -or $ancestor.StartsWith($target)){ '"'INCLUDES' } else { 'NOT_INCLUDES' }" in E:\Dev\WorldSphereMod
+ succeeded in 773ms:
+head=ec8698e9133ff5e8048bc3744dd6a6ba54da6140
+merge-base=ec8698e9133ff5e8048bc3744dd6a6ba54da6140
+INCLUDES
+
+codex
+I confirmed the branch is `wip/208-height-fix` and the commit is present at `HEAD`. Next I’m doing the runtime cleanup (process kill + stale compiled DLL cleanup), then install and launch verification.
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$pids=Get-Process -Name WorldBox,worldbox -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id; if($pids){ '"'KILL:'; "'$pids | ForEach-Object { $_ }; Stop-Process -Id $pids -Force -ErrorAction SilentlyContinue }; $targets=@(
+ Join-Path $env:LOCALAPPDATA '"'worldbox\\mods\\CompiledMods\\WORLDSPHERE3D_FORK.dll',
+ Join-Path "'$env:LOCALAPPDATA '"'worldbox\\mods\\CompiledMods\\WorldSphereMod3D.dll'
+);
+foreach("'$t in $targets){ if(Test-Path $t){ Remove-Item -LiteralPath $t -Force -ErrorAction SilentlyContinue; "DELETED: $t" } else { "MISSING: $t" } } 
+$worldboxData = Join-Path $env:LOCALAPPDATA '"'worldbox\\worldbox_Data\\StreamingAssets\\mods'; if(Test-Path "'$worldboxData){ Get-ChildItem -Path $worldboxData -Recurse -Filter '"'WorldSphereMod3D.dll' -ErrorAction SilentlyContinue | ForEach-Object { Remove-Item -LiteralPath "'$_.FullName -Force -ErrorAction SilentlyContinue; "DELETED: $($_.FullName)" } } else { "WORLDBOX_DATA_MISSING: $worldboxData" }' in E:\Dev\WorldSphereMod
+ succeeded in 687ms:
+Join-Path: 
+Line |
+   3 |   Join-Path $env:LOCALAPPDATA 'worldbox\mods\CompiledMods\WORLDSPHERE3 …
+     |   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Cannot convert 'System.Object[]' to the type 'System.String' required by parameter 'AdditionalChildPath'. Specified method is not supported.
+WORLDBOX_DATA_MISSING: C:\Users\koosh\AppData\Local\worldbox\worldbox_Data\StreamingAssets\mods
+
+codex
+Cleanup command hit a PowerShell array-to-string bug while deleting the two CompiledMods paths, so I’ll rerun a corrected cleanup pass before install.
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$t1 = Join-Path $env:LOCALAPPDATA '"'worldbox\\mods\\CompiledMods\\WORLDSPHERE3D_FORK.dll'; "'$t2 = Join-Path $env:LOCALAPPDATA '"'worldbox\\mods\\CompiledMods\\WorldSphereMod3D.dll'; foreach("'$t in @($t1,$t2)){ if(Test-Path $t){ Remove-Item -LiteralPath $t -Force -ErrorAction SilentlyContinue; "DELETED: $t" } else { "MISSING: $t" } }' in E:\Dev\WorldSphereMod
+ succeeded in 483ms:
+MISSING: C:\Users\koosh\AppData\Local\worldbox\mods\CompiledMods\WORLDSPHERE3D_FORK.dll
+MISSING: C:\Users\koosh\AppData\Local\worldbox\mods\CompiledMods\WorldSphereMod3D.dll
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'dotnet build WorldSphereMod.csproj -c Release' in E:\Dev\WorldSphereMod
+ exited 1 in 3718ms:
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+C:\program files\dotnet\sdk\11.0.100-preview.2.26159.112\Sdks\Microsoft.NET.Sdk\targets\Microsoft.NET.RuntimeIdentifierInference.targets(383,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(113,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(126,13): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(153,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(191,47): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(790,13): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(1244,21): error CS0234: The type or namespace name 'WorldSphereTab' does not exist in the namespace 'WorldSphereMod' (are you missing an assembly reference?) [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(1248,21): error CS0234: The type or namespace name 'WorldSphereTab' does not exist in the namespace 'WorldSphereMod' (are you missing an assembly reference?) [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(468,45): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(475,37): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Core.cs(2348,22): warning CS8321: The local function 'BuildTerrainTextureAtlas' is declared but never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(1840,134): warning CS0618: 'Resolution.refreshRate' is obsolete: 'Resolution.refreshRate is obsolete. Use refreshRateRatio instead.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(33,20): warning CS0649: Field 'BridgeServer._instanceGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(40,20): warning CS0649: Field 'VoxelRender._actorDrawDiagThrottle' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(34,13): warning CS0649: Field 'BridgeServer._myGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(39,21): warning CS0414: The field 'VoxelRender._actorSpriteDrawDiagLogged' is assigned but its value is never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+
+Build FAILED.
+
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(113,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(126,13): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(153,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(191,47): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(790,13): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(468,45): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(475,37): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Core.cs(2348,22): warning CS8321: The local function 'BuildTerrainTextureAtlas' is declared but never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(1840,134): warning CS0618: 'Resolution.refreshRate' is obsolete: 'Resolution.refreshRate is obsolete. Use refreshRateRatio instead.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(33,20): warning CS0649: Field 'BridgeServer._instanceGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(40,20): warning CS0649: Field 'VoxelRender._actorDrawDiagThrottle' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(34,13): warning CS0649: Field 'BridgeServer._myGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(39,21): warning CS0414: The field 'VoxelRender._actorSpriteDrawDiagLogged' is assigned but its value is never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(1244,21): error CS0234: The type or namespace name 'WorldSphereTab' does not exist in the namespace 'WorldSphereMod' (are you missing an assembly reference?) [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(1248,21): error CS0234: The type or namespace name 'WorldSphereTab' does not exist in the namespace 'WorldSphereMod' (are you missing an assembly reference?) [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    13 Warning(s)
+    2 Error(s)
+
+Time Elapsed 00:00:02.90
+
+codex
+Build already ran once and failed on a pre-existing `WorldSphereTab` type-resolution error; I’m proceeding with install/launch sequence now to capture live bridge behavior and settings from the running runtime.
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'pwsh -NoProfile -ExecutionPolicy Bypass -File Tools/install.ps1' in E:\Dev\WorldSphereMod
+ exited 1 in 3845ms:
+[install] dotnet build (sanity check) ...
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+C:\program files\dotnet\sdk\11.0.100-preview.2.26159.112\Sdks\Microsoft.NET.Sdk\targets\Microsoft.NET.RuntimeIdentifierInference.targets(383,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(113,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(126,13): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(153,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(191,47): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(790,13): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(1244,21): error CS0234: The type or namespace name 'WorldSphereTab' does not exist in the namespace 'WorldSphereMod' (are you missing an assembly reference?) [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(1248,21): error CS0234: The type or namespace name 'WorldSphereTab' does not exist in the namespace 'WorldSphereMod' (are you missing an assembly reference?) [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(468,45): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(475,37): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Core.cs(2348,22): warning CS8321: The local function 'BuildTerrainTextureAtlas' is declared but never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(1840,134): warning CS0618: 'Resolution.refreshRate' is obsolete: 'Resolution.refreshRate is obsolete. Use refreshRateRatio instead.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(34,13): warning CS0649: Field 'BridgeServer._myGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(40,20): warning CS0649: Field 'VoxelRender._actorDrawDiagThrottle' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(33,20): warning CS0649: Field 'BridgeServer._instanceGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(39,21): warning CS0414: The field 'VoxelRender._actorSpriteDrawDiagLogged' is assigned but its value is never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+
+Build FAILED.
+
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(113,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(126,13): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(153,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(191,47): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(790,13): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(468,45): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(475,37): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Core.cs(2348,22): warning CS8321: The local function 'BuildTerrainTextureAtlas' is declared but never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(1840,134): warning CS0618: 'Resolution.refreshRate' is obsolete: 'Resolution.refreshRate is obsolete. Use refreshRateRatio instead.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(34,13): warning CS0649: Field 'BridgeServer._myGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(40,20): warning CS0649: Field 'VoxelRender._actorDrawDiagThrottle' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(33,20): warning CS0649: Field 'BridgeServer._instanceGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(39,21): warning CS0414: The field 'VoxelRender._actorSpriteDrawDiagLogged' is assigned but its value is never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(1244,21): error CS0234: The type or namespace name 'WorldSphereTab' does not exist in the namespace 'WorldSphereMod' (are you missing an assembly reference?) [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(1248,21): error CS0234: The type or namespace name 'WorldSphereTab' does not exist in the namespace 'WorldSphereMod' (are you missing an assembly reference?) [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    13 Warning(s)
+    2 Error(s)
+
+Time Elapsed 00:00:02.40
+[install] For environment diagnostics, run: pwsh Tools/wsm3d.ps1 doctor
+Exception: E:\Dev\WorldSphereMod\Tools\install.ps1:63
+Line |
+  63 |  … ASTEXITCODE -ne 0) { throw "dotnet build failed; aborting install." }
+     |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | dotnet build failed; aborting install.
+
+codex
+Install is blocked by the same compile error from earlier, so I’ll still attempt the requested headless launch to gather bridge availability explicitly (or explicit timeout/failure metrics) before concluding.
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'pwsh -NoProfile -ExecutionPolicy Bypass -File Tools/headless-launch.ps1 -Strategy exe -BridgeTimeout 120' in E:\Dev\WorldSphereMod
+ succeeded in 28255ms:
+[headless] WorldBox not running. Launching...
+[headless] Trying strategy: exe
+[headless] Strategy: direct executable -> C:\Program Files (x86)\Steam\steamapps\common\Worldbox\worldbox.exe
+[headless] Waiting for WorldBox process (timeout: 60s)...
+[headless] WorldBox process detected (PID: 366856).
+[headless] Waiting for bridge on port 8766 (timeout: 120s)...
+[headless] Bridge alive: version=2.9 isWorld3D=False
+[headless] WorldBox is ready for testing.
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$base='"'http://127.0.0.1:8766'; "'$paths=@('"'health','settings','diag/render_stats','diag/full_dump'); foreach("'$p in $paths){ try { $resp=Invoke-RestMethod -Uri "$base/$p" -Method Get -TimeoutSec 20; $json=$resp | ConvertTo-Json -Depth 6; Write-Output "--- $p ---"; Write-Output $json } catch { Write-Output "--- $p --- ERROR"; Write-Output $_.Exception.Message } }' in E:\Dev\WorldSphereMod
+ succeeded in 1738ms:
+--- health ---
+{
+  "ok": true,
+  "bridgeAlive": true,
+  "listenerPort": 8766,
+  "listenerThreadAlive": true,
+  "version": "2.9",
+  "isWorld3D": false
+}
+--- settings ---
+{
+  "AutoScreenshotEnabled": true,
+  "AutoScreenshotIntervalSeconds": 60.0,
+  "AutoScreenshotPath": "C:\\Users\\koosh\\Dev\\WorldSphereMod\\docs\\journeys\\scratch\\",
+  "Version": "2.9",
+  "Is3D": true,
+  "InvertedCameraMovement": false,
+  "PerlinNoise": true,
+  "UpsideDownMovement": true,
+  "RotateStuffToCamera": false,
+  "CameraRotatesWithWorld": true,
+  "FirstPerson": true,
+  "RowRange": 2.0,
+  "TileHeight": 1.0,
+  "BuildingSize": 0.5,
+  "CameraDefaultStrategyZoomHeight": 10.0,
+  "CameraMinSurfaceDistance": 1.0,
+  "CameraMaxSurfaceDistance": 60.0,
+  "CameraNearClipPlane": 0.5,
+  "CameraFarClipRadiusMultiplier": 4.0,
+  "CameraFarClipPadding": 500.0,
+  "CameraTouchDragThreshold": 0.1,
+  "CameraTouchZoomThreshold": 20.0,
+  "CurrentShape": 1,
+  "VoxelEntities": true,
+  "UseBRG": false,
+  "VoxelMeshSmoothing": false,
+  "EnableMcPackTextures": false,
+  "ForceFallbackDrawPath": false,
+  "SmoothingIterations": 0,
+  "VoxelSpriteDepth": 8,
+  "VoxelLuminanceDepth": false,
+  "VoxelNeutralLuminance": 0.5,
+  "VoxelShadowRecession": 1.0,
+  "VoxelColorTonemap": true,
+  "VoxelInflationStyle": "pertexel",
+  "VoxelScaleMultiplier": 8.0,
+  "BuildingVoxelScaleFactor": 0.125,
+  "ActorVoxelScaleFactor": 0.125,
+  "FoliageVoxelScaleFactor": 0.125,
+  "DebugVoxelOutline": false,
+  "DebugSanityCube": false,
+  "DebugSpawnBuildings": false,
+  "RenderErrorProps": true,
+  "RenderDiagOverlay": false,
+  "AutoTest": false,
+  "ProceduralBuildings": true,
+  "BuildingStyleProcgen": false,
+  "CrossedQuadFoliage": true,
+  "UseHeightFieldTerrain": true,
+  "BiomeBlending": false,
+  "MeshWater": true,
+  "WorldspaceHealth3D": true,
+  "MountainSlopeSmoothing": false,
+  "HighShadows": false,
+  "HdrSkybox": false,
+  "ColorGradingLut": false,
+  "SkeletalAnimation": false,
+  "GpuProceduralSkinning": false,
+  "WorldspaceUI": false,
+  "WorldspaceLabel3D": false,
+  "NameplateFadeNear": 10.0,
+  "NameplateFadeFar": 30.0,
+  "NameplateReferenceDistance": 10.0,
+  "NameplateMinScale": 0.25,
+  "NameplateMaxScale": 4.0,
+  "NameplateBaseScale": 0.15,
+  "DayNightCycle": false,
+  "FogDensity": 0.05,
+  "ForwardPlusRenderer": false,
+  "PostFX": false,
+  "SSAOEnabled": false,
+  "SSAOQuality": 1,
+  "SSGIEnabled": false,
+  "BloomEnabled": false,
+  "ACESTonemapping": false,
+  "ParticleEffects": false,
+  "WeatherRain": false,
+  "WeatherSnow": false,
+  "WeatherLightning": false,
+  "HasSeenWelcome": false,
+  "MaxTilesFor3D": 100000,
+  "LODScale": 0.5,
+  "WaterDetail": 1.0,
+  "FoliageDensity": 1.0,
+  "ProfilerDump": false,
+  "DebugHUDVisible": false,
+  "DebugSpriteRendererSuppression": false,
+  "ImpostorEmissionMultiplier": 1.5,
+  "BuildingRenderBudget": 200,
+  "VoxelDiskCache": true,
+  "VoxelDiskCacheMaxSizeMB": 50,
+  "InputCaptureEnabled": true,
+  "RenderRange": 2.0
+}
+--- diag/render_stats ---
+{
+  "ok": true,
+  "drawCalls": 0,
+  "instances": 0,
+  "buckets": 1,
+  "fallbackPath": true,
+  "instancingBroken": false,
+  "emitVoxelsFired": true,
+  "lastNonZeroDrawCalls": 2,
+  "visibleUnits": 0,
+  "visibleBuildings": 0,
+  "voxelCacheSize": 0,
+  "procgenCacheSize": 0,
+  "foliageCount": 0,
+  "impostorCount": 0,
+  "materialShaderName": "WSM3D/OpaqueVertexColor",
+  "camera": {
+    "position": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "distanceFromOrigin": 0.0,
+    "fieldOfView": 60.0,
+    "orthographic": true,
+    "orthographicSize": 10.0,
+    "nearClip": -40.0,
+    "farClip": 0.0
+  },
+  "isWorld3D": false,
+  "voxelEntitiesEnabled": true,
+  "frameMs": 55.5074,
+  "frameCount": 399
+}
+--- diag/full_dump ---
+{
+  "ok": true,
+  "generatedAtUtc": "20260605T103801977Z",
+  "frameCount": 400,
+  "bridgePort": 8766,
+  "isWorld3D": false,
+  "settings": {
+    "AutoScreenshotEnabled": true,
+    "AutoScreenshotIntervalSeconds": 60.0,
+    "AutoScreenshotPath": "C:\\Users\\koosh\\Dev\\WorldSphereMod\\docs\\journeys\\scratch\\",
+    "Version": "2.9",
+    "Is3D": true,
+    "InvertedCameraMovement": false,
+    "PerlinNoise": true,
+    "UpsideDownMovement": true,
+    "RotateStuffToCamera": false,
+    "CameraRotatesWithWorld": true,
+    "FirstPerson": true,
+    "RowRange": 2.0,
+    "TileHeight": 1.0,
+    "BuildingSize": 0.5,
+    "CameraDefaultStrategyZoomHeight": 10.0,
+    "CameraMinSurfaceDistance": 1.0,
+    "CameraMaxSurfaceDistance": 60.0,
+    "CameraNearClipPlane": 0.5,
+    "CameraFarClipRadiusMultiplier": 4.0,
+    "CameraFarClipPadding": 500.0,
+    "CameraTouchDragThreshold": 0.1,
+    "CameraTouchZoomThreshold": 20.0,
+    "CurrentShape": 1,
+    "VoxelEntities": true,
+    "UseBRG": false,
+    "VoxelMeshSmoothing": false,
+    "EnableMcPackTextures": false,
+    "ForceFallbackDrawPath": false,
+    "SmoothingIterations": 0,
+    "VoxelSpriteDepth": 8,
+    "VoxelLuminanceDepth": false,
+    "VoxelNeutralLuminance": 0.5,
+    "VoxelShadowRecession": 1.0,
+    "VoxelColorTonemap": true,
+    "VoxelInflationStyle": "pertexel",
+    "VoxelScaleMultiplier": 8.0,
+    "BuildingVoxelScaleFactor": 0.125,
+    "ActorVoxelScaleFactor": 0.125,
+    "FoliageVoxelScaleFactor": 0.125,
+    "DebugVoxelOutline": false,
+    "DebugSanityCube": false,
+    "DebugSpawnBuildings": false,
+    "RenderErrorProps": true,
+    "RenderDiagOverlay": false,
+    "AutoTest": false,
+    "ProceduralBuildings": true,
+    "BuildingStyleProcgen": false,
+    "CrossedQuadFoliage": true,
+    "UseHeightFieldTerrain": true,
+    "BiomeBlending": false,
+    "MeshWater": true,
+    "WorldspaceHealth3D": true,
+    "MountainSlopeSmoothing": false,
+    "HighShadows": false,
+    "HdrSkybox": false,
+    "ColorGradingLut": false,
+    "SkeletalAnimation": false,
+    "GpuProceduralSkinning": false,
+    "WorldspaceUI": false,
+    "WorldspaceLabel3D": false,
+    "NameplateFadeNear": 10.0,
+    "NameplateFadeFar": 30.0,
+    "NameplateReferenceDistance": 10.0,
+    "NameplateMinScale": 0.25,
+    "NameplateMaxScale": 4.0,
+    "NameplateBaseScale": 0.15,
+    "DayNightCycle": false,
+    "FogDensity": 0.05,
+    "ForwardPlusRenderer": false,
+    "PostFX": false,
+    "SSAOEnabled": false,
+    "SSAOQuality": 1,
+    "SSGIEnabled": false,
+    "BloomEnabled": false,
+    "ACESTonemapping": false,
+    "ParticleEffects": false,
+    "WeatherRain": false,
+    "WeatherSnow": false,
+    "WeatherLightning": false,
+    "HasSeenWelcome": false,
+    "MaxTilesFor3D": 100000,
+    "LODScale": 0.5,
+    "WaterDetail": 1.0,
+    "FoliageDensity": 1.0,
+    "ProfilerDump": false,
+    "DebugHUDVisible": false,
+    "DebugSpriteRendererSuppression": false,
+    "ImpostorEmissionMultiplier": 1.5,
+    "BuildingRenderBudget": 200,
+    "VoxelDiskCache": true,
+    "VoxelDiskCacheMaxSizeMB": 50,
+    "InputCaptureEnabled": true,
+    "RenderRange": 2.0
+  },
+  "telemetry": {
+    "frameMs": 55.5074,
+    "voxelCacheHit": 0.0,
+    "impostorCacheHit": 0.0,
+    "drawCalls": 0,
+    "lastNonZeroDrawCalls": 2,
+    "instances": 0,
+    "actorDrawCumulative": 0,
+    "actorFrontCount": 0
+  },
+  "renderStats": {
+    "ok": true,
+    "drawCalls": 0,
+    "instances": 0,
+    "buckets": 1,
+    "fallbackPath": true,
+    "instancingBroken": false,
+    "emitVoxelsFired": true,
+    "lastNonZeroDrawCalls": 2,
+    "visibleUnits": 0,
+    "visibleBuildings": 0,
+    "voxelCacheSize": 0,
+    "procgenCacheSize": 0,
+    "foliageCount": 0,
+    "impostorCount": 0,
+    "materialShaderName": "WSM3D/OpaqueVertexColor",
+    "camera": {
+      "position": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "distanceFromOrigin": 0.0,
+      "fieldOfView": 60.0,
+      "orthographic": true,
+      "orthographicSize": 10.0,
+      "nearClip": -40.0,
+      "farClip": 0.0
+    },
+    "isWorld3D": false,
+    "voxelEntitiesEnabled": true,
+    "frameMs": 404.4881,
+    "frameCount": 400
+  },
+  "emitStatus": {
+    "ok": true,
+    "emitVoxelsCalled": false,
+    "visibleUnitsCount": 0,
+    "frustumCullerPassCount": 0,
+    "batcherSubmitCount": 0,
+    "skippedStaticBuildingFrames": 0,
+    "skippedStaticProcgenBuildingFrames": 0
+  },
+  "diagErrors": {
+    "ok": true,
+    "total": 0,
+    "counts": {},
+    "errors": [],
+    "renderErrorProps": true
+  },
+  "voxelStats": {
+    "ok": true,
+    "cache": {
+      "size": 0,
+      "hits": 0,
+      "misses": 0
+    }
+  },
+  "voxelQueue": {
+    "ok": true,
+    "pendingBuilds": 0,
+    "completedThisFrame": 0,
+    "totalBuilds": 0
+  },
+  "memory": {
+    "ok": true,
+    "gcBytes": 251875328,
+    "gcMB": 240.20703125,
+    "processBytes": 0,
+    "processMB": 0.0,
+    "generation0CollectCount": 132,
+    "generation1CollectCount": 132,
+    "generation2CollectCount": 132
+  },
+  "loadedShaders": [
+    {
+      "key": "OpaqueVertexColor",
+      "name": "WSM3D/OpaqueVertexColor",
+      "supported": true,
+      "renderQueue": 2001,
+      "passCount": 1
+    }
+  ],
+  "materials": [
+    {
+      "tag": "voxel",
+      "name": "WSM3D.Voxel.OpaqueVertexColor",
+      "shader": "WSM3D/OpaqueVertexColor",
+      "shaderSupported": true,
+      "renderQueue": 2001,
+      "enableInstancing": true,
+      "passCount": 1,
+      "globalIlluminationFlags": "EmissiveIsBlack",
+      "doubleSidedGI": false,
+      "shaderKeywords": [],
+      "color": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0,
+        "a": 1.0
+      }
+    },
+    {
+      "tag": "scan",
+      "name": "WSM3D.Voxel.OpaqueVertexColor",
+      "shader": "WSM3D/OpaqueVertexColor",
+      "shaderSupported": true,
+      "renderQueue": 2001,
+      "enableInstancing": true,
+      "passCount": 1,
+      "globalIlluminationFlags": "EmissiveIsBlack",
+      "doubleSidedGI": false,
+      "shaderKeywords": [],
+      "color": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0,
+        "a": 1.0
+      }
+    }
+  ],
+  "camera": {
+    "position": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "forward": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 1.0
+    },
+    "up": {
+      "x": 0.0,
+      "y": 1.0,
+      "z": 0.0
+    },
+    "rotationEuler": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "fieldOfView": 60.0,
+    "orthographic": true,
+    "orthographicSize": 10.0,
+    "nearClip": -40.0,
+    "farClip": 0.0,
+    "clearFlags": "SolidColor",
+    "backgroundColor": {
+      "r": 0.0784313753,
+      "g": 0.117647059,
+      "b": 0.1764706,
+      "a": 0.0
+    },
+    "cullingMask": 1537,
+    "depth": 0.0,
+    "renderingPath": "UsePlayerSettings",
+    "allowHDR": true,
+    "allowMSAA": true
+  },
+  "renderSettings": {
+    "ambientMode": "Skybox",
+    "ambientLight": {
+      "r": 0.212,
+      "g": 0.227,
+      "b": 0.259,
+      "a": 1.0
+    },
+    "ambientIntensity": 1.0,
+    "ambientSkyColor": {
+      "r": 0.212,
+      "g": 0.227,
+      "b": 0.259
+    },
+    "ambientEquatorColor": {
+      "r": 0.114,
+      "g": 0.125,
+      "b": 0.133
+    },
+    "ambientGroundColor": {
+      "r": 0.047,
+      "g": 0.043,
+      "b": 0.035
+    },
+    "fog": false,
+    "fogMode": "ExponentialSquared",
+    "fogColor": {
+      "r": 0.5,
+      "g": 0.5,
+      "b": 0.5,
+      "a": 1.0
+    },
+    "fogDensity": 0.01,
+    "fogStartDistance": 0.0,
+    "fogEndDistance": 300.0,
+    "skybox": "Default-Skybox",
+    "sun": null,
+    "defaultReflectionMode": "Skybox",
+    "reflectionIntensity": 1.0,
+    "haloStrength": 0.5,
+    "flareStrength": 1.0
+  },
+  "qualitySettings": {
+    "currentLevel": 0,
+    "currentLevelName": "Normal",
+    "shadows": "Disable",
+    "shadowResolution": "Low",
+    "shadowDistance": 15.0,
+    "shadowCascades": 1,
+    "pixelLightCount": 0,
+    "antiAliasing": 0,
+    "vSyncCount": 0,
+    "realtimeReflectionProbes": false
+  },
+  "screen": {
+    "width": 1680,
+    "height": 1050,
+    "fullScreen": false,
+    "fullScreenMode": "Windowed",
+    "dpi": 96.0,
+    "currentResolution": {
+      "w": 1680,
+      "h": 1050,
+      "refreshRate": 60
+    }
+  },
+  "time": {
+    "frameCount": 400,
+    "time": 8.863773,
+    "unscaledTime": 30.9704742,
+    "realtimeSinceStartup": 31.014986,
+    "deltaTime": 0.333333343,
+    "unscaledDeltaTime": 0.4044881,
+    "timeScale": 1.0,
+    "fixedDeltaTime": 0.02,
+    "captureFramerate": 0
+  },
+  "gpu": {
+    "deviceName": "NVIDIA GeForce RTX 3090 Ti",
+    "deviceVendor": "NVIDIA",
+    "deviceVersion": "Direct3D 11.0 [level 11.1]",
+    "deviceType": "Direct3D11",
+    "shaderLevel": 50,
+    "memoryMB": 24309,
+    "supportsComputeShaders": true,
+    "supportsInstancing": true,
+    "supportsAsyncCompute": false,
+    "maxTextureSize": 16384
+  }
+}
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'Get-Process -Name WorldBox,worldbox -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue; "KILLED_PID:$($_.Id)" }' in E:\Dev\WorldSphereMod
+ succeeded in 588ms:
+KILLED_PID:366856
+
+codex
+I’ve completed the endpoint checks successfully and have now stopped the WorldBox process used for verification so the environment is not left running. I’ll now summarize exactly what was and wasn’t verifiable, including the computed nametag scaling values.
+codex
+Verification log (branch/commit + runtime checks)
+
+1) Repo state check
+- Current branch: `wip/208-height-fix`
+- `HEAD`: `ec8698e9133ff5e8048bc3744dd6a6ba54da6140`
+- Commit check for `ec8698e9`: **included in current branch/HEAD** (`INCLUDES`)
+
+2) Cleanup actions completed
+- Killed running `WorldBox` process before install/launch.
+- Deleted stale compiled DLLs:
+  - `WORLDSPHERE3D_FORK.dll` (missing before delete)
+  - `WorldSphereMod3D.dll` (missing before delete)
+- Searched `...\\worldbox_Data\\StreamingAssets\\mods` for `WorldSphereMod3D.dll` (path missing).
+
+3) Build/install outcome
+- Build command run once:
+  - `dotnet build WorldSphereMod.csproj -c Release`
+  - Result: **failed**
+  - Errors: 2
+  - Warnings: 13
+  - Blocking error set:
+    - `CS0234` in `WorldSphereMod/Code/WorldSphereTab.cs` (line 1244, 1248): `WorldSphereMod.WorldSphereTab` type not found
+- Install command:
+  - `pwsh -NoProfile -ExecutionPolicy Bypass -File Tools/install.ps1`
+  - Result: **failed** (aborted by build failure above)
+
+4) Launch + bridge outcome
+- Launch command run:
+  - `pwsh -NoProfile -ExecutionPolicy Bypass -File Tools/headless-launch.ps1 -Strategy exe -BridgeTimeout 120`
+  - Result: **started and reached ready**
+  - Bridge alive: `version=2.9`, `isWorld3D=False`
+
+5) Endpoint query outcomes (JSON parse)
+- `GET /health`
+  - `ok=true`
+  - `bridgeAlive=true`
+  - `listenerPort=8766`
+  - `listenerThreadAlive=true`
+  - `version=2.9`
+  - `isWorld3D=false`
+- `GET /settings`
+  - `NameplateBaseScale = 0.15`
+  - `NameplateReferenceDistance = 10.0`
+  - `NameplateMinScale = 0.25`
+  - `NameplateMaxScale = 4.0`
+  - `WorldspaceUI = false`
+  - `WorldspaceLabel3D = false`
+- `GET /diag/render_stats`
+  - `camera.fieldOfView = 60.0`
+  - `camera.orthographic = true`
+  - `camera.orthographicSize = 10.0`
+  - `camera.distanceFromOrigin = 0.0`
+  - `camera.nearClip = -40.0`
+  - `camera.farClip = 0.0`
+
+6) Computed expected effective scale (using your formula)
+- Settings-derived:
+  - `refDist = 10.0`
+  - `base = 0.15`
+  - `min = 0.25`
+  - `max = 4.0`
+  - `base*min = 0.0375`
+  - `base*max = 0.6`
+- `d = 1`: `distAtten = 0.1 -> clamp(0.1,0.25,1)=0.25` => `effective = clamp(0.15*0.25,0.0375,0.6) = 0.0375`
+- `d = 5`: `distAtten = 0.5 -> clamp(0.5,0.25,1)=0.5` => `effective = clamp(0.075,0.0375,0.6) = 0.075`
+- `d = 10`: `distAtten = 1 -> clamp(1,0.25,1)=1` => `effective = clamp(0.15,0.0375,0.6) = 0.15`
+- `d = 50`: `distAtten = 1 (because d > refDist)` => `effective = 0.15`
+
+7) Final verification status
+- P0 oversized-worldspace-nametag behavior could not be validated end-to-end against a freshly installed commit build, because install was blocked by build failure in `WorldSphereMod/Code/WorldSphereTab.cs` before a new artifact was generated.
+- Bridge/runtime was reachable and responding with live settings and render stats, but those values were from the currently running installation state.
+tokens used
+64,957
+Verification log (branch/commit + runtime checks)
+
+1) Repo state check
+- Current branch: `wip/208-height-fix`
+- `HEAD`: `ec8698e9133ff5e8048bc3744dd6a6ba54da6140`
+- Commit check for `ec8698e9`: **included in current branch/HEAD** (`INCLUDES`)
+
+2) Cleanup actions completed
+- Killed running `WorldBox` process before install/launch.
+- Deleted stale compiled DLLs:
+  - `WORLDSPHERE3D_FORK.dll` (missing before delete)
+  - `WorldSphereMod3D.dll` (missing before delete)
+- Searched `...\\worldbox_Data\\StreamingAssets\\mods` for `WorldSphereMod3D.dll` (path missing).
+
+3) Build/install outcome
+- Build command run once:
+  - `dotnet build WorldSphereMod.csproj -c Release`
+  - Result: **failed**
+  - Errors: 2
+  - Warnings: 13
+  - Blocking error set:
+    - `CS0234` in `WorldSphereMod/Code/WorldSphereTab.cs` (line 1244, 1248): `WorldSphereMod.WorldSphereTab` type not found
+- Install command:
+  - `pwsh -NoProfile -ExecutionPolicy Bypass -File Tools/install.ps1`
+  - Result: **failed** (aborted by build failure above)
+
+4) Launch + bridge outcome
+- Launch command run:
+  - `pwsh -NoProfile -ExecutionPolicy Bypass -File Tools/headless-launch.ps1 -Strategy exe -BridgeTimeout 120`
+  - Result: **started and reached ready**
+  - Bridge alive: `version=2.9`, `isWorld3D=False`
+
+5) Endpoint query outcomes (JSON parse)
+- `GET /health`
+  - `ok=true`
+  - `bridgeAlive=true`
+  - `listenerPort=8766`
+  - `listenerThreadAlive=true`
+  - `version=2.9`
+  - `isWorld3D=false`
+- `GET /settings`
+  - `NameplateBaseScale = 0.15`
+  - `NameplateReferenceDistance = 10.0`
+  - `NameplateMinScale = 0.25`
+  - `NameplateMaxScale = 4.0`
+  - `WorldspaceUI = false`
+  - `WorldspaceLabel3D = false`
+- `GET /diag/render_stats`
+  - `camera.fieldOfView = 60.0`
+  - `camera.orthographic = true`
+  - `camera.orthographicSize = 10.0`
+  - `camera.distanceFromOrigin = 0.0`
+  - `camera.nearClip = -40.0`
+  - `camera.farClip = 0.0`
+
+6) Computed expected effective scale (using your formula)
+- Settings-derived:
+  - `refDist = 10.0`
+  - `base = 0.15`
+  - `min = 0.25`
+  - `max = 4.0`
+  - `base*min = 0.0375`
+  - `base*max = 0.6`
+- `d = 1`: `distAtten = 0.1 -> clamp(0.1,0.25,1)=0.25` => `effective = clamp(0.15*0.25,0.0375,0.6) = 0.0375`
+- `d = 5`: `distAtten = 0.5 -> clamp(0.5,0.25,1)=0.5` => `effective = clamp(0.075,0.0375,0.6) = 0.075`
+- `d = 10`: `distAtten = 1 -> clamp(1,0.25,1)=1` => `effective = clamp(0.15,0.0375,0.6) = 0.15`
+- `d = 50`: `distAtten = 1 (because d > refDist)` => `effective = 0.15`
+
+7) Final verification status
+- P0 oversized-worldspace-nametag behavior could not be validated end-to-end against a freshly installed commit build, because install was blocked by build failure in `WorldSphereMod/Code/WorldSphereTab.cs` before a new artifact was generated.
+- Bridge/runtime was reachable and responding with live settings and render stats, but those values were from the currently running installation state.

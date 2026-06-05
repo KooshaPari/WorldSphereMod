@@ -1,0 +1,25 @@
+You are a codex-spark worker for WSM3D. Work directly in E:/Dev/WorldSphereMod on branch wip/208-height-fix. Do NOT use worktree. Do NOT stash. Quality charter: prefer existing ecosystem, hexagonal/SOLID/DRY, xDD-first where feasible, minimal LOC, preserve perf, trace to #208 height/terrain texture.
+
+Task: fix flat-paint terrain by making HeightFieldRenderer terrain sample actual WorldBox tile textures instead of only averaged vertex colors.
+
+Read these files:
+- External/Compound-Spheres/CompoundSpheres/HeightFieldRenderer.cs
+- WorldSphereMod/Code/Core.cs around ConfigureHeightField, GetTileColor, WorldTileTexture, CreateTextures
+- Tools/Unity-Bake-Project/Assets/WSM3D/Shaders/OpaqueVertexColor.shader and mirrored shader copies under WorldSphereMod/AssetBundles/Shaders and WorldSphereMod/Resources/Shaders if needed.
+
+Root cause already found: HeightFieldRenderer Rebuild averages Color32 into vertex colors lines ~711-792, tracks dominantTex at ~689/729 but never uses it; material in Core.cs lines ~1413-1416 forces _MainTex=whiteTexture; OpaqueVertexColor samples _MainTex only, not the Texture2DArray.
+
+Preferred implementation: add real texture-array support to terrain heightfield:
+1) Expose Texture2DArray from Core.Sphere (static Textures) via internal/public getter.
+2) Add shader support in OpaqueVertexColor for optional Texture2DArray: properties _TerrainTexArray, _UseTerrainTexArray, sample with uv + slice from TEXCOORD1.x. Multiply sample by vertex color/tint. Keep old white _MainTex path for actors/buildings.
+3) HeightFieldRenderer: support duplicated per-quad land mesh vertices when texture-array material is configured, so each quad has per-tile UV 0..1 and texture slice in UV1/uv2.x. Use _sampleHeight for each tile's four corner heights (averaging adjacent tiles if you can preserve existing smooth heights), _sampleColor for vertex tint/overlay, _sampleTexture tile index. Do not regress water/liquids. Keep old shared-corner path available if no texture array is set.
+4) In Core.ConfigureHeightField, set hf material _TerrainTexArray to Sphere.Textures, _UseTerrainTexArray=1 when available. Add bridge/player log diag reporting terrainTexArray=true layers/count.
+5) Add/adjust tests if present with invariant that dominant texture no longer dead and shader has _TerrainTexArray.
+
+Constraints:
+- Must not touch unrelated dirty changes except as needed.
+- Build if feasible using repo's existing build command; if too expensive, run targeted dotnet test/project compile if available.
+- Commit changes with message ending exactly:
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+
+Return: files changed, commit SHA, tests/build result, any blockers.
