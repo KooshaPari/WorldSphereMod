@@ -105,11 +105,16 @@ namespace WorldSphereMod.ProcGen
                     {
                         continue;
                     }
-                    float buildingScale = Core.savedSettings.BuildingSize * Core.savedSettings.BuildingVoxelScaleFactor;
+                    // Unified building scale: same multiplication the legacy (non-procgen)
+                    // path applies below (`scl *= VoxelScaleMultiplier * BuildingVoxelScaleFactor`).
+                    // BuildingSize is NOT folded in here — it was double-counting with the
+                    // rd.scales[i] upstream sprite scale and made procgen buildings ~2× smaller
+                    // than voxel-path buildings for the same asset. (#208)
+                    float buildingScale = Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.BuildingVoxelScaleFactor;
                     WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.SelectForBuilding(
                         cullPos,
                         b.GetHashCode(),
-                        buildingScale * Core.savedSettings.VoxelScaleMultiplier);
+                        buildingScale);
                     bool submitted = false;
 
                     if (tier == WorldSphereMod.LOD.LodTier.Cull)
@@ -193,7 +198,7 @@ namespace WorldSphereMod.ProcGen
                                     LogFirstBuildingPos(rawPos, pos, scl);
                                     Mesh? m = ProcGenCache.GetOrGenerate(b.asset, rules);
                                     if (m == null) continue;
-                                float procScale = buildingScale * Core.savedSettings.VoxelScaleMultiplier;
+                                float procScale = buildingScale;
                                     if (rd.flip_x_states[i]) procScale = -procScale;
                                     Matrix4x4 procTrs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), Vector3.one * procScale);
                                     if (TryQueueBuildingDraw(m, procTrs))

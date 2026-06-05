@@ -35,7 +35,12 @@ namespace WorldSphereMod
         // 2.7 -> 2.8: same pattern — mods_config JSON at "2.7" with VoxelEntities=false
         // persisted from before the force-set was saved back. Version-match path skips
         // migration so stale-false survives. Bump forces migration to re-fire. (#208)
-        public static string SettingsVersion = "2.8";
+        // 2.8 -> 2.9: live JSON at 2.8 has ActorVoxelScaleFactor=0.5 (net 4× actors),
+        // BuildingVoxelScaleFactor=0.25 (net 2× buildings), FoliageVoxelScaleFactor=0.2
+        // (net 1.6× foliage). All three produce visibly oversized 3D entities in-game
+        // (user-reported P0 2026-06-04). Bumping the schema forces ApplyPhaseDefaults
+        // to re-run and reset the per-entity scale factors to 0.125 (net 1×).
+        public static string SettingsVersion = "2.9";
 
         public static Harmony Patcher;
         internal static bool ClearVoxelMeshCacheOnFirstFrame;

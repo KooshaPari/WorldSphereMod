@@ -15,7 +15,7 @@ public class SavedSettings
     public float AutoScreenshotIntervalSeconds = 60f;
     public string AutoScreenshotPath = @"C:\Users\koosh\Dev\WorldSphereMod\docs\journeys\scratch\";
 
-        public string Version = "2.7";
+        public string Version = "2.9";
         public bool Is3D = true;
         public bool InvertedCameraMovement = false;
         public bool PerlinNoise = true;
@@ -74,18 +74,20 @@ public class SavedSettings
         // vary shape but still use ResolveDepth. "lathe" ignores depth setting.
         // "auto" defers to AssetShapeRegistry per sprite name. See spec Known gaps.
         public string VoxelInflationStyle = "pertexel";
+        // The 8x multiplier is for the TERRAIN (tile-space → world-space). Actor/foliage/
+        // building voxel meshes are sprite-pixel-sized in their mesh-local units, so the
+        // per-entity *VoxelScaleFactor below multiplies VoxelScaleMultiplier back down toward
+        // 1.0× for those paths. Without this, entities render ~3-8× too big.
         public float VoxelScaleMultiplier = 8.0f;
-        // Additional per-building multiplier used by building-procgen paths.
-        public float BuildingVoxelScaleFactor = 0.25f;
-        // WHY: actor/drop voxel meshes are already sprite-sized in world units; the full 8x
-        // terrain VoxelScaleMultiplier made actors gigantic (clipping the camera at max zoom).
-        // Effective actor render scale = VoxelScaleMultiplier * ActorVoxelScaleFactor.
-        // Previous 0.25 → net 2x actors (8 * 0.25), so use a lower default for near-1-tile reads.
-        public float ActorVoxelScaleFactor = 0.35f;
-        // Foliage and environment objects (trees, rocks, bushes, decals) are sprite-sized
-        // in the source content; separate the multiplier so they stay near intended scale.
-        // Net foliage scale = VoxelScaleMultiplier * FoliageVoxelScaleFactor = 1.6 when defaulted to 8 * 0.2.
-        public float FoliageVoxelScaleFactor = 0.20f;
+        // Buildings: effective scale = VoxelScaleMultiplier * BuildingVoxelScaleFactor
+        // (legacy default 0.25 → net 2×; lowered to 0.125 → net 1× sprite-pixel size).
+        public float BuildingVoxelScaleFactor = 0.125f;
+        // Actors: effective scale = VoxelScaleMultiplier * ActorVoxelScaleFactor
+        // (legacy default 0.35 → net 2.8×; 0.5 in live JSON → net 4×. Fixed at 0.125 → net 1×).
+        public float ActorVoxelScaleFactor = 0.125f;
+        // Foliage (trees, rocks, bushes, grass tufts): effective scale =
+        // VoxelScaleMultiplier * FoliageVoxelScaleFactor. Legacy 0.20 → net 1.6×; fixed at 0.125 → net 1×.
+        public float FoliageVoxelScaleFactor = 0.125f;
         public bool DebugVoxelOutline = false;
         public bool DebugSanityCube = false;
         public bool DebugSpawnBuildings = false;
@@ -210,7 +212,7 @@ public class SavedSettings
         {
             if (s == null) throw new ArgumentNullException(nameof(s));
 
-            s.FoliageVoxelScaleFactor = 0.20f;
+            s.FoliageVoxelScaleFactor = 0.125f;
             s.VoxelEntities = true;
             s.ProceduralBuildings = true;
             s.CrossedQuadFoliage = false;
@@ -241,7 +243,7 @@ public class SavedSettings
         {
             if (s == null) throw new ArgumentNullException(nameof(s));
 
-            s.FoliageVoxelScaleFactor = 0.20f;
+            s.FoliageVoxelScaleFactor = 0.125f;
             s.VoxelEntities = true;
             s.ProceduralBuildings = true;
             s.CrossedQuadFoliage = true; // WHY: gates the foliage patch; off = trees stay vanilla 2D
@@ -249,7 +251,8 @@ public class SavedSettings
             // #206: re-apply the actor voxel scale so persisted JSON (which shadows the field
             // default) re-migrates to the current actor-size default. Requires SettingsVersion
             // bump (Core.cs 2.4 -> 2.5) so loadedData.Version mismatch triggers this migration.
-            s.ActorVoxelScaleFactor = 0.35f;
+            s.ActorVoxelScaleFactor = 0.125f;
+            s.BuildingVoxelScaleFactor = 0.125f;
             s.MeshWater = false;
             s.WorldspaceHealth3D = true;
             s.MountainSlopeSmoothing = false;
@@ -277,7 +280,7 @@ public class SavedSettings
         {
             if (s == null) throw new ArgumentNullException(nameof(s));
 
-            s.FoliageVoxelScaleFactor = 0.20f;
+            s.FoliageVoxelScaleFactor = 0.125f;
             s.VoxelEntities = true;
             s.ProceduralBuildings = true;
             s.CrossedQuadFoliage = true;
