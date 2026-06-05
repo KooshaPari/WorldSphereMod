@@ -97,7 +97,19 @@ namespace WorldSphereMod.QuantumSprites
             {
                 Object.setScale(tFinalScale);
             }
+            // Banner: only on the first brush/kingdom overlay scale write per
+            // session, so the in-game log confirms brush-zone-fix v2.12 is live
+            // without spamming Debug.Log on every frame.
+            if (Core.IsWorld3D && IsHudOverlayAsset(pAsset))
+            {
+                if (!_bannerLogged)
+                {
+                    _bannerLogged = true;
+                    global::UnityEngine.Debug.Log("[WSM3D][BANNER] brush-zone-fix v2.12 active");
+                }
+            }
         }
+        static bool _bannerLogged;
         public static void drawSocialize3D(QuantumSpriteAsset pAsset)
         {
             if (!PlayerConfig.optionBoolEnabled("talk_bubbles"))
