@@ -150,7 +150,7 @@ public class SavedSettings
         public float NameplateReferenceDistance = 10f;
         public float NameplateMinScale = 0.25f;
         public float NameplateMaxScale = 2f;
-        public float NameplateBaseScale = 0.08f;
+        public float NameplateBaseScale = 0.04f;
         // Phase 8: Day/night cycle + procedural sky + fog.
         public bool DayNightCycle = false;
         public float FogDensity = 0.05f;

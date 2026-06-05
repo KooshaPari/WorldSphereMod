@@ -130,14 +130,23 @@ namespace WorldSphereMod.Worldspace
 
             // WHY: prior `Max(baseScale, Min(1, d/100))` snapped localScale to ~1.0 at
             // any strategy-view distance — ~6.7x the 0.15 base — making labels dwarf the
-            // actor; anchor on baseScale and apply only a clamped distance multiplier.
+            // actor; anchor on baseScale, then scale DOWN with distance so far tags
+            // never exceed ~1.5x tile-width, and never inflate as the camera pulls
+            // back. Closer-than-ref tags still grow (capped at baseScale*maxScale).
             var s = Core.savedSettings;
-            float baseScale = s != null ? s.NameplateBaseScale : 0.15f;
+            float baseScale = s != null ? s.NameplateBaseScale : 0.08f;
             float refDist = s != null ? s.NameplateReferenceDistance : 10f;
             float minScale = s != null ? s.NameplateMinScale : 0.25f;
-            float maxScale = s != null ? s.NameplateMaxScale : 4f;
-            float distFactor = refDist > 0.0001f ? Mathf.Max(1f, d / refDist) : 1f;
-            float effective = Mathf.Clamp(baseScale * distFactor, baseScale * minScale, baseScale * maxScale);
+            float maxScale = s != null ? s.NameplateMaxScale : 1.5f;
+            // Distance factor in [0..1]: 1 at refDist, shrinks linearly toward 0 at
+            // 3*refDist, never grows above 1 (no more 6.7x runaway at strategy view).
+            float distFactor = refDist > 0.0001f
+                ? Mathf.Clamp01(d / (refDist * 3f))
+                : 1f;
+            float effective = Mathf.Clamp(
+                baseScale * distFactor,
+                baseScale * minScale,
+                baseScale * maxScale);
             transform.localScale = Vector3.one * effective;
 
             ApplyFade(d);
