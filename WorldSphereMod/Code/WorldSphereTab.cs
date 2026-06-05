@@ -210,35 +210,31 @@ namespace WorldSphereMod.UI
             GenerateSlider("tile_length_multiplier", 1, 10, Core.savedSettings.TileHeight, (float x) => { Core.savedSettings.TileHeight = x; Core.SaveSettings(); }, "World Settings");
 
             // v2 fork: per-phase toggles. The default values come from
-            // SavedSettings; the toggle action flips + persists. Without
-            // surfacing these here the user has no way to turn Phase 1's
-            // voxel actors on, so sprites stay 2D and the fork looks like
-            // a no-op compared to upstream.
+            // SavedSettings; the toggle action flips + persists.
             CreateWindowButton(PhasesWindowId, "WorldSphereMod/ModIcon", PhasesWindowTitle, new List<ButtonData>()
             {
-                new ButtonData("voxel_entities",       "voxel_entities_description",       "WorldSphereMod/Round",        Core.savedSettings.VoxelEntities,       TogglePhase),
-                new ButtonData("procedural_buildings", "procedural_buildings_description", "WorldSphereMod/World",         Core.savedSettings.ProceduralBuildings, TogglePhase),
-                new ButtonData("crossed_quad_foliage", "crossed_quad_foliage_description", "WorldSphereMod/Flat",          Core.savedSettings.CrossedQuadFoliage, TogglePhase),
-                new ButtonData("biome_blending",       "biome_blending_description",       "WorldSphereMod/World",         Core.savedSettings.BiomeBlending,       TogglePhase),
-                new ButtonData("mesh_water",           "mesh_water_description",           "WorldSphereMod/PerlinNoise",   Core.savedSettings.MeshWater,           TogglePhase),
-                new ButtonData("mountain_slope_smoothing", "mountain_slope_smoothing_description", "WorldSphereMod/World", Core.savedSettings.MountainSlopeSmoothing, TogglePhase),
-                new ButtonData("high_shadows",         "high_shadows_description",         "WorldSphereMod/SkyBox",        Core.savedSettings.HighShadows,         TogglePhase),
-                new ButtonData("hdr_skybox",           "hdr_skybox_description",           "WorldSphereMod/SkyBox",        Core.savedSettings.HdrSkybox,           TogglePhase),
-                new ButtonData("color_grading_lut",    "color_grading_lut_description",    "WorldSphereMod/ModIcon",       Core.savedSettings.ColorGradingLut,      TogglePhase),
-                new ButtonData("ssao_enabled",         "ssao_enabled_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.SSAOEnabled,          TogglePhase),
-                new ButtonData("ssgi_enabled",         "ssgi_enabled_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.SSGIEnabled,          TogglePhase),
-                new ButtonData("bloom_enabled",        "bloom_enabled_description",        "WorldSphereMod/ModIcon",       Core.savedSettings.BloomEnabled,         TogglePhase),
-                new ButtonData("aces_tonemapping",     "aces_tonemapping_description",     "WorldSphereMod/ModIcon",       Core.savedSettings.ACESTonemapping,      TogglePhase),
-                new ButtonData("skeletal_animation",   "skeletal_animation_description",   "WorldSphereMod/Rotate",        Core.savedSettings.SkeletalAnimation,   TogglePhase),
-                new ButtonData("worldspace_ui",        "worldspace_ui_description",        "WorldSphereMod/Camera",        Core.savedSettings.WorldspaceUI,        TogglePhase),
-                new ButtonData("worldspace_health_3d", "worldspace_health_3d_description", "WorldSphereMod/ModIcon",      Core.savedSettings.WorldspaceHealth3D,  TogglePhase),
-                new ButtonData("day_night_cycle",      "day_night_cycle_description",      "WorldSphereMod/SkyBox",        Core.savedSettings.DayNightCycle,       TogglePhase),
-                new ButtonData("weather_rain",          "weather_rain_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.WeatherRain,           TogglePhase),
-                new ButtonData("weather_snow",          "weather_snow_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.WeatherSnow,           TogglePhase),
-                new ButtonData("weather_lightning",     "weather_lightning_description",    "WorldSphereMod/ModIcon",       Core.savedSettings.WeatherLightning,      TogglePhase),
-                new ButtonData("post_fx",              "post_fx_description",              "WorldSphereMod/ModIcon",       Core.savedSettings.PostFX,              TogglePhase),
-                new ButtonData("particle_effects",     "particle_effects_description",     "WorldSphereMod/Logo",          Core.savedSettings.ParticleEffects,     TogglePhase),
-                new ButtonData("sanity_cube",           "sanity_cube_description",           "WorldSphereMod/ModIcon",       Core.savedSettings.DebugSanityCube,     ToggleDebugSanityCube),
+                new ButtonData("voxel_entities",          "voxel_entities_description",          "WorldSphereMod/Round",        Core.savedSettings.VoxelEntities,       TogglePhase),
+                new ButtonData("procedural_buildings",     "procedural_buildings_description",     "WorldSphereMod/World",         Core.savedSettings.ProceduralBuildings, TogglePhase),
+                new ButtonData("crossed_quad_foliage",     "crossed_quad_foliage_description",     "WorldSphereMod/Flat",          Core.savedSettings.CrossedQuadFoliage, TogglePhase),
+                new ButtonData("biome_blending",           "biome_blending_description",           "WorldSphereMod/World",         Core.savedSettings.BiomeBlending,       TogglePhase),
+                new ButtonData("mesh_water",               "mesh_water_description",               "WorldSphereMod/PerlinNoise",   Core.savedSettings.MeshWater,           TogglePhase),
+                new ButtonData("mountain_slope_smoothing", "mountain_slope_smoothing_description", "WorldSphereMod/World",          Core.savedSettings.MountainSlopeSmoothing, TogglePhase),
+                new ButtonData("high_shadows",             "high_shadows_description",             "WorldSphereMod/SkyBox",        Core.savedSettings.HighShadows,         TogglePhase),
+                new ButtonData("hdr_skybox",               "hdr_skybox_description",               "WorldSphereMod/SkyBox",        Core.savedSettings.HdrSkybox,           TogglePhase),
+                new ButtonData("color_grading_lut",        "color_grading_lut_description",        "WorldSphereMod/ModIcon",       Core.savedSettings.ColorGradingLut,      TogglePhase),
+                new ButtonData("ssao_enabled",             "ssao_enabled_description",             "WorldSphereMod/ModIcon",       Core.savedSettings.SSAOEnabled,          TogglePhase),
+                new ButtonData("ssgi_enabled",             "ssgi_enabled_description",             "WorldSphereMod/ModIcon",       Core.savedSettings.SSGIEnabled,          TogglePhase),
+                new ButtonData("bloom_enabled",            "bloom_enabled_description",            "WorldSphereMod/ModIcon",       Core.savedSettings.BloomEnabled,         TogglePhase),
+                new ButtonData("aces_tonemapping",         "aces_tonemapping_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.ACESTonemapping,      TogglePhase),
+                new ButtonData("skeletal_animation",        "skeletal_animation_description",        "WorldSphereMod/Rotate",        Core.savedSettings.SkeletalAnimation,   TogglePhase),
+                new ButtonData("worldspace_ui",             "worldspace_ui_description",             "WorldSphereMod/Camera",        Core.savedSettings.WorldspaceUI,        TogglePhase),
+                new ButtonData("worldspace_health_3d",      "worldspace_health_3d_description",      "WorldSphereMod/ModIcon",       Core.savedSettings.WorldspaceHealth3D,  TogglePhase),
+                new ButtonData("day_night_cycle",           "day_night_cycle_description",           "WorldSphereMod/SkyBox",        Core.savedSettings.DayNightCycle,       TogglePhase),
+                new ButtonData("weather_rain",               "weather_rain_description",              "WorldSphereMod/ModIcon",       Core.savedSettings.WeatherRain,           TogglePhase),
+                new ButtonData("weather_snow",               "weather_snow_description",              "WorldSphereMod/ModIcon",       Core.savedSettings.WeatherSnow,           TogglePhase),
+                new ButtonData("weather_lightning",          "weather_lightning_description",         "WorldSphereMod/ModIcon",       Core.savedSettings.WeatherLightning,      TogglePhase),
+                new ButtonData("post_fx",                    "post_fx_description",                   "WorldSphereMod/ModIcon",       Core.savedSettings.PostFX,              TogglePhase),
+                new ButtonData("particle_effects",         "particle_effects_description",          "WorldSphereMod/Logo",          Core.savedSettings.ParticleEffects,     TogglePhase),
             });
 
             CreateButton("Open Sprites", "WorldSphereMod/ModIcon", OpenSprites);
@@ -1061,4 +1057,5 @@ namespace WorldSphereMod.UI
             return false;
         }
     }
+
 }
