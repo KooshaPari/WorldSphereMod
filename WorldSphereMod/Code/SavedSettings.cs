@@ -195,7 +195,10 @@ public class SavedSettings
         // per frame, cycling through the full visible set across frames.
         // 0 = unlimited (process all). Reduces per-frame cost from O(visible)
         // to O(budget) at the expense of spreading updates over multiple frames.
-        public int BuildingRenderBudget = 200;
+        // Lowered 200 -> 50 (#208) — paired with the distance-gate in
+        // BuildingProcRender.EmitMeshes, this caps per-frame work on big kingdoms
+        // where precalculateRenderDataParallel spikes 30-40ms.
+        public int BuildingRenderBudget = 50;
 
         // Voxel disk cache: persist voxelized meshes to SQLite so subsequent
         // launches skip the async voxelization queue entirely.

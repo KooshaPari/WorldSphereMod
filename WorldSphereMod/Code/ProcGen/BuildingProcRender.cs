@@ -163,6 +163,18 @@ namespace WorldSphereMod.ProcGen
                     {
                         continue;
                     }
+                    // Distance-gate (#208): skip far buildings entirely. The camera
+                    // getter is Vector2 in WSM3D (see 3DCamera.cs:131), so we lift it
+                    // to a Vector3 in the XZ plane to match cullPos (tile→world coords
+                    // via To3DTileHeight above). sqrMagnitude avoids a sqrt per building;
+                    // maxDist is in tile-units (RenderRange rows * VoxelScaleMultiplier).
+                    float maxDist = Core.savedSettings != null ? Core.savedSettings.RenderRange * Core.savedSettings.VoxelScaleMultiplier : 16f;
+                    Vector3 camPos = new Vector3(WorldSphereMod.NewCamera.CameraManager.Position.x, cullPos.y, WorldSphereMod.NewCamera.CameraManager.Position.y);
+                    float sqrDist = (cullPos - camPos).sqrMagnitude;
+                    if (sqrDist > maxDist * maxDist)
+                    {
+                        continue;
+                    }
                     // Unified building scale: same multiplication the legacy (non-procgen)
                     // path applies below (`scl *= VoxelScaleMultiplier * BuildingVoxelScaleFactor`).
                     // BuildingSize is NOT folded in here — it was double-counting with the
