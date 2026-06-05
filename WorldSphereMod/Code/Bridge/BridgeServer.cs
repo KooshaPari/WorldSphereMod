@@ -395,6 +395,11 @@ namespace WorldSphereMod.Bridge
                         WriteJson(context.Response, InvokeOnMainThread(BuildRenderStatsPayload));
                         return;
                     }
+                    if (string.Equals(path, "/diag/water_samples", StringComparison.OrdinalIgnoreCase))
+                    {
+                        WriteJson(context.Response, InvokeOnMainThread(BuildWaterSamplesPayload));
+                        return;
+                    }
                     if (string.Equals(path, "/diag/full_dump", StringComparison.OrdinalIgnoreCase))
                     {
                         WriteJson(context.Response, InvokeOnMainThread(BuildFullDumpPayload));
@@ -1680,6 +1685,167 @@ namespace WorldSphereMod.Bridge
                 voxelEntitiesEnabled = Core.savedSettings != null && Core.savedSettings.VoxelEntities,
                 frameMs = Time.unscaledDeltaTime * 1000f,
                 frameCount = Time.frameCount
+            };
+        }
+
+        /// <summary>
+        /// Per-tile water state sampler for diagnostic / regression tests (#208 water-flat).
+        /// Reads the same callbacks ConfigureHeightField wired into HeightFieldRenderer so
+        /// the numbers reflect what the water sub-mesh is actually built with. We sample
+        /// is-water + sampled water-level + sampled seabed for a set of tile coords. If the
+        /// sampled water-level is constant across water tiles, the surface is flat (correct);
+        /// if it tracks the seabed, the surface is sunken (regression).
+        /// </summary>
+        object BuildWaterSamplesPayload()
+        {
+            int w = 0, h = 0;
+            float seaLevel = 0f;
+            bool meshWater = false;
+            try
+            {
+                w = MapBox.width;
+                h = MapBox.height;
+                seaLevel = WorldSphereMod.Tools.TrueHeight(17);
+                meshWater = Core.savedSettings != null && Core.savedSettings.MeshWater;
+            }
+            catch { }
+
+            var samples = new List<object>();
+            var waterLevels = new List<float>();
+            if (w <= 0 || h <= 0)
+            {
+                return new { ok = false, error = "no world", seaLevel, meshWater };
+            }
+
+            int deepSampleTx = -1, deepSampleTy = -1;
+            int shallowSampleTx = -1, shallowSampleTy = -1;
+            float deepSampleTileY = float.NaN;
+            float shallowSampleTileY = float.NaN;
+
+            void AddSample(int tx, int ty)
+            {
+                bool isWater = false;
+                float tileHeight = float.NaN;
+                float sampledWaterLevel = seaLevel;
+                float sampledSeabed = float.NaN;
+                try
+                {
+                    WorldTile tile = World.world != null ? World.world.GetTileSimple(tx, ty) : null;
+                    if (tile != null)
+                    {
+                        tileHeight = tile.TileHeight();
+                        isWater = Core.Sphere.IsWaterTilePublic(tile.main_type, tile.top_type, tileHeight, seaLevel);
+                        if (isWater)
+                        {
+                            sampledSeabed = tileHeight;
+                            if (float.IsNaN(deepSampleTileY) || tileHeight < deepSampleTileY)
+                            {
+                                deepSampleTileY = tileHeight;
+                                deepSampleTx = tx;
+                                deepSampleTy = ty;
+                            }
+                            if (float.IsNaN(shallowSampleTileY) || tileHeight > shallowSampleTileY)
+                            {
+                                shallowSampleTileY = tileHeight;
+                                shallowSampleTx = tx;
+                                shallowSampleTy = ty;
+                            }
+                        }
+                    }
+                }
+                catch { }
+
+                samples.Add(new
+                {
+                    tx, ty,
+                    isWater,
+                    tileHeight,
+                    sampledWaterLevel,    // callback returns constant
+                    sampledSeabed,
+                    tileY = tileHeight,
+                    seabedY = sampledSeabed,
+                    waterY = sampledWaterLevel,
+                    depth = sampledWaterLevel - tileHeight
+                });
+                if (isWater && !float.IsNaN(sampledWaterLevel))
+                {
+                    waterLevels.Add(sampledWaterLevel);
+                }
+            }
+
+            int[,] pts = {
+                { w / 2,  h / 2  },  // 50, 50 in a 100x100
+                { 50,     50     },
+                { 150,    150    },
+                { w / 8,  h / 8  },
+                { w / 4,  h / 2  },
+                { 3*w/4,  3*h/4  }
+            };
+
+            for (int i = 0; i < pts.GetLength(0); i++)
+            {
+                int tx = pts[i, 0];
+                int ty = pts[i, 1];
+                if (tx < 0 || tx >= w || ty < 0 || ty >= h) continue;
+                AddSample(tx, ty);
+            }
+
+            if (float.IsNaN(deepSampleTileY) || float.IsNaN(shallowSampleTileY))
+            {
+                for (int tx = 0; tx < w; tx++)
+                {
+                    for (int ty = 0; ty < h; ty++)
+                    {
+                        AddSample(tx, ty);
+                    }
+                }
+            }
+
+            // Heuristic: all water tiles' sampledWaterLevel must be identical => surface flat.
+            float firstWl = float.NaN;
+            bool flat = true;
+            foreach (float wl in waterLevels)
+            {
+                if (float.IsNaN(firstWl)) firstWl = wl;
+                else if (Mathf.Abs(wl - firstWl) > 1e-3f) { flat = false; break; }
+            }
+
+            object deepSample = null;
+            object shallowSample = null;
+            for (int i = 0; i < samples.Count; i++)
+            {
+                var t = samples[i].GetType();
+                bool iw = (bool)t.GetProperty("isWater").GetValue(samples[i]);
+                if (!iw) continue;
+                int tx = (int)t.GetProperty("tx").GetValue(samples[i]);
+                int ty = (int)t.GetProperty("ty").GetValue(samples[i]);
+                float tileY = (float)t.GetProperty("tileY").GetValue(samples[i]);
+                float seabedY = (float)t.GetProperty("seabedY").GetValue(samples[i]);
+                float waterY = (float)t.GetProperty("waterY").GetValue(samples[i]);
+                if (deepSample == null && tx == deepSampleTx && ty == deepSampleTy)
+                {
+                    deepSample = new { tx, ty, tileY, seabedY, waterY };
+                }
+                if (shallowSample == null && tx == shallowSampleTx && ty == shallowSampleTy)
+                {
+                    shallowSample = new { tx, ty, tileY, seabedY, waterY };
+                }
+                if (deepSample != null && shallowSample != null)
+                {
+                    break;
+                }
+            }
+
+            return new
+            {
+                ok = true,
+                mapW = w, mapH = h,
+                seaLevel,
+                meshWater,
+                surfaceFlat = flat,
+                deepSample,
+                shallowSample,
+                samples
             };
         }
 
