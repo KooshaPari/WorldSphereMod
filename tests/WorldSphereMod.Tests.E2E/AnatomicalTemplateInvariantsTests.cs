@@ -8,6 +8,7 @@ using Xunit;
 /// Source invariants for anatomical template pipeline stub
 /// (docs/journeys/scratch/anatomical-template-spec.md).
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class AnatomicalTemplateInvariantsTests
 {
     const string SpecRelativePath = "docs/journeys/scratch/anatomical-template-spec.md";

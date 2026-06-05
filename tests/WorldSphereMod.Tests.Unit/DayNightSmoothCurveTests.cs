@@ -6,6 +6,7 @@ using Xunit;
 /// Continuity invariants for the Phase 8 four-segment day/night color curve
 /// (mirrors <c>SunRig.SampleSkyCurve</c> / <c>SunColor</c> keyframes).
 /// </summary>
+[Trait("Category", "Unit")]
 public class DayNightSmoothCurveTests
 {
     readonly (float r, float g, float b) _night = (0.17f, 0.23f, 0.40f);

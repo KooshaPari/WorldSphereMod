@@ -16,6 +16,7 @@ using Xunit;
 ///   4. PostInit guards savedSettings != null before accessing fields
 ///   5. No Thread.Sleep or blocking .Result in the PostInit/LoadAssets path
 /// </summary>
+[Trait("Category", "E2E")]
 public class LoadPathSafetyInvariantsTests
 {
     static string FindRepoRoot()

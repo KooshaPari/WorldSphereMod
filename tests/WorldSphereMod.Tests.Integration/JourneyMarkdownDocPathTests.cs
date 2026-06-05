@@ -9,6 +9,7 @@ using Xunit;
 /// <summary>
 /// Validates markdown journey docs under docs/journeys/ reference on-disk targets where checkable.
 /// </summary>
+[Trait("Category", "Integration")]
 public class JourneyMarkdownDocPathTests
 {
     private static readonly Regex MarkdownLinkPattern = new(

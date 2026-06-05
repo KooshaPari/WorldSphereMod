@@ -7,6 +7,7 @@ using Xunit;
 /// Closes Phase 6 E2E gaps: humanoid/quadruped rig variants, Crabzilla/Dragon
 /// special cases, and static voxel fallback paths (e2e-coverage-gaps.md #3).
 /// </summary>
+[Trait("Category", "E2E")]
 public class SkeletalRigVariantInvariantsTests
 {
     static string FindRepoRoot()

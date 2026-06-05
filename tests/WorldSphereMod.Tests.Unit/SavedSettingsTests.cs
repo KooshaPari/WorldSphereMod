@@ -10,6 +10,7 @@ using FluentAssertions;
 /// We can't instantiate SavedSettings in unit tests because it requires
 /// Unity/WorldBox DLLs. Instead, we verify the source file directly.
 /// </summary>
+[Trait("Category", "Unit")]
 public class SavedSettingsTests
 {
     // Locate the repo root from test output directory.

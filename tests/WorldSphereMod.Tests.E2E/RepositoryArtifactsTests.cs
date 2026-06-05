@@ -4,6 +4,7 @@ using System.Text.Json;
 using Xunit;
 using FluentAssertions;
 
+[Trait("Category", "E2E")]
 public class RepositoryArtifactsTests
 {
     // Walk up from the test binary's output dir until we find the repo root

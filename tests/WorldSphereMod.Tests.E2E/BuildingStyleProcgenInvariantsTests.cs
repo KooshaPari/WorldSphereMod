@@ -9,6 +9,7 @@ using Xunit;
 /// BuildingProcRender: default off while ProceduralBuildings is on, secondary
 /// toggle selects ProcGenCache vs VoxelMeshCache (procgen-path-precedence-analysis.md).
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class BuildingStyleProcgenInvariantsTests
 {
     const string BuildingProcRenderPath = "WorldSphereMod/Code/ProcGen/BuildingProcRender.cs";

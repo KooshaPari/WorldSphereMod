@@ -8,6 +8,7 @@ using Xunit;
 /// in TickPerFrame. Complements <see cref="SsaoPostFxInvariantsTests"/> which covers
 /// ApplyPhaseToggle and component internals.
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class VoxelFrameDriverPostFxInvariantsTests
 {
     static string FindRepoRoot()

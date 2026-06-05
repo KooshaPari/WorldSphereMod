@@ -7,6 +7,7 @@ using Xunit;
 /// Closes Phase 10 E2E gaps: mid LOD tier selection, compute-shader hardware fallback,
 /// impostor material fallback, culling, and perf-budget telemetry (e2e-coverage-gaps.md #4).
 /// </summary>
+[Trait("Category", "E2E")]
 public class LodPhase10InvariantsTests
 {
     static string FindRepoRoot()

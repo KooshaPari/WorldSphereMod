@@ -9,6 +9,7 @@ using Xunit;
 /// causes GPU hangs on large maps — this test prevents silent reversion
 /// via field default, JSON corruption, or schema migration.
 /// </summary>
+[Trait("Category", "E2E")]
 public class CurrentShapeDefaultTests
 {
     private static string FindRepoRoot()

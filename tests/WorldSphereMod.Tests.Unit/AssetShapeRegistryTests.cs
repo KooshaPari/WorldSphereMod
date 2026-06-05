@@ -8,6 +8,7 @@ using FluentAssertions;
 /// Cannot instantiate AssetShapeRegistry without Unity, so we verify the
 /// source file contains the expected prefix → ShapeHint pairs.
 /// </summary>
+[Trait("Category", "Unit")]
 public class AssetShapeRegistryTests
 {
     private static string FindRepoRoot()

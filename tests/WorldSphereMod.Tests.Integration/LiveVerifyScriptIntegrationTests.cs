@@ -5,6 +5,7 @@ using Xunit;
 /// <summary>
 /// Integration-style checks for Tools/wsm-live-verify.ps1 wiring against SSIM, PlayCUA, and live-verification.md.
 /// </summary>
+[Trait("Category", "Integration")]
 public class LiveVerifyScriptIntegrationTests
 {
     private const string LiveVerifyScriptRelative = "Tools/wsm-live-verify.ps1";

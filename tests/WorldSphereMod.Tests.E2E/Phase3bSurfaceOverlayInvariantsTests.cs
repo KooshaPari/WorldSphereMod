@@ -9,6 +9,7 @@ using Xunit;
 /// WorldTilemap.renderTile and QuantumSpriteLibrary.drawWallType, shared mesh
 /// submit path, overlay allow-list, and world-unload cache drain (HANDOFF Phase 3b).
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class Phase3bSurfaceOverlayInvariantsTests
 {
     const string FoliageTileRenderRelative = "WorldSphereMod/Code/Foliage/FoliageTileRender.cs";

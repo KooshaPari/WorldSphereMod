@@ -10,6 +10,7 @@ using Xunit;
 /// overlay (Terrain/TerrainSmoothing.cs) was removed in favor of the fork HeightFieldRenderer.
 /// These tests exercise LIVE code only.
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class BiomeBlendingInvariantsTests
 {
     const string SavedSettingsRelative = "WorldSphereMod/Code/SavedSettings.cs";

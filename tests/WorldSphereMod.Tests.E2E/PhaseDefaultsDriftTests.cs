@@ -12,6 +12,7 @@ using Xunit;
 /// default without updating the other, this test fails with a clear
 /// per-field message.
 /// </summary>
+[Trait("Category", "E2E")]
 public class PhaseDefaultsDriftTests
 {
     private static string FindRepoRoot()

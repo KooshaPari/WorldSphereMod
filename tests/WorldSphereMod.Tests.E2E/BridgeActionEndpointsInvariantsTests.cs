@@ -7,6 +7,7 @@ using Xunit;
 /// Source-invariant checks for the action bridge endpoints in BridgeServer.
 /// These tests only inspect source text and do not require Unity runtime.
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class BridgeActionEndpointsInvariantsTests
 {
     private static string FindRepoRoot()

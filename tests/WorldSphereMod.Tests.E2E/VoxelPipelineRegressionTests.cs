@@ -20,6 +20,7 @@ using Xunit;
 ///   6. Shader load list missing OpaqueVertexColor -> bundle shaders never cached
 ///   7. Bundle load not wrapped in try/catch -> missing bundle NREs the entire mod
 /// </summary>
+[Trait("Category", "E2E")]
 public class VoxelPipelineRegressionTests
 {
     static string FindRepoRoot()

@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Xunit;
 using FluentAssertions;
 
+[Trait("Category", "E2E")]
 public class Alpha8To9CoverageTests
 {
     private static string FindRepoRoot()

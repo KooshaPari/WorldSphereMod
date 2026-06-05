@@ -9,6 +9,7 @@ using Xunit;
 /// <summary>
 /// Guards docs/HANDOFF.md and README phase-table drift against SavedSettings.cs.
 /// </summary>
+[Trait("Category", "E2E")]
 public class HandoffDefaultsAlignmentTests
 {
     private static string FindRepoRoot()

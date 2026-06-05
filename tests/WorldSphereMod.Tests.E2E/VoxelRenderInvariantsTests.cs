@@ -3,6 +3,7 @@ using System.IO;
 using FluentAssertions;
 using Xunit;
 
+[Trait("Category", "E2E")]
 public class VoxelRenderInvariantsTests
 {
     private static string FindRepoRoot()
