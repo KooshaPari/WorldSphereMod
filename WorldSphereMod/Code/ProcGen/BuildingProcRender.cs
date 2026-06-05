@@ -17,6 +17,42 @@ namespace WorldSphereMod.ProcGen
         static int _budgetOffset;
         static bool _earlyReturnDiagLogged;
         static bool _buildingDrawDiagLogged;
+        // IDLE FAST-PATH (#208 fps): when the visible-buildings identity hash is unchanged
+        // and the visible count is the same, skip the procgen mesh cycle entirely. The FRONT
+        // batched draws are still re-emitted by FlushQueuedBuildingDraws every frame from
+        // the last good emit, so visuals are stable. Re-emit fires next frame when the count
+        // differs or a sampled building's asset id changes (e.g. spawn / despawn / a building
+        // entering or leaving the frustum). Mirrors the BuildingVoxelEmit hash check.
+        static ulong _lastVisibleBuildingsHash;
+        static int _lastVisibleBuildingsCount;
+        static int _skippedStaticFrames;
+        public static int SkippedStaticFrames => _skippedStaticFrames;
+
+        static ulong GetBuildingAssetHash(Building building)
+        {
+            if (building == null || building.asset == null || string.IsNullOrEmpty(building.asset.id))
+            {
+                return 0UL;
+            }
+            return (ulong)building.asset.id.GetHashCode();
+        }
+
+        static ulong ComputeVisibleBuildingsHash(Building[] arr, int n)
+        {
+            if (arr == null || n <= 0) return 0;
+            const ulong FNV_OFFSET = 1469598103934665603UL;
+            const ulong FNV_PRIME = 1099511628211UL;
+            ulong h = FNV_OFFSET;
+            h = (h ^ GetBuildingAssetHash(arr[0])) * FNV_PRIME;
+            if (n > 1)
+            {
+                int mid = n >> 1;
+                h = (h ^ GetBuildingAssetHash(arr[mid])) * FNV_PRIME;
+                h = (h ^ GetBuildingAssetHash(arr[n - 1])) * FNV_PRIME;
+            }
+            h = (h ^ (ulong)n) * FNV_PRIME;
+            return h;
+        }
         static readonly MethodInfo? TargetPrecalculateMethod = AccessTools.Method(
             typeof(BuildingManager),
             nameof(BuildingManager.precalculateRenderDataParallel));
@@ -68,6 +104,28 @@ namespace WorldSphereMod.ProcGen
                 var rd = __instance.render_data;
                 var arr = __instance._array_visible_buildings;
                 int n = __instance._visible_buildings_count;
+
+                // IDLE FAST-PATH (#208 fps): when the visible-building set is unchanged
+                // (no spawn / despawn / building moved into frustum or out), skip the
+                // per-building procgen mesh cycle entirely. The FRONT draw buffers are
+                // still re-emitted by FlushQueuedBuildingDraws every frame from the last
+                // good emit, so visuals are stable. Re-emit fires next frame when count
+                // differs OR sampled building asset id changes.
+                if (arr != null && n > 0 && n == _lastVisibleBuildingsCount)
+                {
+                    ulong h = ComputeVisibleBuildingsHash(arr, n);
+                    if (h == _lastVisibleBuildingsHash)
+                    {
+                        _skippedStaticFrames++;
+                        return;
+                    }
+                }
+                if (arr != null && n > 0)
+                {
+                    _lastVisibleBuildingsHash = ComputeVisibleBuildingsHash(arr, n);
+                }
+                _lastVisibleBuildingsCount = n;
+
                 bool profile = Core.savedSettings.ProfilerDump;
                 Stopwatch totalSw = new Stopwatch();
                 Stopwatch impostorSw = new Stopwatch();

@@ -742,6 +742,7 @@ namespace WorldSphereMod.Bridge
             // (#208 fps) counts of building-emit postfix invocations that were short-circuited
             // because the visible-buildings identity hash was unchanged from the prior frame
             skippedStaticBuildingFrames = WorldSphereMod.Voxel.VoxelRender.BuildingVoxelEmit.SkippedStaticFrames,
+            skippedStaticProcgenBuildingFrames = WorldSphereMod.ProcGen.BuildingProcRender.SkippedStaticFrames,
         };
 
 
