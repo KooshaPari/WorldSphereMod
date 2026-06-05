@@ -27,6 +27,8 @@ ShaderVariantCollection:
       variants:
       - keywords: 
         passType: 0
+      - keywords: WSM3D_POSTFX_KEEP
+        passType: 0
   - first: {fileID: 4800000, guid: 2b026d77133e3114bbec693de8d5cc46, type: 3}
     second:
       variants:
@@ -77,10 +79,14 @@ ShaderVariantCollection:
       variants:
       - keywords: 
         passType: 0
+      - keywords: WSM3D_POSTFX_KEEP
+        passType: 0
   - first: {fileID: 4800000, guid: 7aa5202bf3c7cc64e8746ffcf17d1944, type: 3}
     second:
       variants:
       - keywords: 
+        passType: 0
+      - keywords: WSM3D_POSTFX_KEEP
         passType: 0
   - first: {fileID: 4800000, guid: f47d69eeb7d7d0b4c88ac4bd89c98855, type: 3}
     second:

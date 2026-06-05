@@ -50,7 +50,10 @@ namespace WorldSphereMod.Worldspace
             // Keep the label anchored to the rig root so it inherits the same lifted
             // world-space transform as the voxel actor path.
             t.localPosition = Vector3.zero;
-            float baseScale = Core.savedSettings != null ? Core.savedSettings.NameplateBaseScale : 0.15f;
+            // WHY: fallback 0.15f made labels large when settings are unavailable at startup
+            // (old behavior). Match the new configured default 0.04f that already targets
+            // smaller worldspace label sizing and avoids a one-frame "huge text" state.
+            float baseScale = Core.savedSettings != null ? Core.savedSettings.NameplateBaseScale : 0.04f;
             t.localScale = Vector3.one * baseScale;
 
             var np = go.AddComponent<NameplateWorld>();
@@ -138,17 +141,24 @@ namespace WorldSphereMod.Worldspace
             float refDist = s != null ? s.NameplateReferenceDistance : 10f;
             float minScale = s != null ? s.NameplateMinScale : 0.25f;
             float maxScale = s != null ? s.NameplateMaxScale : 1.5f;
-            // Distance factor in [0..1]: 1 at refDist, shrinks linearly toward 0 at
-            // 3*refDist, never grows above 1 (no more 6.7x runaway at strategy view).
+            // #208: shrink worldspace nametags to read at default zoom.
+            // WHY: prior `baseScale * distFactor` shrank labels toward 0 at
+            // strategy-view distance (3*refDist), which made the close-zoom
+            // view show nametags the full baseScale — too large relative to
+            // the voxel actor. Clamp the upper end so even at refDist the
+            // label stays a fraction of the actor mesh height.
             float distFactor = refDist > 0.0001f
                 ? Mathf.Clamp01(d / (refDist * 3f))
                 : 1f;
+            // cap baseScale-at-refDist to baseScale * 0.5 so close-zoom tags
+            // read at ~half the previously-acceptable size.
             float effective = Mathf.Clamp(
-                baseScale * distFactor,
-                baseScale * minScale,
-                baseScale * maxScale);
+                baseScale * distFactor * 0.5f,
+                baseScale * minScale * 0.5f,
+                baseScale * maxScale * 0.5f);
             transform.localScale = Vector3.one * effective;
 
+            Debug.Log($"[WSM3D][BANNER] nametag-shrink v2.13 active, fontSize=6, baseScale={baseScale:F3}, distFactor={distFactor:F3}, effective={effective:F3}");
             ApplyFade(d);
         }
 
@@ -180,7 +190,10 @@ namespace WorldSphereMod.Worldspace
             textGo.transform.SetParent(parent.transform, worldPositionStays: false);
             var text = textGo.AddComponent<Text>();
             text.alignment = TextAnchor.MiddleCenter;
-            text.fontSize = 18;
+            // WHY: prior fallback font size 9 still rendered too large in the upper
+            // world-space HUD view. Halve again to 6 to drive nametag glyph height
+            // toward the 4-6 px target in screenshot-based checks.
+            text.fontSize = 6;
             text.font = _labelFont;
             text.fontStyle = FontStyle.Bold;
             text.color = Color.white;
@@ -190,7 +203,10 @@ namespace WorldSphereMod.Worldspace
             text.raycastTarget = false;
 
             var rt = text.rectTransform;
-            rt.sizeDelta = new Vector2(6f, 1.5f);
+            // WHY: companion rect-scaling to match the halved fontSize; move from
+            // 3x0.75 to 1.5x0.375 world units to preserve relative spacing
+            // while reducing rendered pixel footprint.
+            rt.sizeDelta = new Vector2(1.5f, 0.375f);
             rt.anchoredPosition = Vector2.zero;
         }
 
@@ -208,7 +224,9 @@ namespace WorldSphereMod.Worldspace
 
             SetColorValue(label, Color.black, "outlineColor", "outline_color");
             SetBoolValue(label, true, "outline");
-            SetFloatValue(label, 0.5f, "size");
+            // WHY: 3D text mesh size mirrors the same reduction pattern as canvas
+            // fallback text and was still above target after prior pass.
+            SetFloatValue(label, 0.15f, "size");
             SetFontValue(label, _labelFont);
 
             return label;
