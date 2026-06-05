@@ -45,7 +45,9 @@ namespace WorldSphereMod
         // ApplyPhaseDefaults to re-fire and re-pin NameplateBaseScale +
         // the localScale clamps in NameplateWorld.LateUpdate + HealthBar.Attach.
         // 2.12 = water-flat-sealevel active (#208); forces fresh migration.
-        public static string SettingsVersion = "2.12";
+        // 2.13 = worldspace nametags + health bars further shrunk at default
+        // zoom (user-reported P0 2026-06-04, task #208). Bump forces migration.
+        public static string SettingsVersion = "2.13";
 
         public static Harmony Patcher;
         internal static bool ClearVoxelMeshCacheOnFirstFrame;
@@ -806,6 +808,7 @@ namespace WorldSphereMod
             public static bool PerlinNoise = true;
             #region Fancy stuff
             static SphereManager Manager;
+            public static SphereManager ManagerInstance => Manager;
             static Mesh CompoundSphereMesh;
             internal static Material CompoundSphereMaterial;
             // GPU-compute keystone shader (CompoundSphereCompute), loaded from the
@@ -2046,14 +2049,15 @@ namespace WorldSphereMod
                         //
                         foreach (var shaderName in SafeShaders)
                         {
-                            // #208 PLAYER-TEST FLIP 2026-06-05: WSM3D_POSTFX_KEEP pragma +
-                            // SVC +2 bake succeeded for ColorGradingLUT, ProceduralSky,
-                            // ScreenSpaceAO. Drop the OpaqueVertexColor-only hard stop
-                            // and let the per-shader loop attempt every SafeShaders entry.
-                            // The CorruptedShaderNames guard (BrpBloom, BrpACES) is kept
-                            // because those two were not part of this fix. try/catch +
-                            // null + isSupported guards remain intact. Auto-revert if a
-                            // native ManagedStream abort recurs in the player.
+                            // #208 PLAYER-TEST FLIP REVERT 2026-06-05: pragma + SVC +2
+                            // was insufficient — the 60f1 player still reads 80 bytes
+                            // (expected 4520/4924/4952) for the three postFX shaders and
+                            // 8 bytes (expected 2484) for CompoundSphereCompute. The C#
+                            // try/catch saved us from a native abort, but shaders are
+                            // rejected as "loaded with empty name" and consumers fall
+                            // back. Next: IPreprocessShaders / IUnityLinker XML approach
+                            // for forcing variant retention, or build the bundle with
+                            // Unity 2022.3.60f1 to match the player's serializer.
 
                             // Never call GetObject for known-bad post-FX shader names
                             // from this bundle (BrpBloom / BrpACES) even if they are
@@ -2311,7 +2315,7 @@ namespace WorldSphereMod
             // Auto-reverts to false on any ManagedStream crash (game-test driven).
             // PostFX remains disabled until shader re-bake is fixed; keep bundle
             // enumeration for post-FX shaders fully disabled.
-            public const bool PostFxShaderBundleAvailable = true; // #208 PLAYER-TEST FLIP 2026-06-05
+            public const bool PostFxShaderBundleAvailable = false; // #208 PLAYER-TEST FLIP REVERT 2026-06-05: pragma+SVC+2 still produces 80-byte stubs in 60f1 player (4520/4924/4952 expected). Reverting until IUnityLinker XML / SVC dispatch proves root-cause.
 
             public const bool ShaderBundleAvailable = true;
 
@@ -2335,11 +2339,6 @@ namespace WorldSphereMod
             public static readonly string[] SafeShaders = new[]
             {
                 "OpaqueVertexColor",
-                // #208 PLAYER-TEST FLIP 2026-06-05: postFX shaders with
-                // WSM3D_POSTFX_KEEP pragma + SVC +2 in the bundle bake.
-                "ColorGradingLUT",
-                "ProceduralSky",
-                "ScreenSpaceAO",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look

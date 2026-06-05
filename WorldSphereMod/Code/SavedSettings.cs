@@ -15,7 +15,7 @@ public class SavedSettings
     public float AutoScreenshotIntervalSeconds = 60f;
     public string AutoScreenshotPath = @"C:\Users\koosh\Dev\WorldSphereMod\docs\journeys\scratch\";
 
-        public string Version = "2.9";
+        public string Version = "2.13";
         public bool Is3D = true;
         public bool InvertedCameraMovement = false;
         public bool PerlinNoise = true;
