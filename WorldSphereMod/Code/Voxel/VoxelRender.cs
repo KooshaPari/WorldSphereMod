@@ -833,7 +833,13 @@ namespace WorldSphereMod.Voxel
                     start += count;
                 }
 
-                matrices.Clear();
+                // DO NOT clear matrices here — the front buffer is replaced wholesale on the
+                // next emit (line ~1184 in ActorVoxelEmit.EmitVoxels). Clearing after every
+                // flush means non-emit frames find an empty front buffer and skip the
+                // DrawMeshInstanced call, producing intermittent drawCalls=0 in the bridge
+                // telemetry. The intent (comment at L770) is "redraws every frame so actors
+                // persist across the intermittent-emit gap (no flicker)" — the clear defeats
+                // that and was the regression root cause.
             }
         }
 
