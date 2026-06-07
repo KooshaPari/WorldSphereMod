@@ -296,19 +296,68 @@ namespace WorldSphereMod.Bridge
 
         void ListenLoop()
         {
-            while (_running)
+            // BeginGetContext + ThreadPool hand-off: the accept loop MUST stay free of
+            // per-request work or any slow handler (e.g. /diag/render_stats + InvokeOnMainThread
+            // doing a 5s main-thread wait) will back up the entire listener. Under parallel
+            // load this manifested as 31% timeouts across ALL endpoints — the slow endpoint
+            // wasn't the only casualty, every concurrent request hit the listener thread's
+            // queue and timed out. Handing each accepted context to the thread pool isolates
+            // the work and keeps the accept loop draining.
+            HttpListener? listener = _listener;
+            while (_running && listener != null)
             {
-                HttpListenerContext? context = null;
-                try { context = _listener?.GetContext(); }
+                try
+                {
+                    listener.BeginGetContext(OnRequestAccepted, listener);
+                    // Block here only until the next context arrives OR the listener stops —
+                    // we never touch per-request state on this loop.
+                    _acceptSignal.WaitOne();
+                }
                 catch (HttpListenerException) { if (!_running) return; }
                 catch (ObjectDisposedException) { return; }
                 catch (Exception ex)
                 {
                     if (_running) Debug.LogWarning("[WSM3D][Bridge] listener loop error on 127.0.0.1:" + _boundPort + ": " + ex.Message);
-                    continue;
+                    Thread.Sleep(1);
                 }
-                if (context != null) ProcessRequest(context);
             }
+        }
+
+        // Signaled by the BeginGetContext callback so the accept loop wakes per-context
+        // (not on a fixed interval) without spinning the CPU. No lock — AutoResetEvent
+        // is its own synchronization primitive.
+        readonly System.Threading.AutoResetEvent _acceptSignal = new System.Threading.AutoResetEvent(false);
+
+        void OnRequestAccepted(IAsyncResult ar)
+        {
+            // Always signal the accept loop first so it can re-arm BeginGetContext even
+            // if the synchronous GetContext call below throws.
+            try { _acceptSignal.Set(); } catch { }
+            HttpListenerContext? context = null;
+            HttpListener? listener = null;
+            try
+            {
+                listener = ar.AsyncState as HttpListener;
+                if (listener == null) return;
+                context = listener.EndGetContext(ar);
+            }
+            catch (HttpListenerException) { return; }
+            catch (ObjectDisposedException) { return; }
+            catch (Exception ex)
+            {
+                if (_running) Debug.LogWarning("[WSM3D][Bridge] accept error on 127.0.0.1:" + _boundPort + ": " + ex.Message);
+                return;
+            }
+            if (context == null) return;
+            // Process the request on the thread pool so a slow handler (InvokeOnMainThread
+            // 5s wait, big JSON, etc.) can't back up the accept loop. Multiple in-flight
+            // requests run in parallel — the previous single-threaded ListenLoop serialized
+            // them and caused the 31% timeout cascade.
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try { ProcessRequest(context); }
+                catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] request handler crashed: " + ex.Message); }
+            });
         }
 
         void ProcessRequest(HttpListenerContext context)
