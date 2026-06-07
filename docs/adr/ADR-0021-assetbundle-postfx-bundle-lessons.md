@@ -2,6 +2,15 @@
 
 **Status:** Accepted (crash-safe gating active). PostFX resolution: Deferred.
 
+**Status updates:**
+- 2026-06-06: L1 re-investigation re-confirmed `PostFxShaderBundleAvailable = false` as the long-term stable state. Prior L1 logs claimed the bake was on Unity 2022.3.62f3 vs runtime 60f1; actual `Tools/Unity-Bake-Project/ProjectSettings/ProjectVersion.txt` and `Tools/bake-shaders.log` show the bake now runs on **2022.3.60f1** (same revision as the player). Version-mismatch is **not** the root cause. Despite the match, all four attempts still produce 80-byte stubs at player runtime:
+  1. b724b40e (SafeShaders expand + 14/14 validate) → crash
+  2. 9c1c4488 (SVC -> m_PreloadedShaders + 12/0 subshaderCount) → editor-side false positive, player-side crash
+  3. b206c1d3 (WSM3D_POSTFX_KEEP pragma on BrpACES/BrpBloom/ScreenSpaceGI + SVC +2 variants) → player still reads 80 bytes for ColorGradingLUT/ProceduralSky/ScreenSpaceAO and 8 bytes for CompoundSphereCompute; reverted in 36d57d9a
+  4. 36d57d9a (revert) → current state
+  Decision stands: the mod cannot modify the WorldBox player or trigger a rebuild, so the in-tree fix surface is exhausted. Re-enable criteria in "Future Resolution Path" § must all hold before any flip. Inline Core.cs:2318 comment now reads as documented long-term state, not "PLAYER-TEST REVERT".
+- 2026-06-01: ADR accepted.
+
 **Supersedes:** ADR-0012 (AssetBundle shader bake plan — that ADR described the initial plan; this ADR records what actually happened and why)
 
 **Date:** 2026-06-01

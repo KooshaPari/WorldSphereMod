@@ -2315,7 +2315,7 @@ namespace WorldSphereMod
             // Auto-reverts to false on any ManagedStream crash (game-test driven).
             // PostFX remains disabled until shader re-bake is fixed; keep bundle
             // enumeration for post-FX shaders fully disabled.
-            public const bool PostFxShaderBundleAvailable = false; // #208 PLAYER-TEST FLIP REVERT 2026-06-05: pragma+SVC+2 still produces 80-byte stubs in 60f1 player (4520/4924/4952 expected). Reverting until IUnityLinker XML / SVC dispatch proves root-cause.
+            public const bool PostFxShaderBundleAvailable = false; // #208 LONG-TERM OFF per ADR-0021 (2026-06-06 re-investigation): the bake now runs on 2022.3.60f1 (matches runtime — was wrongly diagnosed as 62f3/60f1 mismatch in earlier L1 logs), all 12 shaders report 'Serialized binary data' in the bake, and the 6 postFX shaders carry the WSM3D_POSTFX_KEEP pragma + SVC +2 variants, BUT the 60f1 player still reads 80-byte stubs for BrpBloom/BrpACES/ColorGradingLUT/ScreenSpaceGI/ScreenSpaceAO/ProceduralSky and 8-byte stub for CompoundSphereCompute. Neither SVC preload, the POSTFX_KEEP keyword, a candidate-test re-bundle (e6589a46), nor the pragma+SVC+2 fix in b206c1d3 (reverted 36d57d9a) resolve the strip. The mod cannot modify the WorldBox player binary or trigger a player rebuild, so the in-tree fix surface is exhausted. Do NOT flip to true without end-to-end runtime validation; see ADR-0021 'Future Resolution Path' for the four conditions that must hold first.
 
             public const bool ShaderBundleAvailable = true;
 
