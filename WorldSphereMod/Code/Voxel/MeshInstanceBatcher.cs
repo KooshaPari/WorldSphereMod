@@ -59,6 +59,38 @@ namespace WorldSphereMod.Voxel
             }
         }
 
+        // Per-mesh normals-recalc guard. RENDER-FOUNDATION: a lit / vertex-lit
+        // shader (Mobile/VertexLit, Standard, Diffuse) on a mesh with zero
+        // normals renders as pure black — every fragment normalizes (0,0,0) and
+        // the diffuse term collapses. The greedy-mesh / building-mesh / foliage
+        // generators DO call RecalculateNormals, but the normal array can be
+        // empty if UploadMeshData(true) freed the readable copy, the mesh was
+        // mutated later, or an importer stripped the channel. Track per-mesh
+        // whether we've already inspected it so the per-frame Submit path stays
+        // O(1) on the hot path.
+        static readonly System.Collections.Generic.HashSet<int> _normalsEnsuredIds =
+            new System.Collections.Generic.HashSet<int>();
+        static void EnsureNormals(Mesh mesh)
+        {
+            if (mesh == null) return;
+            int id = mesh.GetInstanceID();
+            if (_normalsEnsuredIds.Contains(id)) return;
+            _normalsEnsuredIds.Add(id);
+            Vector3[]? existing = mesh.normals;
+            if (existing != null && existing.Length >= mesh.vertexCount && mesh.vertexCount > 0)
+            {
+                return;
+            }
+            try
+            {
+                mesh.RecalculateNormals();
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[WSM3D][RENDER-FOUNDATION] RecalculateNormals failed for mesh '{mesh.name}': {ex.Message}");
+            }
+        }
+
         static readonly ConcurrentQueue<SubmitRecord> _pendingSubmissions = new ConcurrentQueue<SubmitRecord>();
         static readonly Dictionary<Key, Bucket> _buckets = new Dictionary<Key, Bucket>(128);
         static readonly int _colorProp = Shader.PropertyToID("_InstanceColor");
@@ -180,6 +212,11 @@ namespace WorldSphereMod.Voxel
             // to 2D sprite billboards. Trust upstream mesh validity beyond
             // the vertexCount check.
             if (mesh.vertexCount <= 0) return;
+
+            // RENDER-FOUNDATION: a lit / vertex-lit shader on a normals-less
+            // mesh renders as pure black. O(1) on the hot path: one HashSet
+            // lookup per mesh, then early-out. See EnsureNormals.
+            EnsureNormals(mesh);
 
             if (Core.savedSettings.ProfilerDump && !_verboseDrawLoggingArmed && !_verboseDrawLoggingConsumed)
             {
@@ -586,6 +623,10 @@ namespace WorldSphereMod.Voxel
 
             Interlocked.Exchange(ref _pendingSubmissionCount, 0);
             _buckets.Clear();
+            // RENDER-FOUNDATION: drop the per-mesh normals-ensured cache. The
+            // mesh InstanceIDs don't survive a Unity scene teardown, so the
+            // guard would otherwise pin stale IDs across world reloads.
+            _normalsEnsuredIds.Clear();
             // Keep non-instanced default across world reloads — the bundled
             // OpaqueVertexColor INSTANCING_ON variant is missing (see field decl),
             // so re-enabling instancing here would resurrect the magenta bug.
