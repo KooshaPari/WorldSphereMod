@@ -671,14 +671,21 @@ namespace WorldSphereMod
                         try
                         {
                             WorldTile tile = World.world.GetTileSimple(px, py);
-                            float tileHeight = tile == null ? float.NaN : tile.TileHeight();
+                            // Sample RAW WorldBox elevation (GetHeight), not the fork's
+                            // TileHeight() — the latter routes through Tile.WorldToSphere()
+                            // -> Core.Sphere.GetTile(), which NREs at Become3D ENTRY because
+                            // Sphere.Begin() (which builds the Manager + SphereTiles) has not
+                            // run yet. GetHeight() is the native tile field and is populated
+                            // as soon as the world tiles exist, so the flat-terrain auto-boost
+                            // below can actually evaluate on both bridge + menu load paths.
+                            float tileHeight = tile == null ? float.NaN : tile.GetHeight();
                             if (!float.IsNaN(tileHeight))
                             {
                                 if (tileHeight < minHeight) minHeight = tileHeight;
                                 if (tileHeight > maxHeight) maxHeight = tileHeight;
                                 validSamples++;
                             }
-                            Debug.Log($"[WSM3D][HEIGHT-DIAG] tile=({px},{py}) TileHeight()={tileHeight} HeightMult={Sphere.HeightMult} TileHeightSetting={savedSettings.TileHeight}");
+                            Debug.Log($"[WSM3D][HEIGHT-DIAG] tile=({px},{py}) GetHeight()={tileHeight} HeightMult={Sphere.HeightMult} TileHeightSetting={savedSettings.TileHeight}");
                         }
                         catch (System.Exception tileEx)
                         {
@@ -689,7 +696,9 @@ namespace WorldSphereMod
                     {
                         float span = maxHeight - minHeight;
                         Debug.Log($"[WSM3D][HEIGHT-DIAG] terrain sample span={span:F4} min={minHeight:F4} max={maxHeight:F4} HeightMult={Sphere.HeightMult}");
-                        const float flatSpanThreshold = 0.20f;
+                        // GetHeight() is in raw integer elevation steps: a genuinely flat
+                        // region spans 0, any relief spans >=1. 0.5 cleanly separates the two.
+                        const float flatSpanThreshold = 0.5f;
                         if (span <= flatSpanThreshold && savedSettings.TileHeight <= 1f)
                         {
                             float oldMult = Sphere.HeightMult;
