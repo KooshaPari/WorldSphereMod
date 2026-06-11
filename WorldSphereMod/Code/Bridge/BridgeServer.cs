@@ -1425,6 +1425,16 @@ namespace WorldSphereMod.Bridge
                 if (w > 0 && h > 0 && !loading)
                 {
                     Debug.Log($"[WSM3D][Bridge] world entered: mapSize={w}x{h} (via {source})");
+                    // DOWNSTREAM FIX: on the bridge-driven entry path (startTheGame from the
+                    // RPC queue) the General.cs SphereControl.CreateSphere postfix on
+                    // MapBox.finishMakingWorld does NOT fire/queue Become3D the way the menu
+                    // path does (empirically: "Tidying Up The World" runs but no "Becoming 3D!"
+                    // SmoothLoader step and no Become3D/HEIGHT-DIAG/COLOR-DIAG log appears), so
+                    // Sphere is never created and isWorld3D stays false. Drive the 3D conversion
+                    // explicitly here, mirroring what the postfix is supposed to do: only when
+                    // Is3D is enabled and the map fits the 3D tile budget. If a prior Sphere
+                    // exists, EnsureBecome3D tears it down and rebuilds it for this map.
+                    EnsureBecome3D(source, w, h);
                     yield break;
                 }
                 yield return null;
@@ -1432,6 +1442,75 @@ namespace WorldSphereMod.Bridge
             int fw = 0, fh = 0;
             try { fw = MapBox.width; fh = MapBox.height; } catch { }
             Debug.LogWarning($"[WSM3D][Bridge] world entered: TIMEOUT mapSize={fw}x{fh} (via {source}) — scene entry did not complete");
+        }
+
+        /// <summary>
+        /// Explicitly drive the 3D conversion on the bridge entry path when the finishMakingWorld
+        /// postfix did not. No-op when Is3D is off, or the map exceeds the 3D tile budget
+        /// (Become3D would skip it anyway). If a prior sphere exists, tear it down first so the
+        /// heightfield and camera rebuild against the newly entered world.
+        /// </summary>
+        static void EnsureBecome3D(string source, int w, int h)
+        {
+            try
+            {
+                var settings = Core.savedSettings;
+                if (settings == null || !settings.Is3D) return;
+                if (Core.IsWorld3D)
+                {
+                    Debug.Log($"[WSM3D][Bridge] rebuilding 3D for new world (prior sphere existed) via {source}");
+                    try { Core.Become2D(); }
+                    catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] Become2D teardown failed: " + ex.Message); }
+                }
+                long totalTiles = (long)w * h;
+                if (totalTiles > settings.MaxTilesFor3D)
+                {
+                    Debug.LogWarning($"[WSM3D][Bridge] skipping Become3D: {w}x{h}={totalTiles} > MaxTilesFor3D={settings.MaxTilesFor3D} (via {source})");
+                    return;
+                }
+                Debug.Log($"[WSM3D][Bridge] driving Become3D explicitly via {source}");
+                // When the bridge drives startTheGame, NML's IStagedLoad Init()/PostInit()
+                // callbacks (which call Core.Init -> Sphere.PrepareAssets) may not have fired,
+                // so the 'worldsphere' AssetBundle (CompoundSphereMaterial + CompoundSphereMesh)
+                // was never loaded and Sphere.Begin aborts with "...missing — Bundle load likely
+                // failed." PrepareAssets is idempotent and has NO World dependency, so force it
+                // here before Become3D so the Sphere manager can be created.
+                try { Core.Sphere.PrepareAssets(); }
+                catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] PrepareAssets (forced) failed: " + ex.Message); }
+                // Core.Init (which sets Sphere.HeightMult = Max(TileHeight,1)) also never ran on
+                // the bridge staged-load path, leaving HeightMult=0. CompoundSpheres'
+                // SphereManager.SphereTilePosition NREs when building tiles with HeightMult=0,
+                // so seed it from settings here (mirrors Core.Init).
+                try
+                {
+                    if (Core.Sphere.HeightMult <= 0f)
+                    {
+                        float th = settings.TileHeight > 0f ? settings.TileHeight : 1f;
+                        Core.Sphere.HeightMult = Mathf.Max(th, 1f);
+                        Debug.Log($"[WSM3D][Bridge] seeded Sphere.HeightMult={Core.Sphere.HeightMult} (Core.Init had not run)");
+                    }
+                }
+                catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] HeightMult seed failed: " + ex.Message); }
+                // Ensure CurrentShape is selected. The General.cs setMapSize prefix
+                // (SphereControl.PrepareShape -> Core.Sphere.PrepareShape) is what normally
+                // assigns CurrentShape = Shapes[CurrentShape]; if it did not fire on the bridge
+                // path, CreateSettings wires a null getSphereTilePosition delegate and
+                // CompoundSpheres' SphereManager.SphereTilePosition NREs while building tiles.
+                try
+                {
+                    int sw2 = w, sh = h;
+                    Core.Sphere.PrepareShape(ref sw2, ref sh);
+                }
+                catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] PrepareShape (forced) failed: " + ex.Message); }
+                // Mirror SphereControl.CreateSphere: reset the PrepareWorld guard so Become3D
+                // reads real biome pixels (else vertex colors stay white). (#208)
+                try { Core.Sphere.ResetPrepared(); } catch { }
+                Core.Become3D();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[WSM3D][Bridge] EnsureBecome3D failed: " + ex.Message);
+            }
         }
 
         /// <summary>
