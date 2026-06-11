@@ -40,6 +40,7 @@ namespace WorldSphereMod.Voxel
         static int _actorDrawDiagThrottle;
         static bool _normalRenderDiagLogged;
         static readonly List<Vector3> _actorVoxelSubmitTranslations = new(5);
+        static readonly HashSet<int> _normalCheckedMeshes = new HashSet<int>();
         static readonly Dictionary<ActorSpriteCardMeshKey, Mesh> _actorSpriteCardMeshes = new();
         static readonly Dictionary<Texture2D, Material> _actorSpriteCardMaterials = new();
         static readonly Dictionary<ActorSpriteCardBatchKey, List<Matrix4x4>> _actorSpriteCardBatches = new(); // BACK (emit fills)
@@ -83,6 +84,7 @@ namespace WorldSphereMod.Voxel
             _actorSkeletalDiagnosticLogged = false;
             _actorSpriteDrawDiagLogged = false;
             _actorVoxelSubmitTranslations.Clear();
+            _normalCheckedMeshes.Clear();
             ClearActorSpriteCardState();
             _flushDiagLogged = false;
             _submitDiagLogged = false;
@@ -128,19 +130,6 @@ namespace WorldSphereMod.Voxel
         {
             if (_materialAttempted || _material != null)
             {
-                if (_material != null && _material.shader != null &&
-                    _material.shader.name == "Standard" &&
-                    Core.Sphere.LoadedShaders.ContainsKey("OpaqueVertexColor"))
-                {
-                    Material? upgrade = TryCompileInlineVoxelShader();
-                    if (upgrade != null)
-                    {
-                        UnityEngine.Object.Destroy(_material);
-                        _material = upgrade;
-                        McPackLoader.ApplyToMaterial(_material);
-                        Debug.Log("[WSM3D] Voxel material upgraded from Standard to OpaqueVertexColor (late bundle load).");
-                    }
-                }
                 if (MeshInstanceBatcher.UseFallbackPath && _material != null && _material.enableInstancing)
                 {
                     _material.enableInstancing = false;
@@ -149,17 +138,11 @@ namespace WorldSphereMod.Voxel
             }
             _materialAttempted = true;
 
-            // 60f1 ships a STRIPPED shader set: Particles/*, URP/*, Unlit/* all
-            // return null at runtime, so reaching for them produced null → magenta
-            // voxels. ResolveShader maps to "Standard" only — never Unlit/URP.
-            string[] candidates =
-            {
-                "Standard",
-            };
+            string[] candidates = Core.Sphere.BuiltInShaderFallbacks;
             var shaderLookup = new Dictionary<string, Shader>();
             foreach (var name in candidates)
             {
-                Shader s = WorldSphereMod.Core.Sphere.ResolveShader("");
+                Shader s = Shader.Find(name);
                 shaderLookup[name] = s;
                 if (!_materialProbeLogged)
                 {
@@ -167,19 +150,6 @@ namespace WorldSphereMod.Voxel
                 }
             }
             _materialProbeLogged = true;
-            // First try a custom inline opaque-vertex-color shader. Built-in
-            // candidates that DON'T consume vertex colors (Standard) leave voxel
-            // meshes gray/black; ones that DO are typically transparent
-            // (Sprites/Default) — the open-box-see-through bug. This inline
-            // shader is opaque AND consumes vertex colors as the only albedo.
-            Material? inlineMat = TryCompileInlineVoxelShader();
-            if (inlineMat != null)
-            {
-                _material = inlineMat;
-                McPackLoader.ApplyToMaterial(_material);
-                Debug.Log("[WSM3D] Voxel material resolved via inline 'WSM3D/OpaqueVertexColor'.");
-                return true;
-            }
 
             foreach (var name in candidates)
             {
@@ -278,56 +248,6 @@ namespace WorldSphereMod.Voxel
             return false;
         }
 
-
-        // Attempt to construct an inline opaque vertex-color shader at runtime.
-        // Returns null if Unity refuses to compile it (older Unity versions).
-        static Material? TryCompileInlineVoxelShader()
-        {
-            try
-            {
-                // First check the bundle-loaded shaders cache (Shader.Find
-                // doesn't see AssetBundle shaders unless they're Always-Included).
-                Shader? existing = null;
-                if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("OpaqueVertexColor", out var bundled) && bundled != null)
-                {
-                    existing = bundled;
-                    Debug.Log("[WSM3D] Voxel shader resolved via Core.Sphere.LoadedShaders cache.");
-                }
-                if (existing == null) existing = Shader.Find("WSM3D/OpaqueVertexColor");
-                if (existing != null)
-                {
-                    Material inlineMaterial = new Material(existing) { name = "WSM3D.Voxel.OpaqueVertexColor", enableInstancing = true };
-                    // Geometry+1 (queue 2001) so voxel meshes render just AFTER
-                    // terrain (queue 2000). Without this, voxels at Geometry share
-                    // the same render queue as terrain and z-fight — losing to
-                    // terrain fragments at the same depth, producing invisible output.
-                    inlineMaterial.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Geometry + 1;
-                    // Belt+suspenders: set _MainTex to white and _EmissionColor to
-                    // the same boost the Standard fallback uses. The shader defaults
-                    // _MainTex to "white" {} but some Unity runtimes leave it null
-                    // until explicitly set; _EmissionColor defaults to black in the
-                    // Properties block which is too dim in unlit WorldBox scenes.
-                    inlineMaterial.SetTexture("_MainTex", UnityEngine.Texture2D.whiteTexture);
-                    inlineMaterial.SetColor("_Color", UnityEngine.Color.white);
-                    inlineMaterial.SetColor("_EmissionColor", new UnityEngine.Color(0.15f, 0.15f, 0.15f, 1f));
-                    if (MeshInstanceBatcher.UseFallbackPath)
-                    {
-                        inlineMaterial.enableInstancing = false;
-                    }
-                    ConfigureVoxelMaterial(inlineMaterial, "WSM3D/OpaqueVertexColor");
-                    ConfigureVertexColorShaderMode(inlineMaterial, "WSM3D/OpaqueVertexColor");
-                    McPackLoader.ApplyToMaterial(inlineMaterial);
-                    return inlineMaterial;
-                }
-                // Unity 2022 doesn't have a public runtime ShaderLab compile API.
-                // The .shader source lives at WorldSphereMod/AssetBundles/Shaders/
-                // OpaqueVertexColor.shader. Bake step: open Unity 2022.3 project,
-                // import that .shader, build AssetBundle 'worldsphere' platform-aware.
-                // Until baked, falls through to Standard + emission boost (visible).
-                return null;
-            }
-            catch { return null; }
-        }
 
         static readonly int _baseColorId = Shader.PropertyToID("_BaseColor");
         static readonly int _smoothnessId = Shader.PropertyToID("_Smoothness");
@@ -434,6 +354,27 @@ namespace WorldSphereMod.Voxel
         internal static int _submitDiagCount;
         static bool _submitDiagLogged;
 
+        static void EnsureMeshNormals(Mesh mesh)
+        {
+            if (mesh == null) return;
+            int id = mesh.GetInstanceID();
+            if (_normalCheckedMeshes.Contains(id)) return;
+            _normalCheckedMeshes.Add(id);
+
+            try
+            {
+                Vector3[] normals = mesh.normals;
+                if (normals == null || normals.Length != mesh.vertexCount)
+                {
+                    mesh.RecalculateNormals();
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning("[WSM3D] Voxel mesh normal check failed: " + ex.Message);
+            }
+        }
+
         /// <summary>Per-frame submission. Matrix should already include scale.</summary>
         public static bool Submit(Mesh mesh, Matrix4x4 trs, Color tint)
         {
@@ -442,6 +383,7 @@ namespace WorldSphereMod.Voxel
             // Pre-empting Submit here used to permanently disable voxel rendering after
             // the first instancing exception. Now we always submit; Flush picks the right path.
             if (_material == null && !EnsureMaterial()) return false;
+            EnsureMeshNormals(mesh);
             _submitDiagCount++;
             // TEMPORARY DIAGNOSTIC: log first non-sanity-cube submit
             if (!_submitDiagLogged && Core.savedSettings.ProfilerDump && mesh != null && mesh.name != "WSM3D.SanityTestCube")
@@ -691,16 +633,7 @@ namespace WorldSphereMod.Voxel
                 return existing;
             }
 
-            // FOUNDATION FIX (research-backed): the OrganicBlob actor mesh is a real 3D volume,
-            // but Sprites/Default is UNLIT — so the volume read flat/dark (no ambient+directional
-            // shading on the 164-vert mesh). Prefer a LIT shader so the 3D shape actually shows.
-            // Chain: WSM3D/OpaqueVertexColor (lit + vertex-color, if the bundle loaded) ->
-            // Mobile/Diffuse (lit, guaranteed built-in) -> Standard -> Sprites/Default (last resort).
-            // Caller ensures the mesh has normals so lit shaders can shade it.
-            Shader? shader = Shader.Find("WSM3D/OpaqueVertexColor");
-            if (shader == null) shader = Shader.Find("Mobile/Diffuse");
-            if (shader == null) shader = Shader.Find("Standard");
-            if (shader == null) shader = Shader.Find("Sprites/Default");
+            Shader? shader = Core.Sphere.ResolveShader("");
             if (shader == null)
             {
                 return null;
@@ -725,6 +658,8 @@ namespace WorldSphereMod.Voxel
             {
                 return false;
             }
+
+            EnsureMeshNormals(mesh);
 
             ActorSpriteCardBatchKey key = new(mesh, material);
             lock (_actorSpriteCardBatchLock)
