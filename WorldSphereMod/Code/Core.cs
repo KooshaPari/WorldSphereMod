@@ -47,7 +47,8 @@ namespace WorldSphereMod
         // 2.12 = water-flat-sealevel active (#208); forces fresh migration.
         // 2.13 = worldspace nametags + health bars further shrunk at default
         // zoom (user-reported P0 2026-06-04, task #208). Bump forces migration.
-        public static string SettingsVersion = "2.13";
+        // 2.14 = DayNightCycle default-on for render-foundation sun-cycle verification.
+        public static string SettingsVersion = "2.14";
 
         public static Harmony Patcher;
         internal static bool ClearVoxelMeshCacheOnFirstFrame;

@@ -1259,6 +1259,8 @@ namespace WorldSphereMod.Bridge
             float ar = 0f, ag = 0f, ab = 0f;
             string ambientMode = null;
             bool sunPresent = false, sunIsDirectional = false;
+            float sunEulerX = 0f, sunEulerY = 0f, sunEulerZ = 0f, sunRotationDeg = 0f;
+            float timeOfDay = 0f;
             try
             {
                 UnityEngine.Color a = UnityEngine.RenderSettings.ambientLight;
@@ -1267,6 +1269,15 @@ namespace WorldSphereMod.Bridge
                 UnityEngine.Light sun = UnityEngine.RenderSettings.sun;
                 sunPresent = sun != null;
                 sunIsDirectional = sun != null && sun.type == UnityEngine.LightType.Directional;
+                if (sun != null)
+                {
+                    UnityEngine.Vector3 sunEuler = sun.transform.rotation.eulerAngles;
+                    sunEulerX = sunEuler.x;
+                    sunEulerY = sunEuler.y;
+                    sunEulerZ = sunEuler.z;
+                    sunRotationDeg = sunEuler.x;
+                }
+                timeOfDay = WorldSphereMod.Lighting.TimeOfDay.Current;
             }
             catch { }
 
@@ -1278,6 +1289,9 @@ namespace WorldSphereMod.Bridge
                 ambientMode,
                 sunPresent,
                 sunIsDirectional,
+                sunEuler = new { x = sunEulerX, y = sunEulerY, z = sunEulerZ },
+                sunRotationDeg,
+                timeOfDay,
                 actorMeshVertCount = actorVerts,
                 terrainMeshVertCount = terrainVerts,
             };
