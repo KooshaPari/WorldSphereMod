@@ -1073,15 +1073,6 @@ namespace WorldSphereMod.Voxel
                             a, sp != null ? "sprite-card mesh null/empty (cache build pending) sprite=" + sp.name : "sprite-card mesh null/empty", errPos);
                         continue;
                     }
-                    Material? cardMaterial = GetActorSpriteCardMaterial(sp.texture);
-                    if (cardMaterial == null)
-                    {
-                        dsVoxelSubmitFail++;
-                        Vector3 errPos = rd.positions[i];
-                        if (errPos.z < Constants.ZDisplacement * 0.5f) errPos = errPos.To3DTileHeight(false);
-                        RecordActorError(RenderErrorType.MaterialNull, a, "actor sprite card material null (could not resolve Sprites/Default or Standard)", errPos);
-                        continue;
-                    }
                     dsVoxelSubmitAttempt++;
                     diagSubmitAttempt++;
 
@@ -1103,10 +1094,10 @@ namespace WorldSphereMod.Voxel
                     LogFirstActorPos(posBeforeLift, pos, scl);
                     Matrix4x4 trs = Matrix4x4.TRS(pos, faceRot, scl);
                     RecordActorVoxelTrs(trs);
-                    // Hide the sprite quad for this actor — we drew the 3D mesh instead.
-                    if (TryQueueActorSpriteCardRender(cardMaterial, m, trs))
+                    if (Submit(m, trs, rd.colors[i]))
                     {
                         LastBatcherSubmitCount++;
+                        ActorDrawCallsCumulative++;
                         dsVoxelSubmitOk++;
                         rd.has_normal_render[i] = false;
                         TraceActorColorSample("voxel", i, rd.colors[i], a, sp, posBeforeLift, pos, rot, scl);
