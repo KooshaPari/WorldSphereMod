@@ -1416,15 +1416,39 @@ namespace WorldSphereMod.Bridge
         System.Collections.IEnumerator WorldEnteredProbe(string source)
         {
             const int maxFrames = 600; // ~10s at 60fps; world load streams over many frames
+            // SCENE-ENTRY DETECTION (#generate-path fix): the original gate required
+            // !SmoothLoader.isLoading(), but on the bridge GENERATE path SmoothLoader never
+            // fully drains to isLoading()==false within the probe window (the post-gen idle
+            // steps / addLastStep keep a step queued), so the probe always TIMED OUT and
+            // EnsureBecome3D never fired -> isWorld3D stayed false, drawCalls=0.
+            //
+            // The real readiness signal the menu path relies on is: the engine considers the
+            // game loaded (Config.game_loaded) AND MapBox has real dimensions (width/height>0,
+            // i.e. setMapSize ran). Once both hold the world IS entered; isLoading() merely
+            // reflects residual streaming steps. So we PROCEED to Become3D as soon as map dims
+            // are non-zero and game_loaded is set, without waiting for isLoading()==false. We
+            // still give SmoothLoader a brief grace settle so most streaming finishes first.
+            const int settleFramesAfterReady = 30; // ~0.5s grace once dims+game_loaded hold
+            int readyFor = 0;
             for (int i = 0; i < maxFrames; i++)
             {
                 int w = 0, h = 0;
                 try { w = MapBox.width; h = MapBox.height; } catch { }
-                bool loading = false;
+                bool gameLoaded = false;
+                try { gameLoaded = Config.game_loaded; } catch { }
+                bool loading = true;
                 try { loading = SmoothLoader.isLoading(); } catch { }
-                if (w > 0 && h > 0 && !loading)
+
+                bool dimsReady = w > 0 && h > 0 && gameLoaded;
+                // Fast path: full drain (dims + game_loaded + streaming finished).
+                // Fallback path: dims + game_loaded held stable for a short grace window even
+                // though isLoading() never cleared (the generate-path symptom).
+                if (dimsReady) readyFor++; else readyFor = 0;
+                bool proceed = dimsReady && (!loading || readyFor >= settleFramesAfterReady);
+
+                if (proceed)
                 {
-                    Debug.Log($"[WSM3D][Bridge] world entered: mapSize={w}x{h} (via {source})");
+                    Debug.Log($"[WSM3D][Bridge] world entered: mapSize={w}x{h} gameLoaded={gameLoaded} stillLoading={loading} (via {source})");
                     // DOWNSTREAM FIX: on the bridge-driven entry path (startTheGame from the
                     // RPC queue) the General.cs SphereControl.CreateSphere postfix on
                     // MapBox.finishMakingWorld does NOT fire/queue Become3D the way the menu
@@ -1441,7 +1465,17 @@ namespace WorldSphereMod.Bridge
             }
             int fw = 0, fh = 0;
             try { fw = MapBox.width; fh = MapBox.height; } catch { }
-            Debug.LogWarning($"[WSM3D][Bridge] world entered: TIMEOUT mapSize={fw}x{fh} (via {source}) — scene entry did not complete");
+            bool fGameLoaded = false; try { fGameLoaded = Config.game_loaded; } catch { }
+            bool fLoading = true; try { fLoading = SmoothLoader.isLoading(); } catch { }
+            // Last-ditch: if dims are valid we still drive Become3D rather than abandoning the
+            // entry — a non-zero map is a real world regardless of the loading flag.
+            if (fw > 0 && fh > 0)
+            {
+                Debug.LogWarning($"[WSM3D][Bridge] world entered: dims ready at timeout mapSize={fw}x{fh} gameLoaded={fGameLoaded} stillLoading={fLoading} (via {source}) — driving Become3D anyway");
+                EnsureBecome3D(source, fw, fh);
+                yield break;
+            }
+            Debug.LogWarning($"[WSM3D][Bridge] world entered: TIMEOUT mapSize={fw}x{fh} gameLoaded={fGameLoaded} stillLoading={fLoading} (via {source}) — scene entry did not complete");
         }
 
         /// <summary>
