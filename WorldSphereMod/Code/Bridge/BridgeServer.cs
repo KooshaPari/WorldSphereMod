@@ -1220,7 +1220,68 @@ namespace WorldSphereMod.Bridge
             // per-frame actor draws: actorDrawCumulative grows ~1/frame if drawing stably.
             actorDrawCumulative = WorldSphereMod.Voxel.VoxelRender.ActorDrawCallsCumulative,
             actorFrontCount = WorldSphereMod.Voxel.VoxelRender.ActorFrontCount,
+            // Render-foundation MACHINE state (commit 40f903d): lets wsm3d-verify.ps1
+            // confirm the LIT built-in fallback + lighting setup WITHOUT pixel sampling.
+            // All reads are cheap static-field / RenderSettings property accesses computed
+            // only on a /telemetry request (no per-frame cost).
+            renderFoundation = BuildRenderFoundationPayload(),
         };
+
+        /// <summary>
+        /// Machine-readable snapshot of the render-foundation: resolved shaders on the
+        /// live actor + terrain materials, ambient/sun lighting setup, and representative
+        /// mesh vertex counts. Read by Tools/wsm3d-verify.ps1 (TIER 1, pixel-free).
+        /// Fully null-safe so /telemetry never throws at the title screen.
+        /// </summary>
+        object BuildRenderFoundationPayload()
+        {
+            string actorShader = null;
+            int actorVerts = 0;
+            try
+            {
+                var actorMat = WorldSphereMod.Voxel.VoxelRender._material;
+                if (actorMat != null && actorMat.shader != null) actorShader = actorMat.shader.name;
+                actorVerts = WorldSphereMod.Voxel.VoxelRender.LastActorMeshVertCount;
+            }
+            catch { }
+
+            string terrainShader = null;
+            int terrainVerts = 0;
+            try
+            {
+                var terrainMat = Core.Sphere.LastTerrainMaterial;
+                if (terrainMat != null && terrainMat.shader != null) terrainShader = terrainMat.shader.name;
+                var terrainMesh = Core.Sphere.LastTerrainMesh;
+                if (terrainMesh != null) terrainVerts = terrainMesh.vertexCount;
+            }
+            catch { }
+
+            float ar = 0f, ag = 0f, ab = 0f;
+            string ambientMode = null;
+            bool sunPresent = false, sunIsDirectional = false;
+            try
+            {
+                UnityEngine.Color a = UnityEngine.RenderSettings.ambientLight;
+                ar = a.r; ag = a.g; ab = a.b;
+                ambientMode = UnityEngine.RenderSettings.ambientMode.ToString();
+                UnityEngine.Light sun = UnityEngine.RenderSettings.sun;
+                sunPresent = sun != null;
+                sunIsDirectional = sun != null && sun.type == UnityEngine.LightType.Directional;
+            }
+            catch { }
+
+            return new
+            {
+                actorMaterialShader = actorShader,
+                terrainMaterialShader = terrainShader,
+                ambientLight = new { r = ar, g = ag, b = ab },
+                ambientMode,
+                sunPresent,
+                sunIsDirectional,
+                actorMeshVertCount = actorVerts,
+                terrainMeshVertCount = terrainVerts,
+            };
+        }
 
         string BuildSettingsJson() => JsonConvert.SerializeObject(Core.savedSettings ?? new SavedSettings(), Formatting.Indented);
 

@@ -795,6 +795,13 @@ namespace WorldSphereMod
         // the layer between the Mod and the compound sphere
         public static class Sphere
         {
+            // Render-foundation machine-verification handles: the last terrain
+            // height-field material + mesh applied this world, so the bridge
+            // /telemetry can report terrainMaterialShader / terrainMeshVertCount
+            // without per-frame cost (read on telemetry request only).
+            public static UnityEngine.Material LastTerrainMaterial;
+            public static UnityEngine.Mesh LastTerrainMesh;
+
             public static void AddShape(Shape shape)
             {
                 Shapes.Add(shape);
@@ -1528,6 +1535,8 @@ namespace WorldSphereMod
 
                     hf.SetMaterial(hfMat);
                     EnsureMeshNormals(hf.Mesh, "terrain");
+                    LastTerrainMaterial = hfMat;
+                    LastTerrainMesh = hf.Mesh;
                 }
 
                 // Water now lives IN THE FORK as a corner-averaged sub-mesh at the

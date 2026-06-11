@@ -52,6 +52,11 @@ namespace WorldSphereMod.Voxel
         // grow by ~1/frame steadily if drawing stably, or stay flat/jump if flickering.
         public static long ActorDrawCallsCumulative;
         public static int ActorFrontCount;
+        // Render-foundation machine handle: vert count of the last representative
+        // actor voxel mesh submitted (excludes the 8-vert SanityTestCube). The bridge
+        // reads this to confirm real volume (>8 verts) vs a flat 4-vert sprite quad,
+        // without pixels. Set on Submit; cheap (one int write).
+        public static int LastActorMeshVertCount;
         static readonly object _actorSpriteCardBatchLock = new();
         static readonly Matrix4x4[] _actorSpriteCardMatrices = new Matrix4x4[1023];
         const int MaxSpriteCardInstancedBatch = 1023;
@@ -384,6 +389,8 @@ namespace WorldSphereMod.Voxel
             // the first instancing exception. Now we always submit; Flush picks the right path.
             if (_material == null && !EnsureMaterial()) return false;
             EnsureMeshNormals(mesh);
+            if (mesh != null && mesh.name != "WSM3D.SanityTestCube")
+                LastActorMeshVertCount = mesh.vertexCount;
             _submitDiagCount++;
             // TEMPORARY DIAGNOSTIC: log first non-sanity-cube submit
             if (!_submitDiagLogged && Core.savedSettings.ProfilerDump && mesh != null && mesh.name != "WSM3D.SanityTestCube")
