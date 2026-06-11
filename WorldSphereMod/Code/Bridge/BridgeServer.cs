@@ -1361,12 +1361,36 @@ namespace WorldSphereMod.Bridge
                     }
 
                     SaveManager.setCurrentPathAndId(queuedPath, queuedSlot);
-                    World.world.save_manager.prepareLoading();
-                    World.world.save_manager.loadWorld(queuedPath, false);
+
+                    // ROOT-CAUSE FIX (#scene-entry): loadWorld() only ENQUEUES the load steps
+                    // (setMapSize -> finishMakingWorld) into SmoothLoader. SmoothLoader is pumped
+                    // by MapBox.Update, but MapBox.Update early-returns while Config.game_loaded
+                    // is false (it stays false at the main menu / pre-first-world). So a bare
+                    // loadWorld from the bridge enqueued everything and NOTHING drained it:
+                    // MapBox.width/height stayed 0 and the fork's Become3D (guarded on width>0)
+                    // never ran. The menu "Load" button avoids this because startTheGame() sets
+                    // Config.game_loaded = true BEFORE enqueuing. Mirror the menu path exactly:
+                    // drive startTheGame with load_save_on_start so the engine sets game_loaded,
+                    // queues loadWorld + addLastStep (re-enables the SpriteRenderer/nameplate),
+                    // and the SmoothLoader pump drains to a real in-gameplay world.
+                    Config.game_loaded = true;
+                    Config.load_new_map = false;
+                    Config.load_save_on_start = true;
+                    Config.load_save_on_start_slot = queuedSlot;
+                    // NOTE: do NOT call save_manager.prepareLoading() here — it's a private
+                    // WorldBox method (publicizer trap: compiles but throws under NML's Roslyn).
+                    // startTheGame's load_save_on_start branch calls loadWorld() directly without
+                    // a manual prepareLoading, so the menu path does not need it either.
+                    MapBox.instance.startTheGame(false);
+
                     // loadWorld Postfix also runs survival; belt-and-suspenders if patch order differs.
                     CaptureMainThread();
                     EnsureCreated();
                     DrainStaticQueue();
+
+                    // Post-condition log fires once SmoothLoader has drained setMapSize
+                    // (MapBox.width becomes non-zero) so the operator can confirm scene entry.
+                    LogWorldEnteredWhenReady("load_save slot=" + queuedSlot);
                 }
                 catch (Exception ex)
                 {
@@ -1375,6 +1399,39 @@ namespace WorldSphereMod.Bridge
             });
 
             return new { ok = true, slot, path, queued = true };
+        }
+
+        /// <summary>
+        /// Post-condition probe: poll up to ~10s (on the main thread via coroutine) until
+        /// SmoothLoader has drained setMapSize so MapBox.width becomes non-zero, then log the
+        /// real entered dimensions. Confirms the scene-entry fix worked without blocking the
+        /// HTTP response. Safe no-op if the BridgeServer host coroutine can't start.
+        /// </summary>
+        void LogWorldEnteredWhenReady(string source)
+        {
+            try { StartCoroutine(WorldEnteredProbe(source)); }
+            catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] world-entered probe failed to start: " + ex.Message); }
+        }
+
+        System.Collections.IEnumerator WorldEnteredProbe(string source)
+        {
+            const int maxFrames = 600; // ~10s at 60fps; world load streams over many frames
+            for (int i = 0; i < maxFrames; i++)
+            {
+                int w = 0, h = 0;
+                try { w = MapBox.width; h = MapBox.height; } catch { }
+                bool loading = false;
+                try { loading = SmoothLoader.isLoading(); } catch { }
+                if (w > 0 && h > 0 && !loading)
+                {
+                    Debug.Log($"[WSM3D][Bridge] world entered: mapSize={w}x{h} (via {source})");
+                    yield break;
+                }
+                yield return null;
+            }
+            int fw = 0, fh = 0;
+            try { fw = MapBox.width; fh = MapBox.height; } catch { }
+            Debug.LogWarning($"[WSM3D][Bridge] world entered: TIMEOUT mapSize={fw}x{fh} (via {source}) — scene entry did not complete");
         }
 
         /// <summary>
@@ -1567,8 +1624,19 @@ namespace WorldSphereMod.Bridge
                         Debug.LogWarning("[WSM3D][Bridge] generate_world skipped: MapBox not ready");
                         return;
                     }
-                    MapBox.instance.generateNewMap();
-                    Debug.Log("[WSM3D][Bridge] generate_world: new map generated");
+                    // ROOT-CAUSE FIX: bare generateNewMap() enqueues finishMakingWorld into
+                    // SmoothLoader but does NOT set Config.game_loaded, so MapBox.Update never
+                    // pumps SmoothLoader and MapBox.width stays 0 (Become3D never runs).
+                    // startTheGame(true) is the menu "Generate New World" path: it sets
+                    // Config.game_loaded = true, generates, and queues addLastStep so the
+                    // pump drains to a real in-gameplay world.
+                    Config.game_loaded = true;
+                    MapBox.instance.startTheGame(true);
+                    CaptureMainThread();
+                    EnsureCreated();
+                    DrainStaticQueue();
+                    LogWorldEnteredWhenReady("generate_world");
+                    Debug.Log("[WSM3D][Bridge] generate_world: startTheGame(true) driven");
                 }
                 catch (Exception ex)
                 {
