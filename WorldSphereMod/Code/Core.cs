@@ -40,6 +40,7 @@ namespace WorldSphereMod
         public static Harmony Patcher;
         internal static bool ClearVoxelMeshCacheOnFirstFrame;
         private static bool _heightDiagLogged = false;
+        private static bool _runtimeLightingConfigured = false;
         /// <summary>True when no settings file existed at load time (fresh install).</summary>
         public static bool IsFirstInstall { get; private set; }
         public static void SaveSettings()
@@ -177,6 +178,7 @@ namespace WorldSphereMod
             InitProfiler.Measure("LoadSettings", () => LoadSettings());
             Sphere.HeightMult = Mathf.Max(savedSettings.TileHeight, 1f);
             Debug.Log($"[WSM3D][HEIGHT-DIAG] Init pre-bootstrap HeightMult={Sphere.HeightMult} TileHeightSetting={savedSettings.TileHeight}");
+            InitProfiler.Measure("RuntimeLighting.Configure", () => ConfigureRuntimeLighting());
             InitProfiler.Measure("WorldSphereTab.Begin", () => WorldSphereTab.Begin());
             InitProfiler.Measure("DimensionConverter.Prepare", () => DimensionConverter.Prepare());
             InitProfiler.Measure("Patch", () => Patch());
@@ -217,6 +219,44 @@ namespace WorldSphereMod
             // or infinite re-queuing. The reliable path is General.cs
             // SphereControl.CreateSphere (Postfix on MapBox.finishMakingWorld),
             // which fires for both new-world generation and save loads.
+        }
+
+        static void ConfigureRuntimeLighting()
+        {
+            if (_runtimeLightingConfigured) return;
+            _runtimeLightingConfigured = true;
+
+            RenderSettings.ambientLight = new Color(0.4f, 0.4f, 0.4f);
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+
+            if (RenderSettings.sun != null && RenderSettings.sun.type == LightType.Directional)
+            {
+                return;
+            }
+
+            Light sun = null;
+            Light[] lights = UnityEngine.Object.FindObjectsOfType<Light>();
+            for (int i = 0; i < lights.Length; i++)
+            {
+                if (lights[i] != null && lights[i].type == LightType.Directional)
+                {
+                    sun = lights[i];
+                    break;
+                }
+            }
+
+            if (sun == null)
+            {
+                GameObject sunGo = new GameObject("WSM3D.RuntimeSun");
+                sunGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+                sun = sunGo.AddComponent<Light>();
+                sun.type = LightType.Directional;
+                sun.intensity = 1.0f;
+                sun.color = Color.white;
+                sun.enabled = true;
+            }
+
+            RenderSettings.sun = sun;
         }
 
         public static void ApplyPhaseToggle(string flagName, bool newValue)
@@ -1351,23 +1391,7 @@ namespace WorldSphereMod
                     }
                 );
 
-                // Create a vertex-color material for the height field since the
-                // instanced CompoundSphere shader reads StructuredBuffers that
-                // don't exist on a plain DrawMesh call.
-                //
-                // DARK-LOWLAND root cause: this previously resolved to
-                // Shader.Find("Sprites/Default") FIRST. Sprites/Default is UNLIT and
-                // is modulated by WorldBox's global 2D sprite tint (day/night), so at
-                // night the entire terrain surface renders BLACK while the lit
-                // foliage/voxels (which use WSM3D/OpaqueVertexColor) stay visible.
-                // It also has NO _EmissionColor, so the emission floor below never
-                // applied. Prefer the SAME lit vertex-color shader the rest of the
-                // 3D scene uses (OpaqueVertexColor: own diffuse+ambient term, honours
-                // the emission floor, ignores the 2D night tint) so terrain — flat
-                // lowland included — stays lit. Fall back to Sprites/Default only if
-                // the bundle/Standard shaders are somehow unavailable.
-                Shader vcShader = ResolveShader("OpaqueVertexColor");
-                if (vcShader == null) vcShader = Shader.Find("Sprites/Default");
+                Shader vcShader = ResolveShader("");
                 if (vcShader != null)
                 {
                     Material hfMat = new Material(vcShader)
@@ -1380,8 +1404,8 @@ namespace WorldSphereMod
                     // The land mesh carries per-vertex corner-averaged colors as its
                     // sole albedo. Whatever shader we resolved samples _MainTex and
                     // multiplies it into albedo:
-                    //   - Sprites/Default & WSM3D/OpaqueVertexColor: albedo = color * tex2D(_MainTex)
-                    //   - Standard (ResolveShader fallback, LIT): albedo *= _MainTex
+                    //   - Mobile/VertexLit / Mobile/Diffuse / Diffuse: albedo = color * tex2D(_MainTex)
+                    //   - Standard: albedo *= _MainTex
                     // All declare _MainTex = "white" {}, but some 60f1 runtimes leave
                     // it NULL at runtime -> tex2D() = (0,0,0,0) -> albedo zeroed ->
                     // the entire terrain surface renders BLACK. Force the built-in
@@ -1391,25 +1415,10 @@ namespace WorldSphereMod
                     if (hfMat.HasProperty("_BaseMap"))
                         hfMat.SetTexture("_BaseMap", Texture2D.whiteTexture);
 
-                    // Standard is LIT and WorldBox scenes have no directional/ambient
-                    // light, so even with albedo intact the surface reads near-black.
-                    // Add an emission floor so terrain is visible under the Standard
-                    // fallback. OpaqueVertexColor (unlit, own 0.4 ambient term) ignores
-                    // this gracefully; the 0.15 floor matches MeshInstanceBatcher._bakeEmission.
                     if (hfMat.HasProperty("_EmissionColor"))
                     {
-                        bool isStandard = vcShader.name != null && vcShader.name.Contains("Standard");
-                        if (isStandard)
-                        {
-                            hfMat.EnableKeyword("_EMISSION");
-                            hfMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
-                            hfMat.SetColor("_EmissionColor", new Color(0.35f, 0.35f, 0.35f, 1f));
-                        }
-                        else
-                        {
-                            hfMat.DisableKeyword("_EMISSION");
-                            hfMat.SetColor("_EmissionColor", Color.black);
-                        }
+                        hfMat.DisableKeyword("_EMISSION");
+                        hfMat.SetColor("_EmissionColor", Color.black);
                     }
 
                     // DIAG: surface the resolved terrain shader + emission floor so a
@@ -2029,17 +2038,9 @@ namespace WorldSphereMod
                         // at origin.
                         if (fallback == null)
                         {
-                            // 60f1 strips Unlit/URP/Particles — only OpaqueVertexColor
-                            // (bundle), Sprites/Default and Standard survive at runtime.
-                            string[] candidates =
-                            {
-                                "WSM3D/OpaqueVertexColor",
-                                "Sprites/Default",
-                                "Standard",
-                            };
+                            string[] candidates = BuiltInShaderFallbacks;
                             foreach (var n in candidates)
                             {
-                                if (LoadedShaders.TryGetValue(n.Substring(n.LastIndexOf('/') + 1), out var cached) && cached != null) { fallback = cached; chosen = n + " (cache)"; break; }
                                 var sh2 = Shader.Find(n);
                                 if (sh2 != null) { fallback = sh2; chosen = n; break; }
                             }
@@ -2168,21 +2169,25 @@ namespace WorldSphereMod
             public static readonly System.Collections.Generic.Dictionary<string, UnityEngine.Shader> LoadedShaders =
                 new System.Collections.Generic.Dictionary<string, UnityEngine.Shader>();
 
-            // WorldBox's Unity 60f1 runtime ships a STRIPPED built-in shader set:
-            // every Unlit/* and Universal Render Pipeline/* probe returns null at
-            // runtime (confirmed live 2026-05-29), so those fallbacks produced the
-            // neon-magenta / NullReferenceException actors. The ONLY safe last
-            // resort is "Standard". Resolve a bundle shader by SafeShaders key,
-            // else fall back to Standard — NEVER to Unlit/* or URP/*.
+            public static readonly string[] BuiltInShaderFallbacks = new[]
+            {
+                "Mobile/VertexLit",
+                "Standard",
+                "Mobile/Diffuse",
+                "Diffuse",
+            };
+
             public static UnityEngine.Shader ResolveShader(string bundleName)
             {
-                if (!string.IsNullOrEmpty(bundleName)
-                    && LoadedShaders.TryGetValue(bundleName, out var bundled)
-                    && bundled != null)
+                foreach (string shaderName in BuiltInShaderFallbacks)
                 {
-                    return bundled;
+                    UnityEngine.Shader shader = UnityEngine.Shader.Find(shaderName);
+                    if (shader != null)
+                    {
+                        return shader;
+                    }
                 }
-                return UnityEngine.Shader.Find("Standard");
+                return null;
             }
 
             // True only when the named bundle shader actually deserialized and is
