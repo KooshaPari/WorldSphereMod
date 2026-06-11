@@ -274,8 +274,7 @@ namespace WorldSphereMod
             if (_runtimeLightingConfigured) return;
             _runtimeLightingConfigured = true;
 
-            RenderSettings.ambientLight = new Color(0.4f, 0.4f, 0.4f);
-            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+            ReassertRenderFoundationAmbient();
 
             if (RenderSettings.sun != null && RenderSettings.sun.type == LightType.Directional)
             {
@@ -305,6 +304,17 @@ namespace WorldSphereMod
             }
 
             RenderSettings.sun = sun;
+        }
+
+        internal static void ReassertRenderFoundationAmbient()
+        {
+            if (savedSettings != null && (savedSettings.DayNightCycle || savedSettings.HdrSkybox))
+            {
+                return;
+            }
+
+            RenderSettings.ambientLight = new Color(0.4f, 0.4f, 0.4f);
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
         }
 
         public static void ApplyPhaseToggle(string flagName, bool newValue)
@@ -772,6 +782,7 @@ namespace WorldSphereMod
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] WSM3DPostStack failed: " + ex.Message); }
             try { WorldSphereMod.Lighting.ProceduralSky.EnsureCreated(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] ProceduralSky.EnsureCreated failed: " + ex.Message); }
+            ReassertRenderFoundationAmbient();
             try { Do3DStuff(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] Do3DStuff failed: " + ex.Message); }
             try { Sphere.LogDiagnostics("[WSM3D] Become3D"); }
