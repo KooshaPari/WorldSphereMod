@@ -16,7 +16,9 @@ namespace WorldSphereMod.Lighting
         float _lastWorldTime;
         float _lastWorldTimeSampleAt;
         float _worldTimeRate = 0.001f;
+        float _lastMovingWorldTimeAt;
         const float _worldTimeLerpSpeed = 14f;
+        const float _worldTimeStaticFallbackSeconds = 0.75f;
 
         static readonly int _wsmFogDensity = Shader.PropertyToID("_WSM_FogDensity");
         static readonly int _wsmFogColor = Shader.PropertyToID("_WSM_FogColor");
@@ -42,7 +44,7 @@ namespace WorldSphereMod.Lighting
 
         void Update()
         {
-            if (!Core.IsWorld3D)
+            if (!Core.IsWorld3D || Core.savedSettings == null || !Core.savedSettings.DayNightCycle)
             {
                 return;
             }
@@ -58,6 +60,7 @@ namespace WorldSphereMod.Lighting
                         Current = worldTime;
                         _lastWorldTime = worldTime;
                         _lastWorldTimeSampleAt = Time.unscaledTime;
+                        _lastMovingWorldTimeAt = Time.unscaledTime;
                         _worldTimeRate = DaySpeed;
                         _seededFromWorldTime = true;
                     }
@@ -65,18 +68,31 @@ namespace WorldSphereMod.Lighting
                     {
                         float sampleAge = Time.unscaledTime - _lastWorldTimeSampleAt;
                         float delta = Mathf.DeltaAngle(_lastWorldTime * 360f, worldTime * 360f) / 360f;
-                        if (sampleAge > 0f && Mathf.Abs(delta) > Mathf.Epsilon)
+                        bool worldTimeMoving = sampleAge > 0f && Mathf.Abs(delta) > 0.00001f;
+                        if (worldTimeMoving)
                         {
                             float targetRate = delta / sampleAge;
                             float catchup = 1f - Mathf.Exp(-_worldTimeLerpSpeed * sampleAge);
                             _worldTimeRate = Mathf.Lerp(_worldTimeRate, targetRate, catchup);
                             _lastWorldTime = worldTime;
                             _lastWorldTimeSampleAt = Time.unscaledTime;
+                            _lastMovingWorldTimeAt = Time.unscaledTime;
+                        }
+                        else if (Time.unscaledTime - _lastMovingWorldTimeAt >= _worldTimeStaticFallbackSeconds)
+                        {
+                            _worldTimeRate = DaySpeed;
                         }
                     }
-                    float worldDriven = Mathf.Repeat(Current + Time.deltaTime * _worldTimeRate, 1f);
-                    float t = 1f - Mathf.Exp(-_worldTimeLerpSpeed * Time.deltaTime);
-                    Current = Mathf.Repeat(Mathf.LerpAngle(worldDriven * 360f, worldTime * 360f, t) / 360f, 1f);
+                    if (Time.unscaledTime - _lastMovingWorldTimeAt < _worldTimeStaticFallbackSeconds)
+                    {
+                        float worldDriven = Mathf.Repeat(Current + Time.deltaTime * _worldTimeRate, 1f);
+                        float t = 1f - Mathf.Exp(-_worldTimeLerpSpeed * Time.deltaTime);
+                        Current = Mathf.Repeat(Mathf.LerpAngle(worldDriven * 360f, worldTime * 360f, t) / 360f, 1f);
+                    }
+                    else
+                    {
+                        Current = Mathf.Repeat(Current + Time.deltaTime * DaySpeed, 1f);
+                    }
                 }
                 else
                 {

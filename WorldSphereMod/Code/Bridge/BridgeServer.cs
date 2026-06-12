@@ -1220,7 +1220,82 @@ namespace WorldSphereMod.Bridge
             // per-frame actor draws: actorDrawCumulative grows ~1/frame if drawing stably.
             actorDrawCumulative = WorldSphereMod.Voxel.VoxelRender.ActorDrawCallsCumulative,
             actorFrontCount = WorldSphereMod.Voxel.VoxelRender.ActorFrontCount,
+            // Render-foundation MACHINE state (commit 40f903d): lets wsm3d-verify.ps1
+            // confirm the LIT built-in fallback + lighting setup WITHOUT pixel sampling.
+            // All reads are cheap static-field / RenderSettings property accesses computed
+            // only on a /telemetry request (no per-frame cost).
+            renderFoundation = BuildRenderFoundationPayload(),
         };
+
+        /// <summary>
+        /// Machine-readable snapshot of the render-foundation: resolved shaders on the
+        /// live actor + terrain materials, ambient/sun lighting setup, and representative
+        /// mesh vertex counts. Read by Tools/wsm3d-verify.ps1 (TIER 1, pixel-free).
+        /// Fully null-safe so /telemetry never throws at the title screen.
+        /// </summary>
+        object BuildRenderFoundationPayload()
+        {
+            string actorShader = null;
+            int actorVerts = 0;
+            try
+            {
+                var actorMat = WorldSphereMod.Voxel.VoxelRender._material;
+                if (actorMat != null && actorMat.shader != null) actorShader = actorMat.shader.name;
+                actorVerts = WorldSphereMod.Voxel.VoxelRender.LastActorMeshVertCount;
+            }
+            catch { }
+
+            string terrainShader = null;
+            int terrainVerts = 0;
+            try
+            {
+                var terrainMat = Core.Sphere.LastTerrainMaterial;
+                if (terrainMat != null && terrainMat.shader != null) terrainShader = terrainMat.shader.name;
+                var terrainMesh = Core.Sphere.LastTerrainMesh;
+                if (terrainMesh != null) terrainVerts = terrainMesh.vertexCount;
+            }
+            catch { }
+
+            float ar = 0f, ag = 0f, ab = 0f;
+            string ambientMode = null;
+            bool sunPresent = false, sunIsDirectional = false;
+            float sunEulerX = 0f, sunEulerY = 0f, sunEulerZ = 0f, sunRotationDeg = 0f;
+            float timeOfDay = 0f;
+            try
+            {
+                UnityEngine.Color a = UnityEngine.RenderSettings.ambientLight;
+                ar = a.r; ag = a.g; ab = a.b;
+                ambientMode = UnityEngine.RenderSettings.ambientMode.ToString();
+                UnityEngine.Light sun = UnityEngine.RenderSettings.sun;
+                sunPresent = sun != null;
+                sunIsDirectional = sun != null && sun.type == UnityEngine.LightType.Directional;
+                if (sun != null)
+                {
+                    UnityEngine.Vector3 sunEuler = sun.transform.rotation.eulerAngles;
+                    sunEulerX = sunEuler.x;
+                    sunEulerY = sunEuler.y;
+                    sunEulerZ = sunEuler.z;
+                    sunRotationDeg = sunEuler.x;
+                }
+                timeOfDay = WorldSphereMod.Lighting.TimeOfDay.Current;
+            }
+            catch { }
+
+            return new
+            {
+                actorMaterialShader = actorShader,
+                terrainMaterialShader = terrainShader,
+                ambientLight = new { r = ar, g = ag, b = ab },
+                ambientMode,
+                sunPresent,
+                sunIsDirectional,
+                sunEuler = new { x = sunEulerX, y = sunEulerY, z = sunEulerZ },
+                sunRotationDeg,
+                timeOfDay,
+                actorMeshVertCount = actorVerts,
+                terrainMeshVertCount = terrainVerts,
+            };
+        }
 
         string BuildSettingsJson() => JsonConvert.SerializeObject(Core.savedSettings ?? new SavedSettings(), Formatting.Indented);
 
@@ -1300,12 +1375,36 @@ namespace WorldSphereMod.Bridge
                     }
 
                     SaveManager.setCurrentPathAndId(queuedPath, queuedSlot);
-                    World.world.save_manager.prepareLoading();
-                    World.world.save_manager.loadWorld(queuedPath, false);
+
+                    // ROOT-CAUSE FIX (#scene-entry): loadWorld() only ENQUEUES the load steps
+                    // (setMapSize -> finishMakingWorld) into SmoothLoader. SmoothLoader is pumped
+                    // by MapBox.Update, but MapBox.Update early-returns while Config.game_loaded
+                    // is false (it stays false at the main menu / pre-first-world). So a bare
+                    // loadWorld from the bridge enqueued everything and NOTHING drained it:
+                    // MapBox.width/height stayed 0 and the fork's Become3D (guarded on width>0)
+                    // never ran. The menu "Load" button avoids this because startTheGame() sets
+                    // Config.game_loaded = true BEFORE enqueuing. Mirror the menu path exactly:
+                    // drive startTheGame with load_save_on_start so the engine sets game_loaded,
+                    // queues loadWorld + addLastStep (re-enables the SpriteRenderer/nameplate),
+                    // and the SmoothLoader pump drains to a real in-gameplay world.
+                    Config.game_loaded = true;
+                    Config.load_new_map = false;
+                    Config.load_save_on_start = true;
+                    Config.load_save_on_start_slot = queuedSlot;
+                    // NOTE: do NOT call save_manager.prepareLoading() here — it's a private
+                    // WorldBox method (publicizer trap: compiles but throws under NML's Roslyn).
+                    // startTheGame's load_save_on_start branch calls loadWorld() directly without
+                    // a manual prepareLoading, so the menu path does not need it either.
+                    MapBox.instance.startTheGame(false);
+
                     // loadWorld Postfix also runs survival; belt-and-suspenders if patch order differs.
                     CaptureMainThread();
                     EnsureCreated();
                     DrainStaticQueue();
+
+                    // Post-condition log fires once SmoothLoader has drained setMapSize
+                    // (MapBox.width becomes non-zero) so the operator can confirm scene entry.
+                    LogWorldEnteredWhenReady("load_save slot=" + queuedSlot);
                 }
                 catch (Exception ex)
                 {
@@ -1314,6 +1413,152 @@ namespace WorldSphereMod.Bridge
             });
 
             return new { ok = true, slot, path, queued = true };
+        }
+
+        /// <summary>
+        /// Post-condition probe: poll up to ~10s (on the main thread via coroutine) until
+        /// SmoothLoader has drained setMapSize so MapBox.width becomes non-zero, then log the
+        /// real entered dimensions. Confirms the scene-entry fix worked without blocking the
+        /// HTTP response. Safe no-op if the BridgeServer host coroutine can't start.
+        /// </summary>
+        void LogWorldEnteredWhenReady(string source)
+        {
+            try { StartCoroutine(WorldEnteredProbe(source)); }
+            catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] world-entered probe failed to start: " + ex.Message); }
+        }
+
+        System.Collections.IEnumerator WorldEnteredProbe(string source)
+        {
+            const int maxFrames = 600; // ~10s at 60fps; world load streams over many frames
+            // SCENE-ENTRY DETECTION (#generate-path fix): the original gate required
+            // !SmoothLoader.isLoading(), but on the bridge GENERATE path SmoothLoader never
+            // fully drains to isLoading()==false within the probe window (the post-gen idle
+            // steps / addLastStep keep a step queued), so the probe always TIMED OUT and
+            // EnsureBecome3D never fired -> isWorld3D stayed false, drawCalls=0.
+            //
+            // The real readiness signal the menu path relies on is: the engine considers the
+            // game loaded (Config.game_loaded) AND MapBox has real dimensions (width/height>0,
+            // i.e. setMapSize ran). Once both hold the world IS entered; isLoading() merely
+            // reflects residual streaming steps. So we PROCEED to Become3D as soon as map dims
+            // are non-zero and game_loaded is set, without waiting for isLoading()==false. We
+            // still give SmoothLoader a brief grace settle so most streaming finishes first.
+            const int settleFramesAfterReady = 30; // ~0.5s grace once dims+game_loaded hold
+            int readyFor = 0;
+            for (int i = 0; i < maxFrames; i++)
+            {
+                int w = 0, h = 0;
+                try { w = MapBox.width; h = MapBox.height; } catch { }
+                bool gameLoaded = false;
+                try { gameLoaded = Config.game_loaded; } catch { }
+                bool loading = true;
+                try { loading = SmoothLoader.isLoading(); } catch { }
+
+                bool dimsReady = w > 0 && h > 0 && gameLoaded;
+                // Fast path: full drain (dims + game_loaded + streaming finished).
+                // Fallback path: dims + game_loaded held stable for a short grace window even
+                // though isLoading() never cleared (the generate-path symptom).
+                if (dimsReady) readyFor++; else readyFor = 0;
+                bool proceed = dimsReady && (!loading || readyFor >= settleFramesAfterReady);
+
+                if (proceed)
+                {
+                    Debug.Log($"[WSM3D][Bridge] world entered: mapSize={w}x{h} gameLoaded={gameLoaded} stillLoading={loading} (via {source})");
+                    // DOWNSTREAM FIX: on the bridge-driven entry path (startTheGame from the
+                    // RPC queue) the General.cs SphereControl.CreateSphere postfix on
+                    // MapBox.finishMakingWorld does NOT fire/queue Become3D the way the menu
+                    // path does (empirically: "Tidying Up The World" runs but no "Becoming 3D!"
+                    // SmoothLoader step and no Become3D/HEIGHT-DIAG/COLOR-DIAG log appears), so
+                    // Sphere is never created and isWorld3D stays false. Drive the 3D conversion
+                    // explicitly here, mirroring what the postfix is supposed to do: only when
+                    // Is3D is enabled and the map fits the 3D tile budget. If a prior Sphere
+                    // exists, EnsureBecome3D tears it down and rebuilds it for this map.
+                    EnsureBecome3D(source, w, h);
+                    yield break;
+                }
+                yield return null;
+            }
+            int fw = 0, fh = 0;
+            try { fw = MapBox.width; fh = MapBox.height; } catch { }
+            bool fGameLoaded = false; try { fGameLoaded = Config.game_loaded; } catch { }
+            bool fLoading = true; try { fLoading = SmoothLoader.isLoading(); } catch { }
+            // Last-ditch: if dims are valid we still drive Become3D rather than abandoning the
+            // entry — a non-zero map is a real world regardless of the loading flag.
+            if (fw > 0 && fh > 0)
+            {
+                Debug.LogWarning($"[WSM3D][Bridge] world entered: dims ready at timeout mapSize={fw}x{fh} gameLoaded={fGameLoaded} stillLoading={fLoading} (via {source}) — driving Become3D anyway");
+                EnsureBecome3D(source, fw, fh);
+                yield break;
+            }
+            Debug.LogWarning($"[WSM3D][Bridge] world entered: TIMEOUT mapSize={fw}x{fh} gameLoaded={fGameLoaded} stillLoading={fLoading} (via {source}) — scene entry did not complete");
+        }
+
+        /// <summary>
+        /// Explicitly drive the 3D conversion on the bridge entry path when the finishMakingWorld
+        /// postfix did not. No-op when Is3D is off, or the map exceeds the 3D tile budget
+        /// (Become3D would skip it anyway). If a prior sphere exists, tear it down first so the
+        /// heightfield and camera rebuild against the newly entered world.
+        /// </summary>
+        static void EnsureBecome3D(string source, int w, int h)
+        {
+            try
+            {
+                var settings = Core.savedSettings;
+                if (settings == null || !settings.Is3D) return;
+                if (Core.IsWorld3D)
+                {
+                    Debug.Log($"[WSM3D][Bridge] rebuilding 3D for new world (prior sphere existed) via {source}");
+                    try { Core.Become2D(); }
+                    catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] Become2D teardown failed: " + ex.Message); }
+                }
+                long totalTiles = (long)w * h;
+                if (totalTiles > settings.MaxTilesFor3D)
+                {
+                    Debug.LogWarning($"[WSM3D][Bridge] skipping Become3D: {w}x{h}={totalTiles} > MaxTilesFor3D={settings.MaxTilesFor3D} (via {source})");
+                    return;
+                }
+                Debug.Log($"[WSM3D][Bridge] driving Become3D explicitly via {source}");
+                // When the bridge drives startTheGame, NML's IStagedLoad Init()/PostInit()
+                // callbacks (which call Core.Init -> Sphere.PrepareAssets) may not have fired,
+                // so the 'worldsphere' AssetBundle (CompoundSphereMaterial + CompoundSphereMesh)
+                // was never loaded and Sphere.Begin aborts with "...missing — Bundle load likely
+                // failed." PrepareAssets is idempotent and has NO World dependency, so force it
+                // here before Become3D so the Sphere manager can be created.
+                try { Core.Sphere.PrepareAssets(); }
+                catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] PrepareAssets (forced) failed: " + ex.Message); }
+                // Core.Init (which sets Sphere.HeightMult = Max(TileHeight,1)) also never ran on
+                // the bridge staged-load path, leaving HeightMult=0. CompoundSpheres'
+                // SphereManager.SphereTilePosition NREs when building tiles with HeightMult=0,
+                // so seed it from settings here (mirrors Core.Init).
+                try
+                {
+                    if (Core.Sphere.HeightMult <= 0f)
+                    {
+                        float th = settings.TileHeight > 0f ? settings.TileHeight : 1f;
+                        Core.Sphere.HeightMult = Mathf.Max(th, 1f);
+                        Debug.Log($"[WSM3D][Bridge] seeded Sphere.HeightMult={Core.Sphere.HeightMult} (Core.Init had not run)");
+                    }
+                }
+                catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] HeightMult seed failed: " + ex.Message); }
+                // Ensure CurrentShape is selected. The General.cs setMapSize prefix
+                // (SphereControl.PrepareShape -> Core.Sphere.PrepareShape) is what normally
+                // assigns CurrentShape = Shapes[CurrentShape]; if it did not fire on the bridge
+                // path, CreateSettings wires a null getSphereTilePosition delegate and
+                // CompoundSpheres' SphereManager.SphereTilePosition NREs while building tiles.
+                try
+                {
+                    int sw2 = w, sh = h;
+                    Core.Sphere.PrepareShape(ref sw2, ref sh);
+                }
+                catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] PrepareShape (forced) failed: " + ex.Message); }
+                // Mirror SphereControl.CreateSphere: reset the PrepareWorld guard so Become3D
+                // reads real biome pixels (else vertex colors stay white). (#208)
+                try { Core.Sphere.ResetPrepared(); } catch { }
+                Core.Become3D();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[WSM3D][Bridge] EnsureBecome3D failed: " + ex.Message);
+            }
         }
 
         /// <summary>
@@ -1506,8 +1751,19 @@ namespace WorldSphereMod.Bridge
                         Debug.LogWarning("[WSM3D][Bridge] generate_world skipped: MapBox not ready");
                         return;
                     }
-                    MapBox.instance.generateNewMap();
-                    Debug.Log("[WSM3D][Bridge] generate_world: new map generated");
+                    // ROOT-CAUSE FIX: bare generateNewMap() enqueues finishMakingWorld into
+                    // SmoothLoader but does NOT set Config.game_loaded, so MapBox.Update never
+                    // pumps SmoothLoader and MapBox.width stays 0 (Become3D never runs).
+                    // startTheGame(true) is the menu "Generate New World" path: it sets
+                    // Config.game_loaded = true, generates, and queues addLastStep so the
+                    // pump drains to a real in-gameplay world.
+                    Config.game_loaded = true;
+                    MapBox.instance.startTheGame(true);
+                    CaptureMainThread();
+                    EnsureCreated();
+                    DrainStaticQueue();
+                    LogWorldEnteredWhenReady("generate_world");
+                    Debug.Log("[WSM3D][Bridge] generate_world: startTheGame(true) driven");
                 }
                 catch (Exception ex)
                 {

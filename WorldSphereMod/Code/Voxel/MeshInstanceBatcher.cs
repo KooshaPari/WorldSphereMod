@@ -133,7 +133,7 @@ namespace WorldSphereMod.Voxel
         // (no INSTANCING_ON), which IS present (terrain MeshRenderer + foliage prove
         // it), and UNITY_ACCESS_INSTANCED_PROP falls back to the MPB/material _Color
         // there. Default to that path so actors render with correct per-actor color.
-        static bool _useFallbackPath = true;
+        static bool _useFallbackPath = false;
         static bool _verboseDrawLoggingArmed;
         static bool _verboseDrawLoggingConsumed;
         static bool _renderTargetLogged;
@@ -586,10 +586,7 @@ namespace WorldSphereMod.Voxel
 
             Interlocked.Exchange(ref _pendingSubmissionCount, 0);
             _buckets.Clear();
-            // Keep non-instanced default across world reloads — the bundled
-            // OpaqueVertexColor INSTANCING_ON variant is missing (see field decl),
-            // so re-enabling instancing here would resurrect the magenta bug.
-            _useFallbackPath = true;
+            _useFallbackPath = Core.savedSettings != null && Core.savedSettings.ForceFallbackDrawPath;
             _instancingErrorLogged = false;
             _standardInstancingAttempted = false;
             _verboseDrawLoggingArmed = false;

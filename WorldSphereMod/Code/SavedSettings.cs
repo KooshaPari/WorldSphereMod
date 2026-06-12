@@ -15,7 +15,7 @@ public class SavedSettings
     public float AutoScreenshotIntervalSeconds = 60f;
     public string AutoScreenshotPath = @"C:\Users\koosh\Dev\WorldSphereMod\docs\journeys\scratch\";
 
-        public string Version = "2.13";
+        public string Version = "2.14";
         public bool Is3D = true;
         public bool InvertedCameraMovement = false;
         public bool PerlinNoise = true;
@@ -152,7 +152,7 @@ public class SavedSettings
         public float NameplateMaxScale = 2f;
         public float NameplateBaseScale = 0.04f;
         // Phase 8: Day/night cycle + procedural sky + fog.
-        public bool DayNightCycle = false;
+        public bool DayNightCycle = true;
         public float FogDensity = 0.05f;
         // Tier 5: Forward+ CommandBuffer renderer (docs/specs/forward-plus-renderer-spec.md).
         // Opt-in last-resort path; defaults OFF until depth/color passes ship.
@@ -174,9 +174,10 @@ public class SavedSettings
         // First-run experience: set true after the welcome dialog has been shown once.
         public bool HasSeenWelcome = false;
 
-        // Safety: maximum tile count (width*height) for 3D mode. Maps larger
-        // than this skip Become3D to prevent GPU hangs. ~316x316 = 100K default.
-        public int MaxTilesFor3D = 100000;
+        // Safety: maximum tile count (width*height) for 3D mode. 576x576 saves
+        // are eligible now that incremental heightfield + #208 perf work is in
+        // place, but this remains a setting because large worlds are still costly.
+        public int MaxTilesFor3D = 360000;
 
         // Phase 10: LOD ladder + impostor fallback.
         public float LODScale = 0.5f;
@@ -230,7 +231,7 @@ public class SavedSettings
             s.GpuProceduralSkinning = false;
             s.WorldspaceUI = false;
             s.WorldspaceLabel3D = false;
-            s.DayNightCycle = false;
+            s.DayNightCycle = true;
             s.PostFX = false;
             s.SSAOEnabled = false;
             s.SSGIEnabled = false;
@@ -266,7 +267,7 @@ public class SavedSettings
             s.GpuProceduralSkinning = false;
             s.WorldspaceUI = false;
             s.WorldspaceLabel3D = false;
-            s.DayNightCycle = false;
+            s.DayNightCycle = true;
             s.ForwardPlusRenderer = false;
             s.PostFX = false;
             s.SSAOEnabled = false;

@@ -47,12 +47,14 @@ namespace WorldSphereMod
         // 2.12 = water-flat-sealevel active (#208); forces fresh migration.
         // 2.13 = worldspace nametags + health bars further shrunk at default
         // zoom (user-reported P0 2026-06-04, task #208). Bump forces migration.
-        public static string SettingsVersion = "2.13";
+        // 2.14 = DayNightCycle default-on for render-foundation sun-cycle verification.
+        public static string SettingsVersion = "2.14";
 
         public static Harmony Patcher;
         internal static bool ClearVoxelMeshCacheOnFirstFrame;
         private static bool _phaseDiagLogged;
         private static bool _heightDiagLogged = false;
+        private static bool _runtimeLightingConfigured;
         /// <summary>True when no settings file existed at load time (fresh install).</summary>
         public static bool IsFirstInstall { get; private set; }
         public static void SaveSettings()
@@ -225,6 +227,7 @@ namespace WorldSphereMod
             InitProfiler.Measure("LoadSettings", () => LoadSettings());
             Sphere.HeightMult = Mathf.Max(savedSettings.TileHeight, 1f);
             Debug.Log($"[WSM3D][HEIGHT-DIAG] Init pre-bootstrap HeightMult={Sphere.HeightMult} TileHeightSetting={savedSettings.TileHeight}");
+            InitProfiler.Measure("RuntimeLighting.Configure", () => ConfigureRuntimeLighting());
             InitProfiler.Measure("WorldSphereTab.Begin", () => WorldSphereTab.Begin());
             InitProfiler.Measure("DimensionConverter.Prepare", () => DimensionConverter.Prepare());
             InitProfiler.Measure("Patch", () => Patch());
@@ -265,6 +268,54 @@ namespace WorldSphereMod
             // or infinite re-queuing. The reliable path is General.cs
             // SphereControl.CreateSphere (Postfix on MapBox.finishMakingWorld),
             // which fires for both new-world generation and save loads.
+        }
+
+        static void ConfigureRuntimeLighting()
+        {
+            if (_runtimeLightingConfigured) return;
+            _runtimeLightingConfigured = true;
+
+            ReassertRenderFoundationAmbient();
+
+            if (RenderSettings.sun != null && RenderSettings.sun.type == LightType.Directional)
+            {
+                return;
+            }
+
+            Light sun = null;
+            Light[] lights = UnityEngine.Object.FindObjectsOfType<Light>();
+            for (int i = 0; i < lights.Length; i++)
+            {
+                if (lights[i] != null && lights[i].type == LightType.Directional)
+                {
+                    sun = lights[i];
+                    break;
+                }
+            }
+
+            if (sun == null)
+            {
+                GameObject sunGo = new GameObject("WSM3D.RuntimeSun");
+                sunGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+                sun = sunGo.AddComponent<Light>();
+                sun.type = LightType.Directional;
+                sun.intensity = 1f;
+                sun.color = Color.white;
+                sun.enabled = true;
+            }
+
+            RenderSettings.sun = sun;
+        }
+
+        internal static void ReassertRenderFoundationAmbient()
+        {
+            if (savedSettings != null && (savedSettings.DayNightCycle || savedSettings.HdrSkybox))
+            {
+                return;
+            }
+
+            RenderSettings.ambientLight = new Color(0.4f, 0.4f, 0.4f);
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
         }
 
         public static void ApplyPhaseToggle(string flagName, bool newValue)
@@ -631,14 +682,21 @@ namespace WorldSphereMod
                         try
                         {
                             WorldTile tile = World.world.GetTileSimple(px, py);
-                            float tileHeight = tile == null ? float.NaN : tile.TileHeight();
+                            // Sample RAW WorldBox elevation (GetHeight), not the fork's
+                            // TileHeight() — the latter routes through Tile.WorldToSphere()
+                            // -> Core.Sphere.GetTile(), which NREs at Become3D ENTRY because
+                            // Sphere.Begin() (which builds the Manager + SphereTiles) has not
+                            // run yet. GetHeight() is the native tile field and is populated
+                            // as soon as the world tiles exist, so the flat-terrain auto-boost
+                            // below can actually evaluate on both bridge + menu load paths.
+                            float tileHeight = tile == null ? float.NaN : tile.GetHeight();
                             if (!float.IsNaN(tileHeight))
                             {
                                 if (tileHeight < minHeight) minHeight = tileHeight;
                                 if (tileHeight > maxHeight) maxHeight = tileHeight;
                                 validSamples++;
                             }
-                            Debug.Log($"[WSM3D][HEIGHT-DIAG] tile=({px},{py}) TileHeight()={tileHeight} HeightMult={Sphere.HeightMult} TileHeightSetting={savedSettings.TileHeight}");
+                            Debug.Log($"[WSM3D][HEIGHT-DIAG] tile=({px},{py}) GetHeight()={tileHeight} HeightMult={Sphere.HeightMult} TileHeightSetting={savedSettings.TileHeight}");
                         }
                         catch (System.Exception tileEx)
                         {
@@ -649,7 +707,9 @@ namespace WorldSphereMod
                     {
                         float span = maxHeight - minHeight;
                         Debug.Log($"[WSM3D][HEIGHT-DIAG] terrain sample span={span:F4} min={minHeight:F4} max={maxHeight:F4} HeightMult={Sphere.HeightMult}");
-                        const float flatSpanThreshold = 0.20f;
+                        // GetHeight() is in raw integer elevation steps: a genuinely flat
+                        // region spans 0, any relief spans >=1. 0.5 cleanly separates the two.
+                        const float flatSpanThreshold = 0.5f;
                         if (span <= flatSpanThreshold && savedSettings.TileHeight <= 1f)
                         {
                             float oldMult = Sphere.HeightMult;
@@ -723,6 +783,7 @@ namespace WorldSphereMod
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] WSM3DPostStack failed: " + ex.Message); }
             try { WorldSphereMod.Lighting.ProceduralSky.EnsureCreated(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] ProceduralSky.EnsureCreated failed: " + ex.Message); }
+            ReassertRenderFoundationAmbient();
             try { Do3DStuff(); }
             catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] Do3DStuff failed: " + ex.Message); }
             try { Sphere.LogDiagnostics("[WSM3D] Become3D"); }
@@ -755,6 +816,13 @@ namespace WorldSphereMod
         // the layer between the Mod and the compound sphere
         public static class Sphere
         {
+            // Render-foundation machine-verification handles: the last terrain
+            // height-field material + mesh applied this world, so the bridge
+            // /telemetry can report terrainMaterialShader / terrainMeshVertCount
+            // without per-frame cost (read on telemetry request only).
+            public static UnityEngine.Material LastTerrainMaterial;
+            public static UnityEngine.Mesh LastTerrainMesh;
+
             public static void AddShape(Shape shape)
             {
                 Shapes.Add(shape);
@@ -1433,23 +1501,7 @@ namespace WorldSphereMod
                     }
                 );
 
-                // Create a vertex-color material for the height field since the
-                // instanced CompoundSphere shader reads StructuredBuffers that
-                // don't exist on a plain DrawMesh call.
-                //
-                // DARK-LOWLAND root cause: this previously resolved to
-                // Shader.Find("Sprites/Default") FIRST. Sprites/Default is UNLIT and
-                // is modulated by WorldBox's global 2D sprite tint (day/night), so at
-                // night the entire terrain surface renders BLACK while the lit
-                // foliage/voxels (which use WSM3D/OpaqueVertexColor) stay visible.
-                // It also has NO _EmissionColor, so the emission floor below never
-                // applied. Prefer the SAME lit vertex-color shader the rest of the
-                // 3D scene uses (OpaqueVertexColor: own diffuse+ambient term, honours
-                // the emission floor, ignores the 2D night tint) so terrain — flat
-                // lowland included — stays lit. Fall back to Sprites/Default only if
-                // the bundle/Standard shaders are somehow unavailable.
-                Shader vcShader = ResolveShader("OpaqueVertexColor");
-                if (vcShader == null) vcShader = Shader.Find("Sprites/Default");
+                Shader vcShader = ResolveShader("");
                 if (vcShader != null)
                 {
                     Material hfMat = new Material(vcShader)
@@ -1487,25 +1539,10 @@ namespace WorldSphereMod
                         hfMat.SetFloat("_UseTerrainTexArray", usesTerrainTexArray && terrainTexArrayLayers > 0 ? 1f : 0f);
                     }
 
-                    // Standard is LIT and WorldBox scenes have no directional/ambient
-                    // light, so even with albedo intact the surface reads near-black.
-                    // Add an emission floor so terrain is visible under the Standard
-                    // fallback. OpaqueVertexColor (unlit, own 0.4 ambient term) ignores
-                    // this gracefully; the 0.15 floor matches MeshInstanceBatcher._bakeEmission.
                     if (hfMat.HasProperty("_EmissionColor"))
                     {
-                        bool isStandard = vcShader.name != null && vcShader.name.Contains("Standard");
-                        if (isStandard)
-                        {
-                            hfMat.EnableKeyword("_EMISSION");
-                            hfMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
-                            hfMat.SetColor("_EmissionColor", new Color(0.35f, 0.35f, 0.35f, 1f));
-                        }
-                        else
-                        {
-                            hfMat.DisableKeyword("_EMISSION");
-                            hfMat.SetColor("_EmissionColor", Color.black);
-                        }
+                        hfMat.DisableKeyword("_EMISSION");
+                        hfMat.SetColor("_EmissionColor", Color.black);
                     }
 
                     // DIAG: surface the resolved terrain shader + emission floor so a
@@ -1518,6 +1555,9 @@ namespace WorldSphereMod
                         $"terrainTexArray={usesTerrainTexArray} layers={terrainTexArrayLayers}");
 
                     hf.SetMaterial(hfMat);
+                    EnsureMeshNormals(hf.Mesh, "terrain");
+                    LastTerrainMaterial = hfMat;
+                    LastTerrainMesh = hf.Mesh;
                 }
 
                 // Water now lives IN THE FORK as a corner-averaged sub-mesh at the
@@ -1715,6 +1755,24 @@ namespace WorldSphereMod
                 catch { /* never let overlay sampling break the terrain bake */ }
 
                 return ov;
+            }
+
+            static void EnsureMeshNormals(Mesh mesh, string label)
+            {
+                if (mesh == null || mesh.vertexCount == 0) return;
+                try
+                {
+                    Vector3[] normals = mesh.normals;
+                    if (normals == null || normals.Length != mesh.vertexCount)
+                    {
+                        mesh.RecalculateNormals();
+                        Debug.Log($"[WSM3D] Recalculated missing {label} mesh normals.");
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogWarning("[WSM3D] " + label + " mesh normal check failed: " + ex.Message);
+                }
             }
 
             /// <summary>True if the tile type's string id contains <paramref name="needle"/> (case-insensitive).</summary>
@@ -2194,23 +2252,10 @@ namespace WorldSphereMod
                             chosen = "CompoundSphere (Shader.Find)";
                         }
 
-                        // Second: try generic shaders as last resort. These
-                        // will NOT support the StructuredBuffer instancing —
-                        // terrain will likely be invisible or a single tile
-                        // at origin.
                         if (fallback == null)
                         {
-                            // 60f1 strips Unlit/URP/Particles — only OpaqueVertexColor
-                            // (bundle), Sprites/Default and Standard survive at runtime.
-                            string[] candidates =
+                            foreach (var n in BuiltInShaderFallbacks)
                             {
-                                "WSM3D/OpaqueVertexColor",
-                                "Sprites/Default",
-                                "Standard",
-                            };
-                            foreach (var n in candidates)
-                            {
-                                if (LoadedShaders.TryGetValue(n.Substring(n.LastIndexOf('/') + 1), out var cached) && cached != null) { fallback = cached; chosen = n + " (cache)"; break; }
                                 var sh2 = Shader.Find(n);
                                 if (sh2 != null) { fallback = sh2; chosen = n; break; }
                             }
@@ -2348,21 +2393,26 @@ namespace WorldSphereMod
             public static readonly System.Collections.Generic.Dictionary<string, UnityEngine.Shader> LoadedShaders =
                 new System.Collections.Generic.Dictionary<string, UnityEngine.Shader>();
 
-            // WorldBox's Unity 60f1 runtime ships a STRIPPED built-in shader set:
-            // every Unlit/* and Universal Render Pipeline/* probe returns null at
-            // runtime (confirmed live 2026-05-29), so those fallbacks produced the
-            // neon-magenta / NullReferenceException actors. The ONLY safe last
-            // resort is "Standard". Resolve a bundle shader by SafeShaders key,
-            // else fall back to Standard — NEVER to Unlit/* or URP/*.
+            public static readonly string[] BuiltInShaderFallbacks = new[]
+            {
+                "Mobile/VertexLit",
+                "Standard",
+                "Mobile/Diffuse",
+                "Diffuse",
+            };
+
             public static UnityEngine.Shader ResolveShader(string bundleName)
             {
-                if (!string.IsNullOrEmpty(bundleName)
-                    && LoadedShaders.TryGetValue(bundleName, out var bundled)
-                    && bundled != null)
+                foreach (string shaderName in BuiltInShaderFallbacks)
                 {
-                    return bundled;
+                    UnityEngine.Shader shader = UnityEngine.Shader.Find(shaderName);
+                    if (shader != null)
+                    {
+                        return shader;
+                    }
                 }
-                return UnityEngine.Shader.Find("Standard");
+
+                return null;
             }
 
             // True only when the named bundle shader actually deserialized and is
