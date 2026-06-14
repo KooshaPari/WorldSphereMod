@@ -63,7 +63,7 @@ public class ShadowCascadeConfigInvariantsTests
     {
         var source = ReadSourceFile("WorldSphereMod/Code/Lighting/ShadowCascadeConfig.cs");
 
-        Regex.Match(source, @"cascade2Split\s*,\s*0\.25f\)")
+        Regex.Match(source, @"cascade2Split""\s*,\s*0\.25f\)")
             .Success.Should().BeTrue("2-cascade split must be 0.25f (mid-range)");
     }
 

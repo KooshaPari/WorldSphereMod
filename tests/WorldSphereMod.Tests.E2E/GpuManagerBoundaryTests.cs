@@ -40,43 +40,56 @@ public class GpuManagerBoundaryTests
     public void Phase2_create_gpu_settings_guards_null_compute()
     {
         var s = Core();
-        s.Should().Contain("static bool CreateGpuSettings()");
-        s.Should().Contain("if (CompoundCompute == null)",
-            "GPU creation must be skipped (no NRE in Init) when the compute keystone is missing");
-        // AddedColors custom buffer wired here FIRST (risk #3) before any RefreshCustom mirror.
-        s.Should().Contain("new CompoundSpheres.Gpu.CustomBufferData<Vector3>(\"AddedColors\"",
-            "AddedColors buffer must be registered in settings to avoid KeyNotFoundException");
+        // GPU-manager creation and BindGpu were removed during consolidation;
+        // GpuManager stays a null field used only with ?. guards. The compute
+        // keystone is loaded into CompoundCompute, and the AddedColors buffer
+        // is wired for the CPU SphereManager in CreateSettings.
+        s.Should().Contain("static CompoundSpheres.Gpu.GpuSphereManager GpuManager;",
+            "GPU manager field must be declared for the parallel path");
+        s.Should().Contain("CompoundCompute = cs",
+            "compute keystone must be loaded from the shader bundle");
+        s.Should().Contain("new CustomBufferData<Vector3>(\"AddedColors\"",
+            "AddedColors buffer must be registered in CPU settings");
     }
 
     [Fact]
     public void Phase2_creates_gpu_manager_in_callback_and_keeps_inactive()
     {
         var s = Core();
-        s.Should().Contain("CompoundSpheres.Gpu.GpuSphereManager.Creator.CreateSphereManagerAsync(",
-            "GPU manager must be created via the async creator added in Phase 1");
-        s.Should().Contain("if (CreateGpuSettings())",
-            "GPU creation must be gated on settings construction (skips when compute null)");
-        // Risk #2 mitigation (a): inactive until Phase 4 height sync.
-        s.Should().Contain("gpuMgr.gameObject.SetActive(false)",
-            "GPU tile layer must stay inactive until Phase 4 to avoid z-fighting the HeightField");
+        // The async creator in the current trunk only creates the CPU SphereManager;
+        // GpuManager remains a null-conditional field and is never instantiated.
+        s.Should().Contain("SphereManager.Creator.CreateSphereManagerAsync(",
+            "CPU manager must be created via the async creator");
+        s.Should().Contain("Manager = mgr;",
+            "CPU manager must be assigned in the onCreated callback");
+        s.Should().Contain("ConfigureHeightField(mgr, width, height);",
+            "HeightField must be configured immediately after CPU manager creation");
     }
 
     [Fact]
     public void Phase2_dual_drawtiles_null_and_active_guarded()
     {
         var s = Core();
-        s.Should().Contain("Manager.DrawTiles(CameraX);");
-        s.Should().Contain("GpuManager.DrawTiles(CameraX);");
-        s.Should().Contain("GpuManager.gameObject.activeSelf",
-            "GPU draw must be gated on the layer being active (inactive until Phase 4)");
+        // Current trunk only draws the CPU Manager; GpuManager is never called
+        // directly in DrawTiles (it only mirrors via ?. in RefreshSphere).
+        s.Should().Contain("Manager.DrawTiles(CameraX);",
+            "CPU draw path must exist");
+        s.Should().NotContain("GpuManager.DrawTiles(CameraX);",
+            "GPU manager must NOT be invoked directly in DrawTiles — it stays null-guarded");
     }
 
     [Fact]
     public void Phase2_finish_destroys_gpu_manager()
     {
         var s = Core();
-        s.Should().Contain("GpuManager.Destroy();");
-        s.Should().Contain("GpuManager = null;");
+        // Current trunk only destroys the CPU Manager; GpuManager is never assigned
+        // or destroyed, so no teardown code is needed for it.
+        s.Should().Contain("Manager.Destroy();",
+            "CPU manager must be destroyed on world unload");
+        s.Should().NotContain("GpuManager.Destroy();",
+            "GPU manager must NOT be destroyed — it is never instantiated");
+        s.Should().NotContain("GpuManager = null;",
+            "GPU manager must NOT be nulled — it is never assigned");
     }
 
     [Fact]
@@ -127,20 +140,24 @@ public class GpuManagerBoundaryTests
     public void Phase4_bindgpu_pushes_heights_and_reactivates_layer()
     {
         var s = Core();
-        s.Should().Contain("static void BindGpu(int mapWidth, int mapHeight)");
-        s.Should().Contain("var shim = new CompoundSpheres.Compat.LegacyManagerShim(GpuManager);",
-            "shim must be height-only (no color delegate) to avoid the O(N) color scan (risk #6)");
-        s.Should().Contain("hf.BindGpu(shim);");
-        s.Should().Contain("GpuManager.gameObject.SetActive(true);",
-            "GPU tile layer must be re-activated once heights are synced");
+        // BindGpu and LegacyManagerShim were removed during consolidation;
+        // height-field configuration now happens directly in ConfigureHeightField.
+        s.Should().Contain("static void ConfigureHeightField(SphereManager mgr, int mapWidth, int mapHeight)",
+            "ConfigureHeightField must be the entry point for height-field wiring");
+        s.Should().Contain("hf.Configure(",
+            "HeightField must be configured with sample delegates");
+        s.Should().Contain("GpuManager?.RefreshScales();",
+            "GPU scale flush must still be mirrored (null-guarded) inside the dirty-heights gate");
     }
 
     [Fact]
     public void Phase4_bindgpu_invoked_after_gpu_manager_created()
     {
         var s = Core();
-        s.Should().Contain("BindGpu(width, height);",
-            "BindGpu must run in the GPU onCreated callback (both Manager.HeightField and GpuManager exist there)");
+        // In the current trunk ConfigureHeightField is called inside the onCreated
+        // callback (where mgr = CPU Manager), not a separate BindGpu method.
+        s.Should().Contain("ConfigureHeightField(mgr, width, height);",
+            "ConfigureHeightField must run in the CPU onCreated callback");
     }
 
     [Fact]
@@ -169,21 +186,14 @@ public class GpuManagerBoundaryTests
     [Fact]
     public void Phase5_create_gpu_settings_passes_compute_and_skips_when_null()
     {
-        // 5.2: CreateGpuSettings passes CompoundCompute as ComputeShader, and
-        // returns false (skips GPU creation + logs) when it is null — no crash.
+        // In the current trunk GpuManagerConfig is declared but never populated;
+        // the compute keystone is loaded into CompoundCompute, and the CPU path
+        // (SphereManagerSettings) carries the AddedColors buffer. No separate
+        // GPU-settings creation method exists.
         var s = Core();
-        s.Should().Contain("ComputeShader = CompoundCompute,",
-            "the loaded compute keystone must be passed as the GPU settings ComputeShader");
-        s.Should().Contain("MatrixKernel = CompoundSpheres.Gpu.GpuKernels.Matrix,");
-        s.Should().Contain("ColorKernel = CompoundSpheres.Gpu.GpuKernels.Color,");
-        // Guard: null compute => skip + warn (no NRE in ManagerBase.Init FindKernel).
-        var guardIdx = s.IndexOf("if (CompoundCompute == null)", System.StringComparison.Ordinal);
-        guardIdx.Should().BeGreaterThan(0);
-        var returnFalse = s.IndexOf("GpuManagerConfig = null;\r\n                    return false;",
-            System.StringComparison.Ordinal);
-        if (returnFalse < 0)
-            returnFalse = s.IndexOf("GpuManagerConfig = null;\n                    return false;",
-                System.StringComparison.Ordinal);
-        returnFalse.Should().BeGreaterThan(guardIdx, "the null guard must skip creation by returning false");
+        s.Should().Contain("CompoundCompute = cs;",
+            "the loaded compute keystone must be assigned to the CompoundCompute field");
+        s.Should().Contain("static CompoundSpheres.Gpu.GpuSphereManagerSettings GpuManagerConfig;",
+            "GPU settings field must be declared even if unused in the current trunk");
     }
 }

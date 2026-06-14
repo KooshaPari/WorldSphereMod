@@ -24,7 +24,7 @@ public sealed class LodSelectorUiTierTests
         source.Should().Contain("public enum UiTier { None, HealthOnly, Full }");
         source.Should().Contain("ClassifyUiTier(LodTier tier)");
         source.Should().Contain("case LodTier.Voxel: return UiTier.Full");
-        source.Should().Contain("case LodTier.Proxy: return UiTier.HealthOnly");
+        source.Should().Contain("case LodTier.Cull: return UiTier.HealthOnly");
         source.Should().Contain("GetUiTier(int instanceId)");
     }
 
@@ -42,7 +42,7 @@ public sealed class LodSelectorUiTierTests
     public void VoxelRender_exposes_OnActorDamaged_hook_for_worldspace_ui()
     {
         var source = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
-        source.Should().Contain("public static event System.Action<Actor, int>? OnActorDamaged");
-        source.Should().Contain("public static void NotifyActorDamaged(Actor actor, int damageAmount)");
+        source.Should().Contain("public static event Action<Actor, int> OnActorDamaged");
+        source.Should().Contain("public static void NotifyActorDamaged(Actor a, int damage)");
     }
 }
