@@ -39,13 +39,13 @@ jobs:
       - name: Discover coverage-focused E2E tests
         run: |
           dotnet test tests/WorldSphereMod.Tests.E2E/WorldSphereMod.Tests.E2E.csproj \
-            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests|FullyQualifiedName~CiWorkflowInvariantsTests" \
+            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests|FullyQualifiedName~CiWorkflowInvariantsTests|FullyQualifiedName~GpuManagerBoundaryTests" \
             --list-tests
 
       - name: Run coverage-focused E2E tests
         run: |
           dotnet test tests/WorldSphereMod.Tests.E2E/WorldSphereMod.Tests.E2E.csproj \
-            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests|FullyQualifiedName~CiWorkflowInvariantsTests"
+            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests|FullyQualifiedName~CiWorkflowInvariantsTests|FullyQualifiedName~GpuManagerBoundaryTests"
 
       # Coverage gate (Wave 4 rollout). The script enforces the floor parsed
       # from `docs/coverage/Summary.txt` and fails the build on regression.
@@ -71,3 +71,8 @@ jobs:
         with:
           name: coverage-report
           path: docs/coverage/
+
+      - name: Run full test suite (non-blocking — all 537 + 3-skip)
+        continue-on-error: true
+        run: |
+          dotnet test WorldSphereMod.sln --verbosity minimal
