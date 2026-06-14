@@ -20,10 +20,10 @@ namespace WorldSphereMod.Worldspace
         static readonly Queue<GameObject> _free = new Queue<GameObject>();
         static readonly List<ActiveEntry> _active = new List<ActiveEntry>();
         public static int PoolSize = 64;
+        public static float Lifetime = 0.6f;
+        public static float RiseSpeed = 2.5f;
         static Font? _font;
 
-        const float kLifetime = 1.2f;
-        const float kRiseSpeed = 0.5f;
         const float kSpawnLift = 0.3f;
 
         struct ActiveEntry
@@ -73,8 +73,8 @@ namespace WorldSphereMod.Worldspace
             {
                 obj = go,
                 text = t,
-                expiry = Time.time + kLifetime,
-                velocity = Vector3.up * kRiseSpeed,
+                expiry = Time.time + Lifetime,
+                velocity = Vector3.up * RiseSpeed,
             });
         }
 
@@ -99,7 +99,7 @@ namespace WorldSphereMod.Worldspace
                     _active.RemoveAt(i);
                     continue;
                 }
-                float tNorm = 1f - (e.expiry - now) / kLifetime;
+                float tNorm = 1f - (e.expiry - now) / Mathf.Max(0.05f, Lifetime);
                 e.obj.transform.position += e.velocity * Time.deltaTime;
                 if (e.text != null)
                 {
