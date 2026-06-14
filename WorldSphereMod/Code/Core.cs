@@ -57,6 +57,11 @@ namespace WorldSphereMod
         private static bool _runtimeLightingConfigured;
         /// <summary>True when no settings file existed at load time (fresh install).</summary>
         public static bool IsFirstInstall { get; private set; }
+        static void SafeInvoke(string context, Action action)
+        {
+            try { action(); }
+            catch (System.Exception ex) { Debug.LogWarning("[WSM3D] " + context + ": " + ex.Message); }
+        }
         public static void SaveSettings()
         {
             string json = JsonConvert.SerializeObject(savedSettings, Formatting.Indented);
@@ -175,27 +180,22 @@ namespace WorldSphereMod
             if (Patcher == null) return;
             if (savedSettings.VoxelEntities)
             {
-                try { ApplyPhaseToggle(nameof(SavedSettings.VoxelEntities), true); }
-                catch (System.Exception ex) { Debug.LogWarning("[WSM3D] EnsurePhasePatches VoxelEntities: " + ex.Message); }
+                SafeInvoke("EnsurePhasePatches VoxelEntities", () => ApplyPhaseToggle(nameof(SavedSettings.VoxelEntities), true));
             }
             if (savedSettings.CrossedQuadFoliage)
             {
-                try { ApplyPhaseToggle(nameof(SavedSettings.CrossedQuadFoliage), true); }
-                catch (System.Exception ex) { Debug.LogWarning("[WSM3D] EnsurePhasePatches CrossedQuadFoliage: " + ex.Message); }
+                SafeInvoke("EnsurePhasePatches CrossedQuadFoliage", () => ApplyPhaseToggle(nameof(SavedSettings.CrossedQuadFoliage), true));
             }
             // Force these flags=true regardless of what ApplyPhaseDefaults set.
             // ApplyPhaseDefaults runs before EnsurePhasePatches and resets them to false.
             savedSettings.ProceduralBuildings = true;
             savedSettings.MeshWater = true;
             bool proceduralBuildingsPatchInstalled = false;
-            try
-            {
+            SafeInvoke("EnsurePhasePatches ProceduralBuildings", () => {
                 ApplyPhaseToggle(nameof(SavedSettings.ProceduralBuildings), true);
                 proceduralBuildingsPatchInstalled = IsProceduralBuildingsPatchInstalled();
-            }
-            catch (System.Exception ex) { Debug.LogWarning("[WSM3D] EnsurePhasePatches ProceduralBuildings: " + ex.Message); }
-            try { ApplyPhaseToggle(nameof(SavedSettings.MeshWater), true); }
-            catch (System.Exception ex) { Debug.LogWarning("[WSM3D] EnsurePhasePatches MeshWater: " + ex.Message); }
+            });
+            SafeInvoke("EnsurePhasePatches MeshWater", () => ApplyPhaseToggle(nameof(SavedSettings.MeshWater), true));
             if (!_phaseDiagLogged)
             {
                 Debug.Log($"[WSM3D][PHASE-DIAG] ProceduralBuildings={savedSettings.ProceduralBuildings} patchInstalled={proceduralBuildingsPatchInstalled}");
@@ -449,8 +449,7 @@ namespace WorldSphereMod
             // EnsurePhasePatches was defined but never called — this was the billboard
             // root cause: BuildingVoxelEmit / ActorVoxelEmit Postfixes never installed,
             // voxel emit loop never ran, processed=0, all sprites stayed 2D. (#208)
-            try { EnsurePhasePatches(); }
-            catch (System.Exception ex) { Debug.LogWarning("[WSM3D] EnsurePhasePatches failed: " + ex.Message); }
+            SafeInvoke("EnsurePhasePatches failed", () => EnsurePhasePatches());
         }
         const string HarmonyID = "WorldSphereMod";
         //this mod makes the game 3D, of course im patching alot (rip compatibility)
@@ -662,8 +661,7 @@ namespace WorldSphereMod
 
         static void Become3DImmediate()
         {
-            try { Sphere.PrepareWorld(); }
-            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] Become3D: PrepareWorld failed: " + ex.Message); }
+            SafeInvoke("Become3D: PrepareWorld failed", () => Sphere.PrepareWorld());
             // ONE-SHOT DIAGNOSTIC (A): sample 5 tile heights and core height settings.
             // confirm terrain-height investigation (#208).
             try
@@ -755,39 +753,30 @@ namespace WorldSphereMod
         }
         static void FinishBecome3D()
         {
-            try { CameraManager.MakeCamera3D(); }
-            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] MakeCamera3D failed: " + ex.Message); }
+            SafeInvoke("MakeCamera3D failed", () => CameraManager.MakeCamera3D());
             // WorldspaceUI on world-load: EnsureCreated is normally only triggered by a
             // live flag toggle; when the JSON already has WorldspaceUI=true the renderer
             // was never started. Start it here so nameplates + healthbars appear at load.
-            try { WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated(); }
-            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] WorldUIRenderer.EnsureCreated failed: " + ex.Message); }
+            SafeInvoke("WorldUIRenderer.EnsureCreated failed", () => WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated());
             // SUN=NULL ROOT-CAUSE FIX: the mod-load SunDriver.Init() (PostInit) ran
             // while Core.IsWorld3D was false (Sphere did not exist yet) and early-
             // returned, so the directional sun was never created and RenderSettings.sun
             // stayed null -> near-black terrain. Re-run it here where IsWorld3D is true.
             // Init() is idempotent (no-ops if Sun already exists).
-            try { WorldSphereMod.Lighting.SunDriver.Init(); }
-            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] SunDriver.Init failed: " + ex.Message); }
+            SafeInvoke("SunDriver.Init failed", () => WorldSphereMod.Lighting.SunDriver.Init());
             // Start the day/night driver so the sun is actively pumped, but only when
             // the user enabled DayNightCycle. When it's off, the static sun + ambient
             // floor from Init() keep the scene lit (no forced day/night).
             if (savedSettings.DayNightCycle)
             {
-                try { WorldSphereMod.Lighting.TimeOfDay.EnsureCreated(); }
-                catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] TimeOfDay.EnsureCreated failed: " + ex.Message); }
+                SafeInvoke("TimeOfDay.EnsureCreated failed", () => WorldSphereMod.Lighting.TimeOfDay.EnsureCreated());
             }
-            try { WorldSphereMod.Lighting.CubemapLighting.EnsureCreated(); }
-            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] CubemapLighting failed: " + ex.Message); }
-            try { WorldSphereMod.PostFx.WSM3DPostStack.EnsureCreated(); }
-            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] WSM3DPostStack failed: " + ex.Message); }
-            try { WorldSphereMod.Lighting.ProceduralSky.EnsureCreated(); }
-            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] ProceduralSky.EnsureCreated failed: " + ex.Message); }
+            SafeInvoke("CubemapLighting failed", () => WorldSphereMod.Lighting.CubemapLighting.EnsureCreated());
+            SafeInvoke("WSM3DPostStack failed", () => WorldSphereMod.PostFx.WSM3DPostStack.EnsureCreated());
+            SafeInvoke("ProceduralSky.EnsureCreated failed", () => WorldSphereMod.Lighting.ProceduralSky.EnsureCreated());
             ReassertRenderFoundationAmbient();
-            try { Do3DStuff(); }
-            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] Do3DStuff failed: " + ex.Message); }
-            try { Sphere.LogDiagnostics("[WSM3D] Become3D"); }
-            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] Sphere diagnostics failed: " + ex.Message); }
+            SafeInvoke("Do3DStuff failed", () => Do3DStuff());
+            SafeInvoke("Sphere diagnostics failed", () => Sphere.LogDiagnostics("[WSM3D] Become3D"));
         }
         static void Do3DStuff()
         {
@@ -949,18 +938,14 @@ namespace WorldSphereMod
                         // causing EnsureCreated() to silently bail. Re-call here once
                         // Sphere.Exists is guaranteed true so the pale-blue ambient fix
                         // and procedural sky always run when their flags are enabled.
-                        try
-                        {
+                        SafeInvoke("CubemapLighting re-trigger failed", () => {
                             if (savedSettings.HdrSkybox)
                                 WorldSphereMod.Lighting.CubemapLighting.EnsureCreated();
-                        }
-                        catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] CubemapLighting re-trigger failed: " + ex.Message); }
-                        try
-                        {
+                        });
+                        SafeInvoke("ProceduralSky re-trigger failed", () => {
                             if (savedSettings.HdrSkybox || savedSettings.DayNightCycle)
                                 WorldSphereMod.Lighting.ProceduralSky.EnsureCreated();
-                        }
-                        catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] ProceduralSky re-trigger failed: " + ex.Message); }
+                        });
                     }));
             }
             static Color32 GetBaseColor(int index)
@@ -2026,8 +2011,7 @@ namespace WorldSphereMod
                     Debug.LogError("[WSM3D] AssetBundleUtils.GetAssetBundle('worldsphere') returned null — likely an NML duplicate-bundle conflict. Skipping LoadAssets. Mesh/material/skybox not available this session.");
                     return;
                 }
-                try { Mod.LogAssetBundleInventory(ab); }
-                catch (System.Exception ex) { Debug.LogWarning("[WSM3D] LogAssetBundleInventory threw: " + ex.Message); }
+                SafeInvoke("LogAssetBundleInventory threw", () => Mod.LogAssetBundleInventory(ab));
                 CompoundSphereMesh = ab.GetObject<Mesh>("assets/worldspheremod/compoundspheremesh.asset")
                     ?? ab.GetObject<Mesh>("assets/wsm3d/legacyassets/compoundspheremesh.asset");
                 CompoundSphereMaterial = ab.GetObject<Material>("assets/worldspheremod/compoundspherematerial.mat")
