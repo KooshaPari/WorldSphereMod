@@ -168,11 +168,14 @@ public sealed class BiomeBlendingInvariantsTests
             "if (settingField.Name == nameof(SavedSettings.BiomeBlending) && Core.IsWorld3D)",
             "immediate biome toggle must refresh colors in 3D");
         tab.Should().Contain(
-            "if (previousBiomeBlending != Core.savedSettings.BiomeBlending && Core.IsWorld3D) Core.Sphere.RefreshColors()",
+            "field.Name == nameof(SavedSettings.BiomeBlending) && Core.IsWorld3D",
             "batch apply must refresh colors when biome blending changes");
         tab.Should().Contain(
-            "if (previousMountainSlopeSmoothing != Core.savedSettings.MountainSlopeSmoothing)",
-            "batch apply must reconcile mountain slope overlay when the toggle changes");
+            "Core.ApplyPhaseToggle(field.Name, newValue)",
+            "batch apply must reconcile mountain slope overlay through the reflection loop");
+        tab.Should().Contain(
+            "Core.Sphere.RefreshColors()",
+            "batch apply must refresh colors when biome blending changes");
         tab.Should().Contain(
             "Core.ApplyPhaseToggle(nameof(SavedSettings.MountainSlopeSmoothing)",
             "mountain slope toggle must route through ApplyPhaseToggle lifecycle");

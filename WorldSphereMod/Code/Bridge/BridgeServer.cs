@@ -26,6 +26,8 @@ namespace WorldSphereMod.Bridge
         volatile bool _running;
         static int _mainThreadId;
         int _boundPort = Port;
+        Dictionary<string, Action<HttpListenerContext>> _getRoutes;
+        Dictionary<string, Action<HttpListenerContext>> _postRoutes;
 
         public static bool EnableFailed;
 
@@ -105,6 +107,7 @@ namespace WorldSphereMod.Bridge
             CaptureMainThread();
             // Survive scene transitions (save load destroys Mod.Object's scene → bridge dies → main-thread queue stops draining → all HTTP requests time out at 5s default(T)).
             try { UnityEngine.Object.DontDestroyOnLoad(gameObject); } catch { /* root-only requirement */ }
+            BuildRouteTables();
             StartListener();
         }
 
@@ -370,269 +373,29 @@ namespace WorldSphereMod.Bridge
 
                 if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase))
+                    if (_getRoutes.TryGetValue(path, out Action<HttpListenerContext> handler))
                     {
-                        WriteJson(context.Response, BuildHealthPayload());
-                        return;
-                    }
-                    if (string.Equals(path, "/telemetry", StringComparison.OrdinalIgnoreCase))
-                    {
-                        WriteJson(context.Response, BuildTelemetryPayload());
-                        return;
-                    }
-                    if (string.Equals(path, "/settings", StringComparison.OrdinalIgnoreCase)) { WriteRawJson(context.Response, InvokeOnMainThread(BuildSettingsJson)); return; }
-                    if (string.Equals(path, "/voxel/sprite", StringComparison.OrdinalIgnoreCase))
-                    {
-                        string spriteName = context.Request.QueryString["name"] ?? string.Empty;
-                        if (string.IsNullOrWhiteSpace(spriteName))
-                        {
-                            WriteJson(context.Response, InvokeOnMainThread(BuildVoxelSpriteListPayload));
-                            return;
-                        }
-
-                        HttpStatusCode statusCode = HttpStatusCode.OK;
-                        object payload = InvokeOnMainThread(() => BuildVoxelSpritePayload(spriteName, out statusCode));
-                        WriteJson(context.Response, payload, statusCode);
-                        return;
-                    }
-                    if (string.Equals(path, "/voxel/stats", StringComparison.OrdinalIgnoreCase))
-                    {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildVoxelStatsPayload));
-                        return;
-                    }
-                    if (string.Equals(path, "/voxel/queue", StringComparison.OrdinalIgnoreCase))
-                    {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildVoxelQueuePayload));
-                        return;
-                    }
-                    if (string.Equals(path, "/memory", StringComparison.OrdinalIgnoreCase))
-                    {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildMemoryPayload));
-                        return;
-                    }
-                    if (string.Equals(path, "/voxel/actor", StringComparison.OrdinalIgnoreCase))
-                    {
-                        string indexText = context.Request.QueryString["index"] ?? "0";
-                        WriteJson(context.Response, InvokeOnMainThread(() => BuildVoxelActorPayload(indexText)));
-                        return;
-                    }
-                    if (string.Equals(path, "/voxel/diff", StringComparison.OrdinalIgnoreCase))
-                    {
-                        string baselinePath = context.Request.QueryString["baseline"] ?? string.Empty;
-                        WriteJson(context.Response, InvokeOnMainThread(() => BuildVoxelDiffPayload(baselinePath)));
+                        handler(context);
                         return;
                     }
                     if (path.StartsWith("/phase/", StringComparison.OrdinalIgnoreCase))
                     {
-                        string phaseName = Uri.UnescapeDataString(path.Substring("/phase/".Length));
-                        WriteJson(context.Response, InvokeOnMainThread(() => BuildPhasePayload(phaseName)));
+                        HandlePhase(context);
                         return;
                     }
-                    if (string.Equals(path, "/diag/emit_status", StringComparison.OrdinalIgnoreCase))
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (_postRoutes.TryGetValue(path, out Action<HttpListenerContext> handler))
                     {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildEmitStatusPayload));
+                        handler(context);
                         return;
                     }
-                    if (string.Equals(path, "/diag/errors", StringComparison.OrdinalIgnoreCase))
+                    if (path.StartsWith("/settings/", StringComparison.OrdinalIgnoreCase))
                     {
-                        // Registry is internally locked; no Unity main-thread state read needed.
-                        WriteJson(context.Response, BuildDiagErrorsPayload());
+                        HandleSettingsUpdate(context);
                         return;
                     }
-                    if (string.Equals(path, "/diag/render_stats", StringComparison.OrdinalIgnoreCase))
-                    {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildRenderStatsPayload));
-                        return;
-                    }
-                    if (string.Equals(path, "/diag/water_samples", StringComparison.OrdinalIgnoreCase))
-                    {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildWaterSamplesPayload));
-                        return;
-                    }
-                    if (string.Equals(path, "/diag/full_dump", StringComparison.OrdinalIgnoreCase))
-                    {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildFullDumpPayload));
-                        return;
-                    }
-                    if (string.Equals(path, "/world/state", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Null-safe on main thread: returns hasWorld:false at title screen instead of NRE.
-                        WriteJson(context.Response, InvokeOnMainThread(() => BridgeActions.WorldState(Core.IsWorld3D)));
-                        return;
-                    }
-                    if (string.Equals(path, "/tools", StringComparison.OrdinalIgnoreCase))
-                    {
-                        WriteJson(context.Response, InvokeOnMainThread(BridgeActions.ListTools));
-                        return;
-                    }
-                    // Input-capture flow library: list recorded sessions + named flows.
-                    if (string.Equals(path, "/capture/list", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var flows = WorldSphereMod.Capture.FlowLibrary.List();
-                        WriteJson(context.Response, new { ok = true, root = WorldSphereMod.Capture.CaptureRecorder.CaptureRoot, count = flows.Count, flows });
-                        return;
-                    }
-                    if (string.Equals(path, "/capture/status", StringComparison.OrdinalIgnoreCase))
-                    {
-                        WriteJson(context.Response, new
-                        {
-                            ok = true,
-                            enabled = WorldSphereMod.Capture.CaptureRecorder.Enabled,
-                            session = WorldSphereMod.Capture.CaptureRecorder.SessionPath,
-                            events = WorldSphereMod.Capture.CaptureRecorder.EventCount,
-                        });
-                        return;
-                    }
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && path.StartsWith("/settings/", StringComparison.OrdinalIgnoreCase))
-                {
-                    string key = path.Substring("/settings/".Length);
-                    string rawValue = context.Request.QueryString["value"] ?? string.Empty;
-                    WriteJson(context.Response, UpdateSettingQueued(key, rawValue));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/load_save", StringComparison.OrdinalIgnoreCase))
-                {
-                    string slotText = context.Request.QueryString["slot"] ?? string.Empty;
-                    WriteJson(context.Response, LoadSaveQueued(slotText));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && (string.Equals(path, "/actions/screenshot", StringComparison.OrdinalIgnoreCase) || string.Equals(path, "/screenshot/now", StringComparison.OrdinalIgnoreCase)))
-                {
-                    // Read path + mode from EITHER ?query= or the JSON body in a SINGLE body read
-                    // (the InputStream is non-seekable). Previously `path` was query-only and the body
-                    // was consumed only to sniff mode, so {"path":...} was silently dropped.
-                    // mode=camera renders ONLY the 3D scene camera into a RenderTexture,
-                    // bypassing WorldBox's debug-console / UI overlay layers. Default
-                    // (screen) keeps the legacy full-framebuffer capture for back-compat.
-                    BridgeParams shot = BridgeParams.From(context.Request);
-                    string outputPath = shot.Get("path", string.Empty);
-                    string mode = shot.Get("mode", string.Empty);
-                    bool cameraMode = string.Equals(mode, "camera", StringComparison.OrdinalIgnoreCase);
-                    WriteJson(context.Response, CaptureScreenshot(outputPath, cameraMode));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/voxel/dump_all", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, InvokeOnMainThread(DumpVoxelMeshes));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/diag/dump_now", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, InvokeOnMainThread(ForceDiagDumpNow));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/texturepack/import", StringComparison.OrdinalIgnoreCase))
-                {
-                    string packPath = context.Request.QueryString["path"] ?? string.Empty;
-                    WriteJson(context.Response, InvokeOnMainThread(() => BuildTexturePackImportPayload(packPath)));
-                    return;
-                }
-
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/spawn_units", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Honor count/race/x/y from EITHER ?query= or the JSON body (the live operator
-                    // POSTs {"count":80}); query wins when both are present.
-                    BridgeParams sp = BridgeParams.From(context.Request);
-                    string countText = sp.Get("count", "10");
-                    string race = sp.Get("race", "human");
-                    string xText = sp.Get("x");
-                    string yText = sp.Get("y");
-                    WriteJson(context.Response, SpawnUnitsQueued(countText, race, xText, yText));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/generate_world", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, GenerateWorldQueued());
-                    return;
-                }
-                // #1 priority: drive world-creation headlessly so the operator never needs the 3 menu clicks.
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/new_world", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, QueueAction("new_world", BridgeActions.NewWorld));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/regenerate", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, QueueAction("regenerate", BridgeActions.Regenerate));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/save", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, QueueAction("save", BridgeActions.Save));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/close_dialog", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, QueueAction("close_dialog", BridgeActions.CloseDialog));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/pause", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, QueueAction("pause", BridgeActions.Pause));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/play", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, QueueAction("play", BridgeActions.Play));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/set_speed", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Honor speed from ?query= OR {"speed":...} body (live-bridge param contract).
-                    string speed = BridgeParams.From(context.Request).Get("speed", string.Empty);
-                    WriteJson(context.Response, QueueAction("set_speed", () => BridgeActions.SetSpeed(speed)));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/camera", StringComparison.OrdinalIgnoreCase))
-                {
-                    // x/y/zoom from ?query= or JSON body {"x":128,"y":128,"zoom":6}.
-                    BridgeParams cp = BridgeParams.From(context.Request);
-                    string cx = cp.Get("x", string.Empty);
-                    string cy = cp.Get("y", string.Empty);
-                    string cz = cp.Get("zoom", string.Empty);
-                    WriteJson(context.Response, QueueAction("camera", () => BridgeActions.Camera(cx, cy, cz)));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/camera_focus", StringComparison.OrdinalIgnoreCase))
-                {
-                    string target = BridgeParams.From(context.Request).Get("target", string.Empty);
-                    WriteJson(context.Response, QueueAction("camera_focus", () => BridgeActions.CameraFocus(target)));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/select_tool", StringComparison.OrdinalIgnoreCase))
-                {
-                    string id = BridgeParams.From(context.Request).Get("id", string.Empty);
-                    WriteJson(context.Response, QueueAction("select_tool", () => BridgeActions.SelectTool(id)));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/use_tool", StringComparison.OrdinalIgnoreCase))
-                {
-                    BridgeParams up = BridgeParams.From(context.Request);
-                    string id = up.Get("id", string.Empty);
-                    string ux = up.Get("x", string.Empty);
-                    string uy = up.Get("y", string.Empty);
-                    WriteJson(context.Response, QueueAction("use_tool", () => BridgeActions.UseTool(id, ux, uy)));
-                    return;
-                }
-                // Input-capture replay: re-drive a recorded flow headlessly through the same
-                // main-thread BridgeActions path the live /actions/* routes use.
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/capture/replay", StringComparison.OrdinalIgnoreCase))
-                {
-                    string file = context.Request.QueryString["file"] ?? string.Empty;
-                    if (string.IsNullOrWhiteSpace(file)) { WriteJson(context.Response, new { ok = false, error = "missing_file" }, HttpStatusCode.BadRequest); return; }
-                    WriteJson(context.Response, QueueAction("capture_replay", () => WorldSphereMod.Capture.CaptureReplayer.ReplayFile(file)));
-                    return;
-                }
-                // Promote the current/last session (or a named source) into a named flow.
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/capture/save", StringComparison.OrdinalIgnoreCase))
-                {
-                    string name = context.Request.QueryString["name"] ?? string.Empty;
-                    string source = context.Request.QueryString["source"] ?? string.Empty;
-                    if (string.IsNullOrWhiteSpace(name)) { WriteJson(context.Response, new { ok = false, error = "missing_name" }, HttpStatusCode.BadRequest); return; }
-                    var (ok, savedPath, error) = WorldSphereMod.Capture.FlowLibrary.SaveAs(name, source);
-                    WriteJson(context.Response, ok ? (object)new { ok = true, name, path = savedPath } : new { ok = false, error, name }, ok ? HttpStatusCode.OK : HttpStatusCode.BadRequest);
-                    return;
                 }
 
                 WriteJson(context.Response, new { ok = false, error = "not_found", path, method }, HttpStatusCode.NotFound);
@@ -641,6 +404,229 @@ namespace WorldSphereMod.Bridge
             {
                 WriteJson(context.Response, new { ok = false, error = ex.Message }, HttpStatusCode.InternalServerError);
             }
+        }
+
+        void BuildRouteTables()
+        {
+            _getRoutes = new Dictionary<string, Action<HttpListenerContext>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["/health"] = HandleHealth,
+                ["/telemetry"] = HandleTelemetry,
+                ["/settings"] = HandleSettings,
+                ["/voxel/sprite"] = HandleVoxelSprite,
+                ["/voxel/stats"] = HandleVoxelStats,
+                ["/voxel/queue"] = HandleVoxelQueue,
+                ["/memory"] = HandleMemory,
+                ["/voxel/actor"] = HandleVoxelActor,
+                ["/voxel/diff"] = HandleVoxelDiff,
+                ["/diag/emit_status"] = HandleDiagEmitStatus,
+                ["/diag/errors"] = HandleDiagErrors,
+                ["/diag/render_stats"] = HandleDiagRenderStats,
+                ["/diag/water_samples"] = HandleDiagWaterSamples,
+                ["/diag/full_dump"] = HandleDiagFullDump,
+                ["/world/state"] = HandleWorldState,
+                ["/tools"] = HandleTools,
+                ["/capture/list"] = HandleCaptureList,
+                ["/capture/status"] = HandleCaptureStatus,
+            };
+
+            _postRoutes = new Dictionary<string, Action<HttpListenerContext>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["/actions/load_save"] = HandleLoadSave,
+                ["/actions/screenshot"] = HandleScreenshot,
+                ["/screenshot/now"] = HandleScreenshot,
+                ["/voxel/dump_all"] = HandleVoxelDumpAll,
+                ["/diag/dump_now"] = HandleDiagDumpNow,
+                ["/texturepack/import"] = HandleTexturePackImport,
+                ["/actions/spawn_units"] = HandleSpawnUnits,
+                ["/actions/generate_world"] = HandleGenerateWorld,
+                ["/actions/new_world"] = HandleNewWorld,
+                ["/actions/regenerate"] = HandleRegenerate,
+                ["/actions/save"] = HandleSave,
+                ["/actions/close_dialog"] = HandleCloseDialog,
+                ["/actions/pause"] = HandlePause,
+                ["/actions/play"] = HandlePlay,
+                ["/actions/set_speed"] = HandleSetSpeed,
+                ["/actions/camera"] = HandleCamera,
+                ["/actions/camera_focus"] = HandleCameraFocus,
+                ["/actions/select_tool"] = HandleSelectTool,
+                ["/actions/use_tool"] = HandleUseTool,
+                ["/capture/replay"] = HandleCaptureReplay,
+                ["/capture/save"] = HandleCaptureSave,
+            };
+        }
+
+        void HandleHealth(HttpListenerContext context) => WriteJson(context.Response, BuildHealthPayload());
+        void HandleTelemetry(HttpListenerContext context) => WriteJson(context.Response, BuildTelemetryPayload());
+        void HandleSettings(HttpListenerContext context) => WriteRawJson(context.Response, InvokeOnMainThread(BuildSettingsJson));
+
+        void HandleVoxelSprite(HttpListenerContext context)
+        {
+            string spriteName = context.Request.QueryString["name"] ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(spriteName))
+            {
+                WriteJson(context.Response, InvokeOnMainThread(BuildVoxelSpriteListPayload));
+                return;
+            }
+
+            HttpStatusCode statusCode = HttpStatusCode.OK;
+            object payload = InvokeOnMainThread(() => BuildVoxelSpritePayload(spriteName, out statusCode));
+            WriteJson(context.Response, payload, statusCode);
+        }
+
+        void HandleVoxelStats(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(BuildVoxelStatsPayload));
+        void HandleVoxelQueue(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(BuildVoxelQueuePayload));
+        void HandleMemory(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(BuildMemoryPayload));
+
+        void HandleVoxelActor(HttpListenerContext context)
+        {
+            string indexText = context.Request.QueryString["index"] ?? "0";
+            WriteJson(context.Response, InvokeOnMainThread(() => BuildVoxelActorPayload(indexText)));
+        }
+
+        void HandleVoxelDiff(HttpListenerContext context)
+        {
+            string baselinePath = context.Request.QueryString["baseline"] ?? string.Empty;
+            WriteJson(context.Response, InvokeOnMainThread(() => BuildVoxelDiffPayload(baselinePath)));
+        }
+
+        void HandlePhase(HttpListenerContext context)
+        {
+            string path = context.Request.Url?.AbsolutePath ?? "/";
+            string phaseName = Uri.UnescapeDataString(path.Substring("/phase/".Length));
+            WriteJson(context.Response, InvokeOnMainThread(() => BuildPhasePayload(phaseName)));
+        }
+
+        void HandleDiagEmitStatus(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(BuildEmitStatusPayload));
+        void HandleDiagErrors(HttpListenerContext context) => WriteJson(context.Response, BuildDiagErrorsPayload());
+        void HandleDiagRenderStats(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(BuildRenderStatsPayload));
+        void HandleDiagWaterSamples(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(BuildWaterSamplesPayload));
+        void HandleDiagFullDump(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(BuildFullDumpPayload));
+
+        void HandleWorldState(HttpListenerContext context)
+        {
+            WriteJson(context.Response, InvokeOnMainThread(() => BridgeActions.WorldState(Core.IsWorld3D)));
+        }
+
+        void HandleTools(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(BridgeActions.ListTools));
+
+        void HandleCaptureList(HttpListenerContext context)
+        {
+            var flows = WorldSphereMod.Capture.FlowLibrary.List();
+            WriteJson(context.Response, new { ok = true, root = WorldSphereMod.Capture.CaptureRecorder.CaptureRoot, count = flows.Count, flows });
+        }
+
+        void HandleCaptureStatus(HttpListenerContext context)
+        {
+            WriteJson(context.Response, new
+            {
+                ok = true,
+                enabled = WorldSphereMod.Capture.CaptureRecorder.Enabled,
+                session = WorldSphereMod.Capture.CaptureRecorder.SessionPath,
+                events = WorldSphereMod.Capture.CaptureRecorder.EventCount,
+            });
+        }
+
+        void HandleSettingsUpdate(HttpListenerContext context)
+        {
+            string path = context.Request.Url?.AbsolutePath ?? "/";
+            string key = path.Substring("/settings/".Length);
+            string rawValue = context.Request.QueryString["value"] ?? string.Empty;
+            WriteJson(context.Response, UpdateSettingQueued(key, rawValue));
+        }
+
+        void HandleLoadSave(HttpListenerContext context)
+        {
+            string slotText = context.Request.QueryString["slot"] ?? string.Empty;
+            WriteJson(context.Response, LoadSaveQueued(slotText));
+        }
+
+        void HandleScreenshot(HttpListenerContext context)
+        {
+            BridgeParams shot = BridgeParams.From(context.Request);
+            string outputPath = shot.Get("path", string.Empty);
+            string mode = shot.Get("mode", string.Empty);
+            bool cameraMode = string.Equals(mode, "camera", StringComparison.OrdinalIgnoreCase);
+            WriteJson(context.Response, CaptureScreenshot(outputPath, cameraMode));
+        }
+
+        void HandleVoxelDumpAll(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(DumpVoxelMeshes));
+        void HandleDiagDumpNow(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(ForceDiagDumpNow));
+
+        void HandleTexturePackImport(HttpListenerContext context)
+        {
+            string packPath = context.Request.QueryString["path"] ?? string.Empty;
+            WriteJson(context.Response, InvokeOnMainThread(() => BuildTexturePackImportPayload(packPath)));
+        }
+
+        void HandleSpawnUnits(HttpListenerContext context)
+        {
+            BridgeParams sp = BridgeParams.From(context.Request);
+            string countText = sp.Get("count", "10");
+            string race = sp.Get("race", "human");
+            string xText = sp.Get("x");
+            string yText = sp.Get("y");
+            WriteJson(context.Response, SpawnUnitsQueued(countText, race, xText, yText));
+        }
+
+        void HandleGenerateWorld(HttpListenerContext context) => WriteJson(context.Response, GenerateWorldQueued());
+        void HandleNewWorld(HttpListenerContext context) => WriteJson(context.Response, QueueAction("new_world", BridgeActions.NewWorld));
+        void HandleRegenerate(HttpListenerContext context) => WriteJson(context.Response, QueueAction("regenerate", BridgeActions.Regenerate));
+        void HandleSave(HttpListenerContext context) => WriteJson(context.Response, QueueAction("save", BridgeActions.Save));
+        void HandleCloseDialog(HttpListenerContext context) => WriteJson(context.Response, QueueAction("close_dialog", BridgeActions.CloseDialog));
+        void HandlePause(HttpListenerContext context) => WriteJson(context.Response, QueueAction("pause", BridgeActions.Pause));
+        void HandlePlay(HttpListenerContext context) => WriteJson(context.Response, QueueAction("play", BridgeActions.Play));
+
+        void HandleSetSpeed(HttpListenerContext context)
+        {
+            string speed = BridgeParams.From(context.Request).Get("speed", string.Empty);
+            WriteJson(context.Response, QueueAction("set_speed", () => BridgeActions.SetSpeed(speed)));
+        }
+
+        void HandleCamera(HttpListenerContext context)
+        {
+            BridgeParams cp = BridgeParams.From(context.Request);
+            string cx = cp.Get("x", string.Empty);
+            string cy = cp.Get("y", string.Empty);
+            string cz = cp.Get("zoom", string.Empty);
+            WriteJson(context.Response, QueueAction("camera", () => BridgeActions.Camera(cx, cy, cz)));
+        }
+
+        void HandleCameraFocus(HttpListenerContext context)
+        {
+            string target = BridgeParams.From(context.Request).Get("target", string.Empty);
+            WriteJson(context.Response, QueueAction("camera_focus", () => BridgeActions.CameraFocus(target)));
+        }
+
+        void HandleSelectTool(HttpListenerContext context)
+        {
+            string id = BridgeParams.From(context.Request).Get("id", string.Empty);
+            WriteJson(context.Response, QueueAction("select_tool", () => BridgeActions.SelectTool(id)));
+        }
+
+        void HandleUseTool(HttpListenerContext context)
+        {
+            BridgeParams up = BridgeParams.From(context.Request);
+            string id = up.Get("id", string.Empty);
+            string ux = up.Get("x", string.Empty);
+            string uy = up.Get("y", string.Empty);
+            WriteJson(context.Response, QueueAction("use_tool", () => BridgeActions.UseTool(id, ux, uy)));
+        }
+
+        void HandleCaptureReplay(HttpListenerContext context)
+        {
+            string file = context.Request.QueryString["file"] ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(file)) { WriteJson(context.Response, new { ok = false, error = "missing_file" }, HttpStatusCode.BadRequest); return; }
+            WriteJson(context.Response, QueueAction("capture_replay", () => WorldSphereMod.Capture.CaptureReplayer.ReplayFile(file)));
+        }
+
+        void HandleCaptureSave(HttpListenerContext context)
+        {
+            string name = context.Request.QueryString["name"] ?? string.Empty;
+            string source = context.Request.QueryString["source"] ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(name)) { WriteJson(context.Response, new { ok = false, error = "missing_name" }, HttpStatusCode.BadRequest); return; }
+            var (ok, savedPath, error) = WorldSphereMod.Capture.FlowLibrary.SaveAs(name, source);
+            WriteJson(context.Response, ok ? (object)new { ok = true, name, path = savedPath } : new { ok = false, error, name }, ok ? HttpStatusCode.OK : HttpStatusCode.BadRequest);
         }
 
         // Reads request params from BOTH the query string and the JSON request body.
