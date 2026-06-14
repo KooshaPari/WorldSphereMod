@@ -318,6 +318,7 @@ namespace WorldSphereMod
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
         }
 
+
         public static void ApplyPhaseToggle(string flagName, bool newValue)
         {
             WorldSphereMod.Worldspace.PhaseToast.EnsureCreated();
@@ -1514,8 +1515,8 @@ namespace WorldSphereMod
                     // The land mesh carries per-vertex corner-averaged colors as its
                     // sole albedo. Whatever shader we resolved samples _MainTex and
                     // multiplies it into albedo:
-                    //   - Sprites/Default & WSM3D/OpaqueVertexColor: albedo = color * tex2D(_MainTex)
-                    //   - Standard (ResolveShader fallback, LIT): albedo *= _MainTex
+                    //   - Mobile/VertexLit / Mobile/Diffuse / Diffuse: albedo = color * tex2D(_MainTex)
+                    //   - Standard: albedo *= _MainTex
                     // All declare _MainTex = "white" {}, but some 60f1 runtimes leave
                     // it NULL at runtime -> tex2D() = (0,0,0,0) -> albedo zeroed ->
                     // the entire terrain surface renders BLACK. Force the built-in

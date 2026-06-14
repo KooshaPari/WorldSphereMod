@@ -127,9 +127,9 @@ namespace WorldSphereMod.Voxel
 
         /// <summary>
         /// Resolve a material capable of rendering the voxel mesh's per-vertex colors.
-        /// Walks a fallback chain of Unity built-in shaders so we don't need to ship a
-        /// new shader asset in Phase 1 (Phase 5 introduces VoxelLit.shader and a real
-        /// lit + shadow-casting material via the AssetBundle).
+        /// RENDER-FOUNDATION CHANGE: prefer the built-in shader fallback chain
+        /// (Mobile/VertexLit, Standard, Mobile/Diffuse, Diffuse) so the actor
+        /// surface no longer depends on the broken wsm3d-shaders AssetBundle.
         /// </summary>
         public static bool EnsureMaterial()
         {
@@ -143,6 +143,11 @@ namespace WorldSphereMod.Voxel
             }
             _materialAttempted = true;
 
+            // 60f1 ships a STRIPPED shader set: Particles/*, URP/*, Unlit/* all
+            // return null at runtime, so reaching for them produced null → magenta
+            // voxels. Walk the BUILT-IN chain defined in Core.Sphere
+            // (Mobile/VertexLit → Standard → Mobile/Diffuse → Diffuse) — no bundle
+            // dependency.
             string[] candidates = Core.Sphere.BuiltInShaderFallbacks;
             var shaderLookup = new Dictionary<string, Shader>();
             foreach (var name in candidates)
