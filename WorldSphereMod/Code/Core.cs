@@ -876,6 +876,13 @@ namespace WorldSphereMod
             public static bool PerlinNoise = true;
             #region Fancy stuff
             static SphereManager Manager;
+            // #199 GPU-compute go-live: a GpuSphereManager wired IN PARALLEL with the
+            // CPU Manager for the instanced actor/voxel tile path. The CPU Manager
+            // stays the coordinate/terrain (HeightField) authority. Null until the
+            // async GPU creator completes; null whenever CompoundCompute is unavailable
+            // (legacy CPU-only path). All consumer calls are null-guarded.
+            static CompoundSpheres.Gpu.GpuSphereManager GpuManager;
+            static CompoundSpheres.Gpu.GpuSphereManagerSettings GpuManagerConfig;
             public static SphereManager ManagerInstance => Manager;
             static Mesh CompoundSphereMesh;
             internal static Material CompoundSphereMaterial;
