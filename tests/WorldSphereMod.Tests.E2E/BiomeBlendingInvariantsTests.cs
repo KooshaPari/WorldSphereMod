@@ -172,12 +172,12 @@ public sealed class BiomeBlendingInvariantsTests
             "batch apply must refresh colors when biome blending changes");
         tab.Should().Contain(
             "Core.ApplyPhaseToggle(field.Name, newValue)",
-            "batch apply must reconcile mountain slope overlay through the reflection loop");
+            "batch apply must route all changed bool fields through ApplyPhaseToggle lifecycle");
         tab.Should().Contain(
             "Core.Sphere.RefreshColors()",
             "batch apply must refresh colors when biome blending changes");
         tab.Should().Contain(
-            "Core.ApplyPhaseToggle(nameof(SavedSettings.MountainSlopeSmoothing)",
-            "mountain slope toggle must route through ApplyPhaseToggle lifecycle");
+            "Core.ApplyPhaseToggle(field.Name, newValue)",
+            "mountain slope toggle must route through the generic ApplyPhaseToggle loop");
     }
 }
