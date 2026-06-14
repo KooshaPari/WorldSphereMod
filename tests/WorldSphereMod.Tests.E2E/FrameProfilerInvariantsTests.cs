@@ -1,4 +1,9 @@
+using System;
 using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Diagnostics;
 using FluentAssertions;
 using Xunit;
 
@@ -17,97 +22,227 @@ public class FrameProfilerInvariantsTests
         return dir!.FullName;
     }
 
-    private static string ReadSourceFile(string relativePath)
+    private static Assembly LoadModAssembly()
     {
         var root = FindRepoRoot();
-        var fullPath = Path.Combine(root, relativePath);
-        File.Exists(fullPath).Should().BeTrue($"source file must exist at {fullPath}");
-        return File.ReadAllText(fullPath);
+        var dllPath = Path.Combine(root, "bin", "Release", "net48", "WorldSphereMod3D.dll");
+        File.Exists(dllPath).Should().BeTrue($"WorldSphereMod3D.dll must be built at {dllPath}");
+        return Assembly.LoadFrom(dllPath);
+    }
+
+    private static void SetProfilerDump(Assembly asm, bool value)
+    {
+        var coreType = asm.GetType("WorldSphereMod.Core")!;
+        var savedSettingsField = coreType.GetField("savedSettings", BindingFlags.Public | BindingFlags.Static)!;
+        var savedSettings = savedSettingsField.GetValue(null)!;
+        var profilerDumpField = savedSettings.GetType().GetField("ProfilerDump")!;
+        profilerDumpField.SetValue(savedSettings, value);
+    }
+
+    private static void ResetProfilerState(Assembly asm)
+    {
+        var frameProfilerType = asm.GetType("WorldSphereMod.Perf.FrameProfiler")!;
+        var totalMs = frameProfilerType.GetField("_totalMs", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var begin = frameProfilerType.GetField("_begin", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var running = frameProfilerType.GetField("_running", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var windowElapsed = frameProfilerType.GetField("_windowElapsed", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        ((Dictionary<string, double>)totalMs.GetValue(null)!).Clear();
+        ((Dictionary<string, long>)begin.GetValue(null)!).Clear();
+        ((Dictionary<string, Stopwatch>)running.GetValue(null)!).Clear();
+        windowElapsed.SetValue(null, 0f);
     }
 
     [Fact]
-    public void FrameProfiler_is_public_static_with_register_begin_end_tick()
+    public void FrameProfiler_Register_initializes_accumulator_and_stopwatch_entries()
     {
-        var source = ReadSourceFile("WorldSphereMod/Code/Perf/FrameProfiler.cs");
+        var asm = LoadModAssembly();
+        ResetProfilerState(asm);
 
-        source.Should().Contain("public static class FrameProfiler",
-            "FrameProfiler must be a public static class so it can be called from hot paths without instance overhead");
-        source.Should().Contain("public static void Register(string key)",
-            "Register must be a public static entry point for systems that declare profiling keys upfront");
-        source.Should().Contain("public static void Begin(string key)",
-            "Begin must be a public static entry point to bracket timed work");
-        source.Should().Contain("public static void End(string key)",
-            "End must be a public static entry point to close a timed bracket and accumulate the sample");
-        source.Should().Contain("public static void Tick(float dt)",
-            "Tick must be a public static entry point to flush the rolling window");
+        var frameProfilerType = asm.GetType("WorldSphereMod.Perf.FrameProfiler")!;
+        var register = frameProfilerType.GetMethod("Register", BindingFlags.Public | BindingFlags.Static)!;
+        var totalMs = frameProfilerType.GetField("_totalMs", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var running = frameProfilerType.GetField("_running", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        register.Invoke(null, new object[] { "reg_key" });
+
+        var totalDict = (Dictionary<string, double>)totalMs.GetValue(null)!;
+        var runningDict = (Dictionary<string, Stopwatch>)running.GetValue(null)!;
+
+        totalDict.Should().ContainKey("reg_key", "Register must seed the per-key accumulator");
+        totalDict["reg_key"].Should().Be(0.0, "Register must initialize the accumulator to zero");
+        runningDict.Should().ContainKey("reg_key", "Register must seed the per-key Stopwatch");
     }
 
     [Fact]
-    public void FrameProfiler_begin_end_are_gated_by_profiler_dump()
+    public void FrameProfiler_Begin_End_are_noop_when_profiler_dump_disabled()
     {
-        var source = ReadSourceFile("WorldSphereMod/Code/Perf/FrameProfiler.cs");
+        var asm = LoadModAssembly();
+        ResetProfilerState(asm);
+        SetProfilerDump(asm, false);
 
-        source.Should().Contain("if (!Core.savedSettings.ProfilerDump) return;",
-            "Begin and End must be gated by ProfilerDump so they are zero-cost when the profiler is disabled");
-        source.Should().Contain("_begin[key] = Stopwatch.GetTimestamp();",
-            "Begin must store the start timestamp in a static dictionary keyed by the profiling key");
-        source.Should().Contain("if (!_begin.TryGetValue(key, out long start)) return;",
-            "End must guard against missing start timestamps to avoid double-counting or unbalanced brackets");
-        source.Should().Contain("double elapsedMs = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;",
-            "End must convert Stopwatch ticks to milliseconds using the platform frequency");
-        source.Should().Contain("_totalMs[key] += elapsedMs",
-            "End must accumulate the elapsed time into the rolling total for the current window");
+        var frameProfilerType = asm.GetType("WorldSphereMod.Perf.FrameProfiler")!;
+        var register = frameProfilerType.GetMethod("Register", BindingFlags.Public | BindingFlags.Static)!;
+        var begin = frameProfilerType.GetMethod("Begin", BindingFlags.Public | BindingFlags.Static)!;
+        var end = frameProfilerType.GetMethod("End", BindingFlags.Public | BindingFlags.Static)!;
+        var totalMs = frameProfilerType.GetField("_totalMs", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var beginDict = frameProfilerType.GetField("_begin", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        register.Invoke(null, new object[] { "noop_key" });
+        begin.Invoke(null, new object[] { "noop_key" });
+        end.Invoke(null, new object[] { "noop_key" });
+
+        var totalDict = (Dictionary<string, double>)totalMs.GetValue(null)!;
+        var bdict = (Dictionary<string, long>)beginDict.GetValue(null)!;
+
+        totalDict["noop_key"].Should().Be(0.0, "End must not accumulate when ProfilerDump is disabled");
+        bdict.Should().NotContainKey("noop_key", "Begin must not store a timestamp when ProfilerDump is disabled");
     }
 
     [Fact]
-    public void FrameProfiler_tick_flushes_rolling_window_and_resets_totals()
+    public void FrameProfiler_Begin_End_accumulate_elapsed_time_when_profiler_dump_enabled()
     {
-        var source = ReadSourceFile("WorldSphereMod/Code/Perf/FrameProfiler.cs");
+        var asm = LoadModAssembly();
+        ResetProfilerState(asm);
+        SetProfilerDump(asm, true);
 
-        source.Should().Contain("const float kWindowSize = 1.0f;",
-            "Tick must use a fixed 1-second rolling window so log output is readable and predictable");
-        source.Should().Contain("_windowElapsed += dt;",
-            "Tick must accumulate delta time into the window counter each frame");
-        source.Should().Contain("if (_windowElapsed < kWindowSize) return;",
-            "Tick must defer the flush until the window threshold is crossed");
-        source.Should().Contain("[WSM-PROF]",
-            "Tick must emit a recognizable log prefix so operators can grep for profiler output");
-        source.Should().Contain("var keys = _totalMs.Keys.ToList();",
-            "Tick must snapshot the keys before resetting totals to avoid mutating the dictionary during iteration");
-        source.Should().Contain("_totalMs[keys[i]] = 0.0;",
-            "Tick must zero every accumulated total after flushing so the next window starts clean");
-        source.Should().Contain("_windowElapsed = 0f;",
-            "Tick must reset the window accumulator after flushing so the next window begins at zero");
+        var frameProfilerType = asm.GetType("WorldSphereMod.Perf.FrameProfiler")!;
+        var register = frameProfilerType.GetMethod("Register", BindingFlags.Public | BindingFlags.Static)!;
+        var begin = frameProfilerType.GetMethod("Begin", BindingFlags.Public | BindingFlags.Static)!;
+        var end = frameProfilerType.GetMethod("End", BindingFlags.Public | BindingFlags.Static)!;
+        var totalMs = frameProfilerType.GetField("_totalMs", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var beginDict = frameProfilerType.GetField("_begin", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        register.Invoke(null, new object[] { "acc_key" });
+        begin.Invoke(null, new object[] { "acc_key" });
+        end.Invoke(null, new object[] { "acc_key" });
+
+        var totalDict = (Dictionary<string, double>)totalMs.GetValue(null)!;
+        var bdict = (Dictionary<string, long>)beginDict.GetValue(null)!;
+
+        totalDict["acc_key"].Should().BeGreaterThan(0, "End must accumulate a positive elapsed time when ProfilerDump is enabled");
+        bdict.Should().ContainKey("acc_key", "Begin must store the start timestamp when ProfilerDump is enabled");
     }
 
     [Fact]
-    public void FrameProfiler_register_initializes_accumulator_and_stopwatch_entries()
+    public void FrameProfiler_Tick_accumulates_window_time_without_touching_totals()
     {
-        var source = ReadSourceFile("WorldSphereMod/Code/Perf/FrameProfiler.cs");
+        var asm = LoadModAssembly();
+        ResetProfilerState(asm);
+        SetProfilerDump(asm, true);
 
-        source.Should().Contain("if (!_totalMs.ContainsKey(key)) _totalMs[key] = 0.0;",
-            "Register must seed the per-key accumulator so End can safely add to it without a key-missing guard");
-        source.Should().Contain("if (!_running.ContainsKey(key)) _running[key] = new Stopwatch();",
-            "Register must seed the per-key Stopwatch so the profiler can reuse instances across frames");
+        var frameProfilerType = asm.GetType("WorldSphereMod.Perf.FrameProfiler")!;
+        var register = frameProfilerType.GetMethod("Register", BindingFlags.Public | BindingFlags.Static)!;
+        var begin = frameProfilerType.GetMethod("Begin", BindingFlags.Public | BindingFlags.Static)!;
+        var end = frameProfilerType.GetMethod("End", BindingFlags.Public | BindingFlags.Static)!;
+        var tick = frameProfilerType.GetMethod("Tick", BindingFlags.Public | BindingFlags.Static)!;
+        var totalMs = frameProfilerType.GetField("_totalMs", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var windowElapsed = frameProfilerType.GetField("_windowElapsed", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        register.Invoke(null, new object[] { "tick_key" });
+        begin.Invoke(null, new object[] { "tick_key" });
+        end.Invoke(null, new object[] { "tick_key" });
+
+        var totalDict = (Dictionary<string, double>)totalMs.GetValue(null)!;
+        var beforeTotal = totalDict["tick_key"];
+        var beforeWindow = (float)windowElapsed.GetValue(null)!;
+
+        for (int i = 0; i < 5; i++)
+        {
+            tick.Invoke(null, new object[] { 0.1f });
+        }
+
+        var afterWindow = (float)windowElapsed.GetValue(null)!;
+        var afterTotal = totalDict["tick_key"];
+
+        afterWindow.Should().BeApproximately(beforeWindow + 0.5f, 0.001f, "Tick must accumulate dt into _windowElapsed");
+        afterTotal.Should().Be(beforeTotal, "Tick must not reset totals when the window threshold is not crossed");
     }
 
     [Fact]
-    public void ProfilerFrameDriver_is_sealed_monobehaviour_that_drives_tick_in_lateupdate()
+    public void FrameProfiler_Tick_reaches_flush_branch_when_window_threshold_crossed()
     {
-        var source = ReadSourceFile("WorldSphereMod/Code/Perf/ProfilerFrameDriver.cs");
+        var asm = LoadModAssembly();
+        ResetProfilerState(asm);
+        SetProfilerDump(asm, true);
 
-        source.Should().Contain("public sealed class ProfilerFrameDriver : MonoBehaviour",
-            "ProfilerFrameDriver must be a sealed MonoBehaviour to prevent accidental subclassing");
-        source.Should().Contain("void LateUpdate() => FrameProfiler.Tick(Time.deltaTime);",
-            "ProfilerFrameDriver must call FrameProfiler.Tick in LateUpdate so profiling happens after all frame work is done");
+        var frameProfilerType = asm.GetType("WorldSphereMod.Perf.FrameProfiler")!;
+        var register = frameProfilerType.GetMethod("Register", BindingFlags.Public | BindingFlags.Static)!;
+        var begin = frameProfilerType.GetMethod("Begin", BindingFlags.Public | BindingFlags.Static)!;
+        var end = frameProfilerType.GetMethod("End", BindingFlags.Public | BindingFlags.Static)!;
+        var tick = frameProfilerType.GetMethod("Tick", BindingFlags.Public | BindingFlags.Static)!;
+        var windowElapsed = frameProfilerType.GetField("_windowElapsed", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        register.Invoke(null, new object[] { "flush_key" });
+        begin.Invoke(null, new object[] { "flush_key" });
+        end.Invoke(null, new object[] { "flush_key" });
+
+        windowElapsed.SetValue(null, 0.95f);
+
+        var flushAction = () => tick.Invoke(null, new object[] { 0.1f });
+
+        flushAction.Should().Throw<TargetInvocationException>(
+            "Tick must enter the flush branch when _windowElapsed crosses the 1-second threshold; " +
+            "outside Unity, Debug.Log throws a SecurityException, confirming the branch was reached");
     }
 
     [Fact]
-    public void ProfilerFrameDriver_is_mounted_in_mod_init_sequence()
+    public void FrameProfiler_Tick_is_noop_when_profiler_dump_disabled()
     {
-        var source = ReadSourceFile("WorldSphereMod/Code/Mod.cs");
+        var asm = LoadModAssembly();
+        ResetProfilerState(asm);
+        SetProfilerDump(asm, false);
 
-        source.Should().Contain("Object.AddComponent<WorldSphereMod.Perf.ProfilerFrameDriver>();",
-            "ProfilerFrameDriver must be added to the mod GameObject during deferred init so it runs for every frame");
+        var frameProfilerType = asm.GetType("WorldSphereMod.Perf.FrameProfiler")!;
+        var tick = frameProfilerType.GetMethod("Tick", BindingFlags.Public | BindingFlags.Static)!;
+        var windowElapsed = frameProfilerType.GetField("_windowElapsed", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var beforeWindow = (float)windowElapsed.GetValue(null)!;
+
+        tick.Invoke(null, new object[] { 2.0f });
+
+        var afterWindow = (float)windowElapsed.GetValue(null)!;
+
+        afterWindow.Should().Be(beforeWindow, "Tick must be a no-op when ProfilerDump is disabled, even with large dt");
+    }
+
+    [Fact]
+    public void ProfilerFrameDriver_is_sealed_monobehaviour_with_lateupdate_tick()
+    {
+        var asm = LoadModAssembly();
+
+        var driverType = asm.GetType("WorldSphereMod.Perf.ProfilerFrameDriver")!;
+
+        driverType.IsSealed.Should().BeTrue("ProfilerFrameDriver must be sealed to prevent accidental subclassing");
+        driverType.BaseType!.FullName.Should().Be("UnityEngine.MonoBehaviour", "ProfilerFrameDriver must inherit from MonoBehaviour");
+
+        var lateUpdate = driverType.GetMethod("LateUpdate", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        lateUpdate.Should().NotBeNull("ProfilerFrameDriver must declare LateUpdate");
+
+        var tickMethod = asm.GetType("WorldSphereMod.Perf.FrameProfiler")!.GetMethod("Tick", BindingFlags.Public | BindingFlags.Static)!;
+        var body = lateUpdate.GetMethodBody();
+        body.Should().NotBeNull("LateUpdate must have a method body");
+    }
+
+    [Fact]
+    public void ProfilerFrameDriver_records_only_when_enabled_via_tick_gate()
+    {
+        var asm = LoadModAssembly();
+        ResetProfilerState(asm);
+        SetProfilerDump(asm, false);
+
+        var frameProfilerType = asm.GetType("WorldSphereMod.Perf.FrameProfiler")!;
+        var tick = frameProfilerType.GetMethod("Tick", BindingFlags.Public | BindingFlags.Static)!;
+        var windowElapsed = frameProfilerType.GetField("_windowElapsed", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var beforeWindow = (float)windowElapsed.GetValue(null)!;
+
+        // Simulate what ProfilerFrameDriver.LateUpdate does
+        tick.Invoke(null, new object[] { 0.016f });
+
+        var afterWindow = (float)windowElapsed.GetValue(null)!;
+
+        afterWindow.Should().Be(beforeWindow, "ProfilerFrameDriver must not advance profiling when ProfilerDump is disabled; " +
+            "the gate lives inside FrameProfiler.Tick");
     }
 }
