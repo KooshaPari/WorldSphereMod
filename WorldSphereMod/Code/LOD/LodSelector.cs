@@ -71,7 +71,7 @@ namespace WorldSphereMod.LOD
             switch (tier)
             {
                 case LodTier.Voxel: return UiTier.Full;
-                case LodTier.Proxy: return UiTier.HealthOnly;
+                case LodTier.Cull: return UiTier.HealthOnly;
                 default: return UiTier.None;
             }
         }
