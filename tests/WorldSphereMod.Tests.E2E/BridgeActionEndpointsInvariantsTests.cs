@@ -7,6 +7,7 @@ using Xunit;
 /// Source-invariant checks for the action bridge endpoints in BridgeServer.
 /// These tests only inspect source text and do not require Unity runtime.
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class BridgeActionEndpointsInvariantsTests
 {
     private static string FindRepoRoot()
@@ -69,18 +70,23 @@ public sealed class BridgeActionEndpointsInvariantsTests
 
         processRequestBody.Should().Contain("string.Equals(method, \"POST\", StringComparison.OrdinalIgnoreCase)",
             "the action endpoints must remain POST-only");
-        processRequestBody.Should().Contain("string.Equals(path, \"/actions/spawn_units\", StringComparison.OrdinalIgnoreCase)",
-            "spawn_units route must be dispatched from ProcessRequest");
-        processRequestBody.Should().Contain("string.Equals(path, \"/actions/generate_world\", StringComparison.OrdinalIgnoreCase)",
-            "generate_world route must be dispatched from ProcessRequest");
-        processRequestBody.Should().Contain("WriteJson(context.Response, SpawnUnitsQueued(countText, race));",
-            "spawn_units must return a JSON response via the bridge writer");
-        processRequestBody.Should().Contain("WriteJson(context.Response, GenerateWorldQueued());",
-            "generate_world must return a JSON response via the bridge writer");
+        processRequestBody.Should().Contain("_postRoutes.TryGetValue(path, out Action<HttpListenerContext> handler)",
+            "action routes must be dispatched through the POST route table");
+        processRequestBody.Should().Contain("handler(context);",
+            "ProcessRequest must invoke the matched route handler");
         processRequestBody.Should().Contain("catch (Exception ex)",
             "ProcessRequest must keep the top-level try/catch so failures serialize as JSON errors");
         processRequestBody.Should().Contain("new { ok = false, error = ex.Message }",
             "ProcessRequest exceptions must be normalized into JSON error payloads");
+
+        bridgeServer.Should().Contain("[\"/actions/spawn_units\"] = HandleSpawnUnits",
+            "spawn_units route must be registered in the POST route table");
+        bridgeServer.Should().Contain("[\"/actions/generate_world\"] = HandleGenerateWorld",
+            "generate_world route must be registered in the POST route table");
+        bridgeServer.Should().Contain("void HandleSpawnUnits(HttpListenerContext context)",
+            "spawn_units handler must be extracted as a named method");
+        bridgeServer.Should().Contain("void HandleGenerateWorld(HttpListenerContext context)",
+            "generate_world handler must be extracted as a named method");
 
         bridgeServer.Should().Contain("void WriteJson(HttpListenerResponse response, object payload, HttpStatusCode statusCode = HttpStatusCode.OK) => WriteRawJson(response, JsonConvert.SerializeObject(payload, Formatting.None), statusCode);",
             "WriteJson must serialize action responses with compact JSON and forward them to the raw writer");
@@ -98,30 +104,30 @@ public sealed class BridgeActionEndpointsInvariantsTests
     public void Spawn_units_endpoint_uses_worldbox_types_and_nested_error_handling()
     {
         var bridgeServer = ReadSourceFile("WorldSphereMod/Code/Bridge/BridgeServer.cs");
-        var spawnUnitsBody = ExtractMethodBody(bridgeServer, "object SpawnUnitsQueued(string countText, string race)");
+        var spawnUnitsBody = ExtractMethodBody(bridgeServer, "object SpawnUnitsQueued(string countText, string race, string xText = null, string yText = null)");
 
         spawnUnitsBody.Should().Contain("BridgeSettingParser.TryParseNonNegativeInt(countText, out int count)",
-            "spawn_units must validate the count query parameter before queueing work");
+            "spawn_units must validate the count query parameter before doing work");
         spawnUnitsBody.Should().Contain("World.world == null || MapBox.instance == null",
             "spawn_units must short-circuit when the WorldBox world or MapBox are not ready");
-        spawnUnitsBody.Should().Contain("World.world",
-            "spawn_units must route through the live WorldBox world object");
         spawnUnitsBody.Should().Contain("MapBox.instance",
             "spawn_units must target the live MapBox singleton");
         spawnUnitsBody.Should().Contain("MapBox.width",
             "spawn_units must use WorldBox map dimensions to choose spawn tiles");
         spawnUnitsBody.Should().Contain("MapBox.height",
             "spawn_units must use WorldBox map dimensions to choose spawn tiles");
-        spawnUnitsBody.Should().Contain("WorldTile tile = mapBox.GetTile(x, y);",
-            "spawn_units must resolve a WorldTile before spawning units");
-        spawnUnitsBody.Should().Contain("mapBox.units.createNewUnit(race, tile);",
-            "spawn_units must create units through the WorldBox unit manager");
+        spawnUnitsBody.Should().Contain("AssetManager.actor_library.get(race) == null",
+            "spawn_units must reject unknown races up front instead of silently spawning nothing");
+        spawnUnitsBody.Should().Contain("CollectSpawnableTiles(",
+            "spawn_units must pick valid land tiles so units do not drown/burn instantly");
+        spawnUnitsBody.Should().Contain("mapBox.units.spawnNewUnitByPlayer(race, tile)",
+            "spawn_units must create persisting units through the WorldBox player-spawn path (createNewUnit alone produced 0->0 live units)");
+        spawnUnitsBody.Should().Contain("if (actor != null) spawned++;",
+            "spawn_units must only count units that actually came into existence (createNewUnit returns null on failure)");
+        spawnUnitsBody.Should().Contain("InvokeOnMainThread",
+            "spawn_units must run synchronously on the main thread so it can return the real spawned count");
         spawnUnitsBody.Should().Contain("catch (Exception spawnEx)",
             "spawn_units must isolate per-unit creation failures so one bad unit does not abort the whole loop");
-        spawnUnitsBody.Should().Contain("catch (Exception ex)",
-            "spawn_units must guard the queued work item itself");
-        spawnUnitsBody.Should().Contain("return new { ok = true, count, race, queued = true };",
-            "spawn_units must return a JSON-friendly queued acknowledgement");
         spawnUnitsBody.Should().Contain("return new { ok = false, error = \"invalid_count\", count = countText };",
             "spawn_units must return JSON error payloads for invalid input");
     }
@@ -134,7 +140,7 @@ public sealed class BridgeActionEndpointsInvariantsTests
 
         generateWorldBody.Should().Contain("MapBox.instance == null",
             "generate_world must guard against a missing MapBox instance");
-        generateWorldBody.Should().Contain("MapBox.instance.generateNewMap();",
+        generateWorldBody.Should().Contain("MapBox.instance.startTheGame(true);",
             "generate_world must invoke the WorldBox map generation entrypoint");
         generateWorldBody.Should().Contain("catch (Exception ex)",
             "generate_world must catch and log queued work failures");

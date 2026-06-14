@@ -26,12 +26,42 @@ namespace WorldSphereMod
         public static class Core
     {
         public static SavedSettings savedSettings = new SavedSettings();
-        public static string SettingsVersion = "2.3";
+        // 2.6 -> 2.7: the 2.5→2.6 bump fixed the one-time migration but users whose
+        // JSON was already at "2.6" with VoxelEntities=false (saved before the
+        // ApplyPhaseDefaults entry existed) hit the version-match path (line 78) and
+        // migration never re-fired — stale-false was preserved. The fix: bump to 2.7
+        // AND make ApplySchemaVersionMigration FORCE-SET VoxelEntities=true +
+        // CrossedQuadFoliage=true unconditionally (not relying on default-if-absent).
+        // 2.7 -> 2.8: same pattern — mods_config JSON at "2.7" with VoxelEntities=false
+        // persisted from before the force-set was saved back. Version-match path skips
+        // migration so stale-false survives. Bump forces migration to re-fire. (#208)
+        // 2.8 -> 2.9: live JSON at 2.8 has ActorVoxelScaleFactor=0.5 (net 4× actors),
+        // BuildingVoxelScaleFactor=0.25 (net 2× buildings), FoliageVoxelScaleFactor=0.2
+        // (net 1.6× foliage). All three produce visibly oversized 3D entities in-game
+        // (user-reported P0 2026-06-04). Bumping the schema forces ApplyPhaseDefaults
+        // to re-run and reset the per-entity scale factors to 0.125 (net 1×).
+        // 2.10 -> 2.12: worldspace nametags + health bars visibly oversized
+        // (user-reported P0 2026-06-04, task #191 / #208). Bump forces
+        // ApplyPhaseDefaults to re-fire and re-pin NameplateBaseScale +
+        // the localScale clamps in NameplateWorld.LateUpdate + HealthBar.Attach.
+        // 2.12 = water-flat-sealevel active (#208); forces fresh migration.
+        // 2.13 = worldspace nametags + health bars further shrunk at default
+        // zoom (user-reported P0 2026-06-04, task #208). Bump forces migration.
+        // 2.14 = DayNightCycle default-on for render-foundation sun-cycle verification.
+        public static string SettingsVersion = "2.14";
 
         public static Harmony Patcher;
         internal static bool ClearVoxelMeshCacheOnFirstFrame;
+        private static bool _phaseDiagLogged;
+        private static bool _heightDiagLogged = false;
+        private static bool _runtimeLightingConfigured;
         /// <summary>True when no settings file existed at load time (fresh install).</summary>
         public static bool IsFirstInstall { get; private set; }
+        static void SafeInvoke(string context, Action action)
+        {
+            try { action(); }
+            catch (System.Exception ex) { Debug.LogWarning("[WSM3D] " + context + ": " + ex.Message); }
+        }
         public static void SaveSettings()
         {
             string json = JsonConvert.SerializeObject(savedSettings, Formatting.Indented);
@@ -77,6 +107,11 @@ namespace WorldSphereMod
             // back to true even though our code default is false. Force it off after every
             // load until Phase 6 is stable and we promote the default to true.
             savedSettings.SkeletalAnimation = false;
+            // Force-on VoxelEntities on every load — belt-and-suspenders guard against
+            // stale-false persisted in the JSON surviving a version-match (the 2.7 user
+            // had VoxelEntities=false saved which the version-match path kept). Remove
+            // this override once the setting is confirmed stable and user-togglable. (#208)
+            savedSettings.VoxelEntities = true;
             LogPhaseFlagDefaults(savedSettings);
             return true;
         }
@@ -84,6 +119,18 @@ namespace WorldSphereMod
         static void ApplySchemaVersionMigration(SavedSettings loadedData)
         {
             SavedSettings.ApplyPhaseDefaults(loadedData);
+
+            // FORCE-SET critical render flags unconditionally.
+            // ApplyPhaseDefaults sets these to true, but we also write them
+            // here explicitly so that if a future ApplyPhaseDefaults omits one
+            // of these entries, migration still guarantees the correct state.
+            // This is the canonical fix for the 2.6-stale-false regression:
+            // a persisted JSON at version 2.6 with VoxelEntities=false was
+            // kept because the version-match guard bypassed migration entirely.
+            // Now every migration (any old-version → current) force-overwrites
+            // these flags regardless of the persisted value.
+            loadedData.VoxelEntities = true;
+            loadedData.CrossedQuadFoliage = true;
 
             // Preserve the user's CurrentShape across version bumps.
             // Only phase boolean flags are reset — numeric/scale/shape
@@ -123,11 +170,64 @@ namespace WorldSphereMod
                 .Distinct();
         }
 
+        /// <summary>
+        /// Re-ensure critical phase patches are applied. Corrects any False toggles that
+        /// fired during init/load before Patcher was ready or from save-load clobbers.
+        /// Must be called after Patcher exists (PostInit or later). (#208 billboard fix)
+        /// </summary>
+        public static void EnsurePhasePatches()
+        {
+            if (Patcher == null) return;
+            if (savedSettings.VoxelEntities)
+            {
+                SafeInvoke("EnsurePhasePatches VoxelEntities", () => ApplyPhaseToggle(nameof(SavedSettings.VoxelEntities), true));
+            }
+            if (savedSettings.CrossedQuadFoliage)
+            {
+                SafeInvoke("EnsurePhasePatches CrossedQuadFoliage", () => ApplyPhaseToggle(nameof(SavedSettings.CrossedQuadFoliage), true));
+            }
+            // Force these flags=true regardless of what ApplyPhaseDefaults set.
+            // ApplyPhaseDefaults runs before EnsurePhasePatches and resets them to false.
+            savedSettings.ProceduralBuildings = true;
+            savedSettings.MeshWater = true;
+            bool proceduralBuildingsPatchInstalled = false;
+            SafeInvoke("EnsurePhasePatches ProceduralBuildings", () => {
+                ApplyPhaseToggle(nameof(SavedSettings.ProceduralBuildings), true);
+                proceduralBuildingsPatchInstalled = IsProceduralBuildingsPatchInstalled();
+            });
+            SafeInvoke("EnsurePhasePatches MeshWater", () => ApplyPhaseToggle(nameof(SavedSettings.MeshWater), true));
+            if (!_phaseDiagLogged)
+            {
+                Debug.Log($"[WSM3D][PHASE-DIAG] ProceduralBuildings={savedSettings.ProceduralBuildings} patchInstalled={proceduralBuildingsPatchInstalled}");
+                _phaseDiagLogged = true;
+            }
+        }
+
+        static bool IsProceduralBuildingsPatchInstalled()
+        {
+            if (Patcher == null) return false;
+            try
+            {
+                foreach (var method in Patcher.GetPatchedMethods())
+                {
+                    if (method != null && method.DeclaringType == typeof(WorldSphereMod.ProcGen.BuildingProcRender.ProcMeshEmit))
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch { }
+            return false;
+        }
+
         // go go gadget un-box my worldbox
         public static void Init()
         {
             ClearVoxelMeshCacheOnFirstFrame = true;
             InitProfiler.Measure("LoadSettings", () => LoadSettings());
+            Sphere.HeightMult = Mathf.Max(savedSettings.TileHeight, 1f);
+            Debug.Log($"[WSM3D][HEIGHT-DIAG] Init pre-bootstrap HeightMult={Sphere.HeightMult} TileHeightSetting={savedSettings.TileHeight}");
+            InitProfiler.Measure("RuntimeLighting.Configure", () => ConfigureRuntimeLighting());
             InitProfiler.Measure("WorldSphereTab.Begin", () => WorldSphereTab.Begin());
             InitProfiler.Measure("DimensionConverter.Prepare", () => DimensionConverter.Prepare());
             InitProfiler.Measure("Patch", () => Patch());
@@ -170,6 +270,55 @@ namespace WorldSphereMod
             // which fires for both new-world generation and save loads.
         }
 
+        static void ConfigureRuntimeLighting()
+        {
+            if (_runtimeLightingConfigured) return;
+            _runtimeLightingConfigured = true;
+
+            ReassertRenderFoundationAmbient();
+
+            if (RenderSettings.sun != null && RenderSettings.sun.type == LightType.Directional)
+            {
+                return;
+            }
+
+            Light sun = null;
+            Light[] lights = UnityEngine.Object.FindObjectsOfType<Light>();
+            for (int i = 0; i < lights.Length; i++)
+            {
+                if (lights[i] != null && lights[i].type == LightType.Directional)
+                {
+                    sun = lights[i];
+                    break;
+                }
+            }
+
+            if (sun == null)
+            {
+                GameObject sunGo = new GameObject("WSM3D.RuntimeSun");
+                sunGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+                sun = sunGo.AddComponent<Light>();
+                sun.type = LightType.Directional;
+                sun.intensity = 1f;
+                sun.color = Color.white;
+                sun.enabled = true;
+            }
+
+            RenderSettings.sun = sun;
+        }
+
+        internal static void ReassertRenderFoundationAmbient()
+        {
+            if (savedSettings != null && (savedSettings.DayNightCycle || savedSettings.HdrSkybox))
+            {
+                return;
+            }
+
+            RenderSettings.ambientLight = new Color(0.4f, 0.4f, 0.4f);
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+        }
+
+
         public static void ApplyPhaseToggle(string flagName, bool newValue)
         {
             WorldSphereMod.Worldspace.PhaseToast.EnsureCreated();
@@ -210,17 +359,9 @@ namespace WorldSphereMod
                 {
                     WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated();
                 }
-                if (flagName == nameof(SavedSettings.MountainSlopeSmoothing))
-                {
-                    if (newValue)
-                    {
-                        WorldSphereMod.Terrain.MountainSlopeSurface.EnsureActive();
-                    }
-                    else
-                    {
-                        WorldSphereMod.Terrain.MountainSlopeSurface.Destroy();
-                    }
-                }
+                // MountainSlopeSmoothing: slope smoothing is intrinsic to the fork's
+                // height-field mesh now (corner-averaged heights + analytic normals +
+                // Perlin micro-displacement). No main-mod surface to toggle.
                 if (flagName == nameof(SavedSettings.DayNightCycle) && newValue)
                 {
                     WorldSphereMod.Lighting.TimeOfDay.EnsureCreated();
@@ -306,6 +447,10 @@ namespace WorldSphereMod
             {
                 Debug.LogError($"[WSM3D] Sphere.Prepare FAILED: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
             }
+            // EnsurePhasePatches was defined but never called — this was the billboard
+            // root cause: BuildingVoxelEmit / ActorVoxelEmit Postfixes never installed,
+            // voxel emit loop never ran, processed=0, all sprites stayed 2D. (#208)
+            SafeInvoke("EnsurePhasePatches failed", () => EnsurePhasePatches());
         }
         const string HarmonyID = "WorldSphereMod";
         //this mod makes the game 3D, of course im patching alot (rip compatibility)
@@ -343,6 +488,14 @@ namespace WorldSphereMod
                 Patcher.PatchAll(typeof(WorldSphereMod.Bridge.BridgePerFrameTick));
                 Patcher.PatchAll(typeof(WorldSphereMod.Bridge.BridgeSurvivalBackup));
                 Patcher.PatchAll(typeof(WorldSphereMod.Bridge.BridgeLoadSaveHooks));
+                // Input-capture recorder hooks (passive; gated by SavedSettings.InputCaptureEnabled).
+                Patcher.PatchAll(typeof(WorldSphereMod.Capture.CaptureClickHook));
+                Patcher.PatchAll(typeof(WorldSphereMod.Capture.CaptureSelectToolHook));
+                Patcher.PatchAll(typeof(WorldSphereMod.Capture.CaptureNewWorldHook));
+                Patcher.PatchAll(typeof(WorldSphereMod.Capture.CaptureLoadSaveHook));
+                Patcher.PatchAll(typeof(WorldSphereMod.Capture.CaptureSetSpeedByIdHook));
+                Patcher.PatchAll(typeof(WorldSphereMod.Capture.CaptureSetSpeedByAssetHook));
+                Patcher.PatchAll(typeof(WorldSphereMod.Capture.CaptureZoomHook));
                 Patcher.PatchAll(typeof(SphereControl));
                 Patcher.PatchAll(typeof(Dist3D));
                 Patcher.PatchAll(typeof(EffectPatches));
@@ -392,8 +545,13 @@ namespace WorldSphereMod
                 Patcher.Transpile(Method(typeof(DebugLayerCursor), nameof(DebugLayerCursor.drawIsland)), MapLayerTranspiler);
                 Patcher.Transpile(Method(typeof(ExplosionsEffects), nameof(ExplosionsEffects.UpdateDirty)), MapLayerTranspiler);
                 Patcher.Transpile(Method(typeof(FireLayer), nameof(FireLayer.UpdateDirty)), MapLayerTranspiler);
-                Patcher.Transpile(Method(typeof(LavaLayer), nameof(LavaLayer.drawLavaPixel)), MapLayerTranspiler);
-                Patcher.Transpile(Method(typeof(LavaLayer), nameof(LavaLayer.updateLava)), MapLayerTranspiler);
+                // Lava now renders as a 3D corner-averaged emissive surface in the fork
+                // (HeightFieldRenderer LiquidKind.Lava, wired in ConfigureHeightField),
+                // mirroring how the 2D water billboard was retired for the 3D water
+                // surface. The flat LavaLayer overlay transpiles are therefore retired —
+                // re-enable only if the 3D lava surface is disabled.
+                // Patcher.Transpile(Method(typeof(LavaLayer), nameof(LavaLayer.drawLavaPixel)), MapLayerTranspiler);
+                // Patcher.Transpile(Method(typeof(LavaLayer), nameof(LavaLayer.updateLava)), MapLayerTranspiler);
                 Patcher.Transpile(Method(typeof(PathFindingVisualiser), nameof(PathFindingVisualiser.showPath)), MapLayerTranspiler);
                 Patcher.Transpile(Method(typeof(PixelFlashEffects), nameof(PixelFlashEffects.UpdateDirty)), MapLayerTranspiler);
                 Patcher.Transpile(Method(typeof(UnitLayer), nameof(UnitLayer.UpdateDirty)), MapLayerTranspiler);
@@ -469,9 +627,123 @@ namespace WorldSphereMod
                 return;
             }
             // Ensure world-dependent assets (textures, map layers) are prepared.
-            // PrepareWorld is idempotent — it no-ops if already called from PostInit.
-            try { Sphere.PrepareWorld(); }
-            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] Become3D: PrepareWorld failed: " + ex.Message); }
+            // If _map_layers is empty (WorldBox not yet populated — common on save-load
+            // when finishMakingWorld fires before layer init), defer via coroutine and
+            // poll until Count>0 before calling PrepareWorld+Begin. (#208 terrain-white)
+            if (World.world != null && World.world._map_layers != null && World.world._map_layers.Count == 0)
+            {
+                UnityEngine.Debug.LogWarning("[WSM3D] Become3D: _map_layers empty — deferring to coroutine to wait for population.");
+                var host = UnityEngine.GameObject.FindObjectOfType<UnityEngine.MonoBehaviour>();
+                if (host != null)
+                {
+                    host.StartCoroutine(Become3DWhenLayersReady());
+                    return;
+                }
+            }
+            Become3DImmediate();
+        }
+
+        static System.Collections.IEnumerator Become3DWhenLayersReady()
+        {
+            int waited = 0;
+            while (World.world == null || World.world._map_layers == null || World.world._map_layers.Count == 0)
+            {
+                waited++;
+                if (waited > 300) // ~5s at 60fps; bail out to avoid infinite loop
+                {
+                    UnityEngine.Debug.LogError("[WSM3D] Become3DWhenLayersReady: timed out waiting for _map_layers to populate after 300 frames. Proceeding anyway.");
+                    break;
+                }
+                yield return null;
+            }
+            UnityEngine.Debug.Log($"[WSM3D] Become3DWhenLayersReady: _map_layers populated after {waited} frames (Count={World.world?._map_layers?.Count ?? -1}).");
+            Become3DImmediate();
+        }
+
+        static void Become3DImmediate()
+        {
+            SafeInvoke("Become3D: PrepareWorld failed", () => Sphere.PrepareWorld());
+            // ONE-SHOT DIAGNOSTIC (A): sample 5 tile heights and core height settings.
+            // confirm terrain-height investigation (#208).
+            try
+            {
+                if (!_heightDiagLogged && World.world != null && MapBox.width > 0 && MapBox.height > 0)
+                {
+                    int w = MapBox.width; int h = MapBox.height;
+                    int[,] pts = { { w / 8, h / 8 }, { w / 4, h / 2 }, { w / 2, h / 4 }, { 3 * w / 4, 3 * h / 4 }, { w - 2, h - 2 } };
+                    float minHeight = float.PositiveInfinity;
+                    float maxHeight = float.NegativeInfinity;
+                    int validSamples = 0;
+                    for (int i = 0; i < 5; i++)
+                    {
+                        int px = pts[i, 0];
+                        int py = pts[i, 1];
+                        try
+                        {
+                            WorldTile tile = World.world.GetTileSimple(px, py);
+                            // Sample RAW WorldBox elevation (GetHeight), not the fork's
+                            // TileHeight() — the latter routes through Tile.WorldToSphere()
+                            // -> Core.Sphere.GetTile(), which NREs at Become3D ENTRY because
+                            // Sphere.Begin() (which builds the Manager + SphereTiles) has not
+                            // run yet. GetHeight() is the native tile field and is populated
+                            // as soon as the world tiles exist, so the flat-terrain auto-boost
+                            // below can actually evaluate on both bridge + menu load paths.
+                            float tileHeight = tile == null ? float.NaN : tile.GetHeight();
+                            if (!float.IsNaN(tileHeight))
+                            {
+                                if (tileHeight < minHeight) minHeight = tileHeight;
+                                if (tileHeight > maxHeight) maxHeight = tileHeight;
+                                validSamples++;
+                            }
+                            Debug.Log($"[WSM3D][HEIGHT-DIAG] tile=({px},{py}) GetHeight()={tileHeight} HeightMult={Sphere.HeightMult} TileHeightSetting={savedSettings.TileHeight}");
+                        }
+                        catch (System.Exception tileEx)
+                        {
+                            Debug.LogWarning($"[WSM3D][HEIGHT-DIAG] sample failed at tile=({px},{py}): " + tileEx.Message);
+                        }
+                    }
+                    if (validSamples >= 3)
+                    {
+                        float span = maxHeight - minHeight;
+                        Debug.Log($"[WSM3D][HEIGHT-DIAG] terrain sample span={span:F4} min={minHeight:F4} max={maxHeight:F4} HeightMult={Sphere.HeightMult}");
+                        // GetHeight() is in raw integer elevation steps: a genuinely flat
+                        // region spans 0, any relief spans >=1. 0.5 cleanly separates the two.
+                        const float flatSpanThreshold = 0.5f;
+                        if (span <= flatSpanThreshold && savedSettings.TileHeight <= 1f)
+                        {
+                            float oldMult = Sphere.HeightMult;
+                            Sphere.HeightMult = Mathf.Clamp(savedSettings.TileHeight * 6f, 1f, 8f);
+                            Debug.LogWarning($"[WSM3D][HEIGHT-DIAG] auto-boosted flat terrain: HeightMult {oldMult} -> {Sphere.HeightMult}");
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[WSM3D][HEIGHT-DIAG] terrain sample span unavailable: validSamples={validSamples} (using current HeightMult={Sphere.HeightMult})");
+                    }
+                    _heightDiagLogged = true;
+                }
+            }
+            catch (System.Exception ex) { Debug.LogWarning("[WSM3D][HEIGHT-DIAG] sample failed: " + ex.Message); }
+            // ONE-SHOT COLOR DIAGNOSTIC: confirm GetTileColor returns non-black biome RGB.
+            // PASS: at least one tile has R≠G or G≠B (divergent channels = real biome color).
+            // FAIL: all (128,128,128) = Textures null/not built; all (0,0,0,0) = still pixel buffer.
+            try
+            {
+                if (World.world != null && MapBox.width > 0 && MapBox.height > 0)
+                {
+                    int cw = MapBox.width; int ch = MapBox.height;
+                    int[,] cpts = { {cw/8,ch/8},{cw/4,ch/2},{cw/2,ch/4},{3*cw/4,3*ch/4},{cw-2,ch-2} };
+                    for (int ci = 0; ci < 5; ci++)
+                    {
+                        int cpx = cpts[ci,0]; int cpy = cpts[ci,1];
+                        WorldTile ctile = World.world.GetTileSimple(cpx, cpy);
+                        Color32 cc = Sphere.GetTileColor(ctile);
+                        int ctex = ctile != null ? Sphere.WorldTileTexture(ctile) : -1;
+                        Debug.Log($"[WSM3D][COLOR-DIAG] tile=({cpx},{cpy}) type={ctile?.main_type?.id ?? "null"} texIdx={ctex} RGBA=({cc.r},{cc.g},{cc.b},{cc.a})");
+                    }
+                }
+            }
+            catch (System.Exception ex) { Debug.LogWarning("[WSM3D][COLOR-DIAG] failed: " + ex.Message); }
             // Sphere.Begin starts a coroutine that spreads tile+buffer init
             // across frames; the onCreated callback fires once the Manager
             // exists (before buffers finish) and triggers the remaining 3D
@@ -482,18 +754,30 @@ namespace WorldSphereMod
         }
         static void FinishBecome3D()
         {
-            try { CameraManager.MakeCamera3D(); }
-            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] MakeCamera3D failed: " + ex.Message); }
-            try { WorldSphereMod.Lighting.CubemapLighting.EnsureCreated(); }
-            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] CubemapLighting failed: " + ex.Message); }
-            try { WorldSphereMod.PostFx.WSM3DPostStack.EnsureCreated(); }
-            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] WSM3DPostStack failed: " + ex.Message); }
-            try { WorldSphereMod.Lighting.ProceduralSky.EnsureCreated(); }
-            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] ProceduralSky.EnsureCreated failed: " + ex.Message); }
-            try { Do3DStuff(); }
-            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] Do3DStuff failed: " + ex.Message); }
-            try { Sphere.LogDiagnostics("[WSM3D] Become3D"); }
-            catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] Sphere diagnostics failed: " + ex.Message); }
+            SafeInvoke("MakeCamera3D failed", () => CameraManager.MakeCamera3D());
+            // WorldspaceUI on world-load: EnsureCreated is normally only triggered by a
+            // live flag toggle; when the JSON already has WorldspaceUI=true the renderer
+            // was never started. Start it here so nameplates + healthbars appear at load.
+            SafeInvoke("WorldUIRenderer.EnsureCreated failed", () => WorldSphereMod.Worldspace.WorldUIRenderer.EnsureCreated());
+            // SUN=NULL ROOT-CAUSE FIX: the mod-load SunDriver.Init() (PostInit) ran
+            // while Core.IsWorld3D was false (Sphere did not exist yet) and early-
+            // returned, so the directional sun was never created and RenderSettings.sun
+            // stayed null -> near-black terrain. Re-run it here where IsWorld3D is true.
+            // Init() is idempotent (no-ops if Sun already exists).
+            SafeInvoke("SunDriver.Init failed", () => WorldSphereMod.Lighting.SunDriver.Init());
+            // Start the day/night driver so the sun is actively pumped, but only when
+            // the user enabled DayNightCycle. When it's off, the static sun + ambient
+            // floor from Init() keep the scene lit (no forced day/night).
+            if (savedSettings.DayNightCycle)
+            {
+                SafeInvoke("TimeOfDay.EnsureCreated failed", () => WorldSphereMod.Lighting.TimeOfDay.EnsureCreated());
+            }
+            SafeInvoke("CubemapLighting failed", () => WorldSphereMod.Lighting.CubemapLighting.EnsureCreated());
+            SafeInvoke("WSM3DPostStack failed", () => WorldSphereMod.PostFx.WSM3DPostStack.EnsureCreated());
+            SafeInvoke("ProceduralSky.EnsureCreated failed", () => WorldSphereMod.Lighting.ProceduralSky.EnsureCreated());
+            ReassertRenderFoundationAmbient();
+            SafeInvoke("Do3DStuff failed", () => Do3DStuff());
+            SafeInvoke("Sphere diagnostics failed", () => Sphere.LogDiagnostics("[WSM3D] Become3D"));
         }
         static void Do3DStuff()
         {
@@ -522,6 +806,13 @@ namespace WorldSphereMod
         // the layer between the Mod and the compound sphere
         public static class Sphere
         {
+            // Render-foundation machine-verification handles: the last terrain
+            // height-field material + mesh applied this world, so the bridge
+            // /telemetry can report terrainMaterialShader / terrainMeshVertCount
+            // without per-frame cost (read on telemetry request only).
+            public static UnityEngine.Material LastTerrainMaterial;
+            public static UnityEngine.Mesh LastTerrainMesh;
+
             public static void AddShape(Shape shape)
             {
                 Shapes.Add(shape);
@@ -570,16 +861,33 @@ namespace WorldSphereMod
             public static bool IsWrapped => CurrentShape.IsWrapped;
             public static Transform CenterCapsule => Manager.transform.childCount > 0 ? Manager.transform.GetChild(0) : null;
             public static bool Exists => Manager != null;
+            public static Texture2DArray TerrainTextureArray => Textures;
             public static float HeightMult = 0;
             public static bool PerlinNoise = true;
             #region Fancy stuff
             static SphereManager Manager;
+            // #199 GPU-compute go-live: a GpuSphereManager wired IN PARALLEL with the
+            // CPU Manager for the instanced actor/voxel tile path. The CPU Manager
+            // stays the coordinate/terrain (HeightField) authority. Null until the
+            // async GPU creator completes; null whenever CompoundCompute is unavailable
+            // (legacy CPU-only path). All consumer calls are null-guarded.
+            static CompoundSpheres.Gpu.GpuSphereManager GpuManager;
+            static CompoundSpheres.Gpu.GpuSphereManagerSettings GpuManagerConfig;
+            public static SphereManager ManagerInstance => Manager;
             static Mesh CompoundSphereMesh;
             internal static Material CompoundSphereMaterial;
+            // GPU-compute keystone shader (CompoundSphereCompute), loaded from the
+            // wsm3d-shaders bundle in LoadAssets. Non-null once the bundle ships the
+            // baked .compute; the GPU CompoundSpheres.Gpu manager / LegacyManagerShim
+            // bind its CSMatrices/CSColors kernels to it. Null => legacy CPU path.
+            internal static UnityEngine.ComputeShader CompoundCompute;
             static Texture2DArray Textures;
+            static Texture2D TerrainTextureAtlas;
+            static int TerrainTextureAtlasCols;
+            static int TerrainTextureAtlasRows;
+            const int TerrainTextureAtlasTileSize = 8;
             static SphereManagerSettings SphereManagerConfig;
             static Dictionary<Tile, int> TileIDS;
-            static Dictionary<int, Color32> TextureAverageCache;
             #endregion
             public static List<MapLayer> BaseLayers;
             public static Dictionary<MapLayer, PixelArray> CachedColors;
@@ -638,18 +946,14 @@ namespace WorldSphereMod
                         // causing EnsureCreated() to silently bail. Re-call here once
                         // Sphere.Exists is guaranteed true so the pale-blue ambient fix
                         // and procedural sky always run when their flags are enabled.
-                        try
-                        {
+                        SafeInvoke("CubemapLighting re-trigger failed", () => {
                             if (savedSettings.HdrSkybox)
                                 WorldSphereMod.Lighting.CubemapLighting.EnsureCreated();
-                        }
-                        catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] CubemapLighting re-trigger failed: " + ex.Message); }
-                        try
-                        {
+                        });
+                        SafeInvoke("ProceduralSky re-trigger failed", () => {
                             if (savedSettings.HdrSkybox || savedSettings.DayNightCycle)
                                 WorldSphereMod.Lighting.ProceduralSky.EnsureCreated();
-                        }
-                        catch (System.Exception ex) { UnityEngine.Debug.LogWarning("[WSM3D] ProceduralSky re-trigger failed: " + ex.Message); }
+                        });
                     }));
             }
             static Color32 GetBaseColor(int index)
@@ -676,17 +980,56 @@ namespace WorldSphereMod
 
                 return new Color32((byte)r, (byte)g, (byte)b, (byte)Mathf.Clamp(a, 0, 255));
             }
-            static Color32 GetTextureAverageColor(int textureIndex)
+
+            /// <summary>
+            /// Get biome color for a tile from the center texel of its terrain sprite
+            /// texture slice in the texture array built by CreateTextures(). In 3D mode,
+            /// tilemap.redrawTiles() is intercepted + bypassed, so world_layer.pixels and
+            /// MapLayer.pixels are never painted — we bypass that buffer entirely and use
+            /// a texture-slice cache here. This keeps color sampling aligned to the
+            /// source sprite data and avoids atlas-UV remap mistakes.
+            /// (#208 terrain-gray root cause fix, center-pixel fidelity follow-up)
+            /// </summary>
+            public static Color32 GetTileColor(WorldTile tile)
+            {
+                if (tile == null) return new Color32(128, 128, 128, 255);
+                int texIdx = WorldTileTexture(tile);
+                Color32 c = GetTexturePixelColor(texIdx, tile.x, tile.y);
+                // If texIdx<=0 and we got the mid-gray fallback, try pixel buffer too.
+                if (texIdx <= 0)
+                {
+                    int w = MapBox.width;
+                    int idx = tile.y * w + tile.x;
+                    Color32[] wp = World.world?.world_layer?.pixels;
+                    if (wp != null && idx >= 0 && idx < wp.Length && wp[idx].a > 0)
+                        return wp[idx];
+                }
+                return c;
+            }
+
+            static int WrapTextureCoord(int value, int size)
+            {
+                int wrapped = value % size;
+                return wrapped < 0 ? wrapped + size : wrapped;
+            }
+
+            static uint TextureTileHash(int textureIndex, int tileX, int tileY)
+            {
+                unchecked
+                {
+                    uint hash = (uint)(tileX * 374761393 + tileY * 668265263 + textureIndex * 11);
+                    hash ^= hash >> 13;
+                    hash *= 1274126177u;
+                    hash ^= hash >> 16;
+                    return hash;
+                }
+            }
+
+            static Color32 GetTexturePixelColor(int textureIndex, int tileX, int tileY)
             {
                 if (Textures == null || textureIndex < 0 || textureIndex >= Textures.depth)
                 {
                     return new Color32(128, 128, 128, 255);
-                }
-
-                TextureAverageCache ??= new Dictionary<int, Color32>();
-                if (TextureAverageCache.TryGetValue(textureIndex, out Color32 cached))
-                {
-                    return cached;
                 }
 
                 Color32[] pixels;
@@ -704,26 +1047,54 @@ namespace WorldSphereMod
                     return new Color32(128, 128, 128, 255);
                 }
 
-                long r = 0;
-                long g = 0;
-                long b = 0;
-                long a = 0;
-                for (int i = 0; i < pixels.Length; i++)
+                int w = Textures.width;
+                int h = Textures.height;
+                if (w <= 0 || h <= 0)
                 {
-                    Color32 p = pixels[i];
-                    r += p.r;
-                    g += p.g;
-                    b += p.b;
-                    a += p.a;
+                    return new Color32(128, 128, 128, 255);
                 }
 
-                Color32 average = new Color32(
-                    (byte)Mathf.Clamp((int)(r / pixels.Length), 0, 255),
-                    (byte)Mathf.Clamp((int)(g / pixels.Length), 0, 255),
-                    (byte)Mathf.Clamp((int)(b / pixels.Length), 0, 255),
-                    (byte)Mathf.Clamp((int)(a / pixels.Length), 0, 255));
-                TextureAverageCache[textureIndex] = average;
-                return average;
+                // Sample a small neighborhood in the texture slice so biomes with
+                // patterned art no longer become a single flat color per tile.
+                uint hash = TextureTileHash(textureIndex, tileX, tileY);
+                int jitterX = (int)(hash & 3u) - 1;       // -1..2
+                int jitterY = (int)((hash >> 2) & 3u) - 1; // -1..2
+
+                int px0 = WrapTextureCoord(jitterX, w);
+                int px1 = WrapTextureCoord(((w - 1) >> 1) + jitterX, w);
+                int px2 = WrapTextureCoord((w - 1) + jitterX, w);
+                int py0 = WrapTextureCoord(jitterY, h);
+                int py1 = WrapTextureCoord(((h - 1) >> 1) + jitterY, h);
+                int py2 = WrapTextureCoord((h - 1) + jitterY, h);
+
+                int sampleCount = 0;
+                float r = 0f;
+                float g = 0f;
+                float b = 0f;
+
+                for (int sy = 0; sy < 3; ++sy)
+                {
+                    for (int sx = 0; sx < 3; ++sx)
+                    {
+                        int sampleX = sx == 0 ? px0 : (sx == 1 ? px1 : px2);
+                        int sampleY = sy == 0 ? py0 : (sy == 1 ? py1 : py2);
+                        int sampleIndex = sampleY * w + sampleX;
+                        if (sampleIndex < 0 || sampleIndex >= pixels.Length) continue;
+
+                        Color32 sample = pixels[sampleIndex];
+                        r += sample.r;
+                        g += sample.g;
+                        b += sample.b;
+                        ++sampleCount;
+                    }
+                }
+
+                if (sampleCount == 0)
+                {
+                    return new Color32(128, 128, 128, 255);
+                }
+
+                return new Color32((byte)Mathf.RoundToInt(r / sampleCount), (byte)Mathf.RoundToInt(g / sampleCount), (byte)Mathf.RoundToInt(b / sampleCount), 255);
             }
             // Sample a tile's base color (composed map-layer pixels) at (x,y),
             // honoring X-wrap for cylindrical worlds. Returns false when the
@@ -749,7 +1120,8 @@ namespace WorldSphereMod
                 {
                     return false;
                 }
-                int idx = sample.data.tile_id;
+                // FIX: use position index (y*width+x) not tile_id (#208 terrain-gray)
+                int idx = y * MapBox.width + x;
                 Color32[] worldPixels = World.world.world_layer.pixels;
                 if (worldPixels == null || idx < 0 || idx >= worldPixels.Length)
                 {
@@ -816,7 +1188,8 @@ namespace WorldSphereMod
                             continue;
                         }
 
-                        Color32 sampleColor = GetBaseColor(sample.data.tile_id);
+                        // FIX: use position index (y*width+x) not tile_id (#208 terrain-gray)
+                        Color32 sampleColor = GetBaseColor(y * MapBox.width + x);
                         if (sampleColor.a == 0)
                         {
                             continue;
@@ -879,11 +1252,22 @@ namespace WorldSphereMod
 
             public static void RefreshSphere()
             {
-                // Snapshot whether any tile data actually changed BEFORE we drain
-                // the queues. The heightfield mesh rebuild is expensive (~1M verts
-                // on a 316² map at 43k tiles) — we must only invalidate it when
-                // real tile changes are pending, not on every 0.1s redraw tick.
-                bool hadDirtyTiles = Manager.HasDirtyTiles;
+                // Snapshot whether any HEIGHT-AFFECTING tile data changed BEFORE we
+                // drain the queues. The heightfield mesh rebuild is expensive (~1M
+                // verts on a 316² map at 43k tiles) — we must only invalidate it
+                // when terrain GEOMETRY actually changes.
+                //
+                // PERF (per-frame rebuild storm fix): we previously gated on
+                // HasDirtyTiles, which includes the COLOR + TEXTURE queues. On a
+                // live world the simulation (water flow, fire, lava, mob tints)
+                // re-enqueues color/texture updates for visible tiles EVERY frame,
+                // so HasDirtyTiles was effectively always true → MarkDirty every
+                // frame → a full ~5s geometry rebuild every frame = the storm seen
+                // in Player.log. Terrain SHAPE only changes when a tile's elevation
+                // (scale) changes, so gate the geometry rebuild on HasDirtyHeights
+                // (the scale queue) alone. Color churn no longer triggers a rebuild;
+                // it is consumed by RefreshColors into the GPU color buffer.
+                bool hadDirtyHeights = Manager.HasDirtyHeights;
 
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 _scalesDone = Manager.RefreshScales();
@@ -891,29 +1275,48 @@ namespace WorldSphereMod
 
                 sw.Restart();
                 _texDone = Manager.RefreshTextures();
+                // #199 Phase 3: mirror the texture-buffer flush to the GPU manager.
+                // GPU Refresh* use the per-buffer dirty queue (Textures.Refresh()),
+                // NOT the LegacyManagerShim O(N)/frame full-scan (risk #6).
+                GpuManager?.RefreshTextures();
                 long texMs = sw.ElapsedMilliseconds;
 
                 sw.Restart();
                 _addedDone = Manager.RefreshCustom("AddedColors");
+                // AddedColors buffer is registered in CreateGpuSettings (risk #3),
+                // so this RefreshCustom will not throw KeyNotFoundException.
+                GpuManager?.RefreshCustom("AddedColors");
                 long addedMs = sw.ElapsedMilliseconds;
 
                 sw.Restart();
                 RefreshColors();
                 long colorMs = sw.ElapsedMilliseconds;
 
-                if (hadDirtyTiles && Manager.UseHeightFieldTerrain)
+                if (hadDirtyHeights && Manager.UseHeightFieldTerrain)
                 {
+                    // Risk #5: keep GPU RefreshScales INSIDE the hadDirtyHeights gate.
+                    // Tile elevation only changes when the scale (height) queue is
+                    // dirty; flushing every frame re-broke the 3.2s/frame rebuild
+                    // storm. The GPU scale flush uses the dirty-queue (Scales.Refresh()).
+                    GpuManager?.RefreshScales();
+                    // Mirror ProfilerDump into the fork so the parallelized
+                    // HeightField.Rebuild emits its Stopwatch breakdown ONLY when
+                    // profiling is on (per the debug-console-overlay spam trap).
+                    CompoundSpheres.HeightFieldRenderer.ProfileRebuild =
+                        Core.savedSettings != null && Core.savedSettings.ProfilerDump;
                     Manager.HeightField.MarkDirty();
                 }
 
                 long total = scaleMs + texMs + addedMs + colorMs;
-                if (total > 16)
+                if (total > 16 && Core.savedSettings != null && Core.savedSettings.ProfilerDump)
                 {
                     UnityEngine.Debug.LogWarning($"[WSM3D][PERF] RefreshSphere SLOW: {total}ms " +
                         $"(scales={scaleMs}ms tex={texMs}ms " +
                         $"added={addedMs}ms colors={colorMs}ms)");
                 }
-                LogDiagnostics("[WSM3D] RefreshSphere");
+                // LogDiagnostics walks every tile via reflection — only when profiling.
+                if (Core.savedSettings != null && Core.savedSettings.ProfilerDump)
+                    LogDiagnostics("[WSM3D] RefreshSphere");
             }
 
             public static bool HasPendingUpdates()
@@ -928,14 +1331,23 @@ namespace WorldSphereMod
                     return;
                 }
                 _colorsDone = Manager.RefreshColors();
+                // #199 Phase 3: mirror the base-color flush to the GPU manager via its
+                // own dirty-queue (Colors.Refresh()) — NOT the shim full-scan (risk #6).
+                GpuManager?.RefreshColors();
             }
             public static void UpdateLayer(SphereTile Tile)
             {
                 Manager.UpdateCustom("AddedColors", Tile.X, Tile.Y);
+                // #199 Phase 3: mark the same AddedColors slot dirty on the GPU buffer.
+                // GpuSphereManager.UpdateCustom takes a flat index (X*Cols+Y).
+                GpuManager?.UpdateCustom("AddedColors", (Tile.X * Height) + Tile.Y);
             }
             public static void UpdateBaseLayer(SphereTile Tile)
             {
                 Manager.UpdateColor(Tile.X, Tile.Y);
+                // #199 Phase 3: mirror the per-tile base-color dirty mark to the GPU
+                // dirty queue. GpuSphereManager.UpdateColor(X,Y) maps to (X*Cols+Y).
+                GpuManager?.UpdateColor(Tile.X, Tile.Y);
             }
             public static void PrepareShape(ref int Width, ref int Height)
             {
@@ -1052,7 +1464,13 @@ namespace WorldSphereMod
             }
             static void ConfigureHeightField(SphereManager mgr, int mapWidth, int mapHeight)
             {
-                bool enabled = savedSettings.UseHeightFieldTerrain && savedSettings.CurrentShape == 0;
+                // #201: HeightFieldRenderer is shape-AGNOSTIC. Its mesh build operates
+                // purely on Rows×Cols + corner-averaging and projects every vertex via
+                // the injected projectPosition => mgr.SphereTilePosition, which is the
+                // active shape's own (cylindrical/flat/cube) To2D projector. So the smooth
+                // mesh renders correctly for ALL shapes; the old `&& CurrentShape == 0`
+                // gate needlessly pinned it to one shape (and left land blocky elsewhere).
+                bool enabled = savedSettings.UseHeightFieldTerrain;
                 mgr.UseHeightFieldTerrain = enabled;
                 if (!enabled) return;
 
@@ -1077,7 +1495,11 @@ namespace WorldSphereMod
                         int sy = Mathf.Clamp(ty, 0, h - 1);
                         WorldTile tile = World.world.GetTileSimple(sx, sy);
                         if (tile == null) return new Color32(128, 128, 128, 255);
-                        return GetColor(tile.data.tile_id);
+                        // Bypass world_layer.pixels/MapLayer.pixels (always zero in 3D mode
+                        // because tilemap.redrawTiles is intercepted by Queue3D Prefix which
+                        // returns false when IsWorld3D=true). Use tile sprite texture average
+                        // color directly from the Texture2DArray built in CreateTextures(). (#208)
+                        return GetTileColor(tile);
                     },
                     sampleTexture: (tx, ty) =>
                     {
@@ -1093,21 +1515,385 @@ namespace WorldSphereMod
                     }
                 );
 
-                // Create a vertex-color material for the height field since the
-                // instanced CompoundSphere shader reads StructuredBuffers that
-                // don't exist on a plain DrawMesh call.
-                Shader vcShader = Shader.Find("Sprites/Default");
-                if (vcShader == null) vcShader = Shader.Find("Unlit/Color");
+                Shader vcShader = ResolveShader("");
                 if (vcShader != null)
                 {
                     Material hfMat = new Material(vcShader)
                     {
                         color = Color.white,
                     };
+
+                    // BLACK-TERRAIN GUARD (restores commit 77661bc0, lost when
+                    // TerrainSmoothing.cs was deleted in the f1b0ad9e merge).
+                    // The land mesh carries per-vertex corner-averaged colors as its
+                    // sole albedo. Whatever shader we resolved samples _MainTex and
+                    // multiplies it into albedo:
+                    //   - Mobile/VertexLit / Mobile/Diffuse / Diffuse: albedo = color * tex2D(_MainTex)
+                    //   - Standard: albedo *= _MainTex
+                    // All declare _MainTex = "white" {}, but some 60f1 runtimes leave
+                    // it NULL at runtime -> tex2D() = (0,0,0,0) -> albedo zeroed ->
+                    // the entire terrain surface renders BLACK. Force the built-in
+                    // white pixel so vertex colors survive. VoxelRender has the same guard.
+                    if (hfMat.HasProperty("_MainTex"))
+                        hfMat.SetTexture("_MainTex", Texture2D.whiteTexture);
+                    if (hfMat.HasProperty("_BaseMap"))
+                        hfMat.SetTexture("_BaseMap", Texture2D.whiteTexture);
+
+                    int terrainTexArrayLayers = 0;
+                    bool usesTerrainTexArray = false;
+                    Texture2DArray terrainTexArray = TerrainTextureArray;
+                    if (hfMat.HasProperty("_TerrainTexArray"))
+                    {
+                        hfMat.SetTexture("_TerrainTexArray", terrainTexArray);
+                        usesTerrainTexArray = terrainTexArray != null;
+                        terrainTexArrayLayers = terrainTexArray != null ? terrainTexArray.depth : 0;
+                    }
+                    if (hfMat.HasProperty("_UseTerrainTexArray"))
+                    {
+                        hfMat.SetFloat("_UseTerrainTexArray", usesTerrainTexArray && terrainTexArrayLayers > 0 ? 1f : 0f);
+                    }
+
+                    if (hfMat.HasProperty("_EmissionColor"))
+                    {
+                        hfMat.DisableKeyword("_EMISSION");
+                        hfMat.SetColor("_EmissionColor", Color.black);
+                    }
+
+                    // DIAG: surface the resolved terrain shader + emission floor so a
+                    // black/dark-terrain regression can be diagnosed from Player.log
+                    // without guessing which shader path the runtime took.
+                    Debug.LogWarning($"[WSM3D] ConfigureHeightField terrain material: shader='{vcShader.name}' " +
+                        $"hasEmission={hfMat.HasProperty("_EmissionColor")} " +
+                        $"emission={(hfMat.HasProperty("_EmissionColor") ? hfMat.GetColor("_EmissionColor").ToString() : "n/a")} " +
+                        $"hasMainTex={hfMat.HasProperty("_MainTex")} " +
+                        $"terrainTexArray={usesTerrainTexArray} layers={terrainTexArrayLayers}");
+
                     hf.SetMaterial(hfMat);
+                    EnsureMeshNormals(hf.Mesh, "terrain");
+                    LastTerrainMaterial = hfMat;
+                    LastTerrainMesh = hf.Mesh;
                 }
 
-                Debug.Log($"[WSM3D] HeightFieldRenderer configured: map={w}x{h} wrapped={wrapped}");
+                // Water now lives IN THE FORK as a corner-averaged sub-mesh at the
+                // water level (below sand) — no more main-mod billboard overlay.
+                // Sea level uses the sea-reference height (ice boundary). Keeping this
+                // fixed flat at sea level matches world-box water intent and avoids a
+                // painted-seabed look when shore elevation rises above the old sink.
+                // Heights are passed RAW (pre-HeightMult) because projectPosition
+                // applies HeightMult, matching the land sampleHeight units.
+                //
+                // Fix #208: water surface must be at a FIXED sea level across the
+                // whole map, not at the per-tile seabed elevation. The renderer
+                // already does this via a "constant water level" latch (RebuildWater
+                // line ~1127), but a malformed sampleWaterLevel callback (returning
+                // seabed) would let the surface sink. Pin the callback to a literal
+                // seaLevel return so a single water tile seeds the constant and the
+                // rest of the ocean sits at the same elevation. Seabed still comes
+                // from the tile's TileHeight for depth-shading; we just guarantee
+                // surface level = max(seaLevel, tile.TileHeight()) so a basin
+                // tile whose TileHeight > seaLevel does not pull the surface up.
+                float seaLevel = Tools.TrueHeight(17);
+                Debug.Log("[WSM3D][BANNER] water-flat-sealevel v2.12 active seaLevel=" + seaLevel.ToString("F3") +
+                          " h=" + h + " w=" + w + " wrapped=" + wrapped);
+                bool meshWaterEnabled = savedSettings.MeshWater;
+                hf.ConfigureWater(
+                    sampleIsWater: (tx, ty) =>
+                    {
+                        int sx = wrapped ? ((tx % w) + w) % w : Mathf.Clamp(tx, 0, w - 1);
+                        int sy = Mathf.Clamp(ty, 0, h - 1);
+                        WorldTile tile = World.world.GetTileSimple(sx, sy);
+                        if (tile == null || !meshWaterEnabled) return false;
+                        return IsWaterTile(tile.main_type, tile.top_type, tile.TileHeight(), seaLevel);
+                    },
+                    sampleWaterLevel: (tx, ty) => seaLevel, // Keep all rendered water vertices at one sea-level plane; depth coupling happens via sampledSeabed only.
+                    sampleSeabed: (tx, ty) =>
+                    {
+                        int sx = wrapped ? ((tx % w) + w) % w : Mathf.Clamp(tx, 0, w - 1);
+                        int sy = Mathf.Clamp(ty, 0, h - 1);
+                        WorldTile tile = World.world.GetTileSimple(sx, sy);
+                        if (tile == null) return seaLevel;
+                        float tileH = tile.TileHeight();
+                        // Clamp seabed <= seaLevel so depth is never negative; this
+                        // also means corners with seabed > seaLevel report seabed
+                        // (rare, mostly sandbars) and the depth-bake will be 0
+                        // (no water column there). Surface itself is pinned via
+                        // sampleWaterLevel above.
+                        return tileH < seaLevel ? tileH : seaLevel;
+                    }
+                );
+
+                // Translucent water material (alpha-blended) so terrain reads through.
+                if (meshWaterEnabled)
+                {
+                    Color waterColor = new Color(0.20f, 0.45f, 0.65f, 0.72f);
+                    Shader waterShader = null;
+
+                    if (HasBundleShader("GerstnerWater"))
+                    {
+                        Shader bundledWater = Sphere.LoadedShaders["GerstnerWater"];
+                        if (bundledWater != null && bundledWater.passCount > 0)
+                        {
+                            waterShader = bundledWater;
+                        }
+                    }
+                    if (waterShader == null)
+                    {
+                        waterShader = ResolveShader("");
+                    }
+
+                    if (waterShader == null)
+                    {
+                        Debug.LogWarning("[WSM3D] ConfigureHeightField water shader unresolved; skipping water material.");
+                        return;
+                    }
+
+                    Material waterMat = new Material(waterShader) { name = "WSM3D.HeightFieldWater" };
+                    if (waterMat.HasProperty("_Color"))
+                        waterMat.SetColor("_Color", waterColor);
+                    waterMat.color = waterColor;
+                    // Standard Transparent mode: ZWrite off, SrcAlpha/OneMinusSrcAlpha, queue 3000.
+                    if (waterMat.HasProperty("_Mode")) waterMat.SetFloat("_Mode", 3f);
+                    waterMat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                    waterMat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                    waterMat.SetInt("_ZWrite", 0);
+                    waterMat.EnableKeyword("_ALPHABLEND_ON");
+                    waterMat.DisableKeyword("_ALPHATEST_ON");
+                    waterMat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                    waterMat.renderQueue = 3000;
+                    hf.SetWaterMaterial(waterMat);
+                }
+
+                // -----------------------------------------------------------------
+                // Generalized liquid surfaces (lava / swamp / acid). Each reuses the
+                // fork's corner-averaged sub-mesh + analytic-normal + depth-shading
+                // path (HeightFieldRenderer.ConfigureLiquid) with its own
+                // classification and per-type material. Lava now renders as a 3D
+                // emissive surface here instead of the flat 2D LavaLayer overlay.
+                //
+                // Classification (WorldBox tile data):
+                //   LAVA  : main_type.lava (the canonical lava flag, same one
+                //           FoliageTileRender/BridgeServer already key on).
+                //   SWAMP : tile string id starts with "swamp" (swamp_low/_high),
+                //           and the tile is a liquid/ground swamp surface.
+                //   ACID  : tile string id contains "acid" (WorldBox ships acid as a
+                //           cloud/status effect, so terrain acid is rare; the layer is
+                //           wired+materialed and lights up if/when an acid tile exists).
+                // Each liquid's surface sits at its own tile height (level == seabed ==
+                // TileHeight) so it conforms to its basin exactly like water.
+                ConfigureLiquidSurface(hf, LiquidKind.Lava, w, h, wrapped,
+                    classify: tt => tt.lava,
+                    color: new Color(1.00f, 0.35f, 0.05f, 0.92f),
+                    emissive: new Color(1.40f, 0.45f, 0.06f, 1f));
+                ConfigureLiquidSurface(hf, LiquidKind.Swamp, w, h, wrapped,
+                    classify: tt => !tt.lava && IdContains(tt, "swamp"),
+                    color: new Color(0.22f, 0.32f, 0.12f, 0.78f),
+                    emissive: null);
+                ConfigureLiquidSurface(hf, LiquidKind.Acid, w, h, wrapped,
+                    classify: tt => IdContains(tt, "acid"),
+                    color: new Color(0.45f, 0.95f, 0.10f, 0.72f),
+                    emissive: new Color(0.30f, 0.80f, 0.05f, 1f));
+
+                // -----------------------------------------------------------------
+                // TERRAIN-OVERLAY family: feed per-tile overlay state (snow / tumor
+                // corruption / burnt / frozen) from WorldBox tile data into the
+                // fork's land vertex-color bake. Cheap vertex tint, no extra mesh.
+                // Data sources (decompiled Assembly-CSharp):
+                //   snow       — main_type.id starts with "snow" (snow_sand/hills/
+                //                block/summit) OR a snow top_type; biome cold.
+                //   corruption — top_type.creep == true (tumor_low/high,
+                //                corruption_low/high, biomass). DYNAMIC: spreads via
+                //                CorruptedTreesManager; we dirty on change (below).
+                //   burnt      — WorldTile.burned_stages > 0 (or isOnFire()).
+                //   frozen     — WorldTile.data.frozen OR main_type.id == "ice".
+                // -----------------------------------------------------------------
+                hf.ConfigureTerrainOverlay((tx, ty) =>
+                {
+                    int sx = wrapped ? ((tx % w) + w) % w : Mathf.Clamp(tx, 0, w - 1);
+                    int sy = Mathf.Clamp(ty, 0, h - 1);
+                    WorldTile tile = World.world.GetTileSimple(sx, sy);
+                    return SampleTileOverlay(tile);
+                });
+
+                Debug.Log($"[WSM3D] HeightFieldRenderer configured: map={w}x{h} wrapped={wrapped} seaLevel={seaLevel:F2} (+lava/swamp/acid surfaces +terrain overlays)");
+            }
+
+            /// <summary>
+            /// Read the TERRAIN-OVERLAY state for a single WorldBox tile and pack it
+            /// into the fork's POD <see cref="HeightFieldRenderer.TerrainOverlay"/>.
+            /// Uses the real Assembly-CSharp fields; private/uncertain ones are
+            /// guarded so a WorldBox update can't NRE the renderer.
+            /// </summary>
+            static CompoundSpheres.HeightFieldRenderer.TerrainOverlay SampleTileOverlay(WorldTile tile)
+            {
+                var ov = default(CompoundSpheres.HeightFieldRenderer.TerrainOverlay);
+                if (tile == null) return ov;
+
+                try
+                {
+                    var main = tile.main_type;
+                    var top = tile.top_type;
+
+                    // SNOW: snow_* ground tiles read full; cold/forever-frozen biomes
+                    // get a lighter dusting so peaks/tundra still read snowy.
+                    if (IdContains(main, "snow"))
+                        ov.Snow = 1f;
+                    else if (main != null && main.forever_frozen)
+                        ov.Snow = Mathf.Max(ov.Snow, 0.5f);
+
+                    // FROZEN: explicit per-tile frozen flag, or literal ice tile.
+                    bool frozen = false;
+                    try { frozen = tile.data != null && tile.data.frozen; } catch { }
+                    if (frozen || IdContains(main, "ice"))
+                        ov.Frozen = 1f;
+
+                    // CORRUPTION / TUMOR (dynamic): any creep top tile — tumor_low/
+                    // high, corruption_low/high, biomass. creep is the WorldBox flag
+                    // that marks the spreading corruption family.
+                    if (top != null && top.creep)
+                        ov.Corruption = 1f;
+                    else if (main != null && main.creep)
+                        ov.Corruption = Mathf.Max(ov.Corruption, 1f);
+
+                    // BURNT: burned_stages accumulates 0..15 after fire; scale to 0..1.
+                    int burned = 0;
+                    try { burned = tile.burned_stages; } catch { }
+                    if (burned > 0)
+                        ov.Burnt = Mathf.Clamp01(burned / 12f);
+                    else
+                    {
+                        bool onFire = false;
+                        try { onFire = tile.isOnFire(); } catch { }
+                        if (onFire) ov.Burnt = 0.6f;
+                    }
+                }
+                catch { /* never let overlay sampling break the terrain bake */ }
+
+                return ov;
+            }
+
+            static void EnsureMeshNormals(Mesh mesh, string label)
+            {
+                if (mesh == null || mesh.vertexCount == 0) return;
+                try
+                {
+                    Vector3[] normals = mesh.normals;
+                    if (normals == null || normals.Length != mesh.vertexCount)
+                    {
+                        mesh.RecalculateNormals();
+                        Debug.Log($"[WSM3D] Recalculated missing {label} mesh normals.");
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogWarning("[WSM3D] " + label + " mesh normal check failed: " + ex.Message);
+                }
+            }
+
+            /// <summary>True if the tile type's string id contains <paramref name="needle"/> (case-insensitive).</summary>
+            static bool IdContains(TileTypeBase tt, string needle)
+            {
+                if (tt == null) return false;
+                string id = tt.id;
+                return !string.IsNullOrEmpty(id) && id.IndexOf(needle, System.StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+
+            /// <summary>
+            /// Resolve whether a tile should render as open water for the mesh-water
+            /// surface. Covers canonical liquid/ocean flags plus name-based river/lake
+            /// cases where the flagging is inconsistent across map packs.
+            /// </summary>
+            static bool IsWaterTile(TileTypeBase mainType, TileTypeBase topType, float tileHeight, float seaLevel)
+            {
+                return IsWaterTilePublic(mainType, topType, tileHeight, seaLevel);
+            }
+
+            /// <summary>Public shim so the bridge diag endpoint can re-evaluate the same predicate (#208 water-flat verify).</summary>
+            public static bool IsWaterTilePublic(TileTypeBase mainType, TileTypeBase topType, float tileHeight, float seaLevel)
+            {
+                if (mainType == null)
+                {
+                    return false;
+                }
+
+                bool looksLikeWater = mainType.liquid || mainType.ocean
+                    || IdContains(mainType, "water")
+                    || IdContains(mainType, "river")
+                    || IdContains(mainType, "lake")
+                    || IdContains(mainType, "sea")
+                    || (topType != null && (IdContains(topType, "water") || IdContains(topType, "river") || IdContains(topType, "lake") || IdContains(topType, "sea")));
+
+                return looksLikeWater
+                    && !mainType.sand
+                    && !mainType.ground
+                    && tileHeight <= seaLevel;
+            }
+
+            /// <summary>
+            /// Wire one non-water liquid surface into the fork's height field: a
+            /// classifier (over the tile's main_type), a level/seabed sampler (the
+            /// tile's own height, so the surface conforms to its basin), and a
+            /// per-type translucent (lava also emissive) material via ResolveShader
+            /// (bundle-or-Standard).
+            /// </summary>
+            static void ConfigureLiquidSurface(
+                HeightFieldRenderer hf,
+                LiquidKind kind,
+                int w, int h, bool wrapped,
+                Func<TileTypeBase, bool> classify,
+                Color color,
+                Color? emissive)
+            {
+                Func<int, int, WorldTile> getTile = (tx, ty) =>
+                {
+                    int sx = wrapped ? ((tx % w) + w) % w : Mathf.Clamp(tx, 0, w - 1);
+                    int sy = Mathf.Clamp(ty, 0, h - 1);
+                    return World.world.GetTileSimple(sx, sy);
+                };
+
+                hf.ConfigureLiquid(
+                    kind,
+                    sampleIsLiquid: (tx, ty) =>
+                    {
+                        WorldTile tile = getTile(tx, ty);
+                        if (tile == null) return false;
+                        var tt = tile.main_type;
+                        return tt != null && classify(tt);
+                    },
+                    sampleLevel: (tx, ty) =>
+                    {
+                        WorldTile tile = getTile(tx, ty);
+                        return tile == null ? 0f : tile.TileHeight();
+                    },
+                    sampleSeabed: (tx, ty) =>
+                    {
+                        WorldTile tile = getTile(tx, ty);
+                        return tile == null ? 0f : tile.TileHeight();
+                    });
+
+                Shader shader = ResolveShader("");
+                if (shader == null) return;
+                Material mat = new Material(shader) { name = "WSM3D.HeightField" + kind };
+                if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
+                mat.color = color;
+                bool translucent = color.a < 0.999f;
+                if (translucent)
+                {
+                    if (mat.HasProperty("_Mode")) mat.SetFloat("_Mode", 3f);
+                    mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                    mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                    mat.SetInt("_ZWrite", 0);
+                    mat.EnableKeyword("_ALPHABLEND_ON");
+                    mat.DisableKeyword("_ALPHATEST_ON");
+                    mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                    mat.renderQueue = 3000;
+                }
+                if (emissive.HasValue && mat.HasProperty("_EmissionColor"))
+                {
+                    mat.EnableKeyword("_EMISSION");
+                    mat.SetColor("_EmissionColor", emissive.Value);
+                    mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                }
+                hf.SetLiquidMaterial(kind, mat);
             }
             static void CreateCachedColors()
             {
@@ -1125,6 +1911,23 @@ namespace WorldSphereMod
             public static bool AssetsPrepared { get; private set; }
             /// <summary>Whether <see cref="PrepareWorld"/> has already run.</summary>
             public static bool WorldPrepared { get; private set; }
+
+            /// <summary>
+            /// Reset the PrepareWorld guard so the next PrepareWorld() / Become3D call
+            /// re-reads map layers and pixel arrays from the newly loaded world.
+            /// Must be called on every save-load and generate-new-world transition —
+            /// failing to do so leaves BaseLayers pointing at stale/empty initial data
+            /// and GetBaseColor returns white for every tile. (#208 terrain-white)
+            /// </summary>
+            public static void ResetPrepared()
+            {
+                WorldPrepared = false;
+                BaseLayers = null;
+                CachedColors = null;
+                // Reset LOD hysteresis so stale Cull entries from the prior world don't
+                // delay voxel-tier entry for the new world's entities. (#208 lod-impostor)
+                WorldSphereMod.LOD.LodSelector.ResetHysteresis();
+            }
 
             /// <summary>
             /// Load the AssetBundle, shaders, mesh, and material. Has NO dependency
@@ -1152,6 +1955,17 @@ namespace WorldSphereMod
                     Debug.LogWarning("[WSM3D] Sphere.PrepareWorld skipped — World.world not ready yet.");
                     return;
                 }
+                // GUARD: _map_layers can be non-null but empty (Count==0) when
+                // finishMakingWorld fires before WorldBox has populated the list.
+                // Do NOT set WorldPrepared=true here — that would poison the flag
+                // and prevent re-running once layers are populated. (#208 terrain-white)
+                int layerCount = World.world._map_layers.Count;
+                Debug.Log($"[WSM3D] Sphere.PrepareWorld: _map_layers.Count={layerCount} (0 = not yet populated, will retry)");
+                if (layerCount == 0)
+                {
+                    Debug.LogWarning("[WSM3D] Sphere.PrepareWorld deferred — _map_layers is empty (WorldBox not yet populated layers). Become3D will retry via coroutine.");
+                    return;
+                }
                 WorldPrepared = true;
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 CreateTextures();
@@ -1159,10 +1973,41 @@ namespace WorldSphereMod
                 sw.Restart();
                 BaseLayers = new List<MapLayer>(World.world._map_layers);
                 BaseLayers.Remove(FlashLayer);
-                Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.BaseLayersCopy={sw.Elapsed.TotalMilliseconds:F3}ms");
+                Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.BaseLayersCopy={sw.Elapsed.TotalMilliseconds:F3}ms (layerCount={BaseLayers.Count})");
                 sw.Restart();
+                // CreateCachedColors BEFORE tilemap.redrawTiles() — the AddLayers
+                // transpiler redirects MapLayer pixel writes to CachedColors via
+                // GetPixelArray(Core.Sphere.CachedColors, layer). If CachedColors is
+                // null when redrawTiles fires, GetPixelArray throws ArgumentNullException
+                // and all pixel writes are lost → biome colors stay zero. (#208)
                 CreateCachedColors();
                 Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.CreateCachedColors={sw.Elapsed.TotalMilliseconds:F3}ms");
+                sw.Restart();
+                // Force a synchronous 2D tilemap repaint AFTER CachedColors is ready,
+                // so world_layer.pixels and every BaseLayers[i].pixels are populated
+                // with real biome colors. In 3D mode tilemap.redrawTiles() is bypassed
+                // every frame (Redraw3DTiles runs instead), so pixels stay all-zero
+                // and GetBaseColor returns (0,0,0,0) → vertex color (0,0,0) → gray
+                // under emission floor. (#208 terrain-gray root cause)
+                try
+                {
+                    if (World.world?.tilemap != null)
+                    {
+                        World.world.tilemap.redrawTiles();
+                        // Sample a few pixels to confirm non-zero biome color in log.
+                        var wp = World.world.world_layer?.pixels;
+                        int w = MapBox.width; int h = MapBox.height;
+                        string sample = wp != null && w > 0 && h > 0
+                            ? $"[{w/4},{h/4}]=({wp[h/4*w+w/4].r},{wp[h/4*w+w/4].g},{wp[h/4*w+w/4].b}) [{w/2},{h/2}]=({wp[h/2*w+w/2].r},{wp[h/2*w+w/2].g},{wp[h/2*w+w/2].b})"
+                            : "(no pixels)";
+                        Debug.Log($"[WSM3D] PrepareWorld: tilemap.redrawTiles() done — sample pixels: {sample}");
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogWarning("[WSM3D] PrepareWorld: tilemap.redrawTiles() failed — biome colors may be zero: " + ex.Message);
+                }
+                Debug.Log($"[WSM3D][PERF] Sphere.PrepareWorld.TilemapRepaint={sw.Elapsed.TotalMilliseconds:F3}ms");
             }
 
             /// <summary>
@@ -1195,8 +2040,7 @@ namespace WorldSphereMod
                     Debug.LogError("[WSM3D] AssetBundleUtils.GetAssetBundle('worldsphere') returned null — likely an NML duplicate-bundle conflict. Skipping LoadAssets. Mesh/material/skybox not available this session.");
                     return;
                 }
-                try { Mod.LogAssetBundleInventory(ab); }
-                catch (System.Exception ex) { Debug.LogWarning("[WSM3D] LogAssetBundleInventory threw: " + ex.Message); }
+                SafeInvoke("LogAssetBundleInventory threw", () => Mod.LogAssetBundleInventory(ab));
                 CompoundSphereMesh = ab.GetObject<Mesh>("assets/worldspheremod/compoundspheremesh.asset")
                     ?? ab.GetObject<Mesh>("assets/wsm3d/legacyassets/compoundspheremesh.asset");
                 CompoundSphereMaterial = ab.GetObject<Material>("assets/worldspheremod/compoundspherematerial.mat")
@@ -1215,14 +2059,34 @@ namespace WorldSphereMod
                 // loads only SafeShaders — see ADR-0013 / human gate before
                 // expanding the list. Load with try/catch if bundle file is missing.
                 WrappedAssetBundle shaderAb = null;
-                try { shaderAb = AssetBundleUtils.GetAssetBundle("wsm3d-shaders"); }
-                catch { shaderAb = null; }
+                // #204/#208: the ENTIRE wsm3d-shaders bundle is corrupt — baked against a
+                // Shader serialization layout that mismatches the runtime Unity (2022.3.60f1),
+                // so EVERY GetObject from it native-aborts (uncatchable ManagedStream error →
+                // Crash!!!). Confirmed even OpaqueVertexColor aborts at Core.cs:1613
+                // (Read 2872 vs expected 3980). Per-shader allowlisting cannot help. Until a
+                // serialization-matched re-bake lands, skip the bundle ENTIRELY: leave shaderAb
+                // null so the whole shader+compute load block below is bypassed. All shaders
+                // fall back to Shader.Find/Standard; terrain still renders via the separate
+                // 'worldsphere' bundle's CompoundSphere shader (loaded above, unaffected).
+                if (ShaderBundleAvailable)
+                {
+                    try { shaderAb = AssetBundleUtils.GetAssetBundle("wsm3d-shaders"); }
+                    catch { shaderAb = null; }
+                }
                 if (shaderAb == null)
                 {
-                    Debug.LogWarning("[WSM3D] AssetBundleUtils.GetAssetBundle('wsm3d-shaders') returned null — shader bundle not baked yet. Consumers will fall back to Shader.Find / Standard.");
+                    Debug.LogWarning("[WSM3D] wsm3d-shaders bundle not loaded (ShaderBundleAvailable=" + ShaderBundleAvailable + "). All shaders fall back to Shader.Find / Standard; GPU-compute path skipped.");
                 }
                 else
                 {
+                    // Gate removed: IsVerifiedSafeShaderBundle / FindShaderBundleManifest
+                    // used Assembly.GetExecutingAssembly().Location which is empty/temp
+                    // under NML's runtime Roslyn compile, causing the manifest to never
+                    // be found and the gate to return false — keeping LoadedShaders empty
+                    // and postFX dead (count=0). The per-shader loop below is fully
+                    // crash-safe (try/catch + null + empty-name + !isSupported guards);
+                    // no additional gate is needed. ADR-0013 note retained for context.
+                    Debug.Log($"[WSM3D] hasBundleCache={shaderAb != null}; starting per-shader load (Assembly.Location gate removed).");
                     // DIAGNOSTIC BLOCK DISABLED — see ADR-0013.
                     //
                     // Invoking AssetBundle.LoadAllAssets(typeof(ShaderVariantCollection))
@@ -1248,11 +2112,33 @@ namespace WorldSphereMod
 
                     try
                     {
-                        // DO NOT ADD MORE SHADERS to SafeShaders — see ADR-0013.
-                        // The other 7 shaders in this bundle produce ManagedStream
-                        // errors that trigger Unity's native crash reporter.
+                        // SafeShaders is the per-name allowlist (see ADR-0013 / #204).
+                        // only WSM3D/OpaqueVertexColor is known-good right now.
+                        // Keep the loop narrow and explicitly skip any post-FX/broken
+                        // names before touching AssetBundle.GetObject<Shader> so native
+                        // deserialize crashes cannot occur from shader loading.
+                        //
                         foreach (var shaderName in SafeShaders)
                         {
+                            // #208 PLAYER-TEST FLIP REVERT 2026-06-05: pragma + SVC +2
+                            // was insufficient — the 60f1 player still reads 80 bytes
+                            // (expected 4520/4924/4952) for the three postFX shaders and
+                            // 8 bytes (expected 2484) for CompoundSphereCompute. The C#
+                            // try/catch saved us from a native abort, but shaders are
+                            // rejected as "loaded with empty name" and consumers fall
+                            // back. Next: IPreprocessShaders / IUnityLinker XML approach
+                            // for forcing variant retention, or build the bundle with
+                            // Unity 2022.3.60f1 to match the player's serializer.
+
+                            // Never call GetObject for known-bad post-FX shader names
+                            // from this bundle (BrpBloom / BrpACES) even if they are
+                            // reintroduced later by another branch.
+                            if (CorruptedShaderNames.Contains(shaderName))
+                            {
+                                Debug.LogWarning($"[WSM3D] Skipping GetObject for corrupted shader '{shaderName}' to avoid native crash during asset deserialization.");
+                                continue;
+                            }
+
                             UnityEngine.Shader sh = null;
                             try
                             {
@@ -1306,6 +2192,35 @@ namespace WorldSphereMod
                     // Log which shaders actually made it into the cache so
                     // "LoadedShaders[count=2]" in the log can be diagnosed.
                     Debug.Log($"[WSM3D] LoadedShaders[count={LoadedShaders.Count}]: {string.Join(", ", LoadedShaders.Keys)}");
+
+                    // GPU-compute keystone (ADR-sota-gpu-compute-adoption): load the
+                    // baked CompoundSphereCompute ComputeShader so the GPU-driven
+                    // CompoundSpheres.Gpu manager / LegacyManagerShim can bind its
+                    // CSMatrices/CSColors kernels (GpuKernels.Matrix/.Color). This is
+                    // the binding that makes the buffer-driven GPU path constructible
+                    // (no per-instance _Color cbuffer -> no magenta/green class).
+                    // NOTE: a ComputeShader is NOT a UnityEngine.Shader, so it loads
+                    // via GetObject<ComputeShader> on the .compute asset path.
+                    try
+                    {
+                        UnityEngine.ComputeShader cs =
+                            shaderAb.GetObject<UnityEngine.ComputeShader>("assets/wsm3d/shaders/compoundspherecompute.compute");
+                        if (cs == null)
+                            cs = shaderAb.GetObject<UnityEngine.ComputeShader>("Assets/WSM3D/Shaders/CompoundSphereCompute.compute");
+                        if (cs != null)
+                        {
+                            CompoundCompute = cs;
+                            Debug.Log($"[WSM3D] Loaded GPU-compute keystone: CompoundSphereCompute (kernels {CompoundSpheres.Gpu.GpuKernels.Matrix}/{CompoundSpheres.Gpu.GpuKernels.Color}) supported={SystemInfo.supportsComputeShaders}");
+                        }
+                        else
+                        {
+                            Debug.LogWarning("[WSM3D] CompoundSphereCompute not in wsm3d-shaders bundle — GPU-compute path unavailable; legacy CPU SphereManager path stays active.");
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogWarning("[WSM3D] CompoundSphereCompute load threw: " + ex.Message + " — GPU-compute path unavailable.");
+                    }
                 }
 
                 // Inspect CompoundSphereMaterial's shader. If its shader was
@@ -1350,25 +2265,10 @@ namespace WorldSphereMod
                             chosen = "CompoundSphere (Shader.Find)";
                         }
 
-                        // Second: try generic shaders as last resort. These
-                        // will NOT support the StructuredBuffer instancing —
-                        // terrain will likely be invisible or a single tile
-                        // at origin.
                         if (fallback == null)
                         {
-                            string[] candidates =
+                            foreach (var n in BuiltInShaderFallbacks)
                             {
-                                "Unlit/Color",
-                                "Unlit/Texture",
-                                "Universal Render Pipeline/Unlit",
-                                "Particles/Standard Unlit",
-                                "WSM3D/OpaqueVertexColor",
-                                "Sprites/Default",
-                                "Standard",
-                            };
-                            foreach (var n in candidates)
-                            {
-                                if (LoadedShaders.TryGetValue(n.Substring(n.LastIndexOf('/') + 1), out var cached) && cached != null) { fallback = cached; chosen = n + " (cache)"; break; }
                                 var sh2 = Shader.Find(n);
                                 if (sh2 != null) { fallback = sh2; chosen = n; break; }
                             }
@@ -1416,22 +2316,87 @@ namespace WorldSphereMod
                 }
             }
 
+            // ADR-0013 (UPDATED 2026-05-31, #204) — the ManagedStream / "Mismatched
+            // serialization in builtin class 'Shader'" crash was ROOT-CAUSED to the
+            // bake pipeline emitting a variant-STRIPPED 80-byte shader stub, NOT a
+            // patch-version mismatch. The earlier "re-bake with 60f1 didn't help"
+            // conclusion was against that stripped stub: the on-disk wsm3d-shaders
+            // bundle was only 80 bytes, so every Shader deserialized short and the
+            // accumulated native errors crashed the player. OpaqueVertexColor only
+            // survived because it is the simplest shader.
+            //
             // ----------------------------------------------------------------
-            // Load only shaders that survive bundle deserialization with a
-            // valid Shader.name. Corrupted assets return an empty name and are
-            // rejected below so consumers can fall back cleanly.
+            // #204 CRASH-SAFETY: postFX shaders are VARIANT-STRIPPED STUBS in the
+            // current bundle bake (80 bytes vs expected 12700/3980 bytes). Unity's
+            // native deserializer aborts with:
+            //   "Mismatched serialization in builtin class 'Shader'. Read 80 bytes
+            //    but expected 12700 bytes" → ArgumentException: ManagedStream must
+            //    be readable → process crash.
+            // C# try/catch CANNOT intercept this native abort.
+            //
+            // SafeShaders is therefore restricted to ONLY the one known-valid shader
+            // in this bundle (OpaqueVertexColor). BrpBloom, BrpACES, ColorGradingLUT,
+            // ScreenSpaceGI, ScreenSpaceAO, and ProceduralSky are intentionally
+            // EXCLUDED until the bundle is re-baked with full variant inclusion and
+            // the serialised byte count is verified. PostFX consumers will fall back
+            // to Standard (no postFX effects, but NO crash). Re-enable after a
+            // verified-good re-bake (#204 bake unsolved).
             // ----------------------------------------------------------------
+            // MASTER GATE: postFX shaders (BrpBloom, BrpACES, ColorGradingLUT,
+            // ScreenSpaceGI, ScreenSpaceAO, ProceduralSky) are variant-stripped
+            // 80-byte stubs in the current wsm3d-shaders bundle bake. Unity's
+            // native deserializer aborts on GetObject<Shader> for these stubs with:
+            //   "Mismatched serialization in builtin class 'Shader'.
+            //    Read 80 bytes but expected 12700 bytes"
+            //   ArgumentException: ManagedStream must be readable → process crash.
+            // C# try/catch CANNOT intercept this native abort.
+            //
+            // #204/#208 — VARIANT-STRIPPING root cause FIXED 2026-06-01 (bundle md5
+            // 8530b5f6): the bake now registers its ShaderVariantCollection in
+            // GraphicsSettings.m_PreloadedShaders (the array Unity's AssetBundle
+            // strip pass actually reads) + adds INSTANCING_ON variants for the
+            // multi_compile_instancing shaders. The prior false positive was an
+            // EDITOR-recompile load probe; the new validator checks
+            // shader.subshaderCount (reads serialized bundle bytes) → 12 valid, 0
+            // stubs (all postFX subshaderCount>=2). Re-enabling; the GAME runtime
+            // is the ground-truth confirm. If a native ManagedStream abort recurs,
+            // flip both back to false (crash-safe) — the per-shader load loop keeps
+            // its try/catch + null + isSupported guards regardless.
+            // 2026-06-01 GAME-RUNTIME RESULT: re-enable STILL crashed. OVC now loads
+            // cleanly from the bundle (strip fix worked for it), but the 6 postFX
+            // shaders are STILL player-side 80-byte stubs → "Read 80 expected 12700"
+            // native abort. So subshaderCount (12/0 in editor) is ALSO a false
+            // positive — the editor recompiles; only the PLAYER is truth. postFX
+            // shaders need their FULL variant set in the SVC (INSTANCING_ON + their
+            // own keywords/passes) — not yet achieved. Crash-safe until then.
+            // #208 candidate test (bundle e6589a46): un-bundled SVC + WSM3D_POSTFX_KEEP.
+            // Auto-reverts to false on any ManagedStream crash (game-test driven).
+            // PostFX remains disabled until shader re-bake is fixed; keep bundle
+            // enumeration for post-FX shaders fully disabled.
+            public const bool PostFxShaderBundleAvailable = false; // #208 PLAYER-TEST FLIP REVERT 2026-06-05: pragma+SVC+2 still produces 80-byte stubs in 60f1 player (4520/4924/4952 expected). Reverting until IUnityLinker XML / SVC dispatch proves root-cause.
+
+            public const bool ShaderBundleAvailable = true;
+
+            // Names of corrupted postFX shaders that must never be loaded via
+            // GetObject<Shader> because they can crash the runtime during native
+            // shader deserialization.
+            public static readonly System.Collections.Generic.HashSet<string> PostFxShaderNames =
+                new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+                {
+                    "BrpBloom", "BrpACES", "ColorGradingLUT",
+                    "ScreenSpaceGI", "ScreenSpaceAO", "ProceduralSky",
+                };
+
+            public static readonly System.Collections.Generic.HashSet<string> CorruptedShaderNames =
+                new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+                {
+                    "BrpBloom",
+                    "BrpACES",
+                };
+
             public static readonly string[] SafeShaders = new[]
             {
                 "OpaqueVertexColor",
-                "GerstnerWater",
-                "ColorGradingLUT",
-                "ProceduralSky",
-                "Impostor",
-                "ScreenSpaceAO",
-                "ScreenSpaceGI",
-                "BrpBloom",
-                "BrpACES",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look
@@ -1440,6 +2405,40 @@ namespace WorldSphereMod
             // null for them unless they're also Always-Included.
             public static readonly System.Collections.Generic.Dictionary<string, UnityEngine.Shader> LoadedShaders =
                 new System.Collections.Generic.Dictionary<string, UnityEngine.Shader>();
+
+            public static readonly string[] BuiltInShaderFallbacks = new[]
+            {
+                "Mobile/VertexLit",
+                "Standard",
+                "Mobile/Diffuse",
+                "Diffuse",
+            };
+
+            public static UnityEngine.Shader ResolveShader(string bundleName)
+            {
+                foreach (string shaderName in BuiltInShaderFallbacks)
+                {
+                    UnityEngine.Shader shader = UnityEngine.Shader.Find(shaderName);
+                    if (shader != null)
+                    {
+                        return shader;
+                    }
+                }
+
+                return null;
+            }
+
+            // True only when the named bundle shader actually deserialized and is
+            // GPU-supported (it made it into LoadedShaders). Feature paths that
+            // REQUIRE a bundle-only shader (MeshWater->GerstnerWater,
+            // HdrSkybox->ProceduralSky) gate on this and skip the bundle path
+            // entirely when it returns false — the degraded Standard path renders
+            // instead of reaching for a missing Unlit/URP shader.
+            public static bool HasBundleShader(string bundleName) =>
+                !string.IsNullOrEmpty(bundleName)
+                && LoadedShaders.TryGetValue(bundleName, out var sh)
+                && sh != null;
+
             public static SphereTile GetTile(int X, int Y)
             {
                 return Manager[X, Y];
@@ -1483,7 +2482,7 @@ namespace WorldSphereMod
                     Textures.SetPixels32(GetTruePixels(Sprites[i]), i);
                 }
                 Textures.Apply();
-                TextureAverageCache = new Dictionary<int, Color32>();
+                // BuildTerrainTextureAtlas disabled — atlas UV mapping not ready
                 void AddTile(TileTypeBase Tile)
                 {
                     TileSprites sprites = Tile.sprites;
@@ -1508,6 +2507,52 @@ namespace WorldSphereMod
                         return sprite.PixelsFromSpriteAtlas();
                     }
                     return Tools.ExpandArray(sprite.texture.GetPixels32(), 64);
+                }
+
+                void BuildTerrainTextureAtlas(List<Sprite> sprites)
+                {
+                    int count = sprites.Count;
+                    if (count <= 0)
+                    {
+                        TerrainTextureAtlasCols = 1;
+                        TerrainTextureAtlasRows = 1;
+                        TerrainTextureAtlas = Texture2D.whiteTexture;
+                        return;
+                    }
+
+                    TerrainTextureAtlasCols = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(count)));
+                    TerrainTextureAtlasRows = Mathf.CeilToInt((float)count / TerrainTextureAtlasCols);
+                    TerrainTextureAtlas = new Texture2D(
+                        TerrainTextureAtlasCols * TerrainTextureAtlasTileSize,
+                        TerrainTextureAtlasRows * TerrainTextureAtlasTileSize,
+                        TextureFormat.RGBA32,
+                        false,
+                        false)
+                    {
+                        filterMode = FilterMode.Point,
+                        wrapMode = TextureWrapMode.Clamp
+                    };
+
+                    for (int i = 0; i < count; i++)
+                    {
+                        int tileCol = i % TerrainTextureAtlasCols;
+                        int tileRow = i / TerrainTextureAtlasCols;
+                        int baseX = tileCol * TerrainTextureAtlasTileSize;
+                        int baseY = tileRow * TerrainTextureAtlasTileSize;
+                        Color32[] pixels = GetTruePixels(sprites[i]);
+
+                        for (int py = 0; py < TerrainTextureAtlasTileSize; py++)
+                        {
+                            for (int px = 0; px < TerrainTextureAtlasTileSize; px++)
+                            {
+                                int sourceIndex = (py * TerrainTextureAtlasTileSize) + px;
+                                TerrainTextureAtlas.SetPixel(baseX + px, baseY + py,
+                                    sourceIndex < pixels.Length ? pixels[sourceIndex] : Color.clear);
+                            }
+                        }
+                    }
+
+                    TerrainTextureAtlas.Apply();
                 }
             }
         }

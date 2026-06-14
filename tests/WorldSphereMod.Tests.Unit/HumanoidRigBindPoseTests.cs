@@ -11,6 +11,7 @@ using FluentAssertions;
 /// skin matrix world[i] * restInverse[i] to bake in an N-times stretch
 /// → dragonfly limbs.
 /// </summary>
+[Trait("Category", "Unit")]
 public class HumanoidRigBindPoseTests
 {
     private static string FindRepoRoot()

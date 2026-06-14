@@ -7,6 +7,7 @@ using Xunit;
 /// Vehicle rigging is deferred (see vehicle-rigging-spec.md); until VehicleRig lands,
 /// vehicles use Mirror → balloon voxel inflation via AssetShapeRegistry.
 /// </summary>
+[Trait("Category", "Unit")]
 public sealed class VehicleShapeHintsTests
 {
     static string FindRepoRoot()

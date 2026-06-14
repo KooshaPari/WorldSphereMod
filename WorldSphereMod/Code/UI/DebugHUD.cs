@@ -93,8 +93,24 @@ namespace WorldSphereMod.UI
                 $"Shape       {shape,7}\n" +
                 $"IsWorld3D   {isWorld3D,7}";
 
+            // PER-OBJECT DIAGNOSTIC OVERLAY (opt-in via RenderDiagOverlay): append the
+            // render-failure DISTRIBUTION so the operator sees WHAT is failing at a glance.
+            float panelHeight = 140f;
+            if (Core.savedSettings != null && Core.savedSettings.RenderDiagOverlay)
+            {
+                text += "\n--- RENDER ERRORS ---";
+                foreach (WorldSphereMod.Voxel.RenderErrorType t in
+                         (WorldSphereMod.Voxel.RenderErrorType[])System.Enum.GetValues(typeof(WorldSphereMod.Voxel.RenderErrorType)))
+                {
+                    long c = SafeLong(() => WorldSphereMod.Voxel.RenderErrorRegistry.CountOf(t));
+                    text += $"\n{t,-15}{c,6}";
+                    panelHeight += 16f;
+                }
+                panelHeight += 18f;
+            }
+
             // Black backdrop for legibility against bright terrain.
-            var rect = new Rect(8f, 8f, 240f, 140f);
+            var rect = new Rect(8f, 8f, 240f, panelHeight);
             var prev = GUI.color;
             GUI.color = new Color(0f, 0f, 0f, 0.55f);
             GUI.DrawTexture(rect, Texture2D.whiteTexture);

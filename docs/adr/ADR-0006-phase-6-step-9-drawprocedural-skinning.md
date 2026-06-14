@@ -1,6 +1,6 @@
 # ADR 0006 — Phase 6 Step 9: DrawProcedural skinning for multi-actor GPU compute path
 
-**Status:** Proposed
+**Status:** Accepted (scaffold shipped in RigGpuSkinning.cs; GpuProceduralSkinning defaults false pending GPU-compute P4 consumer integration)
 
 **Date:** 2026-05-18
 

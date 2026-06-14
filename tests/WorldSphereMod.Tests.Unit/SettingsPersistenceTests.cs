@@ -8,6 +8,7 @@ using FluentAssertions;
 /// mirror landed (commit 5a60013) — required for default-true phases to
 /// survive kill+launch cycles.
 /// </summary>
+[Trait("Category", "Unit")]
 public class SettingsPersistenceTests
 {
     private static string FindRepoRoot()

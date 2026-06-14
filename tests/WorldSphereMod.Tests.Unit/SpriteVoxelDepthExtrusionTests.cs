@@ -7,6 +7,7 @@ using Xunit;
 /// Source invariants for symmetric sprite voxel depth extrusion
 /// (docs/journeys/scratch/voxel-depth-extrusion-spec.md).
 /// </summary>
+[Trait("Category", "Unit")]
 public sealed class SpriteVoxelDepthExtrusionTests
 {
     static string FindRepoRoot()
@@ -68,9 +69,7 @@ public sealed class SpriteVoxelDepthExtrusionTests
 
         Regex.IsMatch(source, @"public\s+static\s+Mesh\s+Get\(Sprite\s+sprite,\s*int\s+depth\s*=\s*-1")
             .Should().BeTrue("cache Get must default depth to -1");
-        source.Should().Contain("EnqueueBuild(sprite, depth, key)");
-        source.Should().Contain("EnqueueBuild(sprite, -1, key, shapeHint)");
-        source.Should().Contain("SpriteVoxelizer.Build(sprite, out MeshSnapshot _, depth)");
+        source.Should().Contain("EnqueueBuild(sprite, shapeHint == ShapeHint.Auto ? depth : -1, key, shapeHint)");
     }
 
     [Theory]
@@ -93,8 +92,8 @@ public sealed class SpriteVoxelDepthExtrusionTests
         var cache = ReadSource(@"WorldSphereMod/Code/Voxel/VoxelMeshCache.cs");
         var rig = ReadSource(@"WorldSphereMod/Code/Rig/RigCache.cs");
 
-        cache.Should().Contain("SpriteVoxelizer.BuildPerTexel(sprite, -1,");
-        rig.Should().Contain("SpriteVoxelizer.BuildPerTexel(sprite, -1,");
+        cache.Should().Contain("SpriteVoxelizer.BuildPerTexel(sprite, depth, out vertexToTexel)");
+        rig.Should().Contain("SpriteVoxelizer.BuildOrganicBlob(sprite, -1, out _);");
         cache.Should().NotContain("SpriteVoxelizer.DefaultDepth");
         rig.Should().NotContain("SpriteVoxelizer.DefaultDepth");
     }

@@ -3,6 +3,7 @@ using System.IO;
 using FluentAssertions;
 using Xunit;
 
+[Trait("Category", "E2E")]
 public class BridgeServerInvariantsTests
 {
     private static string FindRepoRoot()
@@ -63,5 +64,33 @@ public class BridgeServerInvariantsTests
             "queued voxel submissions must be flushed before telemetry is sampled");
         source.Should().Contain("WorldSphereMod.Voxel.VoxelMeshCache.DrainPendingDestroy();",
             "deferred mesh destruction must be drained in the same probe path");
+    }
+
+    // ---------------------------------------------------------------
+    // Perf: BridgeServer must not triple-drain per frame
+    // ---------------------------------------------------------------
+    // Regression: BridgeServer.Update, LateUpdate, and FixedUpdate all called
+    // DrainStaticQueue — ~170 drain invocations/sec at 60Hz + 50Hz FixedUpdate.
+    // VoxelRender.LateUpdate already calls DrainStaticQueue for mid-frame submits
+    // so LateUpdate and FixedUpdate overrides were fully redundant.
+    // Fix: removed LateUpdate and FixedUpdate one-liner drains. (#robustness perf)
+    [Fact]
+    public void BridgeServer_LateUpdate_and_FixedUpdate_do_not_drain_static_queue()
+    {
+        var source = ReadSourceFile("WorldSphereMod/Code/Bridge/BridgeServer.cs");
+
+        // Update must still drain — it is the primary per-frame consumer
+        source.Should().Contain("void Update() => DrainStaticQueue()",
+            "BridgeServer.Update must drain the static queue every frame");
+
+        // LateUpdate one-liner drain must be absent
+        source.Should().NotContain("void LateUpdate() => DrainStaticQueue()",
+            "BridgeServer.LateUpdate must not be a one-liner DrainStaticQueue — " +
+            "redundant triple-drain removed; VoxelRender.LateUpdate handles mid-frame submits (#robustness)");
+
+        // FixedUpdate one-liner drain must be absent
+        source.Should().NotContain("void FixedUpdate() => DrainStaticQueue()",
+            "BridgeServer.FixedUpdate must not call DrainStaticQueue — " +
+            "was a ~50Hz redundant drain on top of the 60Hz Update path (#robustness)");
     }
 }

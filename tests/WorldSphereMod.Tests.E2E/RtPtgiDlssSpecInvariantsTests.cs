@@ -6,6 +6,7 @@ using Xunit;
 /// Source invariants for docs/journeys/scratch/rt-ptgi-dlss-spec.md — advanced
 /// lighting strategy (built-in screen-space stack vs PTGI/DLSS/RT) is research-only.
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class RtPtgiDlssSpecInvariantsTests
 {
     const string SpecRelativePath = "docs/journeys/scratch/rt-ptgi-dlss-spec.md";

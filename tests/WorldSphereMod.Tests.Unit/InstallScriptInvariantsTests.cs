@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Xunit;
 using FluentAssertions;
 
+[Trait("Category", "Unit")]
 public class InstallScriptInvariantsTests
 {
     // Locate the repo root from test output directory.
@@ -57,7 +58,7 @@ public class InstallScriptInvariantsTests
         // that's what dotnet build produces.
         var tfmDefault = Regex.Match(script, @"\$Tfm\s*=\s*""net48""");
         var skipsCopy  = Regex.Match(script, @"skipping.*AssemblyName.*\.dll copy", RegexOptions.IgnoreCase);
-        var staleCleanup = Regex.Match(script, @"Remove-Item.*staleSelfDll", RegexOptions.IgnoreCase);
+        var staleCleanup = Regex.Match(script, @"Remove-Item.*stalePath", RegexOptions.IgnoreCase);
 
         tfmDefault.Success.Should().BeTrue("install.ps1 must default $Tfm to net48 — that's what the csproj builds.");
         skipsCopy.Success.Should().BeTrue("install.ps1 must explicitly skip the WSM3D DLL copy to prevent NML CS0121 double-load.");
@@ -70,7 +71,8 @@ public class InstallScriptInvariantsTests
         var script = ReadInstallScript();
 
         // The install script must copy: Code, Assemblies, AssetBundles, GameResources, Locales, mod.json
-        var itemsPattern = @"\$items\s*=\s*@\(\s*""([^""]*)""\s*,\s*""([^""]*)""\s*,\s*""([^""]*)""\s*,\s*""([^""]*)""\s*,\s*""([^""]*)""\s*,\s*""([^""]*)""\s*\)";
+        // Current trunk uses an if/else: $Precompiled omits Code, normal mode includes it.
+        var itemsPattern = @"\}\s*else\s*\{\s*@\(\s*""([^""]*)""\s*,\s*""([^""]*)""\s*,\s*""([^""]*)""\s*,\s*""([^""]*)""\s*,\s*""([^""]*)""\s*,\s*""([^""]*)""\s*\)";
         var match = Regex.Match(script, itemsPattern);
 
         match.Success.Should().BeTrue(

@@ -1,6 +1,6 @@
 # ADR 0007 — NML precompiled detection follow-up for WorldSphere install layout
 
-**Status:** Proposed
+**Status:** Accepted (see ADR-0007-nml-precompiled-detection.md)
 
 **Date:** 2026-05-18
 

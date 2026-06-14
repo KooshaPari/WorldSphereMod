@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using FluentAssertions;
 using Xunit;
 
+[Trait("Category", "Integration")]
 public class InstallScriptStructureTests
 {
     private static string ReadInstallScript() =>

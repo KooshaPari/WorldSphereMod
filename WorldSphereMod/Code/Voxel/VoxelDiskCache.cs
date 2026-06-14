@@ -181,15 +181,15 @@ namespace WorldSphereMod.Voxel
             return warmHits;
         }
 
-        public static void EnqueueSave(string spriteName, Mesh mesh, int depth, string style, string spriteHash)
+        // WHY: takes CPU arrays captured before Mesh.UploadMeshData(true) instead of
+        // reading mesh.vertices/.triangles/.colors32/.normals (non-readable post-upload,
+        // which floods Player.log with "isReadable is false" warnings every frame).
+        public static void EnqueueSave(string spriteName, Vector3[] verts, int[] tris, Color32[] colors, Vector3[] normals, int depth, string style, string spriteHash)
         {
             if (!IsEnabled || _initFailed) return;
-            if (mesh == null || string.IsNullOrEmpty(spriteName)) return;
-
-            Vector3[] verts = mesh.vertices;
-            int[] tris = mesh.triangles;
-            Color32[] colors = mesh.colors32;
-            Vector3[] normals = mesh.normals;
+            if (string.IsNullOrEmpty(spriteName)) return;
+            if (verts == null || verts.Length == 0 || tris == null || tris.Length == 0) return;
+            if (colors == null) colors = new Color32[0];
 
             var write = new PendingWrite
             {

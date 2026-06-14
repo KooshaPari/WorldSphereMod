@@ -6,6 +6,7 @@ using System.Text.Json;
 using FluentAssertions;
 using Xunit;
 
+[Trait("Category", "Integration")]
 public class JourneyManifestSchemaTests
 {
     private const string SchemaRelative = "Tools/journey-records/schema.json";

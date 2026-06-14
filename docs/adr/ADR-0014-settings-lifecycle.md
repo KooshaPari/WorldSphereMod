@@ -1,6 +1,6 @@
 # ADR-0014 — Settings Lifecycle
 
-**Status:** Problem documented, fix proposed but not implemented
+**Status:** Accepted (fix implemented — ApplySchemaVersionMigration in Core.cs; version-bump migration pattern enforced; 2026-05-31)
 **Date:** 2026-05-25
 
 ## Context

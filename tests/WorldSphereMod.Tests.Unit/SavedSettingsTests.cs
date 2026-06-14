@@ -10,6 +10,7 @@ using FluentAssertions;
 /// We can't instantiate SavedSettings in unit tests because it requires
 /// Unity/WorldBox DLLs. Instead, we verify the source file directly.
 /// </summary>
+[Trait("Category", "Unit")]
 public class SavedSettingsTests
 {
     // Locate the repo root from test output directory.
@@ -66,16 +67,16 @@ public class SavedSettingsTests
     }
 
     [Fact]
-    public void SavedSettings_declares_Version_field_with_initial_value_2_0()
+    public void SavedSettings_declares_Version_field_with_initial_value_2_13()
     {
         var source = ReadSavedSettingsSource();
 
-        // Must declare: public string Version = "2.3";
-        var pattern = @"public\s+string\s+Version\s*=\s*""2\.3""";
+        // Must declare: public string Version = "2.13";
+        var pattern = @"public\s+string\s+Version\s*=\s*""2\.14""";
         var match = Regex.Match(source, pattern);
 
         match.Success.Should().BeTrue(
-            "SavedSettings must declare: public string Version = \"2.3\";");
+            "SavedSettings must declare: public string Version = \"2.14\";");
     }
 
     [Fact]
@@ -98,14 +99,14 @@ public class SavedSettingsTests
         var phaseFields = new[]
         {
             ("VoxelEntities", true),
-            ("ProceduralBuildings", false),
-            ("CrossedQuadFoliage", false),
+            ("ProceduralBuildings", true),
+            ("CrossedQuadFoliage", true),
             ("BiomeBlending", true),
-            ("MeshWater", false),
+            ("MeshWater", true),
             ("HighShadows", false),
             ("SkeletalAnimation", false),
             ("WorldspaceUI", false),
-            ("DayNightCycle", false),
+            ("DayNightCycle", true),
             ("PostFX", false),
             ("ParticleEffects", false)
         };
@@ -187,14 +188,14 @@ public class SavedSettingsTests
 
     [Theory]
     [InlineData("VoxelEntities", "true")]
-    [InlineData("ProceduralBuildings", "false")]
-    [InlineData("CrossedQuadFoliage", "false")]
+    [InlineData("ProceduralBuildings", "true")]
+    [InlineData("CrossedQuadFoliage", "true")]
     [InlineData("BiomeBlending", "true")]
-    [InlineData("MeshWater", "false")]
+    [InlineData("MeshWater", "true")]
     [InlineData("HighShadows", "false")]
     [InlineData("SkeletalAnimation", "false")]
     [InlineData("WorldspaceUI", "false")]
-    [InlineData("DayNightCycle", "false")]
+    [InlineData("DayNightCycle", "true")]
     [InlineData("PostFX", "false")]
     [InlineData("ParticleEffects", "false")]
     public void SavedSettings_field_default_value_matches_spec(string fieldName, string expectedDefault)
@@ -212,8 +213,8 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+CrossedQuadFoliage\s*=\s*false")
-            .Success.Should().BeTrue("Phase 3 should default CrossedQuadFoliage to false");
+        Regex.Match(source, @"public\s+bool\s+CrossedQuadFoliage\s*=\s*true")
+            .Success.Should().BeTrue("Phase 3 should default CrossedQuadFoliage to true (3D foliage on by default; commit e6f8516)");
     }
 
     [Fact]
@@ -221,8 +222,8 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+MeshWater\s*=\s*false")
-            .Success.Should().BeTrue("Phase 4 should default MeshWater to false");
+        Regex.Match(source, @"public\s+bool\s+MeshWater\s*=\s*true")
+            .Success.Should().BeTrue("Phase 4 should default MeshWater to true (live runtime toggle)");
     }
 
     [Fact]
@@ -259,8 +260,8 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+DayNightCycle\s*=\s*false")
-            .Success.Should().BeTrue("Phase 8 should default DayNightCycle to false");
+        Regex.Match(source, @"public\s+bool\s+DayNightCycle\s*=\s*true")
+            .Success.Should().BeTrue("Phase 8 should default DayNightCycle to true");
         Regex.Match(source, @"public\s+float\s+FogDensity\s*=\s*0\.05f")
             .Success.Should().BeTrue("Phase 8 should default FogDensity to 0.05f");
     }

@@ -47,17 +47,55 @@ namespace WorldSphereMod.Lighting
             Sun.type = LightType.Directional;
             Sun.intensity = 1.0f;
             Sun.color = Color.white;
+            Sun.enabled = true;
 
             LightingRoot.rotation = Quaternion.Euler(TimeOfDayToEuler(TimeOfDay), 30f, 0f);
+
+            // SUN=NULL ROOT-CAUSE FIX: nothing else assigns RenderSettings.sun, so
+            // the scene had no key light (RenderSettings.sun == null at runtime) and
+            // the lit CompoundSphere/OpaqueVertexColor terrain rendered near-black.
+            // Register our directional light as the scene's sun so ambient/skybox
+            // and lit shaders pick it up as the primary directional source.
+            RenderSettings.sun = Sun;
+
+            // The day/night stack owns Trilight ambient only when it is enabled.
+            // Render-foundation verification expects the default world-entry path
+            // to stay on a neutral Flat 0.4 ambient baseline.
+            if (Core.savedSettings.DayNightCycle)
+            {
+                if (RenderSettings.ambientMode != UnityEngine.Rendering.AmbientMode.Trilight)
+                {
+                    RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+                }
+                RenderSettings.ambientSkyColor = SunRig.ZenithColor(TimeOfDay / 24f);
+                RenderSettings.ambientEquatorColor = SunRig.HorizonColor(TimeOfDay / 24f);
+                RenderSettings.ambientGroundColor = new Color(0.12f, 0.13f, 0.16f, 1f);
+                RenderSettings.ambientIntensity = Mathf.Max(RenderSettings.ambientIntensity, 0.35f);
+            }
+            else
+            {
+                Core.ReassertRenderFoundationAmbient();
+            }
 
             ApplyShadowSettings();
             SunRig.Bind(Sun);
             BindMainCamera(CameraManager.MainCamera);
+
+            // Apply the day/night colour curve once immediately so the very first
+            // frame is lit even before any Update pump.
+            if (Core.savedSettings.DayNightCycle)
+            {
+                SunRig.Drive(TimeOfDay / 24f);
+            }
         }
 
         public static void Teardown()
         {
             ShadowCascadeConfig.Reset();
+            if (RenderSettings.sun == Sun)
+            {
+                RenderSettings.sun = null;
+            }
             if (LightingRoot != null)
             {
                 Object.Destroy(LightingRoot.gameObject);
@@ -90,7 +128,14 @@ namespace WorldSphereMod.Lighting
                 LightingRoot.rotation = Quaternion.Euler(TimeOfDayToEuler(TimeOfDay), 30f, 0f);
             }
 
-            SunRig.Drive(TimeOfDay / 24f);
+            if (Core.savedSettings.DayNightCycle)
+            {
+                SunRig.Drive(TimeOfDay / 24f);
+            }
+            else
+            {
+                Core.ReassertRenderFoundationAmbient();
+            }
         }
 
         static float TimeOfDayToEuler(float hours)
