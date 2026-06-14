@@ -72,11 +72,11 @@ public class SavedSettingsTests
         var source = ReadSavedSettingsSource();
 
         // Must declare: public string Version = "2.13";
-        var pattern = @"public\s+string\s+Version\s*=\s*""2\.13""";
+        var pattern = @"public\s+string\s+Version\s*=\s*""2\.14""";
         var match = Regex.Match(source, pattern);
 
         match.Success.Should().BeTrue(
-            "SavedSettings must declare: public string Version = \"2.13\";");
+            "SavedSettings must declare: public string Version = \"2.14\";");
     }
 
     [Fact]
@@ -106,7 +106,7 @@ public class SavedSettingsTests
             ("HighShadows", false),
             ("SkeletalAnimation", false),
             ("WorldspaceUI", false),
-            ("DayNightCycle", false),
+            ("DayNightCycle", true),
             ("PostFX", false),
             ("ParticleEffects", false)
         };
@@ -195,7 +195,7 @@ public class SavedSettingsTests
     [InlineData("HighShadows", "false")]
     [InlineData("SkeletalAnimation", "false")]
     [InlineData("WorldspaceUI", "false")]
-    [InlineData("DayNightCycle", "false")]
+    [InlineData("DayNightCycle", "true")]
     [InlineData("PostFX", "false")]
     [InlineData("ParticleEffects", "false")]
     public void SavedSettings_field_default_value_matches_spec(string fieldName, string expectedDefault)
@@ -260,8 +260,8 @@ public class SavedSettingsTests
     {
         var source = ReadSavedSettingsSource();
 
-        Regex.Match(source, @"public\s+bool\s+DayNightCycle\s*=\s*false")
-            .Success.Should().BeTrue("Phase 8 should default DayNightCycle to false");
+        Regex.Match(source, @"public\s+bool\s+DayNightCycle\s*=\s*true")
+            .Success.Should().BeTrue("Phase 8 should default DayNightCycle to true");
         Regex.Match(source, @"public\s+float\s+FogDensity\s*=\s*0\.05f")
             .Success.Should().BeTrue("Phase 8 should default FogDensity to 0.05f");
     }

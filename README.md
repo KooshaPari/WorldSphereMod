@@ -26,7 +26,7 @@ This fork lands a real 3D pipeline on top of that foundation:
 | 5  | CODE_LANDED | Sun driver + shadow cascade config + procedural sky landed. Current code defaults: `HighShadows = false`, `HdrSkybox = false`, `ColorGradingLut = false`. |
 | 6  | CODE_LANDED | Skeletal pipeline. Current code default: `SkeletalAnimation = false`. |
 | 7  | CODE_LANDED | Worldspace UI: nameplate, HP bar, damage popups, selection ring all landed; SelectionHooks wired via `SelectedUnit`. Current code defaults: `WorldspaceUI = false`, `WorldspaceLabel3D = false`. |
-| 8  | CODE_LANDED | TimeOfDay autonomous driver + SunRig color gradient; ProceduralSky landed. **default OFF** — `DayNightCycle = false`; `FogDensity = 0.05f`. |
+| 8  | CODE_LANDED | TimeOfDay autonomous driver + SunRig color gradient; ProceduralSky landed. **default ON** — `DayNightCycle = true`; `FogDensity = 0.05f`. |
 | 9  | CODE_LANDED | Particle bursts on 5 effect IDs + URP PostFX volume. Current code defaults: `ParticleEffects = false`, `PostFX = false`, `SSAOEnabled = false`, `SSGIEnabled = false`. |
 | 10 | CODE_LANDED | FrustumCuller + LodSelector + ImpostorBillboard + softened hardware gate; Proxy tier still routes to Voxel. |
 

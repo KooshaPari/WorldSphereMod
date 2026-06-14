@@ -135,7 +135,7 @@ public sealed class BridgeActionEndpointsInvariantsTests
 
         generateWorldBody.Should().Contain("MapBox.instance == null",
             "generate_world must guard against a missing MapBox instance");
-        generateWorldBody.Should().Contain("MapBox.instance.generateNewMap();",
+        generateWorldBody.Should().Contain("MapBox.instance.startTheGame(true);",
             "generate_world must invoke the WorldBox map generation entrypoint");
         generateWorldBody.Should().Contain("catch (Exception ex)",
             "generate_world must catch and log queued work failures");

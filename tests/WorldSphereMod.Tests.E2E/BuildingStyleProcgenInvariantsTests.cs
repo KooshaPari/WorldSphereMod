@@ -87,7 +87,7 @@ public sealed class BuildingStyleProcgenInvariantsTests
             "style procgen is a runtime branch, not a patch gate");
 
         var emitBody = ExtractMethodBody(buildingProc, "public static void EmitMeshes(BuildingManager __instance)");
-        emitBody.Should().Contain("!Core.savedSettings.ProceduralBuildings) return",
+        emitBody.Should().Contain("!proceduralBuildings)",
             "EmitMeshes must exit when Phase 2 proc buildings are disabled");
         emitBody.Should().NotContain("!Core.savedSettings.BuildingStyleProcgen) return",
             "style toggle must not short-circuit the entire emit loop");
@@ -105,7 +105,7 @@ public sealed class BuildingStyleProcgenInvariantsTests
             "style ON must use legacy stylized procgen architecture meshes");
         emitBody.Should().Contain("VoxelMeshCache.Get(sp)",
             "style OFF must voxelize building sprites via VoxelMeshCache");
-        emitBody.Should().Contain("VoxelRender.Submit(m, trs, Color.white)",
+        emitBody.Should().Contain("VoxelRender.Submit(m, legacyTrs, Color.white)",
             "both branches must submit through the shared voxel render path");
     }
 
