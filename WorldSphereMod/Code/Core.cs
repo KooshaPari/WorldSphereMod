@@ -866,6 +866,13 @@ namespace WorldSphereMod
             public static bool PerlinNoise = true;
             #region Fancy stuff
             static SphereManager Manager;
+            // #199 GPU-compute go-live: a GpuSphereManager wired IN PARALLEL with the
+            // CPU Manager for the instanced actor/voxel tile path. The CPU Manager
+            // stays the coordinate/terrain (HeightField) authority. Null until the
+            // async GPU creator completes; null whenever CompoundCompute is unavailable
+            // (legacy CPU-only path). All consumer calls are null-guarded.
+            static CompoundSpheres.Gpu.GpuSphereManager GpuManager;
+            static CompoundSpheres.Gpu.GpuSphereManagerSettings GpuManagerConfig;
             public static SphereManager ManagerInstance => Manager;
             static Mesh CompoundSphereMesh;
             internal static Material CompoundSphereMaterial;
@@ -1268,10 +1275,17 @@ namespace WorldSphereMod
 
                 sw.Restart();
                 _texDone = Manager.RefreshTextures();
+                // #199 Phase 3: mirror the texture-buffer flush to the GPU manager.
+                // GPU Refresh* use the per-buffer dirty queue (Textures.Refresh()),
+                // NOT the LegacyManagerShim O(N)/frame full-scan (risk #6).
+                GpuManager?.RefreshTextures();
                 long texMs = sw.ElapsedMilliseconds;
 
                 sw.Restart();
                 _addedDone = Manager.RefreshCustom("AddedColors");
+                // AddedColors buffer is registered in CreateGpuSettings (risk #3),
+                // so this RefreshCustom will not throw KeyNotFoundException.
+                GpuManager?.RefreshCustom("AddedColors");
                 long addedMs = sw.ElapsedMilliseconds;
 
                 sw.Restart();
@@ -1280,6 +1294,11 @@ namespace WorldSphereMod
 
                 if (hadDirtyHeights && Manager.UseHeightFieldTerrain)
                 {
+                    // Risk #5: keep GPU RefreshScales INSIDE the hadDirtyHeights gate.
+                    // Tile elevation only changes when the scale (height) queue is
+                    // dirty; flushing every frame re-broke the 3.2s/frame rebuild
+                    // storm. The GPU scale flush uses the dirty-queue (Scales.Refresh()).
+                    GpuManager?.RefreshScales();
                     // Mirror ProfilerDump into the fork so the parallelized
                     // HeightField.Rebuild emits its Stopwatch breakdown ONLY when
                     // profiling is on (per the debug-console-overlay spam trap).
@@ -1312,14 +1331,23 @@ namespace WorldSphereMod
                     return;
                 }
                 _colorsDone = Manager.RefreshColors();
+                // #199 Phase 3: mirror the base-color flush to the GPU manager via its
+                // own dirty-queue (Colors.Refresh()) — NOT the shim full-scan (risk #6).
+                GpuManager?.RefreshColors();
             }
             public static void UpdateLayer(SphereTile Tile)
             {
                 Manager.UpdateCustom("AddedColors", Tile.X, Tile.Y);
+                // #199 Phase 3: mark the same AddedColors slot dirty on the GPU buffer.
+                // GpuSphereManager.UpdateCustom takes a flat index (X*Cols+Y).
+                GpuManager?.UpdateCustom("AddedColors", (Tile.X * Height) + Tile.Y);
             }
             public static void UpdateBaseLayer(SphereTile Tile)
             {
                 Manager.UpdateColor(Tile.X, Tile.Y);
+                // #199 Phase 3: mirror the per-tile base-color dirty mark to the GPU
+                // dirty queue. GpuSphereManager.UpdateColor(X,Y) maps to (X*Cols+Y).
+                GpuManager?.UpdateColor(Tile.X, Tile.Y);
             }
             public static void PrepareShape(ref int Width, ref int Height)
             {

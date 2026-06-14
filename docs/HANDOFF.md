@@ -1,8 +1,16 @@
 # Handoff — pick up cold
 
+---
+> **GPU-compute go-live (#199) — ACTIVE TRACK (2026-06-02)**
+> Branch: `feat/gpu-compute-p4-consumer-migration` @ `4dfb34bd`
+> State: CI green (build 0err, 537 pass/3-skip + 19/19 parity). Unity-runtime visual gate pending (user-gated).
+> See: `docs/199-merge-checklist.md` for PR description + smoke-test steps.
+> Worktree: `E:/wsm3d-wt/pr37` — COLLISION-CLEAN (render-mgr owns `E:/Dev/WorldSphereMod`).
+---
+
 Canonical "next session starts here" doc for WorldSphereMod3D.
 
-**Last updated:** 2026-05-28 (`117746e` on `feat/phase-7-ui-kickoff`; `main` at `4efa128` after PR #7 squash-merge)
+**Last updated:** 2026-06-02 (gpu-mgr L1: #199 GPU-compute go-live CI-green)
 
 **Active branch:** `feat/phase-7-ui-kickoff` — Phase 7 worldspace UI kickoff ([`docs/phases/phase-7-worldspace-ui.md`](phases/phase-7-worldspace-ui.md)). Synced with `origin/main` after [PR #7](https://github.com/KooshaPari/WorldSphereMod/pull/7) landed (`4efa128` — automation, PlayCUA gates, live-verify harness).
 
