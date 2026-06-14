@@ -9,14 +9,14 @@ jobs:
   dotnet-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 5.0.x
 
       - name: Setup .NET SDK for tests
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 8.0.x
 
@@ -67,7 +67,7 @@ jobs:
             || (echo "::error::line coverage ${LINE}% < 80% gate (Wave 4 baseline)"; exit 1)
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: docs/coverage/
