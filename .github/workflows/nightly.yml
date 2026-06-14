@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Lint (if Justfile exists)
         shell: bash
@@ -44,7 +44,7 @@ jobs:
 
       - name: Upload stats dashboard
         if: hashFiles('docs/dashboard.md') != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wsm3d-stats-dashboard
           path: docs/dashboard.md
@@ -58,7 +58,7 @@ jobs:
 
     steps:
       - name: Comment on latest commit if tests failed
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const run_url = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
