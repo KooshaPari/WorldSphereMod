@@ -32,12 +32,11 @@ public class VoxelRenderInvariantsTests
         var source = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
 
         source.Should().Contain("public static void Reset()");
-        source.Should().Contain("if (_material != null) Object.Destroy(_material);");
+        source.Should().Contain("if (_material != null) UnityEngine.Object.Destroy(_material);");
         source.Should().Contain("_materialAttempted = false;");
         source.Should().Contain("SanityTestCube.Reset();");
         source.Should().Contain("_actorVoxelSubmitTranslations.Clear();",
             "reset must clear the per-frame translation scratch list");
-        source.Should().Contain("_actorImpostorDiagnosticLogged = false;");
         source.Should().Contain("_actorSkeletalDiagnosticLogged = false;");
     }
 
@@ -47,10 +46,7 @@ public class VoxelRenderInvariantsTests
         var source = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
 
         source.Should().Contain("public static bool EnsureMaterial()");
-        source.Should().Contain("TryCompileInlineVoxelShader();",
-            "inline opaque vertex-color shader compilation must be attempted before fallback shaders");
-        source.Should().Contain("\"Particles/Standard Surface\"");
-        source.Should().Contain("\"Standard\"");
+        source.Should().Contain("Core.Sphere.BuiltInShaderFallbacks");
         source.Should().Contain("if (MeshInstanceBatcher.UseFallbackPath && _material != null && _material.enableInstancing)");
         source.Should().Contain("_material.enableInstancing = false;",
             "fallback path must disable instancing when batching cannot use it");

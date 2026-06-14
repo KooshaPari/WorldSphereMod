@@ -85,7 +85,7 @@ $script:PhaseDefaults = @{
     "HighShadows"         = $false
     "SkeletalAnimation"   = $false
     "WorldspaceUI"        = $false
-    "DayNightCycle"       = $false
+    "DayNightCycle"       = $true
     "PostFX"              = $false
     "ParticleEffects"     = $false
 }
@@ -102,7 +102,7 @@ $script:SafeMinDefaults = @{
     "HighShadows"         = $false
     "SkeletalAnimation"   = $false
     "WorldspaceUI"        = $false
-    "DayNightCycle"       = $false
+    "DayNightCycle"       = $true
     "PostFX"              = $false
     "ParticleEffects"     = $false
 }

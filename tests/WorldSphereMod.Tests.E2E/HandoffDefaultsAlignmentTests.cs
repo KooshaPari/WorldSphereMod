@@ -215,7 +215,7 @@ public class HandoffDefaultsAlignmentTests
     [InlineData(1, "VoxelEntities", "true")]
     [InlineData(2, "ProceduralBuildings", "true")]
     [InlineData(4, "MeshWater", "true")]
-    [InlineData(8, "DayNightCycle", "false")]
+    [InlineData(8, "DayNightCycle", "true")]
     public void Readme_phase_table_documents_saved_settings_default(
         int phase,
         string flag,
