@@ -323,65 +323,76 @@ namespace WorldSphereMod.Bridge
                 {
                     if (string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase))
                     {
-                        WriteJson(context.Response, BuildHealthPayload());
+                        ExecuteEndpoint(context, BuildHealthPayload);
                         return;
                     }
                     if (string.Equals(path, "/telemetry", StringComparison.OrdinalIgnoreCase))
                     {
-                        WriteJson(context.Response, BuildTelemetryPayload());
+                        ExecuteEndpoint(context, BuildTelemetryPayload);
                         return;
                     }
-                    if (string.Equals(path, "/settings", StringComparison.OrdinalIgnoreCase)) { WriteRawJson(context.Response, InvokeOnMainThread(BuildSettingsJson)); return; }
+                    if (string.Equals(path, "/settings", StringComparison.OrdinalIgnoreCase)) { ExecuteEndpoint(context, () => InvokeOnMainThread(BuildSettingsJson), rawJson: true); return; }
                     if (string.Equals(path, "/voxel/sprite", StringComparison.OrdinalIgnoreCase))
                     {
-                        string spriteName = context.Request.QueryString["name"] ?? string.Empty;
-                        if (string.IsNullOrWhiteSpace(spriteName))
+                        ExecuteEndpoint(context, () =>
                         {
-                            WriteJson(context.Response, InvokeOnMainThread(BuildVoxelSpriteListPayload));
-                            return;
-                        }
+                            string spriteName = context.Request.QueryString["name"] ?? string.Empty;
+                            if (string.IsNullOrWhiteSpace(spriteName))
+                            {
+                                return (HttpStatusCode.OK, InvokeOnMainThread(BuildVoxelSpriteListPayload));
+                            }
 
-                        HttpStatusCode statusCode = HttpStatusCode.OK;
-                        object payload = InvokeOnMainThread(() => BuildVoxelSpritePayload(spriteName, out statusCode));
-                        WriteJson(context.Response, payload, statusCode);
+                            HttpStatusCode statusCode = HttpStatusCode.OK;
+                            object payload = InvokeOnMainThread(() => BuildVoxelSpritePayload(spriteName, out statusCode));
+                            return (statusCode, payload);
+                        });
                         return;
                     }
                     if (string.Equals(path, "/voxel/stats", StringComparison.OrdinalIgnoreCase))
                     {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildVoxelStatsPayload));
+                        ExecuteEndpoint(context, () => InvokeOnMainThread(BuildVoxelStatsPayload));
                         return;
                     }
                     if (string.Equals(path, "/voxel/queue", StringComparison.OrdinalIgnoreCase))
                     {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildVoxelQueuePayload));
+                        ExecuteEndpoint(context, () => InvokeOnMainThread(BuildVoxelQueuePayload));
                         return;
                     }
                     if (string.Equals(path, "/memory", StringComparison.OrdinalIgnoreCase))
                     {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildMemoryPayload));
+                        ExecuteEndpoint(context, () => InvokeOnMainThread(BuildMemoryPayload));
                         return;
                     }
                     if (string.Equals(path, "/voxel/actor", StringComparison.OrdinalIgnoreCase))
                     {
-                        string indexText = context.Request.QueryString["index"] ?? "0";
-                        WriteJson(context.Response, InvokeOnMainThread(() => BuildVoxelActorPayload(indexText)));
+                        ExecuteEndpoint(context, () =>
+                        {
+                            string indexText = context.Request.QueryString["index"] ?? "0";
+                            return InvokeOnMainThread(() => BuildVoxelActorPayload(indexText));
+                        });
                         return;
                     }
                     if (string.Equals(path, "/voxel/diff", StringComparison.OrdinalIgnoreCase))
                     {
-                        string baselinePath = context.Request.QueryString["baseline"] ?? string.Empty;
-                        WriteJson(context.Response, InvokeOnMainThread(() => BuildVoxelDiffPayload(baselinePath)));
+                        ExecuteEndpoint(context, () =>
+                        {
+                            string baselinePath = context.Request.QueryString["baseline"] ?? string.Empty;
+                            return InvokeOnMainThread(() => BuildVoxelDiffPayload(baselinePath));
+                        });
                         return;
                     }
                     if (path.StartsWith("/phase/", StringComparison.OrdinalIgnoreCase))
                     {
-                        string phaseName = Uri.UnescapeDataString(path.Substring("/phase/".Length));
-                        WriteJson(context.Response, InvokeOnMainThread(() => BuildPhasePayload(phaseName)));
+                        ExecuteEndpoint(context, () =>
+                        {
+                            string phaseName = Uri.UnescapeDataString(path.Substring("/phase/".Length));
+                            return InvokeOnMainThread(() => BuildPhasePayload(phaseName));
+                        });
                         return;
                     }
                     if (string.Equals(path, "/diag/emit_status", StringComparison.OrdinalIgnoreCase))
                     {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildEmitStatusPayload));
+                        ExecuteEndpoint(context, () => InvokeOnMainThread(BuildEmitStatusPayload));
                         return;
                     }
                     if (string.Equals(path, "/diag/errors", StringComparison.OrdinalIgnoreCase))
@@ -392,12 +403,12 @@ namespace WorldSphereMod.Bridge
                     }
                     if (string.Equals(path, "/diag/render_stats", StringComparison.OrdinalIgnoreCase))
                     {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildRenderStatsPayload));
+                        ExecuteEndpoint(context, () => InvokeOnMainThread(BuildRenderStatsPayload));
                         return;
                     }
                     if (string.Equals(path, "/diag/full_dump", StringComparison.OrdinalIgnoreCase))
                     {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildFullDumpPayload));
+                        ExecuteEndpoint(context, () => InvokeOnMainThread(BuildFullDumpPayload));
                         return;
                     }
                     if (string.Equals(path, "/world/state", StringComparison.OrdinalIgnoreCase))
@@ -432,64 +443,65 @@ namespace WorldSphereMod.Bridge
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && path.StartsWith("/settings/", StringComparison.OrdinalIgnoreCase))
                 {
-                    string key = path.Substring("/settings/".Length);
-                    string rawValue = context.Request.QueryString["value"] ?? string.Empty;
-                    WriteJson(context.Response, UpdateSettingQueued(key, rawValue));
+                    ExecuteEndpoint(context, () =>
+                    {
+                        string key = path.Substring("/settings/".Length);
+                        string rawValue = context.Request.QueryString["value"] ?? string.Empty;
+                        return UpdateSettingQueued(key, rawValue);
+                    });
                     return;
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/load_save", StringComparison.OrdinalIgnoreCase))
                 {
-                    string slotText = context.Request.QueryString["slot"] ?? string.Empty;
-                    WriteJson(context.Response, LoadSaveQueued(slotText));
+                    ExecuteEndpoint(context, () =>
+                    {
+                        string slotText = context.Request.QueryString["slot"] ?? string.Empty;
+                        return LoadSaveQueued(slotText);
+                    });
                     return;
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && (string.Equals(path, "/actions/screenshot", StringComparison.OrdinalIgnoreCase) || string.Equals(path, "/screenshot/now", StringComparison.OrdinalIgnoreCase)))
                 {
-                    // Read path + mode from EITHER ?query= or the JSON body in a SINGLE body read
-                    // (the InputStream is non-seekable). Previously `path` was query-only and the body
-                    // was consumed only to sniff mode, so {"path":...} was silently dropped.
-                    // mode=camera renders ONLY the 3D scene camera into a RenderTexture,
-                    // bypassing WorldBox's debug-console / UI overlay layers. Default
-                    // (screen) keeps the legacy full-framebuffer capture for back-compat.
-                    BridgeParams shot = BridgeParams.From(context.Request);
-                    string outputPath = shot.Get("path", string.Empty);
-                    string mode = shot.Get("mode", string.Empty);
-                    bool cameraMode = string.Equals(mode, "camera", StringComparison.OrdinalIgnoreCase);
-                    WriteJson(context.Response, CaptureScreenshot(outputPath, cameraMode));
+                    ExecuteEndpoint(context, () =>
+                    {
+                        string outputPath = context.Request.QueryString["path"] ?? string.Empty;
+                        return CaptureScreenshot(outputPath);
+                    });
                     return;
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/voxel/dump_all", StringComparison.OrdinalIgnoreCase))
                 {
-                    WriteJson(context.Response, InvokeOnMainThread(DumpVoxelMeshes));
+                    ExecuteEndpoint(context, () => InvokeOnMainThread(DumpVoxelMeshes));
                     return;
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/diag/dump_now", StringComparison.OrdinalIgnoreCase))
                 {
-                    WriteJson(context.Response, InvokeOnMainThread(ForceDiagDumpNow));
+                    ExecuteEndpoint(context, () => InvokeOnMainThread(ForceDiagDumpNow));
                     return;
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/texturepack/import", StringComparison.OrdinalIgnoreCase))
                 {
-                    string packPath = context.Request.QueryString["path"] ?? string.Empty;
-                    WriteJson(context.Response, InvokeOnMainThread(() => BuildTexturePackImportPayload(packPath)));
+                    ExecuteEndpoint(context, () =>
+                    {
+                        string packPath = context.Request.QueryString["path"] ?? string.Empty;
+                        return InvokeOnMainThread(() => BuildTexturePackImportPayload(packPath));
+                    });
                     return;
                 }
 
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/spawn_units", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Honor count/race/x/y from EITHER ?query= or the JSON body (the live operator
-                    // POSTs {"count":80}); query wins when both are present.
-                    BridgeParams sp = BridgeParams.From(context.Request);
-                    string countText = sp.Get("count", "10");
-                    string race = sp.Get("race", "human");
-                    string xText = sp.Get("x");
-                    string yText = sp.Get("y");
-                    WriteJson(context.Response, SpawnUnitsQueued(countText, race, xText, yText));
+                    ExecuteEndpoint(context, () =>
+                    {
+                        string countText = context.Request.QueryString["count"] ?? "10";
+                        string race = context.Request.QueryString["race"] ?? "human";
+                        return SpawnUnitsQueued(countText, race);
+                    });
                     return;
                 }
                 else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/generate_world", StringComparison.OrdinalIgnoreCase))
                 {
-                    WriteJson(context.Response, GenerateWorldQueued());
+                    ExecuteEndpoint(context, GenerateWorldQueued);
                     return;
                 }
                 // #1 priority: drive world-creation headlessly so the operator never needs the 3 menu clicks.
@@ -584,68 +596,38 @@ namespace WorldSphereMod.Bridge
             }
         }
 
-        // Reads request params from BOTH the query string and the JSON request body.
-        // The HttpListener body stream can only be consumed ONCE, so callers build a single
-        // BridgeParams per request and reuse it for every lookup (query takes precedence; the
-        // body is parsed lazily on first body-backed lookup). Honors the live-bridge contract
-        // that every /actions param works whether passed as ?name= or {"name":...}.
-        sealed class BridgeParams
+        void ExecuteEndpoint(HttpListenerContext context, Func<object> handler)
         {
-            readonly System.Collections.Specialized.NameValueCollection _query;
-            Newtonsoft.Json.Linq.JObject _body;
-            bool _bodyParsed;
-            readonly string _rawBody;
+            ExecuteEndpoint(context, () => (HttpStatusCode.OK, handler()));
+        }
 
-            BridgeParams(System.Collections.Specialized.NameValueCollection query, string rawBody)
-            {
-                _query = query;
-                _rawBody = rawBody;
-            }
+        void ExecuteEndpoint(HttpListenerContext context, Func<string> handler, bool rawJson)
+        {
+            ExecuteEndpoint(context, () => (HttpStatusCode.OK, handler()), rawJson);
+        }
 
-            // Reads the body stream exactly once (it is non-seekable) so subsequent param lookups
-            // can fall back to JSON values without re-reading a now-exhausted stream.
-            public static BridgeParams From(HttpListenerRequest request)
+        void ExecuteEndpoint(HttpListenerContext context, Func<(HttpStatusCode statusCode, object payload)> handler)
+        {
+            ExecuteEndpoint(context, handler, rawJson: false);
+        }
+
+        void ExecuteEndpoint(HttpListenerContext context, Func<(HttpStatusCode statusCode, object payload)> handler, bool rawJson)
+        {
+            try
             {
-                string raw = string.Empty;
-                try
+                (HttpStatusCode statusCode, object payload) = handler();
+                if (rawJson)
                 {
-                    if (request.HasEntityBody)
-                        using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
-                            raw = reader.ReadToEnd();
+                    WriteRawJson(context.Response, payload as string ?? JsonConvert.SerializeObject(payload, Formatting.None), statusCode);
                 }
-                catch { /* body optional */ }
-                return new BridgeParams(request.QueryString, raw);
-            }
-
-            Newtonsoft.Json.Linq.JObject Body()
-            {
-                if (!_bodyParsed)
+                else
                 {
-                    _bodyParsed = true;
-                    if (!string.IsNullOrWhiteSpace(_rawBody))
-                    {
-                        try { _body = Newtonsoft.Json.Linq.JObject.Parse(_rawBody); }
-                        catch { _body = null; }
-                    }
+                    WriteJson(context.Response, payload, statusCode);
                 }
-                return _body;
             }
-
-            /// <summary>Query value wins; otherwise the JSON body value (numbers/strings/bools coerced to string). null when absent.</summary>
-            public string Get(string name)
+            catch (Exception ex)
             {
-                string q = _query[name];
-                if (!string.IsNullOrEmpty(q)) return q;
-                Newtonsoft.Json.Linq.JObject body = Body();
-                Newtonsoft.Json.Linq.JToken tok = body?[name];
-                if (tok == null || tok.Type == Newtonsoft.Json.Linq.JTokenType.Null) return null;
-                return tok.ToString(Newtonsoft.Json.Formatting.None).Trim('"');
-            }
-
-            public string Get(string name, string fallback)
-            {
-                string v = Get(name);
-                return string.IsNullOrEmpty(v) ? fallback : v;
+                WriteJson(context.Response, new { ok = false, error = "endpoint_error", message = ex.Message }, HttpStatusCode.InternalServerError);
             }
         }
 
@@ -1585,23 +1567,25 @@ namespace WorldSphereMod.Bridge
 
         object BuildRenderStatsPayload()
         {
-            long drawCalls = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameDrawCalls;
-            long instances = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameInstances;
-            long buckets = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameBucketCount;
-            bool fallbackPath = WorldSphereMod.Voxel.MeshInstanceBatcher.UseFallbackPath;
-            bool instancingBroken = WorldSphereMod.Voxel.MeshInstanceBatcher.InstancingBroken;
+            long drawCalls = SafeLong(() => WorldSphereMod.Voxel.MeshInstanceBatcher.FrameDrawCalls);
+            long instances = SafeLong(() => WorldSphereMod.Voxel.MeshInstanceBatcher.FrameInstances);
+            long buckets = SafeLong(() => WorldSphereMod.Voxel.MeshInstanceBatcher.FrameBucketCount);
+            bool fallbackPath = SafeBool(() => WorldSphereMod.Voxel.MeshInstanceBatcher.UseFallbackPath);
+            bool instancingBroken = SafeBool(() => WorldSphereMod.Voxel.MeshInstanceBatcher.InstancingBroken);
 
             int visibleUnits = 0;
             int visibleBuildings = 0;
             try
             {
-                ActorManager units = World.world != null ? World.world.units : null;
+                var world = World.world;
+                ActorManager units = world != null ? world.units : null;
                 if (units != null) visibleUnits = units.visible_units.count;
             }
             catch { }
             try
             {
-                BuildingManager buildings = World.world != null ? World.world.buildings : null;
+                var world = World.world;
+                BuildingManager buildings = world != null ? world.buildings : null;
                 if (buildings != null) visibleBuildings = buildings._visible_buildings_count;
             }
             catch { }
@@ -1648,6 +1632,7 @@ namespace WorldSphereMod.Bridge
             return new
             {
                 ok = true,
+                worldReady = World.world != null,
                 drawCalls,
                 instances,
                 buckets,
@@ -2031,6 +2016,11 @@ namespace WorldSphereMod.Bridge
         static int SafeCount(Func<int> read)
         {
             try { return read(); } catch { return 0; }
+        }
+
+        static bool SafeBool(Func<bool> read)
+        {
+            try { return read(); } catch { return false; }
         }
 
         static float SafeHitRate(Func<long> hits, Func<long> misses)

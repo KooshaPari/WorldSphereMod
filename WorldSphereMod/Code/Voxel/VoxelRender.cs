@@ -26,6 +26,15 @@ namespace WorldSphereMod.Voxel
     /// </summary>
     public static class VoxelRender
     {
+        /// <summary>Phase 7: fired when worldspace UI detects HP loss on a visible actor.</summary>
+        public static event System.Action<Actor, int>? OnActorDamaged;
+
+        public static void NotifyActorDamaged(Actor actor, int damageAmount)
+        {
+            if (actor == null || damageAmount <= 0) return;
+            OnActorDamaged?.Invoke(actor, damageAmount);
+        }
+
         const float BuildingMaxScale = 3.0f;
         internal static Material? _material;
         static bool _materialAttempted;
@@ -239,7 +248,8 @@ namespace WorldSphereMod.Voxel
 
                 // Cubemap probe hookup is best-effort: set only when the active
                 // scene skybox provides a true Cubemap texture directly.
-                if (RenderSettings.skybox != null && RenderSettings.skybox.mainTexture is Cubemap skyCubemap)
+                Material skybox = RenderSettings.skybox;
+                if (skybox != null && skybox.HasProperty("_MainTex") && skybox.mainTexture is Cubemap skyCubemap)
                 {
                     material.SetTexture(_cubemapId, skyCubemap);
                     Debug.Log("[WSM3D] Voxel material configured with skybox cubemap reflection probe.");
@@ -457,8 +467,14 @@ namespace WorldSphereMod.Voxel
             static bool _emitDiagLogged;
             static int _emitDiagFrameCounter;
             static bool _emitDiagSawNonZero;
-            static bool _billboardDiagLogged;
-            static bool _voxelDiagLogged;
+            // The tile-height-smooth memo is no longer cleared per-frame. It is now a
+            // bounded LRU (Tools.TileHeightSmoothLru) that evicts only its single
+            // oldest entry on overflow, so it stays permanently warm and never pays a
+            // full-rebuild cost. The former 30-frame full-clear traded a constant
+            // ~560ms cost for a periodic ~1160ms cold-miss storm (every entity recomputed
+            // neighbour-sampled heights on the clear frame). Removing it flattens precalc
+            // to baseline. Real terrain edits invalidate via Tools.ClearTileHeightSmoothCache
+            // from the tile-redraw path, not here.
 
             public static void ResetDiag()
             {
@@ -480,7 +496,6 @@ namespace WorldSphereMod.Voxel
                 // billboards instead of 3D voxels. Symptom: user reports
                 // "voxel actors back to billboards".
                 EmitVoxelsCalled = true;
-                Tools.ClearTileHeightSmoothCache();
                 // TEMPORARY DIAGNOSTIC: one-shot log to verify the Harmony postfix fires
                 if (!_emitDiagLogged && Core.savedSettings.ProfilerDump)
                 {
@@ -1448,7 +1463,10 @@ namespace WorldSphereMod.Voxel
                     {
                         float avgFrameTime = _perfDeltaTimeSum / kPerfSampleWindowFrames;
                         float avgFps = avgFrameTime > 0f ? 1f / avgFrameTime : 0f;
-                        Debug.Log($"[WSM3D][Perf] frameDeltaMs={deltaTimePerf * 1000f:F2} avg60FrameDeltaMs={avgFrameTime * 1000f:F2} avg60Fps={avgFps:F1}");
+                        if (Core.savedSettings.ProfilerDump)
+                        {
+                            Debug.Log($"[WSM3D][Perf] frameDeltaMs={deltaTimePerf * 1000f:F2} avg60FrameDeltaMs={avgFrameTime * 1000f:F2} avg60Fps={avgFps:F1}");
+                        }
                         _perfFrameCounter = 0;
                         _perfDeltaTimeSum = 0f;
                     }
@@ -1458,14 +1476,20 @@ namespace WorldSphereMod.Voxel
                 if (_instancingTelemetryFrame >= 60)
                 {
                     _instancingTelemetryFrame = 0;
-                    Debug.Log($"[WSM3D][Telemetry] InstancingEfficiency={MeshInstanceBatcher.InstancingEfficiency:F4} FrameBucketCount={MeshInstanceBatcher.FrameBucketCount} FrameInstances={MeshInstanceBatcher.FrameInstances}");
+                    if (Core.savedSettings.ProfilerDump)
+                    {
+                        Debug.Log($"[WSM3D][Telemetry] InstancingEfficiency={MeshInstanceBatcher.InstancingEfficiency:F4} FrameBucketCount={MeshInstanceBatcher.FrameBucketCount} FrameInstances={MeshInstanceBatcher.FrameInstances}");
+                    }
                 }
 
                 float nowPerf = Time.realtimeSinceStartup;
                 if (nowPerf - _telemetryLastTime > 10f)
                 {
                     _telemetryLastTime = nowPerf;
-                    Debug.Log($"[WSM3D][Telemetry] frameMs={Time.unscaledDeltaTime * 1000:F2} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} cacheSize={VoxelMeshCache.Count} cacheHits={VoxelMeshCache.HitCount} cacheMisses={VoxelMeshCache.MissCount} submits={VoxelRender._submitDiagCount} gcMB={(System.GC.GetTotalMemory(false) / 1048576f):F1}");
+                    if (Core.savedSettings.ProfilerDump)
+                    {
+                        Debug.Log($"[WSM3D][Telemetry] frameMs={Time.unscaledDeltaTime * 1000:F2} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} cacheSize={VoxelMeshCache.Count} cacheHits={VoxelMeshCache.HitCount} cacheMisses={VoxelMeshCache.MissCount} submits={VoxelRender._submitDiagCount} gcMB={(System.GC.GetTotalMemory(false) / 1048576f):F1}");
+                    }
                     VoxelRender._submitDiagCount = 0;
                 }
 
@@ -1603,7 +1627,9 @@ namespace WorldSphereMod.Voxel
                 float avgFrameTime = _perfDeltaTimeSum / kPerfSampleWindowFrames;
                 float avgFps = avgFrameTime > 0f ? 1f / avgFrameTime : 0f;
                 if (Core.savedSettings.ProfilerDump)
+                {
                     Debug.Log($"[WSM3D][Perf] frameDeltaMs={deltaTime * 1000f:F2} avg60FrameDeltaMs={avgFrameTime * 1000f:F2} avg60Fps={avgFps:F1}");
+                }
                 _perfFrameCounter = 0;
                 _perfDeltaTimeSum = 0f;
             }
@@ -1613,7 +1639,9 @@ namespace WorldSphereMod.Voxel
             {
                 _instancingTelemetryFrame = 0;
                 if (Core.savedSettings.ProfilerDump)
+                {
                     Debug.Log($"[WSM3D][Telemetry] InstancingEfficiency={MeshInstanceBatcher.InstancingEfficiency:F4} FrameBucketCount={MeshInstanceBatcher.FrameBucketCount} FrameInstances={MeshInstanceBatcher.FrameInstances}");
+                }
             }
 
             // Log-based telemetry every 10s — bypasses bridge for steady-state observability
@@ -1623,7 +1651,9 @@ namespace WorldSphereMod.Voxel
             {
                 _telemetryLastTime = now;
                 if (Core.savedSettings.ProfilerDump)
+                {
                     Debug.Log($"[WSM3D][Telemetry] frameMs={Time.unscaledDeltaTime * 1000:F2} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} cacheSize={VoxelMeshCache.Count} cacheHits={VoxelMeshCache.HitCount} cacheMisses={VoxelMeshCache.MissCount} submits={VoxelRender._submitDiagCount} gcMB={(System.GC.GetTotalMemory(false) / 1048576f):F1}");
+                }
                 VoxelRender._submitDiagCount = 0;
             }
 
@@ -1758,8 +1788,10 @@ namespace WorldSphereMod.Voxel
             _submitFlushDiagFrame++;
             if (_submitFlushDiagFrame % 60 == 0 && Core.savedSettings.ProfilerDump)
             {
-                Debug.Log($"[WSM3D][SubmitFlushDiag] frame={_submitFlushDiagFrame} submits={submitCount} flushes={flushCount} submitsBeforeFlush={submitsBeforeFlush} hadPending={hadPending} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} buckets={MeshInstanceBatcher.FrameBucketCount}");
-                Bridge.BridgeServer.RefreshTelemetryCache();
+                if (Core.savedSettings.ProfilerDump)
+                {
+                    Debug.Log($"[WSM3D][SubmitFlushDiag] frame={_submitFlushDiagFrame} submits={submitCount} flushes={flushCount} submitsBeforeFlush={submitsBeforeFlush} hadPending={hadPending} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} buckets={MeshInstanceBatcher.FrameBucketCount}");
+                }
             }
 
             Bridge.BridgeServer.RefreshTelemetryCache();

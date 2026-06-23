@@ -40,7 +40,7 @@ namespace WorldSphereMod.Voxel
             // Scratch buffers reused across frames; grown (never shrunk) to current batch
             // size for DrawMeshInstanced fast-path arrays.
             public Matrix4x4[] MatScratch = new Matrix4x4[kBatch];
-            public Vector4[] ColScratch = new Vector4[kBatch];
+            public Vector4[] ColorScratch = new Vector4[kBatch];
         }
 
         readonly struct SubmitRecord
@@ -341,10 +341,10 @@ namespace WorldSphereMod.Voxel
                     if (bucket.MatScratch.Length < n)
                     {
                         bucket.MatScratch = new Matrix4x4[n];
-                        bucket.ColScratch = new Vector4[n];
+                        bucket.ColorScratch = new Vector4[n];
                     }
                     bucket.Matrices.CopyTo(offset, bucket.MatScratch, 0, n);
-                    bucket.Colors.CopyTo(offset, bucket.ColScratch, 0, n);
+                    bucket.Colors.CopyTo(offset, bucket.ColorScratch, 0, n);
 
                     if (!CanUseInstancedDraw(material, out string disableReason))
                     {
@@ -358,13 +358,12 @@ namespace WorldSphereMod.Voxel
                     }
 
                     bucket.Block.Clear();
-                    bucket.Block.SetVectorArray(_colorProp, bucket.ColScratch);
-                    bucket.Block.SetVectorArray(_colorPropUnlit, bucket.ColScratch);
-                    // Fill emission scratch array so UNITY_ACCESS_INSTANCED_PROP
-                    // reads the correct value. SetColor alone writes a shared
-                    // value that the per-instance cbuffer ignores, causing
-                    // _EmissionColor to fall back to the material default (0,0,0)
-                    // — which makes voxels invisible against dark backgrounds.
+                    // OpaqueVertexColor reads instanced _Color/_EmissionColor via
+                    // UNITY_ACCESS_INSTANCED_PROP, so these must be populated with
+                    // SetVectorArray. SetColor would write only the shared fallback
+                    // value, which the instanced cbuffer ignores.
+                    bucket.Block.SetVectorArray(_colorProp, bucket.ColorScratch);
+                    bucket.Block.SetVectorArray(_colorPropUnlit, bucket.ColorScratch);
                     if (_emissionScratch.Length < n)
                         _emissionScratch = new Vector4[n];
                     Vector4 emV = _bakeEmission;
@@ -415,7 +414,7 @@ namespace WorldSphereMod.Voxel
 
                 }
 
-                    bucket.Matrices.Clear();
+                bucket.Matrices.Clear();
                 bucket.Colors.Clear();
                 FrameBucketCount++;
             }

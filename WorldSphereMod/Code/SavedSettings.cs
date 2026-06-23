@@ -107,9 +107,6 @@ public class SavedSettings
         // path instead of voxelizing building sprites directly.
         public bool BuildingStyleProcgen = false;
         // Phase 3: Crossed-quad foliage (vs. billboarded sprite top tiles).
-        // WHY default ON: the [Phase] gate skips the FoliageTileRender Harmony patch
-        // entirely when this is false, so trees fall through to vanilla 2D. Mirrors
-        // VoxelEntities=true so foliage renders 3D out-of-the-box like actors.
         public bool CrossedQuadFoliage = true;
         // ADR-0017 M0: continuous height-field mesh terrain (replaces per-tile quads).
         // Default ON (#201): the corner-averaged + analytic-normal + Perlin-displaced
@@ -147,6 +144,12 @@ public class SavedSettings
         public float NameplateMinScale = 0.25f;
         public float NameplateMaxScale = 4f;
         public float NameplateBaseScale = 0.15f;
+        public float NameplateScaleDistanceDivisor = 100f;
+        public float BadgeFadeNear = 10f;
+        public float BadgeFadeFar = 20f;
+        public int DamagePopPoolSize = 64;
+        public float DamagePopRiseHeight = 1.5f;
+        public float DamagePopDuration = 0.6f;
         // Phase 8: Day/night cycle + procedural sky + fog.
         public bool DayNightCycle = false;
         public float FogDensity = 0.05f;
@@ -210,7 +213,7 @@ public class SavedSettings
 
             s.VoxelEntities = true;
             s.ProceduralBuildings = false;
-            s.CrossedQuadFoliage = false;
+            s.CrossedQuadFoliage = true;
             s.BiomeBlending = false;
             s.MeshWater = false;
             s.WorldspaceHealth3D = false;
@@ -240,12 +243,7 @@ public class SavedSettings
 
             s.VoxelEntities = true;
             s.ProceduralBuildings = false;
-            s.CrossedQuadFoliage = true; // WHY: gates the foliage patch; off = trees stay vanilla 2D
-            s.UseHeightFieldTerrain = true; // #201: smooth corner-averaged terrain mesh (off = cube-step regression)
-            // #206: re-apply the actor voxel scale so persisted JSON (which shadows the field
-            // default) re-migrates to the smaller net 0.8x actor size. Requires SettingsVersion
-            // bump (Core.cs 2.4 -> 2.5) so loadedData.Version mismatch triggers this migration.
-            s.ActorVoxelScaleFactor = 0.10f;
+            s.CrossedQuadFoliage = true;
             s.MeshWater = false;
             s.WorldspaceHealth3D = false;
             s.MountainSlopeSmoothing = false;

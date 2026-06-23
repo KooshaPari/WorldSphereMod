@@ -100,6 +100,8 @@ namespace WorldSphereMod
         static void ApplySchemaVersionMigration(SavedSettings loadedData)
         {
             SavedSettings.ApplyPhaseDefaults(loadedData);
+            loadedData.VoxelEntities = true;
+            loadedData.CrossedQuadFoliage = true;
 
             // FORCE-SET critical render flags unconditionally.
             // ApplyPhaseDefaults sets these to true, but we also write them
@@ -1317,13 +1319,16 @@ namespace WorldSphereMod
                 float cameraNear = CameraManager.MainCamera != null ? CameraManager.MainCamera.nearClipPlane : -1f;
                 float cameraFar = CameraManager.MainCamera != null ? CameraManager.MainCamera.farClipPlane : -1f;
                 string shape = IsWrapped ? "cylindrical" : "flat";
-                Debug.Log(
-                    $"{prefix} camera={cameraName} cameraPos={cameraPos} shape={shape} sphereCenter={centerPos} radius={radius:F3} " +
-                    $"cameraToOrigin={cameraDistance:F3} cameraToSurface={cameraToSurface:F3} cameraInsideSphere={cameraInside} " +
-                    $"cameraOrtho={cameraOrtho} cameraFov={cameraFov:F1} cameraNear={cameraNear:F2} cameraFar={cameraFar:F1} " +
-                    $"cameraLayerMask=0x{cameraMask:X8} managerLayer={managerLayer} " +
-                    $"meshBoundsLocal={meshBoundsLocal} tileBoundsWorld=({tileBoundsMin} -> {tileBoundsMax}) " +
-                    $"shader={shaderName} materialRenderQueue={renderQueue} materialPassCount={passCount} texturedTiles={texturedTiles}/{totalTiles}");
+                if (Core.savedSettings.ProfilerDump)
+                {
+                    Debug.Log(
+                        $"{prefix} camera={cameraName} cameraPos={cameraPos} shape={shape} sphereCenter={centerPos} radius={radius:F3} " +
+                        $"cameraToOrigin={cameraDistance:F3} cameraToSurface={cameraToSurface:F3} cameraInsideSphere={cameraInside} " +
+                        $"cameraOrtho={cameraOrtho} cameraFov={cameraFov:F1} cameraNear={cameraNear:F2} cameraFar={cameraFar:F1} " +
+                        $"cameraLayerMask=0x{cameraMask:X8} managerLayer={managerLayer} " +
+                        $"meshBoundsLocal={meshBoundsLocal} tileBoundsWorld=({tileBoundsMin} -> {tileBoundsMax}) " +
+                        $"shader={shaderName} materialRenderQueue={renderQueue} materialPassCount={passCount} texturedTiles={texturedTiles}/{totalTiles}");
+                }
             }
             public static Vector3 TilePosWithHeight(float X, float Y, float Z)
             {
@@ -2088,74 +2093,18 @@ namespace WorldSphereMod
                 }
             }
 
-            // ADR-0013 (UPDATED 2026-05-31, #204) — the ManagedStream / "Mismatched
-            // serialization in builtin class 'Shader'" crash was ROOT-CAUSED to the
-            // bake pipeline emitting a variant-STRIPPED 80-byte shader stub, NOT a
-            // patch-version mismatch. The earlier "re-bake with 60f1 didn't help"
-            // conclusion was against that stripped stub: the on-disk wsm3d-shaders
-            // bundle was only 80 bytes, so every Shader deserialized short and the
-            // accumulated native errors crashed the player. OpaqueVertexColor only
-            // survived because it is the simplest shader.
-            //
-            // ----------------------------------------------------------------
-            // #204 CRASH-SAFETY: postFX shaders are VARIANT-STRIPPED STUBS in the
-            // current bundle bake (80 bytes vs expected 12700/3980 bytes). Unity's
-            // native deserializer aborts with:
-            //   "Mismatched serialization in builtin class 'Shader'. Read 80 bytes
-            //    but expected 12700 bytes" → ArgumentException: ManagedStream must
-            //    be readable → process crash.
-            // C# try/catch CANNOT intercept this native abort.
-            //
-            // SafeShaders is therefore restricted to ONLY the one known-valid shader
-            // in this bundle (OpaqueVertexColor). BrpBloom, BrpACES, ColorGradingLUT,
-            // ScreenSpaceGI, ScreenSpaceAO, and ProceduralSky are intentionally
-            // EXCLUDED until the bundle is re-baked with full variant inclusion and
-            // the serialised byte count is verified. PostFX consumers will fall back
-            // to Standard (no postFX effects, but NO crash). Re-enable after a
-            // verified-good re-bake (#204 bake unsolved).
-            // ----------------------------------------------------------------
-            // MASTER GATE: postFX shaders (BrpBloom, BrpACES, ColorGradingLUT,
-            // ScreenSpaceGI, ScreenSpaceAO, ProceduralSky) are variant-stripped
-            // 80-byte stubs in the current wsm3d-shaders bundle bake. Unity's
-            // native deserializer aborts on GetObject<Shader> for these stubs with:
-            //   "Mismatched serialization in builtin class 'Shader'.
-            //    Read 80 bytes but expected 12700 bytes"
-            //   ArgumentException: ManagedStream must be readable → process crash.
-            // C# try/catch CANNOT intercept this native abort.
-            //
-            // #204/#208 — VARIANT-STRIPPING root cause FIXED 2026-06-01 (bundle md5
-            // 8530b5f6): the bake now registers its ShaderVariantCollection in
-            // GraphicsSettings.m_PreloadedShaders (the array Unity's AssetBundle
-            // strip pass actually reads) + adds INSTANCING_ON variants for the
-            // multi_compile_instancing shaders. The prior false positive was an
-            // EDITOR-recompile load probe; the new validator checks
-            // shader.subshaderCount (reads serialized bundle bytes) → 12 valid, 0
-            // stubs (all postFX subshaderCount>=2). Re-enabling; the GAME runtime
-            // is the ground-truth confirm. If a native ManagedStream abort recurs,
-            // flip both back to false (crash-safe) — the per-shader load loop keeps
-            // its try/catch + null + isSupported guards regardless.
-            // 2026-06-01 GAME-RUNTIME RESULT: re-enable STILL crashed. OVC now loads
-            // cleanly from the bundle (strip fix worked for it), but the 6 postFX
-            // shaders are STILL player-side 80-byte stubs → "Read 80 expected 12700"
-            // native abort. So subshaderCount (12/0 in editor) is ALSO a false
-            // positive — the editor recompiles; only the PLAYER is truth. postFX
-            // shaders need their FULL variant set in the SVC (INSTANCING_ON + their
-            // own keywords/passes) — not yet achieved. Crash-safe until then.
-            // #208 candidate test (bundle e6589a46): un-bundled SVC + WSM3D_POSTFX_KEEP.
-            // Auto-reverts to false on any ManagedStream crash (game-test driven).
-            public const bool PostFxShaderBundleAvailable = false;
-
-            public const bool ShaderBundleAvailable = true;
-
-            // Names of the 6 postFX shaders that are stub-baked and must never be
-            // loaded via GetObject<Shader> while PostFxShaderBundleAvailable=false.
-            public static readonly System.Collections.Generic.HashSet<string> PostFxShaderNames =
-                new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
-                {
-                    "BrpBloom", "BrpACES", "ColorGradingLUT",
-                    "ScreenSpaceGI", "ScreenSpaceAO", "ProceduralSky",
-                };
-
+            // ================================================================
+            // DO NOT ADD MORE — ADR-0013.
+            // ADR-0013: only OpaqueVertexColor survives the 62f3-bake->60f1-
+            // runtime cross-version load. The 11-shader expansion (commit that
+            // expanded it) re-crashed at runtime — VerifyBuiltBundle is a
+            // 62f3-editor check, NOT a 60f1-runtime check, so it false-positives.
+            // To load the other shaders we need either a genuine 60f1-baked
+            // bundle OR built-in-shader fallbacks. DO NOT expand without a real
+            // 60f1-runtime load test.
+            // ================================================================
+            // Load only shaders that survive bundle deserialization with a
+            // valid Shader.name.
             public static readonly string[] SafeShaders = new[]
             {
                 // #208 candidate test: keep OVC only until postFX safety is regained.

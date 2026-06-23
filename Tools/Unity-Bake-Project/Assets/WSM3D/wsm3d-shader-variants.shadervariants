@@ -47,8 +47,6 @@ ShaderVariantCollection:
         passType: 0
       - keywords: 
         passType: 4
-      - keywords: INSTANCING_ON
-        passType: 4
       - keywords: 
         passType: 5
       - keywords: 
@@ -63,8 +61,6 @@ ShaderVariantCollection:
       - keywords: INSTANCING_ON
         passType: 0
       - keywords: 
-        passType: 4
-      - keywords: INSTANCING_ON
         passType: 4
       - keywords: 
         passType: 5
@@ -98,29 +94,10 @@ ShaderVariantCollection:
         passType: 0
       - keywords: 
         passType: 4
-      - keywords: INSTANCING_ON
-        passType: 4
       - keywords: 
         passType: 5
-      - keywords: 
-        passType: 8
-      - keywords: INSTANCING_ON
-        passType: 8
-  - first: {fileID: 4800000, guid: 0b970160e6eed014482ff73ac7ed60fe, type: 3}
+  - first: {fileID: 4800000, guid: a0bb10778c7a8d24a9701ceede90917b, type: 3}
     second:
       variants:
       - keywords: 
         passType: 0
-      - keywords: INSTANCING_ON
-        passType: 0
-  - first: {fileID: 4800000, guid: 6c34244684341924f8405b4f57daf76b, type: 3}
-    second:
-      variants:
-      - keywords: 
-        passType: 0
-      - keywords: INSTANCING_ON
-        passType: 0
-      - keywords: 
-        passType: 8
-      - keywords: INSTANCING_ON
-        passType: 8

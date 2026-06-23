@@ -186,10 +186,12 @@ public static class BakeShaders
                 Debug.Log($"[WSM3D-Bake] switched active build target -> {target}");
             }
 
-            // Uncompressed + chunk-based + strict-mode tries to maximize bundle
-            // compatibility across Unity versions. Bake target is Unity 6.3 but
-            // WorldBox runs Unity 2022 — Unity normally refuses cross-version bundle
-            // load. Uncompressed + ChunkBasedCompression sometimes works as a stop-gap.
+            // Bake editor and WorldBox runtime are BOTH 2022.3.60f1 (see
+            // ProjectVersion.txt), so the SerializedShader layout matches and shaders
+            // deserialize with their real .name. Uncompressed + force-rebuild +
+            // strict-mode keeps the bundle layout deterministic; type trees are kept
+            // (DisableWriteTypeTree is intentionally NOT set) so the runtime can
+            // reconcile the Shader class layout if WorldBox ever ships a newer patch.
             var manifest = BuildPipeline.BuildAssetBundles(
                 platformDir,
                 BuildAssetBundleOptions.UncompressedAssetBundle |
@@ -208,6 +210,63 @@ public static class BakeShaders
             }
         }
         Debug.Log("[WSM3D-Bake] All platforms done (shader-only bundle).");
+
+        // Self-verify: load the just-built win bundle back through the SAME
+        // per-name GetObject path Core.cs SafeShaders uses at runtime, and log
+        // each Shader's resolved .name + isSupported. A non-empty name here on a
+        // patch-matched editor is the bake-time proof that the runtime empty-name
+        // regression (ADR-0013) is gone. If any name comes back empty, the bake
+        // fails loudly so the bundle is never shipped silently.
+        VerifyBuiltBundle(Path.Combine(outBase, "win"), assetsShaderDir);
+    }
+
+    static void VerifyBuiltBundle(string winDir, string assetsShaderDir)
+    {
+        string bundlePath = Path.Combine(winDir, "wsm3d-shaders");
+        if (!File.Exists(bundlePath))
+        {
+            Debug.LogError("[WSM3D-Bake] VERIFY: built bundle not found at " + bundlePath);
+            EditorApplication.Exit(1);
+            return;
+        }
+
+        var ab = AssetBundle.LoadFromFile(bundlePath);
+        if (ab == null)
+        {
+            Debug.LogError("[WSM3D-Bake] VERIFY: AssetBundle.LoadFromFile returned null for " + bundlePath);
+            EditorApplication.Exit(1);
+            return;
+        }
+
+        int ok = 0, empty = 0;
+        foreach (var path in Directory.GetFiles(assetsShaderDir, "*.shader"))
+        {
+            string fileName = Path.GetFileNameWithoutExtension(path);
+            string assetPath = $"assets/wsm3d/shaders/{fileName.ToLowerInvariant()}.shader";
+            Shader sh = ab.LoadAsset<Shader>(assetPath);
+            if (sh == null)
+            {
+                Debug.LogError($"[WSM3D-Bake] VERIFY: LoadAsset returned null for {assetPath}");
+                empty++;
+                continue;
+            }
+            if (string.IsNullOrEmpty(sh.name))
+            {
+                Debug.LogError($"[WSM3D-Bake] VERIFY: EMPTY NAME for {assetPath} — bundle would fail at runtime (ADR-0013).");
+                empty++;
+                continue;
+            }
+            Debug.Log($"[WSM3D-Bake] VERIFY OK: {assetPath} -> name='{sh.name}' isSupported={sh.isSupported}");
+            ok++;
+        }
+        ab.Unload(true);
+
+        Debug.Log($"[WSM3D-Bake] VERIFY summary: {ok} shaders with valid names, {empty} empty/null.");
+        if (empty > 0)
+        {
+            Debug.LogError($"[WSM3D-Bake] VERIFY FAILED: {empty} shader(s) deserialized with empty/null name. Do NOT ship this bundle.");
+            EditorApplication.Exit(1);
+        }
     }
 
     // Creates or refreshes the ShaderVariantCollection at SvcAssetPath, adds

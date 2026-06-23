@@ -415,27 +415,48 @@ namespace WorldSphereMod.Lighting
                 return;
             }
 
-            // Only assign mainTexture if the shader actually exposes a main
-            // texture property. The degraded 'Skybox/Procedural' fallback has
-            // neither '_MainTex' nor '_Tex', so assigning mainTexture there
-            // spams: "Material 'WSM3D.ProceduralSky' with Shader
-            // 'Skybox/Procedural' doesn't have a texture property '_Tex'".
-            // The custom baked-cubemap sky shader does have it.
-            if (_skyMat.mainTexture != _skyCubemap
-                && (_skyMat.HasProperty("_MainTex") || _skyMat.HasProperty("_Tex")))
+            if (!_usingVanillaShader && _skyMat.HasProperty("_MainTex"))
             {
-                _skyMat.mainTexture = _skyCubemap;
+                if (_skyMat.mainTexture != _skyCubemap)
+                {
+                    _skyMat.mainTexture = _skyCubemap;
+                }
             }
         }
 
         void SyncReflections(Color sunColor, Vector3 sunDir)
         {
             if (_skyCubemap == null) return;
-            // Water is a corner-averaged sub-mesh inside the Compound-Spheres fork
-            // (HeightFieldRenderer.ConfigureWater) now, not a main-mod surface — its
-            // sky reflections are driven inside the fork. Nothing to sync here.
-            _ = sunColor;
-            _ = sunDir;
+            var water = WorldSphereMod.Water.WaterSurface.Instance;
+            if (water?._renderer != null)
+            {
+                Material mat = water._renderer.material;
+                if (mat != null)
+                {
+                    if (mat.HasProperty("_Tex"))
+                    {
+                        mat.SetTexture("_Tex", _skyCubemap);
+                    }
+                    else if (mat.HasProperty("_Cube"))
+                    {
+                        mat.SetTexture("_Cube", _skyCubemap);
+                    }
+                    else if (mat.HasProperty("_MainTex"))
+                    {
+                        mat.SetTexture("_MainTex", _skyCubemap);
+                    }
+                    else if (mat.HasProperty("_Cubemap"))
+                    {
+                        mat.SetTexture("_Cubemap", _skyCubemap);
+                    }
+                    else if (mat.HasProperty("_SkyCubemap"))
+                    {
+                        mat.SetTexture("_SkyCubemap", _skyCubemap);
+                    }
+                }
+                mat.SetVector("_SunDir", new Vector4(sunDir.x, sunDir.y, sunDir.z, 0f));
+                mat.SetColor("_SunColor", sunColor);
+            }
         }
     }
 }

@@ -13,6 +13,9 @@ namespace WorldSphereMod.LOD
     // cull. Hysteresis keeps a near/far flip from happening every frame.
     public enum LodTier { Voxel, Cull }
 
+    /// <summary>Phase 7 worldspace UI visibility derived from <see cref="LodTier"/>.</summary>
+    public enum UiTier { None, HealthOnly, Full }
+
     public static class LodSelector
     {
         // When the GPU can't run the voxel path at all (no compute/indirect), everything
@@ -31,6 +34,7 @@ namespace WorldSphereMod.LOD
             public LodTier current;
             public LodTier pending;
             public int pendingFrames;
+            public UiTier uiTier;
         }
 
         static readonly Dictionary<int, LodHysteresis> _hyst = new Dictionary<int, LodHysteresis>();
@@ -57,6 +61,22 @@ namespace WorldSphereMod.LOD
         // a user-changed multiplier silently culls every actor — see
         // project_wsm3d_lod_threshold_bug).
         const float _baseEntityHeight = 0.5f;
+
+        public static UiTier ClassifyUiTier(LodTier tier)
+        {
+            switch (tier)
+            {
+                case LodTier.Voxel: return UiTier.Full;
+                case LodTier.Proxy: return UiTier.HealthOnly;
+                default: return UiTier.None;
+            }
+        }
+
+        public static UiTier GetUiTier(int instanceId)
+        {
+            if (_hyst.TryGetValue(instanceId, out LodHysteresis h)) return h.uiTier;
+            return UiTier.None;
+        }
 
         public static LodTier Select(Vector3 worldPos, int instanceId)
         {
@@ -122,7 +142,8 @@ namespace WorldSphereMod.LOD
 
             if (!_hyst.TryGetValue(instanceId, out LodHysteresis h))
             {
-                h = new LodHysteresis { current = rawTier, pending = rawTier, pendingFrames = 0 };
+                h = new LodHysteresis { current = proposed, pending = proposed, pendingFrames = 0 };
+                h.uiTier = ClassifyUiTier(h.current);
                 _hyst[instanceId] = h;
                 return h.current;
             }
@@ -137,6 +158,7 @@ namespace WorldSphereMod.LOD
             {
                 h.pending = proposed;
                 h.pendingFrames = 0;
+                h.uiTier = ClassifyUiTier(h.current);
                 _hyst[instanceId] = h;
                 return h.current;
             }
@@ -152,6 +174,7 @@ namespace WorldSphereMod.LOD
             }
             else { h.pending = proposed; h.pendingFrames = 1; }
 
+            h.uiTier = ClassifyUiTier(h.current);
             _hyst[instanceId] = h;
             return h.current;
         }

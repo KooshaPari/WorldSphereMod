@@ -96,20 +96,40 @@ namespace WorldSphereMod.Foliage
                 Material? mat = FoliageMaterial.Get();
                 if (mat == null) return true;
 
-                // VOXEL-OR-INVISIBLE POLICY (user, 2026-05-30): foliage must be a REAL
-                // voxel volume or NOTHING — NEVER a crossed-quad X / 2.5D slab. The
-                // crossed-quad render path is removed entirely: trees/bushes (.life) now
-                // route through the OrganicBlob VOXEL mesh. Road remains a flat ground
-                // decal (it is genuinely a ground surface, not an upright object).
+                // Road remains a flat decal. Trees/bushes (.life) route through
+                // CrossedQuadMeshCache first when the CrossedQuadFoliage flag is on
+                // — that's the Phase 3 swaying-foliage path.
                 //
-                // If the voxel mesh isn't ready this frame (async build pending) the tile
-                // renders nothing — we return false to suppress the vanilla 2D Tilemap
-                // flush so the native billboard never shows through, and the foliage simply
-                // pops in once the voxel mesh is built.
+                // Important: a null return from GetOrBuild means the per-frame
+                // build budget was exhausted. That is a transient "skip and retry
+                // next frame" condition, not a signal to downgrade to voxel blobs.
+                // Only a real build failure (empty mesh / vertexCount == 0) falls
+                // back to OrganicBlob so we keep the crossed-quad look whenever the
+                // cache can still produce it.
+                bool crossedQuadPath = t.life && Core.savedSettings.CrossedQuadFoliage;
                 Mesh? mesh;
                 if (t.road)
                 {
-                    mesh = VoxelMeshCache.Get(sprite, ShapeHint.Flat);
+                    mesh = CrossedQuadMeshCache.GetOrBuild(sprite, BuildingShape.Single, 0f);
+                }
+                else if (crossedQuadPath)
+                {
+                    // Crossed-quad is the authoritative .life path when the flag is on.
+                    float swayAmp = 0.15f;
+                    mesh = CrossedQuadMeshCache.GetOrBuild(sprite, BuildingShape.CrossedQuad, swayAmp, sprite.name);
+                    if (mesh == null)
+                    {
+                        // Budget exhausted this frame — skip the vanilla flush and let
+                        // the dirty queue replay the tile next frame through the cache.
+                        return false;
+                    }
+                    if (mesh.vertexCount == 0)
+                    {
+                        // Real failure (unreadable/blank sprite): voxel blob keeps the
+                        // tile visible rather than leaving a hole.
+                        mesh = VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob);
+                        crossedQuadPath = false;
+                    }
                 }
                 else
                 {
@@ -122,17 +142,34 @@ namespace WorldSphereMod.Foliage
                     return false;
                 }
 
+                // Ground the quads on the terrain surface: To3DTileHeight resolves
+                // the smooth tile height so the base verts (y0) sit on the ground
+                // instead of floating at the world plane.
                 Vector2 pos2 = new Vector2(pTile.pos.x, pTile.pos.y);
                 Vector3 pos3 = Tools.To3DTileHeight(pos2);
                 Quaternion rot = Tools.GetRotation(pTile.pos);
-                // WHY: foliage meshes are built at raw sprite-pixel size; without the
-                // shared VoxelScaleMultiplier (8x) they render sub-pixel against the
-                // 8x-scaled 3D world and are effectively invisible (same fix as the
-                // actor/building/drop voxel paths in VoxelRender).
-                float foliageScale = Mathf.Max(1f, Core.savedSettings.VoxelScaleMultiplier);
-                Matrix4x4 trs = Matrix4x4.TRS(pos3, rot, Vector3.one * foliageScale);
 
-                if (!t.road && t.life)
+                // Per-tree scale variety so a forest isn't a uniform stamp. The
+                // mesher already differentiates oak/pine/palm silhouettes by
+                // profile; here we add a deterministic per-tile size jitter (seeded
+                // from the tile position so it's stable across frames/reloads) and a
+                // variant-dependent base scale — palms/pines read taller, oaks
+                // bushier. Crossed quads scale uniformly so the billboard stays
+                // square; the voxel-blob fallback keeps Vector3.one to avoid
+                // stretching the cube cluster.
+                Vector3 scale = Vector3.one;
+                if (crossedQuadPath)
+                {
+                    float jitter01 = DeterministicJitter01(pTile.pos.x, pTile.pos.y);
+                    CrossedQuadVariant variant = ResolveVariant(sprite.name);
+                    float baseScale = VariantBaseScale(variant);
+                    // ±18% size spread around the variant base.
+                    float s = baseScale * (0.82f + 0.36f * jitter01);
+                    scale = new Vector3(s, s, s);
+                }
+                Matrix4x4 trs = Matrix4x4.TRS(pos3, rot, scale);
+
+                if (!t.road && crossedQuadPath)
                 {
                     WorldSphereMod.Fx.Environmental.EnqueueLeaf(pos3);
                     if (Core.savedSettings.DayNightCycle)
@@ -141,13 +178,24 @@ namespace WorldSphereMod.Foliage
                     }
                 }
 
-                // Per-instance tint sampled from the sprite's opaque pixels —
-                // routed via Submit's color arg, which the batcher feeds into
-                // _Color on the MaterialPropertyBlock. OpaqueVertexColor /
-                // FoliageWind both multiply vertex.color × _Color, so the
-                // mesh's sway-encoded vertex colors come through as the actual
-                // foliage hue instead of emissive white.
+                // Per-instance tint sampled from the sprite's actual opaque pixels
+                // (NOT a flat hard-coded green) — routed via Submit's color arg,
+                // which the batcher feeds into _Color on the MaterialPropertyBlock.
+                // OpaqueVertexColor / FoliageWind both multiply vertex.color × _Color,
+                // so the sprite-derived hue comes through instead of emissive white.
+                // A small per-tile brightness jitter (same seed family as the scale)
+                // breaks up the flat look across a stand of trees while keeping the
+                // color sprite-driven rather than a uniform tint.
                 Color tint = SpriteAverageColorCache.Sample(sprite);
+                if (crossedQuadPath)
+                {
+                    float bri = 0.88f + 0.24f * DeterministicJitter01(pTile.pos.x + 17, pTile.pos.y - 31);
+                    tint = new Color(
+                        Mathf.Clamp01(tint.r * bri),
+                        Mathf.Clamp01(tint.g * bri),
+                        Mathf.Clamp01(tint.b * bri),
+                        tint.a);
+                }
                 MeshInstanceBatcher.Submit(mesh, mat, trs, tint);
 
                 // Update the diff memo. The cached sprite reference lets a future
@@ -164,6 +212,50 @@ namespace WorldSphereMod.Foliage
             {
                 Debug.LogError("[WSM3D] FoliageTileRender.Prefix: " + ex);
                 return true;
+            }
+        }
+
+        // Classify the foliage sprite into a silhouette variant. Mirrors the
+        // private classifier in CrossedQuadMeshCache so the per-tile transform can
+        // pick a matching base scale without reaching into that file.
+        static CrossedQuadVariant ResolveVariant(string spriteName)
+        {
+            if (string.IsNullOrEmpty(spriteName)) return CrossedQuadVariant.Generic;
+            if (spriteName.IndexOf("palm", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                return CrossedQuadVariant.Palm;
+            if (spriteName.IndexOf("pine", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                return CrossedQuadVariant.Pine;
+            if (spriteName.IndexOf("oak", System.StringComparison.OrdinalIgnoreCase) >= 0
+                || spriteName.StartsWith("tree_", System.StringComparison.OrdinalIgnoreCase))
+                return CrossedQuadVariant.Oak;
+            return CrossedQuadVariant.Generic;
+        }
+
+        // Per-variant base size multiplier applied to the crossed-quad billboard.
+        // The mesher shapes the silhouette (slim pine, broad oak); this scales the
+        // whole instance so the canopy footprint also reads distinctly per species.
+        static float VariantBaseScale(CrossedQuadVariant variant)
+        {
+            switch (variant)
+            {
+                case CrossedQuadVariant.Oak: return 1.12f;
+                case CrossedQuadVariant.Pine: return 1.05f;
+                case CrossedQuadVariant.Palm: return 1.18f;
+                default: return 1.0f;
+            }
+        }
+
+        static float DeterministicJitter01(int x, int y)
+        {
+            unchecked
+            {
+                int seed = (x * 73856093) ^ (y * 19349663);
+                seed ^= (seed >> 16);
+                seed *= unchecked((int)2246822519u);
+                seed ^= (seed >> 13);
+                seed *= unchecked((int)3266489917u);
+                seed ^= (seed >> 16);
+                return (seed & 0x7fffffff) / 2147483647f;
             }
         }
 

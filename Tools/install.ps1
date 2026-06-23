@@ -9,6 +9,10 @@
  
   if the source doesn't compile via dotnet, NML's Roslyn pass will also fail.
 
+  Use -Precompiled to deploy a DLL-first layout instead. That mode copies the
+  built WorldSphereMod3D.dll into the mod root and omits Code/ so NML can
+  treat the mod as precompiled and skip its runtime Roslyn compile.
+
   Default WorldBox path: C:/Program Files (x86)/Steam/steamapps/common/Worldbox/
   Override with -WorldBoxPath or $env:WORLDBOX_PATH.
 
@@ -25,6 +29,10 @@
 .EXAMPLE
   ./Tools/install.ps1 -WorldBoxPath "D:/Games/Worldbox"
   Installs into a non-default WorldBox location.
+
+.EXAMPLE
+  ./Tools/install.ps1 -Precompiled
+  Installs the precompiled DLL-only layout and skips NML runtime compilation.
 #>
 
 [CmdletBinding()]
@@ -33,7 +41,8 @@ param(
     [string]$Configuration = "Release",
     [string]$Tfm = "net48",
     [string]$AssemblyName = "WorldSphereMod3D",
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [switch]$Precompiled
 )
 
 $ErrorActionPreference = "Stop"
@@ -47,6 +56,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $modSrc   = Join-Path $repoRoot "WorldSphereMod"
 $modDst   = Join-Path $WorldBoxPath "worldbox_Data/StreamingAssets/Mods/WorldSphereMod"
 $builtDll = Join-Path $repoRoot "bin/$Configuration/$Tfm/$AssemblyName.dll"
+$builtPdb = Join-Path $repoRoot "bin/$Configuration/$Tfm/$AssemblyName.pdb"
 
 if (-not (Test-Path (Join-Path $WorldBoxPath "worldbox_Data"))) {
     throw "WorldBox not found at $WorldBoxPath (no worldbox_Data subfolder). Pass -WorldBoxPath or set `$env:WORLDBOX_PATH."
@@ -86,7 +96,11 @@ New-Item -ItemType Directory -Force -Path $modDst | Out-Null
 # --- Copy every item fresh via robocopy /MIR (dirs) or Copy-Item (files) ---
 # robocopy /MIR guarantees a byte-identical mirror regardless of timestamps,
 # file locks on the *source* side, or Copy-Item merge-vs-replace quirks.
-$items = @("Code", "Assemblies", "AssetBundles", "GameResources", "Locales", "mod.json")
+$items = if ($Precompiled) {
+    @("Assemblies", "AssetBundles", "GameResources", "Locales", "mod.json")
+} else {
+    @("Code", "Assemblies", "AssetBundles", "GameResources", "Locales", "mod.json")
+}
 foreach ($item in $items) {
     $src = Join-Path $modSrc $item
     if (Test-Path $src) {
@@ -110,13 +124,15 @@ foreach ($item in $items) {
 }
 
 # --- Verify critical artifacts landed ---
-$csDst = Join-Path $modDst "Code"
-$csCount = (Get-ChildItem -Path $csDst -Filter "*.cs" -Recurse -ErrorAction SilentlyContinue).Count
-$csSrc  = (Get-ChildItem -Path (Join-Path $modSrc "Code") -Filter "*.cs" -Recurse).Count
-if ($csCount -ne $csSrc) {
-    throw "[install] MISMATCH: source has $csSrc .cs files but destination has $csCount"
+if (-not $Precompiled) {
+    $csDst = Join-Path $modDst "Code"
+    $csCount = (Get-ChildItem -Path $csDst -Filter "*.cs" -Recurse -ErrorAction SilentlyContinue).Count
+    $csSrc  = (Get-ChildItem -Path (Join-Path $modSrc "Code") -Filter "*.cs" -Recurse).Count
+    if ($csCount -ne $csSrc) {
+        throw "[install] MISMATCH: source has $csSrc .cs files but destination has $csCount"
+    }
+    Write-Host "[install]   verified $csCount .cs files" -ForegroundColor DarkGreen
 }
-Write-Host "[install]   verified $csCount .cs files" -ForegroundColor DarkGreen
 
 $compoundDll = Join-Path $modDst "Assemblies/CompoundSpheres.dll"
 if (-not (Test-Path $compoundDll)) {
@@ -128,32 +144,53 @@ if ((Test-Path (Join-Path $modSrc "AssetBundles")) -and -not (Test-Path $bundleD
     throw "[install] AssetBundles directory missing from install"
 }
 
-# CompoundSpheres.dll IS a real runtime dependency (Code/ references its
-# types: SphereTile / SphereManager / SphereManagerSettings / IBufferData /
-# IncompatibleHardwareException). Removing it makes NML's Roslyn compile
-# fail with ~60 CS0246 errors. Leave it in place.
-#
-# DO NOT ship bin/Release/net48/WorldSphereMod3D.dll alongside Code/.
-# Observed failure: NML loads the DLL as a reference AND Roslyn-compiles
-# Code/, which produces duplicate-type CS0121 errors on every Tools.* call
-# ("ambiguous between WorldSphereMod.Tools.X and WorldSphereMod.Tools.X").
-# Code/ is the source of truth; NML's Roslyn pass owns the compile. Costs
-# ~1s extra startup but works. Re-enable the DLL copy only after a future
-# investigation figures out how to make NML treat the DLL as "the mod"
-# instead of just another reference.
-# See docs/adr/ADR-0007-nml-precompiled-detection.md before changing DLL shipping behavior.
 $installedAssemblies = Join-Path $modDst "Assemblies"
-if (Test-Path $builtDll) {
-    Write-Host "[install] skipping $AssemblyName.dll copy (NML double-loads it + Code/ -> CS0121). See install.ps1 comment." -ForegroundColor DarkYellow
+#
+# CompoundSpheres.dll IS a real runtime dependency. In source mode, Code/
+# references its types and NML must compile that source tree at runtime.
+# In precompiled mode, the built DLL already contains those references and
+# Code/ is intentionally omitted to avoid the duplicate-type CS0121 collision
+# that happens when NML sees both source and the same assembly.
+#
+# NML precompiled detection is filesystem-based: any root .dll in the mod
+# folder causes it to skip the runtime compile phase.
+#
+# Defensive: remove any stale WSM3D DLL that a prior install left in the
+# game folder before we copy the current payload back in. Without this, a
+# stale net48 DLL would keep colliding even after the install.ps1 change is
+# in effect.
+foreach ($stalePath in @(
+    (Join-Path $installedAssemblies "$AssemblyName.dll"),
+    (Join-Path $installedAssemblies "$AssemblyName.pdb"),
+    (Join-Path $modDst "$AssemblyName.dll"),
+    (Join-Path $modDst "$AssemblyName.pdb")
+)) {
+    if (Test-Path $stalePath) { Remove-Item -Force $stalePath }
 }
 
-# Defensive: remove any stale WSM3D DLL that a prior install left in the
-# game folder. Without this, a stale net48 DLL would keep colliding even
-# after the install.ps1 change is in effect.
-$staleSelfDll = Join-Path $installedAssemblies "$AssemblyName.dll"
-$staleSelfPdb = Join-Path $installedAssemblies "$AssemblyName.pdb"
-if (Test-Path $staleSelfDll) { Remove-Item -Force $staleSelfDll }
-if (Test-Path $staleSelfPdb) { Remove-Item -Force $staleSelfPdb }
+if ($Precompiled) {
+    if (-not (Test-Path $builtDll)) {
+        throw "[install] Precompiled mode requested, but $builtDll does not exist. Run dotnet build first."
+    }
+    Copy-Item -Force -Path $builtDll -Destination (Join-Path $modDst "$AssemblyName.dll")
+    if (Test-Path $builtPdb) {
+        Copy-Item -Force -Path $builtPdb -Destination (Join-Path $modDst "$AssemblyName.pdb")
+    }
+    Write-Host "[install] installed precompiled $AssemblyName.dll to mod root; NML should skip Code/*.cs compilation." -ForegroundColor Green
+} else {
+    # DO NOT ship bin/Release/net48/WorldSphereMod3D.dll alongside Code/.
+    # Observed failure: NML loads the DLL as a reference AND Roslyn-compiles
+    # Code/, which produces duplicate-type CS0121 errors on every Tools.* call
+    # ("ambiguous between WorldSphereMod.Tools.X and WorldSphereMod.Tools.X").
+    # Code/ is the source of truth; NML's Roslyn pass owns the compile. Costs
+    # ~1s extra startup but works. Re-enable the DLL copy only after a future
+    # investigation figures out how to make NML treat the DLL as "the mod"
+    # instead of just another reference.
+    # See docs/adr/ADR-0007-nml-precompiled-detection.md before changing DLL shipping behavior.
+    if (Test-Path $builtDll) {
+        Write-Host "[install] skipping $AssemblyName.dll copy (NML double-loads it + Code/ → CS0121). See install.ps1 comment." -ForegroundColor DarkYellow
+    }
+}
 
 # Warn if a stale duplicate mod still exists in the non-standard Mods root.
 # This folder can contain the same GUID (worldsphere3d.fork) and trigger NML
@@ -186,7 +223,11 @@ if (-not $duplicateFound) {
 
 Write-Host ""
 Write-Host "[install] installed to $modDst" -ForegroundColor Green
-Write-Host "[install] launch WorldBox; NeoModLoader will Roslyn-compile Code/*.cs on startup (~1s)."
+if ($Precompiled) {
+    Write-Host "[install] launch WorldBox; NeoModLoader should detect the root DLL and skip Code/*.cs compilation."
+} else {
+    Write-Host "[install] launch WorldBox; NeoModLoader will Roslyn-compile Code/*.cs on startup (~1s)."
+}
 Write-Host "[install] verify in-game: WorldSphere tab -> '3D Phases' window. Phase 1 = 'Voxel Actors' toggle."
 } catch {
     Write-InstallFailureHint

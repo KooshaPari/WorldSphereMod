@@ -73,10 +73,12 @@ public sealed class BridgeActionEndpointsInvariantsTests
             "spawn_units route must be dispatched from ProcessRequest");
         processRequestBody.Should().Contain("string.Equals(path, \"/actions/generate_world\", StringComparison.OrdinalIgnoreCase)",
             "generate_world route must be dispatched from ProcessRequest");
-        processRequestBody.Should().Contain("WriteJson(context.Response, SpawnUnitsQueued(countText, race, xText, yText));",
-            "spawn_units must return a JSON response via the bridge writer (anchor x/y now honored)");
-        processRequestBody.Should().Contain("WriteJson(context.Response, GenerateWorldQueued());",
-            "generate_world must return a JSON response via the bridge writer");
+        processRequestBody.Should().Contain("return SpawnUnitsQueued(countText, race);",
+            "spawn_units must queue work and return a payload serialized by ExecuteEndpoint");
+        processRequestBody.Should().Contain("ExecuteEndpoint(context, GenerateWorldQueued);",
+            "generate_world must route through ExecuteEndpoint for JSON serialization");
+        bridgeServer.Should().Contain("void ExecuteEndpoint(HttpListenerContext context, Func<object> handler)",
+            "action endpoints share ExecuteEndpoint so WriteJson stays centralized");
         processRequestBody.Should().Contain("catch (Exception ex)",
             "ProcessRequest must keep the top-level try/catch so failures serialize as JSON errors");
         processRequestBody.Should().Contain("new { ok = false, error = ex.Message }",

@@ -1,21 +1,41 @@
 # Asset Bundle Unity Version Blocker
 
-## Root cause confirmed 2026-05-22
+## Root cause confirmed 2026-05-28 (supersedes 2026-05-22 note)
 
-WorldBox runtime: **Unity 2022.3.54f1** (from `worldbox_Data/Managed/UnityEngine.dll`)
+WorldBox runtime: **Unity 2022.3.60f1** — read authoritatively from
+`worldbox_Data/globalgamemanagers` (`m_UnityVersion`). WorldBox has been
+patched since the 2026-05-22 reading of 2022.3.54f1; always re-read the live
+`globalgamemanagers` before baking.
 
-Available locally:
+The PostFX empty-name failure is NOT a 2022-vs-6.x mismatch and NOT a shader
+compile error (the bake log shows all 10 shaders compile cleanly with valid
+names). It is an **exact-patch** mismatch: the shipped bundle was baked with
+**2022.3.62f3** while WorldBox runs **2022.3.60f1**. Unity's `SerializedShader`
+binary layout is not stable across 2022.3 patch releases, so a 62f3-baked
+Shader asset deserializes at 60f1 runtime with an empty `.name` and trips the
+native ManagedStream crash ("Mismatched serialization in builtin class
+'Shader'. Read 80 bytes but expected 4936 bytes") — see ADR-0013. This is why
+`SafeShaders` whitelists only OpaqueVertexColor.
+
+Available locally (2026-05-28):
 - Unity 2021.3.45f1 ❌ too old
-- Unity 6.3.11f1 ❌ too new
+- Unity 2022.3.62f3 ❌ wrong patch (2 releases ahead of 60f1 — causes empty-name)
+- Unity 6000.3.11f1 ❌ too new
 
-Bundles built with either version produce NML "Failed to load asset bundle"
-on every launch → shaders never register → Voxel material falls back to
-Standard → black-render cascade.
+The needed editor **2022.3.60f1** is NOT installed. Headless Hub install
+(`--headless install --version 2022.3.60f1 --changeset 5f63fdee6d95`) was
+attempted but the ~5GB download stalls/aborts in the agent sandbox (electron
+GPU-process crashes). Install must be completed interactively or in a stable
+shell, then rebake.
 
 ## Fix
 
-Install Unity 2022.3 LTS (closest available — 2022.3.54f1 or any 2022.3.x)
-via Unity Hub. Then re-bake with [`Tools/bake-shaders.ps1`](../../../Tools/bake-shaders.ps1).
+Install Unity **2022.3.60f1** (changeset `5f63fdee6d95`) via Unity Hub — the
+EXACT WorldBox runtime build, not "any 2022.3.x". Then re-bake with
+[`Tools/bake-shaders.ps1`](../../../Tools/bake-shaders.ps1). The bake script
+now auto-prefers 2022.3.60f1 and `BakeShaders.cs` self-verifies every shader's
+`.name`/`.isSupported` against the just-built win bundle, failing the bake if
+any name comes back empty.
 
 ## Actionable checklist
 

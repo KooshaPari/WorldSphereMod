@@ -4,14 +4,23 @@ using UnityEngine.UI;
 namespace WorldSphereMod.Worldspace
 {
     /// <summary>
-    /// Lightweight worldspace-canvas overlay that prints runtime stats to the
-    /// top-left when <c>Core.savedSettings.ProfilerDump</c> is true.
+    /// Lightweight worldspace-canvas overlay that prints a single compact runtime
+    /// stats line to the top-left when <c>Core.savedSettings.DebugHUDVisible</c>
+    /// is true.
     /// Useful to eyeball whether a tier (voxel / procgen / foliage / impostor)
     /// is doing the work the LOD scale claims it is, without grepping the per-second
     /// <see cref="Perf.FrameProfiler"/> dump.
     ///
+    /// On-screen rendering is intentionally decoupled from <c>ProfilerDump</c>:
+    /// ProfilerDump controls the per-second Player.log telemetry dump and is often
+    /// left stale-true in the settings JSON, which previously caused this overlay
+    /// (and only this overlay's compact line) to paint over the game view. The
+    /// dedicated <c>DebugHUDVisible</c> flag defaults OFF, so by default NOTHING
+    /// draws to screen regardless of ProfilerDump. No verbose log ring is ever
+    /// painted here — only the single stats line below.
+    ///
     /// Mounted on <see cref="Mod.Object"/> via <see cref="EnsureCreated"/> in
-    /// <c>Mod.Init</c>. Per-frame cost when ProfilerDump is false: a single bool
+    /// <c>Mod.Init</c>. Per-frame cost when DebugHUDVisible is false: a single bool
     /// branch in <see cref="LateUpdate"/> (label canvas is also disabled).
     ///
     /// Implementation note: we use uGUI (already referenced for the powers tab)
@@ -82,9 +91,16 @@ namespace WorldSphereMod.Worldspace
 
         void LateUpdate()
         {
-            bool on = Core.savedSettings.ProfilerDump;
-            if (_canvasGO != null) _canvasGO.SetActive(on);
-            if (!on) return;
+            // On-screen drawing is gated SOLELY on the dedicated DebugHUDVisible
+            // flag (default OFF) — NEVER on ProfilerDump, which is frequently
+            // stale-true in the settings JSON. By default nothing draws to screen.
+            if (Core.savedSettings == null || !Core.savedSettings.DebugHUDVisible)
+            {
+                if (_canvasGO != null) _canvasGO.SetActive(false);
+                return;
+            }
+
+            if (_canvasGO != null) _canvasGO.SetActive(true);
 
             EnsureLabel();
             if (_label == null) return;

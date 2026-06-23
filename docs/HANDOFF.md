@@ -6,7 +6,7 @@ Canonical "next session starts here" doc for WorldSphereMod3D.
 
 **Active branch:** `feat/phase-7-ui-kickoff` — Phase 7 worldspace UI kickoff ([`docs/phases/phase-7-worldspace-ui.md`](phases/phase-7-worldspace-ui.md)). Synced with `origin/main` after [PR #7](https://github.com/KooshaPari/WorldSphereMod/pull/7) landed (`4efa128` — automation, PlayCUA gates, live-verify harness).
 
-**Latest `do-all-latest` (desk, vision off):** PlayCUA **passed on 1st attempt** (`run-all`, `-VisionBackend off`); **`live-verify-live`** and **`audit-tick`** stages failed. OmniRoute funnel (`https://omniroute-a6e82363-1.tail2b570.ts.net/v1`) often times out from the desk — use `-SkipLive` / vision-off PlayCUA for laptop-only loops; see [OmniRoute (kooshas-laptop)](#omniroute-kooshas-laptop). Report: `Tools/.reports/do-all-latest.json`.
+**Latest `do-all-latest` (desk, vision off):** **`overallOk=True`** — PlayCUA passed@1×, live-verify-live + audit-tick + offline gates all passed (~47 min, `-SkipRelaunch`). OmniRoute / Mac SSH deferred; use vision-off desk loops. Report: `Tools/.reports/do-all-latest.json`.
 
 Recent validation:
 
