@@ -168,6 +168,10 @@ foreach ($stalePath in @(
     if (Test-Path $stalePath) { Remove-Item -Force $stalePath }
 }
 
+if (Test-Path $builtDll) {
+    Write-Host "[install] skipping $AssemblyName.dll copy (NML double-loads it + Code/ -> CS0121). See install.ps1 comment." -ForegroundColor DarkYellow
+}
+
 if ($Precompiled) {
     if (-not (Test-Path $builtDll)) {
         throw "[install] Precompiled mode requested, but $builtDll does not exist. Run dotnet build first."
@@ -188,10 +192,9 @@ if ($Precompiled) {
     # instead of just another reference.
     # See docs/adr/ADR-0007-nml-precompiled-detection.md before changing DLL shipping behavior.
     if (Test-Path $builtDll) {
-        Write-Host "[install] skipping $AssemblyName.dll copy (NML double-loads it + Code/ → CS0121). See install.ps1 comment." -ForegroundColor DarkYellow
+        Write-Host "[install] skipping $AssemblyName.dll copy (NML double-loads it + Code/ -> CS0121). See install.ps1 comment." -ForegroundColor DarkYellow
     }
 }
-
 # Warn if a stale duplicate mod still exists in the non-standard Mods root.
 # This folder can contain the same GUID (worldsphere3d.fork) and trigger NML
 # repeat-mod behavior. We do not delete it automatically.

@@ -32,3 +32,7 @@ The install script copies sources into `StreamingAssets/Mods/WorldSphereMod` (no
 | `E:\wsm3d-wt-robustness` | `wip/robustness` | Robustness docs + hardening |
 
 Lane branches are merged into `wip/208-height-fix` when ready; they are not installed directly.
+
+**Merged 2026-06-02:**
+- `wip/quality-tests` → regression tests (`SunRegistrationInvariantsTests`, `VoxelPipelineRegressionTests`) + ADR-0021
+- `wip/robustness` → load-path hardening, doc hygiene, bloat strip (scratch PNGs removed from git; local copies remain gitignored)

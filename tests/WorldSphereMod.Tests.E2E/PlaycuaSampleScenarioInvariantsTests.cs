@@ -5,6 +5,7 @@ using Xunit;
 /// <summary>
 /// On-disk invariants for wsm3d-playcua YAML sample scenarios used in the agentic live gate.
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class PlaycuaSampleScenarioInvariantsTests
 {
     private const string Phase1ScenarioRelative = "Tools/wsm3d-playcua/sample-scenarios/phase-1-voxel-actors.yaml";

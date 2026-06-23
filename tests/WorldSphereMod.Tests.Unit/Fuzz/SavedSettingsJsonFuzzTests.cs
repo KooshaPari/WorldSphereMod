@@ -14,6 +14,7 @@ namespace WorldSphereMod.Tests.Unit.Fuzz;
 /// Fuzz / property-style resilience tests for SavedSettings JSON load path
 /// (<see cref="SavedSettingsJson"/> mirrors <see cref="Core.LoadSettings"/> parse behavior).
 /// </summary>
+[Trait("Category", "Unit")]
 public class SavedSettingsJsonFuzzTests
 {
     static readonly string[] KnownBoolFields =

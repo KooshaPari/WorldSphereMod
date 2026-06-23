@@ -1,33 +1,34 @@
 ManifestFileVersion: 0
-CRC: 4013853273
+CRC: 2313717985
 Hashes:
   AssetFileHash:
     serializedVersion: 2
-    Hash: f52d9f236815193eb231a4cf8c6cf4ca
+    Hash: 8e0c94946ffafec692cccfcbf9f11b82
   TypeTreeHash:
     serializedVersion: 2
-    Hash: 64e37ac0e41cec2efd7de4138972079e
+    Hash: cc47f627a82a59fd500d95464fa77bad
   IncrementalBuildHash:
     serializedVersion: 2
-    Hash: f52d9f236815193eb231a4cf8c6cf4ca
+    Hash: 8e0c94946ffafec692cccfcbf9f11b82
 HashAppended: 0
 ClassTypes:
 - Class: 48
   Script: {instanceID: 0}
-- Class: 200
+- Class: 72
   Script: {instanceID: 0}
 SerializeReferenceClassIdentifiers: []
 Assets:
 - Assets/WSM3D/Shaders/BrpBloom.shader
 - Assets/WSM3D/Shaders/OpaqueVertexColor.shader
+- Assets/WSM3D/Shaders/CompoundSphere.shader
 - Assets/WSM3D/Shaders/GerstnerWater.shader
 - Assets/WSM3D/Shaders/Impostor.shader
-- Assets/WSM3D/wsm3d-shader-variants.shadervariants
 - Assets/WSM3D/Shaders/ProceduralSky.shader
 - Assets/WSM3D/Shaders/BrpACES.shader
+- Assets/WSM3D/Shaders/CompoundSphereCompute.compute
 - Assets/WSM3D/Shaders/ColorGradingLUT.shader
-- Assets/WSM3D/Shaders/FoliageWind.shader
 - Assets/WSM3D/Shaders/ScreenSpaceGI.shader
+- Assets/WSM3D/Shaders/FoliageWind.shader
 - Assets/WSM3D/Shaders/ScreenSpaceAO.shader
 - Assets/WSM3D/Shaders/StratumVoxelPBR.shader
 Dependencies: []

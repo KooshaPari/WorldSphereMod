@@ -61,6 +61,10 @@ namespace WorldSphereMod.Foliage
                                     && !t.liquid && !t.ocean && !t.lava;
                 if (!isFoliage) return true;
 
+                // VOXEL-OR-INVISIBLE for both branches (voxel mesh + cull/placeholder):
+                // force the vanilla tilemap sprite off before any other processing.
+                SuppressVanillaTileSprite(__instance, pTile, t);
+
                 // Resolve the variation sprite the vanilla path would have flushed.
                 // WorldTilemap.getVariation returns a UnityEngine.Tilemaps.Tile whose
                 // .sprite is the atlas-resolved frame. Assembly-CSharp-Publicized
@@ -85,20 +89,23 @@ namespace WorldSphereMod.Foliage
                         try { sprite = ts.main?.sprite; } catch { /* fall through */ }
                     }
                 }
-                if (sprite == null) return true;
+                if (sprite == null) return false;
 
                 if (t.life && !FoliageDensity.ShouldRender(pTile.pos.x, pTile.pos.y, sprite.name, Core.savedSettings.FoliageDensity))
                 {
                     return false;
                 }
 
-                if (!FoliageMaterial.EnsureMaterial()) return true;
+                if (!FoliageMaterial.EnsureMaterial()) return false;
                 Material? mat = FoliageMaterial.Get();
-                if (mat == null) return true;
+                if (mat == null) return false;
 
-                // Road remains a flat decal. Trees/bushes (.life) route through
-                // CrossedQuadMeshCache first when the CrossedQuadFoliage flag is on
-                // — that's the Phase 3 swaying-foliage path.
+                // VOXEL-OR-INVISIBLE POLICY (user, 2026-05-30): foliage must be a REAL
+                // voxel volume or NOTHING — NEVER a crossed-quad X / 2.5D slab. Grass
+                // now routes through the rounded balloon voxelizer so it reads as a tuft,
+                // while trees/bushes (.life) route through the OrganicBlob volume mesh.
+                // Road remains a flat ground decal (it is genuinely a ground surface,
+                // not an upright object).
                 //
                 // Important: a null return from GetOrBuild means the per-frame
                 // build budget was exhausted. That is a transient "skip and retry
@@ -110,30 +117,15 @@ namespace WorldSphereMod.Foliage
                 Mesh? mesh;
                 if (t.road)
                 {
-                    mesh = CrossedQuadMeshCache.GetOrBuild(sprite, BuildingShape.Single, 0f);
+                    mesh = VoxelMeshCache.Get(sprite, ShapeHint.Flat, true, VoxelEntityType.Unknown);
                 }
-                else if (crossedQuadPath)
+                else if (t.grass)
                 {
-                    // Crossed-quad is the authoritative .life path when the flag is on.
-                    float swayAmp = 0.15f;
-                    mesh = CrossedQuadMeshCache.GetOrBuild(sprite, BuildingShape.CrossedQuad, swayAmp, sprite.name);
-                    if (mesh == null)
-                    {
-                        // Budget exhausted this frame — skip the vanilla flush and let
-                        // the dirty queue replay the tile next frame through the cache.
-                        return false;
-                    }
-                    if (mesh.vertexCount == 0)
-                    {
-                        // Real failure (unreadable/blank sprite): voxel blob keeps the
-                        // tile visible rather than leaving a hole.
-                        mesh = VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob);
-                        crossedQuadPath = false;
-                    }
+                    mesh = VoxelMeshCache.Get(sprite, ShapeHint.Mirror, true, VoxelEntityType.Unknown);
                 }
                 else
                 {
-                    mesh = VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob);
+                    mesh = VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob, true, VoxelEntityType.Unknown);
                 }
                 if (mesh == null || mesh.vertexCount == 0)
                 {
@@ -148,6 +140,12 @@ namespace WorldSphereMod.Foliage
                 Vector2 pos2 = new Vector2(pTile.pos.x, pTile.pos.y);
                 Vector3 pos3 = Tools.To3DTileHeight(pos2);
                 Quaternion rot = Tools.GetRotation(pTile.pos);
+                // WHY: foliage meshes are built at raw sprite-pixel size; without the
+                // shared VoxelScaleMultiplier (8x) they render sub-pixel against the
+                // 8x-scaled 3D world and are effectively invisible (same fix as the
+                // actor/building/drop voxel paths in VoxelRender).
+                float foliageScale = Mathf.Max(1f, Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.FoliageVoxelScaleFactor);
+                Matrix4x4 trs = Matrix4x4.TRS(pos3, rot, Vector3.one * foliageScale);
 
                 // Per-tree scale variety so a forest isn't a uniform stamp. The
                 // mesher already differentiates oak/pine/palm silhouettes by
@@ -215,47 +213,36 @@ namespace WorldSphereMod.Foliage
             }
         }
 
-        // Classify the foliage sprite into a silhouette variant. Mirrors the
-        // private classifier in CrossedQuadMeshCache so the per-tile transform can
-        // pick a matching base scale without reaching into that file.
-        static CrossedQuadVariant ResolveVariant(string spriteName)
+        static void SuppressVanillaTileSprite(WorldTilemap tilemap, WorldTile tile, TileTypeBase tileType)
         {
-            if (string.IsNullOrEmpty(spriteName)) return CrossedQuadVariant.Generic;
-            if (spriteName.IndexOf("palm", System.StringComparison.OrdinalIgnoreCase) >= 0)
-                return CrossedQuadVariant.Palm;
-            if (spriteName.IndexOf("pine", System.StringComparison.OrdinalIgnoreCase) >= 0)
-                return CrossedQuadVariant.Pine;
-            if (spriteName.IndexOf("oak", System.StringComparison.OrdinalIgnoreCase) >= 0
-                || spriteName.StartsWith("tree_", System.StringComparison.OrdinalIgnoreCase))
-                return CrossedQuadVariant.Oak;
-            return CrossedQuadVariant.Generic;
-        }
+            if (tilemap == null || tile == null || tileType == null) return;
 
-        // Per-variant base size multiplier applied to the crossed-quad billboard.
-        // The mesher shapes the silhouette (slim pine, broad oak); this scales the
-        // whole instance so the canopy footprint also reads distinctly per species.
-        static float VariantBaseScale(CrossedQuadVariant variant)
-        {
-            switch (variant)
+            try
             {
-                case CrossedQuadVariant.Oak: return 1.12f;
-                case CrossedQuadVariant.Pine: return 1.05f;
-                case CrossedQuadVariant.Palm: return 1.18f;
-                default: return 1.0f;
+                int renderZ = tileType.render_z;
+                if (renderZ < 0 || tilemap._layers == null) return;
+
+                Vector3Int renderPos = new Vector3Int(tile.pos.x, tile.pos.y, renderZ);
+                Vector3Int lastRenderPos = tile.last_rendered_pos_tile;
+                if (lastRenderPos.z != WorldTilemap.EMPTY_Z)
+                {
+                    if (tilemap._layers.TryGetValue(lastRenderPos.z, out TilemapExtended oldLayer))
+                    {
+                        oldLayer.addToQueueToRedraw(tile, lastRenderPos, null);
+                    }
+                    tile.last_rendered_pos_tile = WorldTilemap.EMPTY_TILE_POS;
+                }
+
+                if (tilemap._layers.TryGetValue(renderZ, out TilemapExtended layer))
+                {
+                    layer.addToQueueToRedraw(tile, renderPos, null);
+                }
+
+                tile.last_rendered_tile_type = tileType;
+                tile.last_rendered_pos_tile = renderPos;
             }
-        }
-
-        static float DeterministicJitter01(int x, int y)
-        {
-            unchecked
+            catch
             {
-                int seed = (x * 73856093) ^ (y * 19349663);
-                seed ^= (seed >> 16);
-                seed *= unchecked((int)2246822519u);
-                seed ^= (seed >> 13);
-                seed *= unchecked((int)3266489917u);
-                seed ^= (seed >> 16);
-                return (seed & 0x7fffffff) / 2147483647f;
             }
         }
 

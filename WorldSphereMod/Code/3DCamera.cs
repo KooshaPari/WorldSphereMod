@@ -161,6 +161,10 @@ namespace WorldSphereMod.NewCamera
         {
             OriginalCamera.enabled = false;
             MainCamera.enabled = true;
+            if (OriginalCamera != null)
+            {
+                MainCamera.cullingMask = OriginalCamera.cullingMask;
+            }
             Manager.main_camera = MainCamera;
             float defaultZoom = Core.savedSettings != null ? Core.savedSettings.CameraDefaultStrategyZoomHeight : 10f;
             Height = defaultZoom;
@@ -242,6 +246,11 @@ namespace WorldSphereMod.NewCamera
                 Manager._target_zoom = maxSurface;
             }
             Bench.bench("Draw Sphere", "game_total"); //im not even sure if the lag is actually tracked
+            // DrawTiles MUST run every frame: it contains the per-frame Graphics.DrawMesh for
+            // the terrain mesh (a 1-frame command). Gating it caused terrain to vanish when idle
+            // and flash on move. The EXPENSIVE part (full 256² heightfield Rebuild) is gated
+            // INSIDE the submodule's HeightFieldRenderer (debounce + incremental-first dirty path),
+            // NOT here — so calling DrawTiles every frame is cheap (just a DrawMesh) when no rebuild.
             Core.Sphere.DrawTiles((int)Position.x);
             Bench.benchEnd("Draw Sphere", "game_total");
         }

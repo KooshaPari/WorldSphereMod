@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
@@ -56,6 +57,22 @@ namespace WorldSphereMod.Bridge
             return NotFound("SaveManager.saveToCurrentPath");
         }
 
+        /// <summary>
+        /// Close WorldBox dialogs/windows so camera-blocking modals can be dismissed from the bridge.
+        /// First closes every registered WSM window in WindowManager.windows, then falls back to the
+        /// active/topmost child under the game's Windows root if a modal is not part of the WSM registry.
+        /// </summary>
+        public static object CloseDialog()
+        {
+            var closed = new List<string>();
+            var attempted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            TryCloseRegisteredWindows(closed, attempted);
+            TryCloseTopmostWorldBoxWindow(closed, attempted);
+
+            return new { ok = true, closed };
+        }
+
         // ---- TIME ----
 
         /// <summary>Pause the simulation via Config.set_paused(true) — same flag the pause button toggles.</summary>
@@ -104,6 +121,156 @@ namespace WorldSphereMod.Bridge
             SetPaused(false);
             for (int i = 0; i < Math.Min(steps, 8); i++) next.Invoke(null, new object[] { false }); // why: cap at 8 so a bad arg can't spin
             return new { ok = true, speedSteps = steps };
+        }
+
+        static void TryCloseRegisteredWindows(List<string> closed, HashSet<string> attempted)
+        {
+            try
+            {
+                IDictionary windows = GetWindowManagerWindows();
+                if (windows == null || windows.Count == 0)
+                {
+                    return;
+                }
+
+                var keys = new List<string>();
+                foreach (DictionaryEntry entry in windows)
+                {
+                    if (entry.Key is string key)
+                    {
+                        keys.Add(key);
+                    }
+                }
+
+                foreach (string windowId in keys)
+                {
+                    if (!attempted.Add(windowId))
+                    {
+                        continue;
+                    }
+
+                    if (TryCloseWindow(windowId))
+                    {
+                        closed.Add(windowId);
+                    }
+                }
+            }
+            catch
+            {
+                // Best-effort dismissal; continue to the WorldBox fallback.
+            }
+        }
+
+        static void TryCloseTopmostWorldBoxWindow(List<string> closed, HashSet<string> attempted)
+        {
+            try
+            {
+                GameObject windowsRoot = GameObject.Find("/Canvas Container Main/Canvas - Windows/windows");
+                if (windowsRoot == null)
+                {
+                    return;
+                }
+
+                Transform topmost = null;
+                int topmostIndex = int.MinValue;
+                for (int i = 0; i < windowsRoot.transform.childCount; i++)
+                {
+                    Transform child = windowsRoot.transform.GetChild(i);
+                    if (child == null || !child.gameObject.activeInHierarchy)
+                    {
+                        continue;
+                    }
+
+                    int siblingIndex = child.GetSiblingIndex();
+                    if (siblingIndex >= topmostIndex)
+                    {
+                        topmost = child;
+                        topmostIndex = siblingIndex;
+                    }
+                }
+
+                if (topmost == null || string.IsNullOrWhiteSpace(topmost.name))
+                {
+                    return;
+                }
+
+                string windowId = topmost.name;
+                if (!attempted.Add(windowId))
+                {
+                    return;
+                }
+
+                if (TryCloseWindow(windowId))
+                {
+                    closed.Add(windowId);
+                }
+            }
+            catch
+            {
+                // Ignore fallback errors; the caller only needs best-effort dismissal.
+            }
+        }
+
+        static bool TryCloseWindow(string windowId)
+        {
+            if (string.IsNullOrWhiteSpace(windowId))
+            {
+                return false;
+            }
+
+            Type windowsType = ResolveType("Windows");
+            if (windowsType == null)
+            {
+                return false;
+            }
+
+            MethodInfo hideMethod = windowsType.GetMethod(
+                "HideWindow",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static
+            );
+
+            if (hideMethod == null)
+            {
+                hideMethod = windowsType.GetMethod(
+                    "CloseWindow",
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static
+                );
+            }
+
+            if (hideMethod == null)
+            {
+                return false;
+            }
+
+            ParameterInfo[] parameters = hideMethod.GetParameters();
+            if (parameters.Length != 1 || parameters[0].ParameterType != typeof(string))
+            {
+                return false;
+            }
+
+            try
+            {
+                hideMethod.Invoke(null, new object[] { windowId });
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        static IDictionary GetWindowManagerWindows()
+        {
+            try
+            {
+                Type windowManagerType = ResolveType("WindowManager");
+                FieldInfo windowsField = windowManagerType?.GetField("windows", All);
+                return windowsField?.GetValue(null) as IDictionary;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         // ---- CAMERA ----

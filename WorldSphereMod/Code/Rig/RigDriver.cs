@@ -220,7 +220,8 @@ namespace WorldSphereMod.Rig
             double avgFrameMs = _perfWindowMs / _perfFrameCounter;
             _perfFrameCounter = 0;
             _perfWindowMs = 0.0;
-            UnityDebug.Log($"[WSM3D][Perf] RigDriver.Update avg60FrameMs={avgFrameMs:F3}ms frameSkinnedActors={activeRigCount} liveRigCap={kMaxLiveRigs} newRigBudget={kMaxNewRigsPerFrame}/frame");
+            if (Core.savedSettings != null && Core.savedSettings.ProfilerDump)
+                UnityDebug.Log($"[WSM3D][Perf] RigDriver.Update avg60FrameMs={avgFrameMs:F3}ms frameSkinnedActors={activeRigCount} liveRigCap={kMaxLiveRigs} newRigBudget={kMaxNewRigsPerFrame}/frame");
         }
 
         public static void Clear()

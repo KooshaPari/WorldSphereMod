@@ -9,6 +9,7 @@ using Xunit;
 /// WorldTilemap.renderTile and QuantumSpriteLibrary.drawWallType, shared mesh
 /// submit path, overlay allow-list, and world-unload cache drain (HANDOFF Phase 3b).
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class Phase3bSurfaceOverlayInvariantsTests
 {
     const string FoliageTileRenderRelative = "WorldSphereMod/Code/Foliage/FoliageTileRender.cs";
@@ -156,9 +157,9 @@ public sealed class Phase3bSurfaceOverlayInvariantsTests
         var source = ReadSourceFile(FoliageTileRenderRelative);
         var prefixBody = ExtractMethodBody(source, "public static bool Prefix(WorldTilemap __instance, WorldTile pTile)");
 
-        prefixBody.Should().Contain("VoxelMeshCache.Get(sprite, ShapeHint.Flat)",
+        prefixBody.Should().Contain("VoxelMeshCache.Get(sprite, ShapeHint.Flat, true, VoxelEntityType.Unknown)",
             "road overlays must stay flat decals via the shared voxel mesh cache");
-        prefixBody.Should().Contain("VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob)",
+        prefixBody.Should().Contain("VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob, true, VoxelEntityType.Unknown)",
             "life/grass overlays must use the shared voxel mesh cache");
         prefixBody.Should().Contain("Tools.To3DTileHeight(pos2)",
             "overlay TRS must lift tile height like other 3D emit paths");

@@ -77,7 +77,7 @@ namespace WorldSphereMod.Worldspace
             // this offset the text drew through the actor's chest. Rig localScale is 1, so
             // this local Y is world units.
             t.localPosition = new Vector3(0f, HeadOffset(), 0f);
-            float baseScale = Core.savedSettings != null ? Core.savedSettings.NameplateBaseScale : 0.15f;
+            float baseScale = Core.savedSettings != null ? Core.savedSettings.NameplateBaseScale : 0.04f;
             t.localScale = Vector3.one * baseScale;
 
             var np = go.AddComponent<NameplateWorld>();
@@ -190,16 +190,32 @@ namespace WorldSphereMod.Worldspace
 
             // WHY: prior `Max(baseScale, Min(1, d/100))` snapped localScale to ~1.0 at
             // any strategy-view distance — ~6.7x the 0.15 base — making labels dwarf the
-            // actor; anchor on baseScale and apply only a clamped distance multiplier.
+            // actor; anchor on baseScale, then scale DOWN with distance so far tags
+            // never exceed ~1.5x tile-width, and never inflate as the camera pulls
+            // back. Closer-than-ref tags still grow (capped at baseScale*maxScale).
             var s = Core.savedSettings;
-            float baseScale = s != null ? s.NameplateBaseScale : 0.15f;
+            float baseScale = s != null ? s.NameplateBaseScale : 0.08f;
             float refDist = s != null ? s.NameplateReferenceDistance : 10f;
             float minScale = s != null ? s.NameplateMinScale : 0.25f;
-            float maxScale = s != null ? s.NameplateMaxScale : 4f;
-            float distFactor = refDist > 0.0001f ? Mathf.Max(1f, d / refDist) : 1f;
-            float effective = Mathf.Clamp(baseScale * distFactor, baseScale * minScale, baseScale * maxScale);
+            float maxScale = s != null ? s.NameplateMaxScale : 1.5f;
+            // #208: shrink worldspace nametags to read at default zoom.
+            // WHY: prior `baseScale * distFactor` shrank labels toward 0 at
+            // strategy-view distance (3*refDist), which made the close-zoom
+            // view show nametags the full baseScale — too large relative to
+            // the voxel actor. Clamp the upper end so even at refDist the
+            // label stays a fraction of the actor mesh height.
+            float distFactor = refDist > 0.0001f
+                ? Mathf.Clamp01(d / (refDist * 3f))
+                : 1f;
+            // cap baseScale-at-refDist to baseScale * 0.5 so close-zoom tags
+            // read at ~half the previously-acceptable size.
+            float effective = Mathf.Clamp(
+                baseScale * distFactor * 0.5f,
+                baseScale * minScale * 0.5f,
+                baseScale * maxScale * 0.5f);
             transform.localScale = Vector3.one * effective;
 
+            Debug.Log($"[WSM3D][BANNER] nametag-shrink v2.13 active, fontSize=6, baseScale={baseScale:F3}, distFactor={distFactor:F3}, effective={effective:F3}");
             ApplyFade(d);
         }
 
@@ -335,7 +351,10 @@ namespace WorldSphereMod.Worldspace
             textGo.transform.SetParent(parent.transform, worldPositionStays: false);
             var text = textGo.AddComponent<Text>();
             text.alignment = TextAnchor.MiddleCenter;
-            text.fontSize = 18;
+            // WHY: prior fallback font size 9 still rendered too large in the upper
+            // world-space HUD view. Halve again to 6 to drive nametag glyph height
+            // toward the 4-6 px target in screenshot-based checks.
+            text.fontSize = 6;
             text.font = _labelFont;
             text.fontStyle = FontStyle.Bold;
             text.color = Color.white;
@@ -345,7 +364,10 @@ namespace WorldSphereMod.Worldspace
             text.raycastTarget = false;
 
             var rt = text.rectTransform;
-            rt.sizeDelta = new Vector2(6f, 1.5f);
+            // WHY: companion rect-scaling to match the halved fontSize; move from
+            // 3x0.75 to 1.5x0.375 world units to preserve relative spacing
+            // while reducing rendered pixel footprint.
+            rt.sizeDelta = new Vector2(1.5f, 0.375f);
             rt.anchoredPosition = Vector2.zero;
         }
 
@@ -363,7 +385,9 @@ namespace WorldSphereMod.Worldspace
 
             SetColorValue(label, Color.black, "outlineColor", "outline_color");
             SetBoolValue(label, true, "outline");
-            SetFloatValue(label, 0.5f, "size");
+            // WHY: 3D text mesh size mirrors the same reduction pattern as canvas
+            // fallback text and was still above target after prior pass.
+            SetFloatValue(label, 0.15f, "size");
             SetFontValue(label, _labelFont);
 
             return label;

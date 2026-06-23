@@ -9,6 +9,7 @@ using Xunit;
 /// BuildingProcRender: default off while ProceduralBuildings is on, secondary
 /// toggle selects ProcGenCache vs VoxelMeshCache (procgen-path-precedence-analysis.md).
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class BuildingStyleProcgenInvariantsTests
 {
     const string BuildingProcRenderPath = "WorldSphereMod/Code/ProcGen/BuildingProcRender.cs";
@@ -62,12 +63,15 @@ public sealed class BuildingStyleProcgenInvariantsTests
     }
 
     [Fact]
-    public void SavedSettings_ProceduralBuildings_defaults_off_while_BuildingStyleProcgen_opt_in_off()
+    public void SavedSettings_ProceduralBuildings_defaults_on_while_BuildingStyleProcgen_opt_in_off()
     {
         var settings = ReadSource(SavedSettingsPath);
 
-        Regex.IsMatch(settings, @"public\s+bool\s+ProceduralBuildings\s*=\s*false")
-            .Should().BeTrue("Phase 2 proc buildings must default OFF");
+        // Phase 2 proc buildings are default-on in this fork (HANDOFF.md /
+        // wsm3d.ps1 PhaseDefaults / SavedSettings.cs all agree on `true`).
+        // The stylized procgen architecture path remains an opt-in style toggle.
+        Regex.IsMatch(settings, @"public\s+bool\s+ProceduralBuildings\s*=\s*true")
+            .Should().BeTrue("Phase 2 proc buildings must default ON in this fork");
         Regex.IsMatch(settings, @"public\s+bool\s+BuildingStyleProcgen\s*=\s*false")
             .Should().BeTrue("stylized procgen architecture path stays opt-in OFF by default");
     }
@@ -83,7 +87,7 @@ public sealed class BuildingStyleProcgenInvariantsTests
             "style procgen is a runtime branch, not a patch gate");
 
         var emitBody = ExtractMethodBody(buildingProc, "public static void EmitMeshes(BuildingManager __instance)");
-        emitBody.Should().Contain("!Core.savedSettings.ProceduralBuildings) return",
+        emitBody.Should().Contain("!proceduralBuildings)",
             "EmitMeshes must exit when Phase 2 proc buildings are disabled");
         emitBody.Should().NotContain("!Core.savedSettings.BuildingStyleProcgen) return",
             "style toggle must not short-circuit the entire emit loop");
@@ -101,7 +105,7 @@ public sealed class BuildingStyleProcgenInvariantsTests
             "style ON must use legacy stylized procgen architecture meshes");
         emitBody.Should().Contain("VoxelMeshCache.Get(sp)",
             "style OFF must voxelize building sprites via VoxelMeshCache");
-        emitBody.Should().Contain("VoxelRender.Submit(m, trs, Color.white)",
+        emitBody.Should().Contain("VoxelRender.Submit(m, legacyTrs, Color.white)",
             "both branches must submit through the shared voxel render path");
     }
 

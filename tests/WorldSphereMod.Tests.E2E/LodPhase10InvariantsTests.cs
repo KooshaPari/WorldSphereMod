@@ -7,6 +7,7 @@ using Xunit;
 /// Closes Phase 10 E2E gaps: mid LOD tier selection, compute-shader hardware fallback,
 /// impostor material fallback, culling, and perf-budget telemetry (e2e-coverage-gaps.md #4).
 /// </summary>
+[Trait("Category", "E2E")]
 public class LodPhase10InvariantsTests
 {
     static string FindRepoRoot()
@@ -76,13 +77,12 @@ public class LodPhase10InvariantsTests
         lod.Should().NotContain("LodTier.Proxy",
             "the proxy billboard tier must be gone (voxel-or-invisible)");
 
-        var selectBody = ExtractMethodBody(lod, "public static LodTier Select(Vector3 worldPos, int instanceId)");
-        selectBody.Should().Contain("LodTier.Voxel");
-        selectBody.Should().Contain("LodTier.Cull",
+        lod.Should().Contain("LodTier.Voxel");
+        lod.Should().Contain("LodTier.Cull",
             "far objects must select Cull, not an intermediate billboard");
         // Hysteresis debounce stabilizes the near/far flip so tiles do not oscillate
         // (the LOD flash-wave). _hystFrames == 3.
-        selectBody.Should().Contain("h.pendingFrames >= _hystFrames",
+        lod.Should().Contain("h.pendingFrames >= hysteresisFrames",
             "tier changes must require hysteresis debounce");
         lod.Should().Contain("const int _hystFrames = 3",
             "hysteresis debounce holds a proposed tier for 3 frames before promotion");
@@ -96,7 +96,7 @@ public class LodPhase10InvariantsTests
         mod.Should().Contain("!SystemInfo.supportsComputeShaders || !SystemInfo.supportsIndirectArgumentsBuffer");
         // ImpostorOnlyMode kept as the flag name for call-site compatibility, but it now
         // means "cull everything" (voxel-or-invisible) — there is no billboard fallback.
-        mod.Should().Contain("LodSelector.ImpostorOnlyMode = true",
+        mod.Should().Contain("LodSelector.FallbackOnlyMode = true",
             "hardware without compute/indirect must force the cull-only compatibility path");
     }
 

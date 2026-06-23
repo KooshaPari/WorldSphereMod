@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using FluentAssertions;
 using Xunit;
 
+[Trait("Category", "Integration")]
 public class BakeInfrastructureIntegrationTests
 {
     private static string RepoRoot => TestRepo.FindRoot();

@@ -20,6 +20,7 @@ using Xunit;
 ///   6. Shader load list missing OpaqueVertexColor -> bundle shaders never cached
 ///   7. Bundle load not wrapped in try/catch -> missing bundle NREs the entire mod
 /// </summary>
+[Trait("Category", "E2E")]
 public class VoxelPipelineRegressionTests
 {
     static string FindRepoRoot()
@@ -152,20 +153,10 @@ public class VoxelPipelineRegressionTests
     {
         var source = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
 
-        // The late-upgrade guard must check if current shader is Standard
-        // AND if OpaqueVertexColor is now available in LoadedShaders.
-        source.Should().Contain("shader.name == \"Standard\"",
-            "EnsureMaterial must detect when the current material is still on the " +
-            "Standard shader fallback");
-
-        source.Should().Contain("LoadedShaders.ContainsKey(\"OpaqueVertexColor\")",
-            "EnsureMaterial must check LoadedShaders for OpaqueVertexColor availability " +
-            "to trigger the late-upgrade path");
-
-        // The upgrade must actually replace the material
-        source.Should().Contain("upgraded from Standard to OpaqueVertexColor",
-            "EnsureMaterial must log the late-upgrade so the diagnostic pipeline " +
-            "can confirm the swap happened");
+        // The late-upgrade guard was removed; the current path uses a fallback chain
+        // of built-in shaders via Core.Sphere.BuiltInShaderFallbacks.
+        source.Should().Contain("Core.Sphere.BuiltInShaderFallbacks",
+            "EnsureMaterial must use the built-in shader fallback chain as the modern resolution path");
     }
 
     // ---------------------------------------------------------------

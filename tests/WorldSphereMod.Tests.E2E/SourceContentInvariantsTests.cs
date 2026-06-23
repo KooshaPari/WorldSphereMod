@@ -5,6 +5,7 @@ using Xunit;
 using FluentAssertions;
 using Newtonsoft.Json.Linq;
 
+[Trait("Category", "E2E")]
 public class SourceContentInvariantsTests
 {
     // Locate the repo root from test output directory.

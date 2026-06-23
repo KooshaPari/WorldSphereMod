@@ -20,7 +20,8 @@ namespace WorldSphereMod.General
         {
             _clearing = false;
             Core.Generated = true;
-            if(Core.savedSettings.Is3D)
+            Debug.Log($"[WSM3D] CreateSphere (finishMakingWorld postfix) fired: Is3D={Core.savedSettings?.Is3D} mapSize={MapBox.width}x{MapBox.height} sphereExists={Core.IsWorld3D}");
+            if(Core.savedSettings != null && Core.savedSettings.Is3D)
             {
                 // Reset PrepareWorld guard HERE (finishMakingWorld), not on loadWorld.
                 // At loadWorld-postfix the world's _map_layers/pixels aren't populated

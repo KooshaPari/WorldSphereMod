@@ -3,6 +3,7 @@ using System.IO;
 using Xunit;
 using FluentAssertions;
 
+[Trait("Category", "E2E")]
 public class CloudCrossedQuadInvariantsTests
 {
     private static string FindRepoRoot()

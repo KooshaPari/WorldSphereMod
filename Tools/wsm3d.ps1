@@ -79,13 +79,13 @@ $script:LiveVerifyReportPath = Join-Path $RepoRoot "Tools/.reports/live-verify-l
 # drift by PhaseDefaultsDriftTests. CrossedQuadFoliage is default-on (#foliage).
 $script:PhaseDefaults = @{
     "VoxelEntities"       = $true
-    "ProceduralBuildings" = $false
+    "ProceduralBuildings" = $true
     "CrossedQuadFoliage"  = $true
-    "MeshWater"           = $false
+    "MeshWater"           = $true
     "HighShadows"         = $false
     "SkeletalAnimation"   = $false
     "WorldspaceUI"        = $false
-    "DayNightCycle"       = $false
+    "DayNightCycle"       = $true
     "PostFX"              = $false
     "ParticleEffects"     = $false
 }
@@ -102,7 +102,7 @@ $script:SafeMinDefaults = @{
     "HighShadows"         = $false
     "SkeletalAnimation"   = $false
     "WorldspaceUI"        = $false
-    "DayNightCycle"       = $false
+    "DayNightCycle"       = $true
     "PostFX"              = $false
     "ParticleEffects"     = $false
 }

@@ -3,6 +3,7 @@ using System.IO;
 using FluentAssertions;
 using Xunit;
 
+[Trait("Category", "E2E")]
 public sealed class ConditionalPatchDispatchInvariantsTests
 {
     private static string FindRepoRoot()

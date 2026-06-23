@@ -1,8 +1,16 @@
 # Handoff — pick up cold
 
+---
+> **GPU-compute go-live (#199) — ACTIVE TRACK (2026-06-02)**
+> Branch: `feat/gpu-compute-p4-consumer-migration` @ `4dfb34bd`
+> State: CI green (build 0err, 537 pass/3-skip + 19/19 parity). Unity-runtime visual gate pending (user-gated).
+> See: `docs/199-merge-checklist.md` for PR description + smoke-test steps.
+> Worktree: `E:/wsm3d-wt/pr37` — COLLISION-CLEAN (render-mgr owns `E:/Dev/WorldSphereMod`).
+---
+
 Canonical "next session starts here" doc for WorldSphereMod3D.
 
-**Last updated:** 2026-05-28 (`117746e` on `feat/phase-7-ui-kickoff`; `main` at `4efa128` after PR #7 squash-merge)
+**Last updated:** 2026-06-02 (gpu-mgr L1: #199 GPU-compute go-live CI-green)
 
 **Active branch:** `feat/phase-7-ui-kickoff` — Phase 7 worldspace UI kickoff ([`docs/phases/phase-7-worldspace-ui.md`](phases/phase-7-worldspace-ui.md)). Synced with `origin/main` after [PR #7](https://github.com/KooshaPari/WorldSphereMod/pull/7) landed (`4efa128` — automation, PlayCUA gates, live-verify harness).
 
@@ -97,7 +105,7 @@ instead of carrying the underlying implementation inline.
 | 5  Sun + cascaded shadows              | code present, runtime unverified | Current code defaults: `HighShadows = false`, `HdrSkybox = false`, `ColorGradingLut = false`. |
 | 6  Skeletal animation                  | code present, runtime unverified; **disable-gate PROVEN** | Current code default: `SkeletalAnimation = false`. Core.LoadSettings force-overrides to `false` on every load (Core.cs L70 + L79). ActorVoxelEmit.EmitVoxels gates BOTH `ResolveRigType` and `RigDriver.SubmitSkinnedActor` behind `if (Core.savedSettings.SkeletalAnimation && tier != LodTier.Impostor)` (VoxelRender.cs L630). Invariant locked by `SkeletalAnimationDisabledGateTests` (E2E). DIAG-SUBMIT `skel(attempt=0 ok=0 fail=0)` is the runtime confirmation. |
 | 7  Worldspace UI                       | code present, runtime unverified | Current code defaults: `WorldspaceUI = false`, `WorldspaceLabel3D = false`. |
-| 8  Day/night + sky + fog               | code present, runtime unverified | Current code default: `DayNightCycle = false`; `FogDensity = 0.05f`. |
+| 8  Day/night + sky + fog               | code present, runtime unverified | Current code default: `DayNightCycle = true`; `FogDensity = 0.05f`. |
 | 9  Particles + decals + PostFX         | code present, runtime unverified | Current code defaults: `ParticleEffects = false`, `PostFX = false`, `SSAOEnabled = false`, `SSGIEnabled = false`. |
 | 10 LOD + impostor fallback             | code present, runtime unverified | Current code defaults: `LODScale = 0.5f`, `WaterDetail = 1.0f`, `FoliageDensity = 1.0f`. |
 
@@ -108,11 +116,11 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 | Setting | Default | Phase | Note |
 |---|---|---|---|
 | `VoxelEntities` | `true` | 1 | Default-on voxel actors/items/projectiles |
-| `ProceduralBuildings` | `false` | 2 | Default-off building meshes |
+| `ProceduralBuildings` | `true` | 2 | Default-on building meshes |
 | `CrossedQuadFoliage` | `true` | 3a | Default-on crossed-quad foliage |
-| `BiomeBlending` | `false` | n/a | Terrain polish |
-| `MeshWater` | `false` | 4 | Default-off mesh water (Phase 4-lite) |
-| `WorldspaceHealth3D` | `false` | 7 | Worldspace HP bar style |
+| `BiomeBlending` | `true` | n/a | Default-on terrain polish |
+| `MeshWater` | `true` | 4 | Default-on mesh water (Phase 4-lite) |
+| `WorldspaceHealth3D` | `true` | 7 | Worldspace HP bar style (live default) |
 | `MountainSlopeSmoothing` | `false` | n/a | Terrain polish |
 | `HighShadows` | `false` | 5 | Default-off shadow cascades |
 | `HdrSkybox` | `false` | 5 | Current live default |
@@ -120,7 +128,7 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 | `SkeletalAnimation` | `false` | 6 | Default-off skeletal path |
 | `WorldspaceUI` | `false` | 7 | Default-off worldspace UI |
 | `WorldspaceLabel3D` | `false` | 7 | Default-off 3D labels |
-| `DayNightCycle` | `false` | 8 | Default-off TOD driver |
+| `DayNightCycle` | `true` | 8 | Default-on TOD driver |
 | `FogDensity` | `0.05f` | 8 | Current live default |
 | `PostFX` | `false` | 9 | Current live default |
 | `SSAOEnabled` | `false` | 9 | Default-off SSAO |
@@ -142,25 +150,25 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 ### Default-on / currently enabled
 
 - `VoxelEntities` — Phase 1
+- `ProceduralBuildings` — Phase 2
 - `CrossedQuadFoliage` — Phase 3a/3b
+- `MeshWater` — Phase 4
+- `BiomeBlending` — terrain polish
+- `WorldspaceHealth3D` — worldspace HP bar style
+- `DayNightCycle` — Phase 8
 - `ACESTonemapping` — Phase 9
 
 ### Default-off / opt-in
 
-- `ProceduralBuildings` — Phase 2
-- `MeshWater` — Phase 4
 - `HighShadows` — Phase 5
 - `HdrSkybox` — Phase 5b
 - `ColorGradingLut` — Phase 5b
 - `SkeletalAnimation` — Phase 6
 - `WorldspaceUI` — Phase 7
 - `WorldspaceLabel3D` — Phase 7
-- `DayNightCycle` — Phase 8
 - `PostFX` — Phase 9
 - `SSAOEnabled` — Phase 9
 - `ParticleEffects` — Phase 9 (decals + bursts)
-- `BiomeBlending` — terrain polish
-- `WorldspaceHealth3D` — worldspace HP bar style
 - `MountainSlopeSmoothing` — terrain polish
 - `WeatherRain` — weather
 - `ProfilerDump` — diagnostic overlay (default-off)
@@ -169,7 +177,6 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 - `BloomEnabled` — Phase 9
 - `WeatherSnow` — weather
 - `WeatherLightning` — weather
-
 ### CI dependency audit gate
 
 - `docs/package-lock.json` currently reports moderate `npm audit` advisories
