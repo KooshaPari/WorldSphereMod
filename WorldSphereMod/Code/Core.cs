@@ -2411,26 +2411,21 @@ namespace WorldSphereMod
             public static readonly System.Collections.Generic.Dictionary<string, UnityEngine.Shader> LoadedShaders =
                 new System.Collections.Generic.Dictionary<string, UnityEngine.Shader>();
 
-            public static readonly string[] BuiltInShaderFallbacks = new[]
-            {
-                "Mobile/VertexLit",
-                "Standard",
-                "Mobile/Diffuse",
-                "Diffuse",
-            };
-
+            // WorldBox's Unity 60f1 runtime ships a STRIPPED built-in shader set:
+            // every Unlit/* and Universal Render Pipeline/* probe returns null at
+            // runtime (confirmed live 2026-05-29), so those fallbacks produced the
+            // neon-magenta / NullReferenceException actors. The ONLY safe last
+            // resort is "Standard". Resolve a bundle shader by SafeShaders key,
+            // else fall back to Standard — NEVER to Unlit/* or URP/*.
             public static UnityEngine.Shader ResolveShader(string bundleName)
             {
-                foreach (string shaderName in BuiltInShaderFallbacks)
+                if (!string.IsNullOrEmpty(bundleName)
+                    && LoadedShaders.TryGetValue(bundleName, out var bundled)
+                    && bundled != null)
                 {
-                    UnityEngine.Shader shader = UnityEngine.Shader.Find(shaderName);
-                    if (shader != null)
-                    {
-                        return shader;
-                    }
+                    return bundled;
                 }
-
-                return null;
+                return UnityEngine.Shader.Find("Standard");
             }
 
             // True only when the named bundle shader actually deserialized and is
