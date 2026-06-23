@@ -19,6 +19,7 @@ Shader "Hidden/ScreenSpaceGI"
             #pragma fragment frag
 
             #pragma target 3.0
+            #pragma multi_compile _ WSM3D_POSTFX_KEEP
 
             #include "UnityCG.cginc"
 

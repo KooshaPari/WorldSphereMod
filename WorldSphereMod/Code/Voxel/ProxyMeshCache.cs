@@ -3,16 +3,14 @@ using UnityEngine;
 namespace WorldSphereMod.Voxel
 {
     /// <summary>
-    /// LRU cache for Phase 10 mid-tier proxy meshes (half-res sprite → voxel at depth=1).
-    /// Stub only: <see cref="Get"/> returns null until <see cref="SpriteVoxelizer.BuildProxy"/>
-    /// and emit dispatch for <see cref="LOD.LodTier.Proxy"/> are wired.
-    /// See <c>docs/journeys/scratch/phase10-proxy-tier-status.md</c>.
+    /// DEAD STUB. Retained only so external references compile. The mid-tier "Proxy" LOD
+    /// was removed when the render ladder collapsed to VOXEL-OR-INVISIBLE (Voxel near /
+    /// Cull far, no billboard or proxy tier). <see cref="Get"/> always returns null.
     /// </summary>
     public static class ProxyMeshCache
     {
         /// <summary>
-        /// Resolve a cached proxy mesh for <paramref name="sprite"/>.
-        /// Deferred — always null; <see cref="VoxelRender"/> uses <see cref="VoxelMeshCache"/> for Proxy tier.
+        /// Always null — the proxy tier no longer exists (voxel-or-invisible).
         /// </summary>
         public static Mesh Get(Sprite sprite)
         {

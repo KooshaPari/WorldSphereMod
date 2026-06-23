@@ -184,7 +184,7 @@ public class Phase1bVoxelEmitInvariantsTests
     }
 
     [Fact]
-    public void Phase1b_emit_paths_share_actor_LOD_impostor_and_voxel_mesh_pipeline()
+    public void Phase1b_emit_paths_share_actor_LOD_voxel_or_cull_pipeline()
     {
         var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
 
@@ -199,10 +199,11 @@ public class Phase1bVoxelEmitInvariantsTests
                 $"{emitSignature} must cull before mesh work");
             body.Should().Contain("LodSelector.Select",
                 $"{emitSignature} must select LOD tier before mesh submission");
-            body.Should().Contain("LodTier.Impostor",
-                $"{emitSignature} must branch to impostor billboards at far distance");
-            body.Should().Contain("ImpostorBillboard.GetOrCreate",
-                $"{emitSignature} must use the shared impostor atlas cache");
+            // VOXEL-OR-INVISIBLE: far tier = Cull (draw nothing), never a billboard.
+            body.Should().Contain("LodTier.Cull",
+                $"{emitSignature} must cull (draw nothing) at far distance");
+            body.Should().NotContain("ImpostorBillboard",
+                $"{emitSignature} must not fall back to an impostor billboard");
             body.Should().Contain("halfHeight",
                 $"{emitSignature} must lift mesh center like actor voxel emit");
             body.Should().Contain("Core.savedSettings.VoxelScaleMultiplier",

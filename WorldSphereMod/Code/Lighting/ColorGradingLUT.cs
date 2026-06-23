@@ -117,7 +117,16 @@ namespace WorldSphereMod.Lighting
             }
 
             Shader? shader = null;
-            if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("ColorGradingLUT", out var bundledLut) && bundledLut != null)
+            // Belt-and-suspenders: PostFxShaderBundleAvailable=false means the
+            // ColorGradingLUT shader was never loaded into LoadedShaders (stub-baked,
+            // native-crash on GetObject). Skip cache lookup; fall through to
+            // Shader.Find / Resources / disabled. (#204)
+            if (!WorldSphereMod.Core.Sphere.PostFxShaderBundleAvailable
+                && WorldSphereMod.Core.Sphere.PostFxShaderNames.Contains("ColorGradingLUT"))
+            {
+                Debug.Log("[WSM3D] ColorGradingLUT: PostFxShaderBundleAvailable=false — skipping LoadedShaders lookup. (#204)");
+            }
+            else if (WorldSphereMod.Core.Sphere.LoadedShaders.TryGetValue("ColorGradingLUT", out var bundledLut) && bundledLut != null)
             {
                 shader = bundledLut;
                 Debug.Log("[WSM3D] ColorGradingLUT shader resolved via Core.Sphere.LoadedShaders cache.");

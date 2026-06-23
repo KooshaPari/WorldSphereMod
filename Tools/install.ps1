@@ -4,13 +4,15 @@
 
 .DESCRIPTION
   NeoModLoader compiles Code/*.cs at runtime, so the install copies source
-  (not the built DLL). The dotnet build runs first only as a sanity check —
+  (not the built DLL). The dotnet build runs first only as a sanity check -
+  if the source doesn't compile via dotnet, NML's Roslyn pass will also fail.
+ 
   if the source doesn't compile via dotnet, NML's Roslyn pass will also fail.
 
   Default WorldBox path: C:/Program Files (x86)/Steam/steamapps/common/Worldbox/
   Override with -WorldBoxPath or $env:WORLDBOX_PATH.
 
-  Default install folder name: WorldSphereMod3D (matches mod.json GUID family).
+  Canonical install folder: worldbox_Data/StreamingAssets/Mods/WorldSphereMod.
 
 .EXAMPLE
   ./Tools/install.ps1
@@ -28,7 +30,6 @@
 [CmdletBinding()]
 param(
     [string]$WorldBoxPath = $(if ($env:WORLDBOX_PATH) { $env:WORLDBOX_PATH } else { "C:/Program Files (x86)/Steam/steamapps/common/Worldbox" }),
-    [string]$InstallFolderName = "WorldSphereMod3D",
     [string]$Configuration = "Release",
     [string]$Tfm = "net48",
     [string]$AssemblyName = "WorldSphereMod3D",
@@ -44,7 +45,7 @@ function Write-InstallFailureHint {
 try {
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $modSrc   = Join-Path $repoRoot "WorldSphereMod"
-$modDst   = Join-Path $WorldBoxPath "Mods/$InstallFolderName"
+$modDst   = Join-Path $WorldBoxPath "worldbox_Data/StreamingAssets/Mods/WorldSphereMod"
 $builtDll = Join-Path $repoRoot "bin/$Configuration/$Tfm/$AssemblyName.dll"
 
 if (-not (Test-Path (Join-Path $WorldBoxPath "worldbox_Data"))) {
@@ -62,20 +63,6 @@ if (-not $SkipBuild) {
         if ($LASTEXITCODE -ne 0) { throw "dotnet build failed; aborting install." }
     } finally {
         Pop-Location
-    }
-}
-
-# --- Wipe stale upstream-named folder to avoid GUID collision ---
-# The fork's mod.json GUID is `worldsphere3d.fork`. If a previous install
-# (or a sibling clone of upstream) left a `Mods/WorldSphereMod` folder with
-# the same GUID, NML logs "Repeat Mod" and may load the wrong one. Always
-# nuke the upstream-named folder before installing our `WorldSphereMod3D`.
-$staleUpstreamDst = Join-Path $WorldBoxPath "Mods/WorldSphereMod"
-if ((Test-Path $staleUpstreamDst) -and ($InstallFolderName -ne "WorldSphereMod")) {
-    Write-Host "[install] removing stale upstream-named folder at $staleUpstreamDst (GUID collision guard)" -ForegroundColor DarkYellow
-    Remove-Item -Recurse -Force $staleUpstreamDst -ErrorAction SilentlyContinue
-    if (Test-Path $staleUpstreamDst) {
-        throw "Could not remove stale $staleUpstreamDst. Close WorldBox and retry."
     }
 }
 
@@ -118,7 +105,7 @@ foreach ($item in $items) {
             Copy-Item -Force -Path $src -Destination $modDst
         }
     } else {
-        Write-Host "[install]   $item (skipped — not present in source)" -ForegroundColor DarkGray
+        Write-Host "[install]   $item (skipped - not present in source)" -ForegroundColor DarkGray
     }
 }
 
@@ -133,7 +120,7 @@ Write-Host "[install]   verified $csCount .cs files" -ForegroundColor DarkGreen
 
 $compoundDll = Join-Path $modDst "Assemblies/CompoundSpheres.dll"
 if (-not (Test-Path $compoundDll)) {
-    throw "[install] CompoundSpheres.dll missing from installed Assemblies — NML will fail with CS0246"
+    throw "[install] CompoundSpheres.dll missing from installed Assemblies - NML will fail with CS0246"
 }
 
 $bundleDir = Join-Path $modDst "AssetBundles"
@@ -157,7 +144,7 @@ if ((Test-Path (Join-Path $modSrc "AssetBundles")) -and -not (Test-Path $bundleD
 # See docs/adr/ADR-0007-nml-precompiled-detection.md before changing DLL shipping behavior.
 $installedAssemblies = Join-Path $modDst "Assemblies"
 if (Test-Path $builtDll) {
-    Write-Host "[install] skipping $AssemblyName.dll copy (NML double-loads it + Code/ → CS0121). See install.ps1 comment." -ForegroundColor DarkYellow
+    Write-Host "[install] skipping $AssemblyName.dll copy (NML double-loads it + Code/ -> CS0121). See install.ps1 comment." -ForegroundColor DarkYellow
 }
 
 # Defensive: remove any stale WSM3D DLL that a prior install left in the
@@ -167,6 +154,35 @@ $staleSelfDll = Join-Path $installedAssemblies "$AssemblyName.dll"
 $staleSelfPdb = Join-Path $installedAssemblies "$AssemblyName.pdb"
 if (Test-Path $staleSelfDll) { Remove-Item -Force $staleSelfDll }
 if (Test-Path $staleSelfPdb) { Remove-Item -Force $staleSelfPdb }
+
+# Warn if a stale duplicate mod still exists in the non-standard Mods root.
+# This folder can contain the same GUID (worldsphere3d.fork) and trigger NML
+# repeat-mod behavior. We do not delete it automatically.
+$modsRoot = Join-Path $WorldBoxPath "Mods"
+$duplicateFound = $false
+if (Test-Path $modsRoot) {
+    $modsChildren = Get-ChildItem -Path $modsRoot -Directory -ErrorAction SilentlyContinue
+    foreach ($child in $modsChildren) {
+        $modJson = Join-Path $child.FullName "mod.json"
+        if (Test-Path $modJson) {
+            try {
+                $json = Get-Content -Raw $modJson | ConvertFrom-Json
+                if ($json.id -eq "worldsphere3d.fork") {
+                    $duplicateFound = $true
+                    Write-Host "[install] WARNING: duplicate mod detected at $($child.FullName)." -ForegroundColor Red
+                    Write-Host "[install] WARNING: this non-standard path can trigger a Repeat-Mod with WORLDSPHERE3D_FORK and NML may compile the stale copy." -ForegroundColor Red
+                    Write-Host "[install] WARNING: please remove $($child.FullName) before launching WorldBox." -ForegroundColor Red
+                    break
+                }
+            } catch {
+                # Ignore malformed JSON in unrelated mod folders while scanning duplicates.
+            }
+        }
+    }
+}
+if (-not $duplicateFound) {
+    Write-Host "[install] no duplicate WORLDSPHERE3D_FORK folder detected under $modsRoot." -ForegroundColor DarkGray
+}
 
 Write-Host ""
 Write-Host "[install] installed to $modDst" -ForegroundColor Green

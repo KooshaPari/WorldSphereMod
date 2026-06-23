@@ -104,8 +104,8 @@ public class SkeletalRigVariantInvariantsTests
         var submitBody = ExtractMethodBody(rigDriver,
             "public static bool SubmitSkinnedActor(");
 
-        submitBody.Should().Contain("if (rigType != RigType.Humanoid)",
-            "only humanoid rigs use SkinnedMeshRenderer hierarchy");
+        submitBody.Should().Contain("rigType != RigType.Humanoid",
+            "only humanoid rigs use SkinnedMeshRenderer hierarchy (gated by kSkinnedRigProductionReady)");
         submitBody.Should().Contain("return VoxelRender.Submit(svm.BaseMesh, Matrix4x4.TRS(pos, rot, scl), tint)",
             "quadruped/snake/unknown rigs must fall back to static voxel mesh submit");
     }

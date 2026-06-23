@@ -1,0 +1,21 @@
+TASK: Integrity-check, then MERGE the 4 live-fix branches into integ/live-fixes, build, and install. Repo E:/Dev/WorldSphereMod (real repo dir — you are codex, work here, NOT in any E:/wsm3d-wt/* worktree). Rules: never `git stash` (commit to a wip branch if needed); never force-push; builds to E:; xDD; do NOT merge to trunk claude/research-ultraplan-fork-DdgI5 (only into integ/live-fixes).
+
+CRITICAL CONTEXT — CORRUPTION SCARE: during parallel worktree work, index.lock contention on E:/Dev/WorldSphereMod caused at least one worktree to arrive with ~978 tracked files staged-deleted/missing (entire Code/Voxel/, tests/, docs/, .github/). The lighting agent says it restored them and committed ONLY its 3 files — but you MUST verify NO branch carries unexpected mass deletions before merging, or the merge will delete files.
+
+The 4 branches to merge (each off integ/live-fixes base 976473a0), in this order:
+1. fix/live-shaderload (commit ~d09e081d) — Core.cs shader-bundle manifest-path fix (postFX load).
+2. fix/live-voxel (e3feca66) — SettingsVersion 2.5→2.6 re-asserts VoxelEntities=true.
+3. fix/live-deprecated (6643985b) — remove runtime CrossedQuadFoliage 2D-billboard escape in FoliageTileRender/WallTileRender/CloudCrossedQuadRender + SettingsVersion→2.6.
+4. fix/live-lighting (332c7d8f) — SunDriver.Init re-run in FinishBecome3D + assign RenderSettings.sun + ambient floor + TimeOfDay pump.
+
+DO THIS:
+0. Clean up: kill any zombie git (`taskkill //F //IM git.exe` if any hung), remove stale locks (.git/index.lock, .git/worktrees/*/index.lock), `git fetch origin`, `git checkout integ/live-fixes && git reset --hard origin/integ/live-fixes` (clean base; main repo working tree may be dirty from prior agents — if so, the only thing worth keeping is docs/design/*prompt*.md which are untracked notes; otherwise reset clean).
+1. INTEGRITY GATE — for EACH of the 4 branches: `git diff --stat origin/integ/live-fixes..origin/<branch>`. Confirm ONLY the expected files changed and there are NO deletions of Code/Voxel/, tests/, docs/, .github/, or large swaths of source. If ANY branch shows unexpected mass deletions, DO NOT MERGE IT — report it and stop (we'll re-derive that fix as a clean cherry-pick of just its intended files). List the changed-file count per branch.
+2. MERGE the clean branches into integ/live-fixes one at a time (real --no-ff merges, never squash), building after each:
+   - Reconcile SettingsVersion: voxel + deprecated both bump 2.5→2.6 (same value → trivial). Final must be a single "2.6" (or bump to "2.7" if you prefer a fresh migration) and ApplyPhaseDefaults must assert BOTH VoxelEntities=true AND CrossedQuadFoliage=true (union both agents' asserts).
+   - Resolve Core.cs conflicts (shaderload edits the shader-load/gate region ~1581-1855; voxel edits SettingsVersion ~29 + LoadSettings; deprecated edits SettingsVersion + foliage prefix files; lighting edits FinishBecome3D + Code/Lighting). These are mostly different regions — resolve by keeping ALL intended changes.
+3. After all merges: verify the full tree is intact (Code/Voxel/ present, tests/ present, no missing source). `dotnet build WorldSphereMod.csproj -c Release` MUST be 0 errors. Run Unit + E2E; report counts (note: some E2E may fail on missing docs/live-verification.md — if that file is missing due to the corruption, restore it from `git checkout origin/integ/live-fixes -- docs/live-verification.md` or note it).
+4. Push integ/live-fixes (`git push origin integ/live-fixes`).
+5. Install to the game: `pwsh -NoProfile -ExecutionPolicy Bypass -File ./Tools/install.ps1`. Then VERIFY the installed build: installed Code/Core.cs SettingsVersion=2.6 (or your final), installed wsm3d-shaders bundle present + manifest AssetFileHash=34b1a0ae..., installed Core.cs contains FindShaderBundleManifest + the SunDriver RenderSettings.sun assignment + no CrossedQuadFoliage runtime escape in FoliageTileRender.
+
+REPORT: per-branch integrity result (changed-file counts, any deletions → which branch), merge result + how you reconciled SettingsVersion/ApplyPhaseDefaults, final build result, test counts, install verification checks, and a GO/NO-GO for "safe to relaunch for visual verify of postFX+sun+voxel+no-crossquad". Be honest; if integrity failed on any branch, STOP and report rather than merging a deletion.

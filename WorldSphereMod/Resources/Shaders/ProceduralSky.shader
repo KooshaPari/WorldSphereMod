@@ -34,6 +34,7 @@ Shader "WorldSphereMod3D/ProceduralSky"
             #pragma vertex   vert
             #pragma fragment frag
             #pragma multi_compile _ _HOSEK_WILKIE
+            #pragma multi_compile _ WSM3D_POSTFX_KEEP
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 

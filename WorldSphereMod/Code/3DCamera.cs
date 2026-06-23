@@ -46,6 +46,46 @@ namespace WorldSphereMod.NewCamera
             return true;
         }
     }
+    // SAVE-LOAD VOXEL FIX (2026-05-30): WorldBox's ZoneCamera.update() decides which
+    // TileZones are `visible` by projecting screen corners through World.world.camera
+    // (the ORIGINAL 2D orthographic camera) via ViewportToWorldPoint. In 3D mode that
+    // camera is disabled, never repositioned over the loaded world, AND our GetSize
+    // Harmony patch forces its orthographicSize to the small 3D `Height` (e.g. 10) —
+    // so the projected footprint collapses to a couple of zones around the stale rig
+    // position.
+    //
+    // ActorManager.fillVisibleObjects only adds an actor to `visible_units` when its
+    // zone.visible is true. So on a LOADED save (where zone_calculator.dirtyAndClear()
+    // wipes visibility and ZoneCamera's bounds cache is invalidated) visible_units
+    // collapses to ~0 → our ActorVoxelEmit / BuildingVoxelEmit postfixes iterate an
+    // almost-empty list (observed: spriteNull=2, Voxelized=0) and nothing voxelizes;
+    // the handful of actors in stale-visible zones keep rendering as native 2D sprites.
+    // On a FRESH-gen world the zones were marked all-visible during 2D world-gen and
+    // the bounds cache held, which is why fresh worlds voxelized but saves did not.
+    //
+    // 3D maps are bounded (MaxTilesFor3D), so the correct + cheap fix is: in 3D mode,
+    // force every zone visible after ZoneCamera.update() runs. This re-populates
+    // visible_units identically on fresh-gen and save-load, feeding the (correct) emit
+    // path. Off in 2D mode (early return) so vanilla culling is untouched.
+    [HarmonyPatch(typeof(ZoneCamera), "update")]
+    public static class Force3DZoneVisibility
+    {
+        [HarmonyPostfix]
+        public static void Postfix()
+        {
+            if (!Core.IsWorld3D) return;
+            if (World.world == null || World.world.zone_calculator == null) return;
+            List<TileZone> zones = World.world.zone_calculator.zones;
+            if (zones == null) return;
+            for (int i = 0; i < zones.Count; i++)
+            {
+                TileZone zone = zones[i];
+                if (zone == null) continue;
+                zone.visible = true;
+                zone.visible_main_centered = true;
+            }
+        }
+    }
     [HarmonyPatch(typeof(WorldAgeEffects), nameof(WorldAgeEffects.fitTheCamera))]
     public class AgeEffects
     {

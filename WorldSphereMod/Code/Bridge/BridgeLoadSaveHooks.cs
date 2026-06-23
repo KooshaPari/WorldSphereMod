@@ -17,6 +17,11 @@ namespace WorldSphereMod.Bridge
         {
             try
             {
+                // NOTE: ResetPrepared() must NOT be called here — loadWorld-postfix
+                // fires before world _map_layers/pixels are populated, so PrepareWorld
+                // re-runs against empty lists (0.01ms no-op) and WorldPrepared=true
+                // before finishMakingWorld. Reset is in SphereControl.CreateSphere
+                // (finishMakingWorld postfix) where the world IS populated. (#208)
                 BridgeServer.CaptureMainThread();
                 BridgeServer.EnsureCreated();
                 BridgeServer.DrainStaticQueue();

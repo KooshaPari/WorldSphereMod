@@ -97,16 +97,16 @@ namespace WorldSphereMod.Worldspace
 
             int voxel = SafeCount(() => WorldSphereMod.Voxel.VoxelMeshCache.Count);
             int procgen = SafeCount(() => WorldSphereMod.ProcGen.ProcGenCache.Count);
-            int foliage = SafeCount(() => WorldSphereMod.Foliage.CrossedQuadMeshCache.Count);
-            int impostor = SafeCount(() => WorldSphereMod.LOD.ImpostorBillboard.Count);
+            // Crossed-quad foliage + impostor billboard caches removed (foliage/fx are
+            // voxel; far-LOD culls). Slots held at 0 for overlay-string stability.
+            int foliage = 0;
+            int impostor = 0;
             long draws = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameDrawCalls;
             long instances = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameInstances;
             long vHits = SafeLong(() => WorldSphereMod.Voxel.VoxelMeshCache.HitCount);
             long vMisses = SafeLong(() => WorldSphereMod.Voxel.VoxelMeshCache.MissCount);
-            long iHits = SafeLong(() => WorldSphereMod.LOD.ImpostorBillboard.HitCount);
-            long iMisses = SafeLong(() => WorldSphereMod.LOD.ImpostorBillboard.MissCount);
             float vRate = (vHits + vMisses) > 0 ? (float)vHits / (vHits + vMisses) * 100f : 0f;
-            float iRate = (iHits + iMisses) > 0 ? (float)iHits / (iHits + iMisses) * 100f : 0f;
+            float iRate = 0f;
             float instPerDraw = draws > 0 ? (float)instances / draws : 0f;
 
             // LOD V/P/I distribution intentionally omitted: would require per-actor

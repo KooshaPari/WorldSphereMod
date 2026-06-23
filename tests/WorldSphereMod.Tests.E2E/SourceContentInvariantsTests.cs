@@ -65,8 +65,6 @@ public class SourceContentInvariantsTests
 
         AssertClearThenDrain(onFinish, "WorldSphereMod.ProcGen.ProcGenCache",
             "ProcGenCache.Clear enqueues meshes for deferred destroy on the main thread");
-        AssertClearThenDrain(onFinish, "WorldSphereMod.Foliage.CrossedQuadMeshCache",
-            "CrossedQuadMeshCache.Clear enqueues meshes for deferred destroy on the main thread");
 
         onFinish.Should().Contain("WorldSphereMod.Voxel.VoxelRender.Reset()",
             "world unload must reset VoxelRender static material/latch state");

@@ -1,6 +1,6 @@
 # ADR-0017: Terrain Architecture — CompoundSpheres Upgrade Path and Complement DLLs
 
-**Status:** Proposed
+**Status:** Accepted (shipped — UseHeightFieldTerrain in SavedSettings + Core.cs Become3D)
 
 **Date:** 2026-05-26
 

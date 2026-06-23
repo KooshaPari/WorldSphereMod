@@ -106,8 +106,8 @@ public class CloudCrossedQuadInvariantsTests
     {
         var source = ReadSourceFile("WorldSphereMod/Code/Fx/CloudCrossedQuadRender.cs");
 
-        source.Should().Contain("CrossedQuadMeshCache.GetOrBuild(sprite, BuildingShape.CrossedQuad",
-            "cloud mesh must come from the shared crossed-quad cache");
+        source.Should().Contain("VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob)",
+            "cloud mesh must come from the shared voxel mesh cache");
         source.Should().Contain("FoliageMaterial.EnsureMaterial()",
             "cloud path must use the foliage material gate");
         source.Should().Contain("MeshInstanceBatcher.Submit(state.Mesh, material, trs, tint)",

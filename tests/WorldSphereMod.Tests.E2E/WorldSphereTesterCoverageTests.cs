@@ -65,17 +65,15 @@ public class WorldSphereTesterCoverageTests
     }
 
     [Fact]
-    public void ImpostorBillboard_lru_stamps_use_frame_count_at_access_time()
+    public void No_impostor_billboard_class_exists_voxel_or_invisible()
     {
-        var source = ReadSourceFile("WorldSphereMod/Code/LOD/ImpostorBillboard.cs");
-
-        source.Should().Contain("ulong frameStamp = (ulong)Time.frameCount;");
-        source.Should().Contain("entry.LastFrame = frameStamp;");
-        source.Should().Contain("LastFrame = frameStamp");
-        source.Should().Contain("static void Evict()");
-        source.Should().Contain("if (_atlas.Count > Capacity) Evict();");
-        source.Should().Contain("public static void Tick()",
-            "Tick remains for call-site compatibility even though LRU uses frameCount");
+        // VOXEL-OR-INVISIBLE (user, 2026-05-30): the impostor billboard LOD tier and its
+        // atlas cache were removed. Far objects cull (draw nothing); they are never
+        // re-rendered as flat camera-facing billboards. The file must not exist.
+        var root = FindRepoRoot();
+        var impostorPath = Path.Combine(root, "WorldSphereMod/Code/LOD/ImpostorBillboard.cs");
+        File.Exists(impostorPath).Should().BeFalse(
+            "ImpostorBillboard.cs must be removed — there is no billboard tier");
     }
 
     [Fact]
@@ -85,7 +83,10 @@ public class WorldSphereTesterCoverageTests
 
         source.Should().Contain("if (h.pending == proposed)");
         source.Should().Contain("h.pendingFrames++");
-        source.Should().Contain("if (h.pendingFrames >= 3)");
+        // Debounce holds a proposed tier for _hystFrames (== 3) frames before promotion,
+        // which kills the per-frame Voxel<->Cull flip (the LOD flash-wave).
+        source.Should().Contain("if (h.pendingFrames >= _hystFrames)");
+        source.Should().Contain("const int _hystFrames = 3");
         source.Should().Contain("h.current = proposed;");
         source.Should().Contain("h.pendingFrames = 0;");
         source.Should().Contain("else { h.pending = proposed; h.pendingFrames = 1; }");
