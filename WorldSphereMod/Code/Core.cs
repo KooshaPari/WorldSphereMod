@@ -1531,11 +1531,11 @@ namespace WorldSphereMod
                         int sy = Mathf.Clamp(ty, 0, h - 1);
                         WorldTile tile = World.world.GetTileSimple(sx, sy);
                         if (tile == null) return new Color32(128, 128, 128, 255);
-                        // Bypass world_layer.pixels/MapLayer.pixels (always zero in 3D mode
-                        // because tilemap.redrawTiles is intercepted by Queue3D Prefix which
-                        // returns false when IsWorld3D=true). Use tile sprite texture average
-                        // color directly from the Texture2DArray built in CreateTextures(). (#208)
-                        return GetTileColor(tile);
+                        // FIX: use tile POSITION index (sy*w+sx) into world_layer.pixels,
+                        // NOT tile.data.tile_id (the tile TYPE id — a small int 0..~200
+                        // that indexed into the first pixels of world_layer, producing
+                        // grayscale background colors instead of biome RGB). (#208 terrain-gray)
+                        return GetColor(sy * w + sx);
                     },
                     sampleTexture: (tx, ty) =>
                     {
@@ -1687,7 +1687,10 @@ namespace WorldSphereMod
                 );
 
                 // Translucent water material (alpha-blended) so terrain reads through.
-                if (meshWaterEnabled)
+                // GerstnerWater supports Standard-style alpha blending; falls back to
+                // Standard via ResolveShader if not in SafeShaders/LoadedShaders (#208).
+                Shader waterShader = ResolveShader("GerstnerWater");
+                if (waterShader != null)
                 {
                     Color waterColor = new Color(0.20f, 0.45f, 0.65f, 0.72f);
                     Shader waterShader = null;
@@ -1916,7 +1919,10 @@ namespace WorldSphereMod
                         return tile == null ? 0f : tile.TileHeight();
                     });
 
-                Shader shader = ResolveShader("");
+                // Lava/swamp/acid surface overlays use OpaqueVertexColor (colored opaque/
+                // translucent mesh; Standard alpha props like _Mode/_SrcBlend are set
+                // after material creation and work on both Standard and OVC). (#208)
+                Shader shader = ResolveShader("OpaqueVertexColor");
                 if (shader == null) return;
                 Material mat = new Material(shader) { name = "WSM3D.HeightField" + kind };
                 if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
@@ -2456,10 +2462,17 @@ namespace WorldSphereMod
                     "ScreenSpaceGI", "ScreenSpaceAO", "ProceduralSky",
                 };
 
-            // SAFE WIN #208: OVC-only, ShaderBundleAvailable=true, compute gated behind PostFxShaderBundleAvailable
+            // Expanded to all confirmed non-postFX validated bundle shaders; postFX
+            // (BrpBloom, BrpACES, ColorGradingLUT, ScreenSpaceGI, ScreenSpaceAO,
+            // ProceduralSky) still excluded — PostFxShaderBundleAvailable=false gate remains (#208).
             public static readonly string[] SafeShaders = new[]
             {
                 "OpaqueVertexColor",
+                "CompoundSphere",
+                "GerstnerWater",
+                "FoliageWind",
+                "Impostor",
+                "StratumVoxelPBR",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look

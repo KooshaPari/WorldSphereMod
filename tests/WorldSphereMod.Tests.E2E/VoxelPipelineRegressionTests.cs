@@ -274,25 +274,28 @@ public class VoxelPipelineRegressionTests
         // is bundle-safe" finding was against a variant-STRIPPED 80-byte stub bundle
         // that crashed on deserialize. The bake variant-stripping fix (b1882549)
         // produced a VALID 157KB wsm3d-shaders bundle with real serialized variants,
-        // so SafeShaders is re-expanded to the postFX/sky set that consumers key on.
-        // Per-shader load guards (empty-name / !isSupported / try-catch) skip any
-        // bad asset so it degrades to Standard instead of crashing. Water/foliage/
-        // voxel shaders stay out (owned by other tasks) — #204 is postFX-scoped.
-        // This MUST match Core.Sphere.SafeShaders exactly.
+        // and SafeShaders now intentionally includes only confirmed non-postFX runtime
+        // shaders (OpaqueVertexColor + CompoundSphere + water + foliage + impostor +
+        // stratum PBR) used by WSM3D terrain/mesh systems.
+        // PostFxShaderBundleAvailable is false in this build, so postFX shader members
+        // stay excluded; they are only 80-byte stubs and can abort native loading.
+        // Per-shader load guards (empty-name / !isSupported / try-catch) skip any bad
+        // asset so it degrades to Standard instead of crashing. This MUST match
+        // Core.Sphere.SafeShaders exactly.
         var expected = new[]
         {
             "OpaqueVertexColor",
-            "BrpBloom",
-            "BrpACES",
-            "ColorGradingLUT",
-            "ScreenSpaceGI",
-            "ScreenSpaceAO",
-            "ProceduralSky",
+            "CompoundSphere",
+            "GerstnerWater",
+            "FoliageWind",
+            "Impostor",
+            "StratumVoxelPBR",
         };
         shaderNames.Should().BeEquivalentTo(expected,
             "SafeShaders must contain EXACTLY the runtime shader load set " +
-            "(ADR-0013/#204 — OpaqueVertexColor + postFX/sky set, loadable now " +
-            "that the bundle is a valid 157KB bake)");
+            "(ADR-0013/#204 — OpaqueVertexColor, CompoundSphere, GerstnerWater, " +
+            "FoliageWind, Impostor, StratumVoxelPBR). PostFxShaderBundleAvailable=false " +
+            "keeps postFX excluded.");
 
         // The ADR-0013 reference must be present as a guard against uninformed edits
         source.Should().Contain("ADR-0013",
