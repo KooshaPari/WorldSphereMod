@@ -1,8 +1,8 @@
 # ADR-sota-gpu-compute-adoption: Adopting Compound-Spheres GPU-Compute Rewrite as SOTA Renderer Base
 
-**Status:** Accepted (P1 GPU-compute scaffold shipped in sota/gpu-compute-golive; P4 consumer migration in progress on feat/gpu-compute-p4-consumer-migration; 2026-06-01)
+**Status:** Accepted — Implemented (P0-P5 landed, visual gate pending)
 
-**Date:** 2026-05-30
+**Date:** 2026-06-02
 
 **Author:** Claude / KooshaPari
 
@@ -11,6 +11,27 @@
 `MelvinShwuaner/Compound-Spheres`.
 
 ---
+
+## Implementation Status
+
+All phases (P0–P5) are implemented on branch `feat/gpu-compute-p4-consumer-migration`
+and CI-verified as of 2026-06-02.
+
+| Phase | Commit | Status |
+|---|---|---|
+| P0 | `3564692d` | IGridDimensions port + HeightFieldRenderer decoupled |
+| P1 | `1f8ea647` | GpuSphereManager.Creator.CreateSphereManagerAsync vendored |
+| P2 | `4c0fa34b` | GpuSphereManager wired in parallel with CPU Manager; SetActive(false) until BindGpu |
+| P3 | `2ac48ade` | RefreshSphere/UpdateLayer/UpdateBaseLayer mirrored to GpuManager |
+| P4 | `64695b45` | BindGpu: HeightField heights pushed to GPU, layer re-activated |
+| P5 | `5665df5f` | CreateGpuSettings passes CompoundCompute; null-guard fallback |
+| PR#37 fixes | `1ade9d3f` | Null-guards, ConfigureShape, UpdateScale/UpdateTexture mirrors |
+
+**CI results (2026-06-02):** Build 0 errors, 537 pass / 3 intentional skips (superproject) + 19/19 parity tests (submodule).
+
+**DLL vendor:** `WorldSphereMod/Assemblies/CompoundSpheres.dll` SHA256 `62D4DEA1138AC2EF03DA08EFE5C28511164E40B212EF943EB1304443B9DD28E7` matches sota/gpu-compute-golive @ 308f2bb.
+
+**Remaining gate:** Unity-runtime visual confirm (user-gated). See `docs/199-merge-checklist.md`.
 
 ## Context
 
