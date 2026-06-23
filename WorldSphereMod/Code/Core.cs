@@ -2248,25 +2248,33 @@ namespace WorldSphereMod
                     // (no per-instance _Color cbuffer -> no magenta/green class).
                     // NOTE: a ComputeShader is NOT a UnityEngine.Shader, so it loads
                     // via GetObject<ComputeShader> on the .compute asset path.
-                    try
+                    // SAFE WIN #208: OVC-only, ShaderBundleAvailable=true, compute gated behind PostFxShaderBundleAvailable
+                    if (PostFxShaderBundleAvailable)
                     {
-                        UnityEngine.ComputeShader cs =
-                            shaderAb.GetObject<UnityEngine.ComputeShader>("assets/wsm3d/shaders/compoundspherecompute.compute");
-                        if (cs == null)
-                            cs = shaderAb.GetObject<UnityEngine.ComputeShader>("Assets/WSM3D/Shaders/CompoundSphereCompute.compute");
-                        if (cs != null)
+                        try
                         {
-                            CompoundCompute = cs;
-                            Debug.Log($"[WSM3D] Loaded GPU-compute keystone: CompoundSphereCompute (kernels {CompoundSpheres.Gpu.GpuKernels.Matrix}/{CompoundSpheres.Gpu.GpuKernels.Color}) supported={SystemInfo.supportsComputeShaders}");
+                            UnityEngine.ComputeShader cs =
+                                shaderAb.GetObject<UnityEngine.ComputeShader>("assets/wsm3d/shaders/compoundspherecompute.compute");
+                            if (cs == null)
+                                cs = shaderAb.GetObject<UnityEngine.ComputeShader>("Assets/WSM3D/Shaders/CompoundSphereCompute.compute");
+                            if (cs != null)
+                            {
+                                CompoundCompute = cs;
+                                Debug.Log($"[WSM3D] Loaded GPU-compute keystone: CompoundSphereCompute (kernels {CompoundSpheres.Gpu.GpuKernels.Matrix}/{CompoundSpheres.Gpu.GpuKernels.Color}) supported={SystemInfo.supportsComputeShaders}");
+                            }
+                            else
+                            {
+                                Debug.LogWarning("[WSM3D] CompoundSphereCompute not in wsm3d-shaders bundle — GPU-compute path unavailable; legacy CPU SphereManager path stays active.");
+                            }
                         }
-                        else
+                        catch (System.Exception ex)
                         {
-                            Debug.LogWarning("[WSM3D] CompoundSphereCompute not in wsm3d-shaders bundle — GPU-compute path unavailable; legacy CPU SphereManager path stays active.");
+                            Debug.LogWarning("[WSM3D] CompoundSphereCompute load threw: " + ex.Message + " — GPU-compute path unavailable.");
                         }
                     }
-                    catch (System.Exception ex)
+                    else
                     {
-                        Debug.LogWarning("[WSM3D] CompoundSphereCompute load threw: " + ex.Message + " — GPU-compute path unavailable.");
+                        Debug.Log("[WSM3D] Skipping CompoundSphereCompute load because PostFxShaderBundleAvailable=false in SAFE WIN #208.");
                     }
                 }
 
@@ -2435,6 +2443,7 @@ namespace WorldSphereMod
             // enumeration for post-FX shaders fully disabled.
             public const bool PostFxShaderBundleAvailable = false; // #208 LONG-TERM OFF per ADR-0021 (2026-06-06 re-investigation): the bake now runs on 2022.3.60f1 (matches runtime — was wrongly diagnosed as 62f3/60f1 mismatch in earlier L1 logs), all 12 shaders report 'Serialized binary data' in the bake, and the 6 postFX shaders carry the WSM3D_POSTFX_KEEP pragma + SVC +2 variants, BUT the 60f1 player still reads 80-byte stubs for BrpBloom/BrpACES/ColorGradingLUT/ScreenSpaceGI/ScreenSpaceAO/ProceduralSky and 8-byte stub for CompoundSphereCompute. Neither SVC preload, the POSTFX_KEEP keyword, a candidate-test re-bundle (e6589a46), nor the pragma+SVC+2 fix in b206c1d3 (reverted 36d57d9a) resolve the strip. The mod cannot modify the WorldBox player binary or trigger a player rebuild, so the in-tree fix surface is exhausted. Do NOT flip to true without end-to-end runtime validation; see ADR-0021 'Future Resolution Path' for the four conditions that must hold first.
 
+            // SAFE WIN #208: OVC-only, ShaderBundleAvailable=true, compute gated behind PostFxShaderBundleAvailable
             public const bool ShaderBundleAvailable = true;
 
             // Names of corrupted postFX shaders that must never be loaded via
@@ -2447,13 +2456,7 @@ namespace WorldSphereMod
                     "ScreenSpaceGI", "ScreenSpaceAO", "ProceduralSky",
                 };
 
-            public static readonly System.Collections.Generic.HashSet<string> CorruptedShaderNames =
-                new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
-                {
-                    "BrpBloom",
-                    "BrpACES",
-                };
-
+            // SAFE WIN #208: OVC-only, ShaderBundleAvailable=true, compute gated behind PostFxShaderBundleAvailable
             public static readonly string[] SafeShaders = new[]
             {
                 "OpaqueVertexColor",

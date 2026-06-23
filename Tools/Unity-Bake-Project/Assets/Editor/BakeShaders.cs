@@ -1,5 +1,6 @@
 using System.IO;
 using System.Linq;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -105,15 +106,29 @@ public static class BakeShaders
         }
 
         // Tag only the shader assets to the new bundle name.
+        // #208 FRESH APPROACH: ship postFX shaders in the worldsphere bundle.
+        var postFxShaders = new HashSet<string>(new[]
+        {
+            "BrpBloom",
+            "BrpACES",
+            "ColorGradingLUT",
+            "ScreenSpaceGI",
+            "ScreenSpaceAO",
+            "ProceduralSky",
+        }, System.StringComparer.OrdinalIgnoreCase);
+
         foreach (var path in Directory.GetFiles(assetsShaderDir, "*.shader"))
         {
             string rel = "Assets/" + Path.GetRelativePath(Application.dataPath, path).Replace('\\', '/');
             AssetImporter ai = AssetImporter.GetAtPath(rel);
             if (ai != null)
             {
-                ai.assetBundleName = "wsm3d-shaders";
+                string bundle = postFxShaders.Contains(Path.GetFileNameWithoutExtension(path))
+                    ? "worldsphere"
+                    : "wsm3d-shaders";
+                ai.assetBundleName = bundle;
                 ai.SaveAndReimport();
-                Debug.Log("[WSM3D-Bake] tagged wsm3d-shaders: " + rel);
+                Debug.Log($"[WSM3D-Bake] tagged {bundle}: " + rel);
             }
             else
             {
