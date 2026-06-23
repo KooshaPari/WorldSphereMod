@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added [recovery roadmap for June 2026](docs/roadmap/recovery-roadmap-2026-06.md) to reconstruct and finish the rendering lane after June 1 regressions.
+- Added [retroactive June changelog](docs/analysis/retroactive-changelog-2026-06.md) to separate verified runtime progress from planning debt.
+
 ## [2.0.0-beta.7] - 2026-06-03
 
 Windows-tested pre-release from the #208 render sprint. Mac/Linux bundles ship untested; see [`docs/release-notes/v2.0.0-beta.7.md`](docs/release-notes/v2.0.0-beta.7.md) for honest known-issue list and voxel-flash workaround.
