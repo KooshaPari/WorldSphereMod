@@ -860,8 +860,6 @@ namespace WorldSphereMod.Voxel
             static int _emitDiagFrameCounter;
             static bool _emitDiagSawNonZero;
             static bool _billboardDiagLogged;
-            static bool _voxelDiagLogged;
-            static bool _matDiagLogged;
 
             public static void ResetDiag()
             {
@@ -869,8 +867,6 @@ namespace WorldSphereMod.Voxel
                 _emitDiagFrameCounter = 0;
                 _emitDiagSawNonZero = false;
                 _billboardDiagLogged = false;
-                _voxelDiagLogged = false;
-                _matDiagLogged = false;
             }
 
             [HarmonyPostfix]
@@ -939,7 +935,8 @@ namespace WorldSphereMod.Voxel
                     if (!_billboardDiagLogged)
                     {
                         _billboardDiagLogged = true;
-                        Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Actor processed={__instance.visible_units.count} skipped={__instance.visible_units.count} reason=(nullMaterial=1,lodCull=0,scaleZero=0) visibleUnitsCount={__instance.visible_units.count} frustumCullerPassCount=0 batcherSubmitCount=0");
+                        int matSkipped = 1;
+                        Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Actor processed={__instance.visible_units.count} skipped={__instance.visible_units.count} reason=(nullMaterial={matSkipped},lodImpostor=0,scaleZero=0) visibleUnitsCount={__instance.visible_units.count} frustumCullerPassCount=0 batcherSubmitCount=0");
                     }
                     RenderErrorRegistry.Record(RenderErrorType.MaterialNull, "ActorManager",
                         "EnsureMaterial() returned no usable voxel material", Vector3.zero);
@@ -1178,34 +1175,11 @@ namespace WorldSphereMod.Voxel
                             a, "Submit() returned false (material/shader unusable)", pos);
                     }
                 }
-                // DOUBLE-BUFFER SWAP: emit complete — atomically replace the FRONT (draw) buffer
-                // with this emit's BACK contents. The per-frame flush redraws FRONT every frame, so
-                // actors stay drawn across the gap until the next emit. Never leaves front empty.
-                lock (_actorSpriteCardBatchLock)
-                {
-                    _actorSpriteCardFront.Clear();
-                    foreach (var kv in _actorSpriteCardBatches)
-                    {
-                        if (kv.Value.Count == 0) continue;
-                        _actorSpriteCardFront[kv.Key] = new List<Matrix4x4>(kv.Value);
-                    }
-                }
                 if (!_billboardDiagLogged)
                 {
                     _billboardDiagLogged = true;
-                    int skipped = dsNullActor + dsPerpSkipped + dsFrustumFail + dsSpriteNull + dsVoxelMeshNull + dsVoxelSubmitFail + dsSkeletalSubmitFail + dsTierCull;
-                    Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Actor processed={n} skipped={skipped} reason=(nullMaterial=0,lodCull={dsTierCull},scaleZero=0,nullActor={dsNullActor},perp={dsPerpSkipped},frustumFail={dsFrustumFail},spriteNull={dsSpriteNull},meshNull={dsVoxelMeshNull},submitFail={dsVoxelSubmitFail + dsSkeletalSubmitFail}) visibleUnitsCount={LastVisibleUnitsCount} frustumCullerPassCount={LastFrustumCullerPassCount} batcherSubmitCount={LastBatcherSubmitCount}");
-                }
-
-                if (!_voxelDiagLogged)
-                {
-                    _voxelDiagLogged = true;
-                    Debug.Log($"[WSM3D][VOXEL-DIAG] actors={diagActors} already_suppressed={diagAlreadySuppressed} submit_attempted={diagSubmitAttempt} skip_null={diagSkipNull}");
-                }
-                if (!_normalRenderDiagLogged)
-                {
-                    _normalRenderDiagLogged = true;
-                    Debug.Log($"[WSM3D][NORMAL-RENDER-DIAG] actors_processed={diagActors} already_false={diagAlreadySuppressed} now_false={diagHasNormalRenderSetFalse}");
+                    int skipped = dsNullActor + dsPerpSkipped + dsFrustumFail + dsSpriteNull + dsVoxelMeshNull + dsVoxelSubmitFail + dsSkeletalSubmitFail + dsTierImpostor;
+                    Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Actor processed={n} skipped={skipped} reason=(nullMaterial=0,lodImpostor={dsTierImpostor},scaleZero=0,nullActor={dsNullActor},perp={dsPerpSkipped},frustumFail={dsFrustumFail},spriteNull={dsSpriteNull},meshNull={dsVoxelMeshNull},submitFail={dsVoxelSubmitFail + dsSkeletalSubmitFail}) visibleUnitsCount={LastVisibleUnitsCount} frustumCullerPassCount={LastFrustumCullerPassCount} batcherSubmitCount={LastBatcherSubmitCount}");
                 }
                 // DIAG-SUBMIT one-shot path report — answers "where did the meshOk actors go?"
                 if (Core.savedSettings.ProfilerDump && (!_emitDiagSawNonZero || _emitDiagFrameCounter < 3))
@@ -1394,7 +1368,7 @@ namespace WorldSphereMod.Voxel
                     {
                         _buildingBillboardDiagLogged = true;
                         int visible = __instance._visible_buildings_count;
-                        Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Building processed={visible} skipped={visible} reason=(materialNull=1,lodCull=0,scaleZero=0) visibleUnitsCount={visible} frustumCullerPassCount=0 batcherSubmitCount=0");
+                        Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Building processed={visible} skipped={visible} reason=(materialNull=1,lodImpostor=0,scaleZero=0) visibleUnitsCount={visible} frustumCullerPassCount=0 batcherSubmitCount=0");
                     }
                     RenderErrorRegistry.Record(RenderErrorType.MaterialNull, "BuildingManager",
                         "EnsureMaterial() returned no usable voxel material", Vector3.zero);
@@ -1404,6 +1378,16 @@ namespace WorldSphereMod.Voxel
                 var rd = __instance.render_data;
                 var arr = __instance._array_visible_buildings;
                 int n = __instance._visible_buildings_count;
+                int processed = 0;
+                int skippedNull = 0;
+                int skippedPerp = 0;
+                int skippedFrustum = 0;
+                int skippedLod = 0;
+                int skippedSpriteNull = 0;
+                int skippedScaleZero = 0;
+                int skippedMeshNull = 0;
+                int submitCount = 0;
+                int frustumPass = 0;
 
                 // IDLE FAST-PATH (#208 fps): when the visible-building set is unchanged
                 // (no spawn / despawn / building moved into frustum or out), skip the
@@ -1475,6 +1459,26 @@ namespace WorldSphereMod.Voxel
                         skippedScaleZero++;
                     }
 
+                    Vector3 cullPos = rd.positions[i];
+                    if (cullPos.z < Constants.ZDisplacement * 0.5f)
+                    {
+                        skippedNull++;
+                        continue;
+                    }
+
+                    processed++;
+                    if (Constants.PerpBuildings.ContainsKey(b.asset.id))
+                    {
+                        skippedPerp++;
+                        continue;
+                    }
+
+                    Vector3 inScale = rd.scales[i];
+                    if (inScale.sqrMagnitude <= 0.000001f)
+                    {
+                        skippedScaleZero++;
+                    }
+
                     // Derive the 3D cull position from the building's tile coords rather
                     // than rd.positions[i] — the parallel calculatebuildindata3D pass may
                     // not have completed when this Postfix runs (Parallel.For race), leaving
@@ -1503,18 +1507,7 @@ namespace WorldSphereMod.Voxel
                         continue;
                     }
                     frustumPass++;
-                    // Buildings use BuildingSize * VoxelScaleMultiplier for their actual
-                    // world height — not ActorVoxelScaleFactor (actor-only). Pass it as
-                    // entityHeightOverride so the LOD distance threshold is consistent with
-                    // the rendered building scale. (#208 lodCull=76 fix)
-                    float bldEntityH = Core.savedSettings.BuildingSize * Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.BuildingVoxelScaleFactor;
-                    WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode(), bldEntityH);
-                    // One-shot LOD DIAG: log the LOD decision inputs for the first building.
-                    if (!_buildingBillboardDiagLogged && frustumPass == 1)
-                    {
-                        float distSqr = (cullPos - CameraManager.MainCamera.transform.position).sqrMagnitude;
-                        Debug.Log($"[WSM3D][LOD-DIAG] building[0] cullPos={cullPos} dist={Mathf.Sqrt(distSqr):F1} entityH={bldEntityH:F2} lodScale={Core.savedSettings.LODScale} tier={tier}");
-                    }
+                    WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode());
 
                     Sprite sp = rd.main_sprites[i];
                     if (sp == null)
@@ -1537,7 +1530,7 @@ namespace WorldSphereMod.Voxel
                     if (tier == WorldSphereMod.LOD.LodTier.Cull)
                     {
                         // FAR TIER = CULL. Sprite already suppressed → building invisible at
-                        // distance rather than the flat fallback tier.
+                        // distance rather than a flat impostor billboard.
                         skippedLod++;
                         continue;
                     }
@@ -1594,7 +1587,7 @@ namespace WorldSphereMod.Voxel
                 {
                     _buildingBillboardDiagLogged = true;
                     int skipped = skippedNull + skippedPerp + skippedFrustum + skippedLod + skippedSpriteNull + skippedScaleZero + skippedMeshNull;
-                    Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Building processed={processed} skipped={skipped} reason=(materialNull=0,lodCull={skippedLod},scaleZero={skippedScaleZero},spriteNull={skippedSpriteNull},meshNull={skippedMeshNull},frustumFail={skippedFrustum},null={skippedNull},perp={skippedPerp}) visibleUnitsCount={n} frustumCullerPassCount={frustumPass} batcherSubmitCount={submitCount}");
+                    Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Building processed={processed} skipped={skipped} reason=(materialNull=0,lodImpostor={skippedLod},scaleZero={skippedScaleZero},spriteNull={skippedSpriteNull},meshNull={skippedMeshNull},frustumFail={skippedFrustum},null={skippedNull},perp={skippedPerp}) visibleUnitsCount={n} frustumCullerPassCount={frustumPass} batcherSubmitCount={submitCount}");
                 }
             }
         }
