@@ -36,6 +36,9 @@ function Test-YamlValid {
     if ($pythonExists) {
         try {
             $output = python -c "import yaml; yaml.safe_load(open('$FilePath'))" 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                return $false
+            }
             return $true
         } catch {
             return $false
@@ -112,6 +115,9 @@ foreach ($chk in $checks) {
             try {
                 Push-Location $repoRoot
                 $out = & dotnet build WorldSphereMod.csproj -c Release --nologo -v quiet 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Build failed with exit code $LASTEXITCODE"
+                }
                 Write-Host "${ok}OK${reset}"
             } catch {
                 Write-Host "${err}FAIL${reset}"
@@ -126,6 +132,9 @@ foreach ($chk in $checks) {
             try {
                 Push-Location $repoRoot
                 $out = & dotnet test tests/WorldSphereMod.Tests.Unit -c Release --nologo -v quiet 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Tests failed with exit code $LASTEXITCODE"
+                }
                 Write-Host "${ok}OK${reset}"
             } catch {
                 Write-Host "${err}FAIL${reset}"
