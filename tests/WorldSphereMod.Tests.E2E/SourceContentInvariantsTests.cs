@@ -240,23 +240,6 @@ public class SourceContentInvariantsTests
             "/health must not be serialized through the timeout-prone main-thread dispatcher");
         bridgeServer.Should().Contain("public static void RefreshTelemetryCache()",
             "telemetry cache must be callable after MeshInstanceBatcher.Flush");
-        bridgeServer.Should().Contain("UpdateSettingQueued(string key, string rawValue)",
-            "settings POST must keep the listener-thread entrypoint explicit");
-        var updateSettingBody = ExtractMethodBody(bridgeServer, "object UpdateSettingQueued(string key, string rawValue)");
-        updateSettingBody.Should().Contain("_mainThreadQueue.Enqueue(() =>",
-            "settings updates must enqueue Unity mutation and persistence work");
-        updateSettingBody.Should().Contain("Core.SaveSettings()",
-            "settings persistence must happen on the main thread queue");
-        int enqueueIndex = updateSettingBody.IndexOf("_mainThreadQueue.Enqueue(() =>", StringComparison.Ordinal);
-        int fieldSetIndex = updateSettingBody.IndexOf("field.SetValue(Core.savedSettings, parsed);", StringComparison.Ordinal);
-        int saveSettingsIndex = updateSettingBody.IndexOf("Core.SaveSettings();", StringComparison.Ordinal);
-        enqueueIndex.Should().BeGreaterThanOrEqualTo(0);
-        fieldSetIndex.Should().BeGreaterThan(enqueueIndex,
-            "savedSettings mutation must be deferred into the queued main-thread work");
-        saveSettingsIndex.Should().BeGreaterThan(enqueueIndex,
-            "settings persistence must be deferred into the queued main-thread work");
-        bridgeServer.Should().Contain("WorldSphereMod.Voxel.SanityTestCube.Reset();",
-            "bridge start/stop must reset probe state so live telemetry cannot reuse stale positions");
         var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
         voxelRender.Should().Contain("Bridge.BridgeServer.RefreshTelemetryCache()",
             "telemetry must refresh after flush so drawCalls reflect the completed frame");

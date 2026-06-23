@@ -1759,6 +1759,7 @@ namespace WorldSphereMod.Voxel
             if (_submitFlushDiagFrame % 60 == 0 && Core.savedSettings.ProfilerDump)
             {
                 Debug.Log($"[WSM3D][SubmitFlushDiag] frame={_submitFlushDiagFrame} submits={submitCount} flushes={flushCount} submitsBeforeFlush={submitsBeforeFlush} hadPending={hadPending} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} buckets={MeshInstanceBatcher.FrameBucketCount}");
+                Bridge.BridgeServer.RefreshTelemetryCache();
             }
 
             Bridge.BridgeServer.RefreshTelemetryCache();
