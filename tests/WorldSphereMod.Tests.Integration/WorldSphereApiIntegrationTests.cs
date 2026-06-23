@@ -5,6 +5,7 @@ using System.Reflection;
 using FluentAssertions;
 using Xunit;
 
+[Trait("Category", "Integration")]
 public class WorldSphereApiIntegrationTests
 {
     private static readonly string[] ExpectedV2CapabilityStrings =

@@ -15,7 +15,7 @@ public class SavedSettings
     public float AutoScreenshotIntervalSeconds = 60f;
     public string AutoScreenshotPath = @"C:\Users\koosh\Dev\WorldSphereMod\docs\journeys\scratch\";
 
-        public string Version = "2.3";
+        public string Version = "2.13";
         public bool Is3D = true;
         public bool InvertedCameraMovement = false;
         public bool PerlinNoise = true;
@@ -74,31 +74,60 @@ public class SavedSettings
         // vary shape but still use ResolveDepth. "lathe" ignores depth setting.
         // "auto" defers to AssetShapeRegistry per sprite name. See spec Known gaps.
         public string VoxelInflationStyle = "pertexel";
+        // The 8x multiplier is for the TERRAIN (tile-space → world-space). Actor/foliage/
+        // building voxel meshes are sprite-pixel-sized in their mesh-local units, so the
+        // per-entity *VoxelScaleFactor below multiplies VoxelScaleMultiplier back down toward
+        // 1.0× for those paths. Without this, entities render ~3-8× too big.
         public float VoxelScaleMultiplier = 8.0f;
+        // Buildings: effective scale = VoxelScaleMultiplier * BuildingVoxelScaleFactor
+        // (legacy default 0.25 → net 2×; lowered to 0.125 → net 1× sprite-pixel size).
+        public float BuildingVoxelScaleFactor = 0.125f;
+        // Actors: effective scale = VoxelScaleMultiplier * ActorVoxelScaleFactor
+        // (legacy default 0.35 → net 2.8×; 0.5 in live JSON → net 4×. Fixed at 0.125 → net 1×).
+        public float ActorVoxelScaleFactor = 0.125f;
+        // Foliage (trees, rocks, bushes, grass tufts): effective scale =
+        // VoxelScaleMultiplier * FoliageVoxelScaleFactor. Legacy 0.20 → net 1.6×; fixed at 0.125 → net 1×.
+        public float FoliageVoxelScaleFactor = 0.125f;
         public bool DebugVoxelOutline = false;
         public bool DebugSanityCube = false;
         public bool DebugSpawnBuildings = false;
+        // RENDER-ERROR DIAGNOSTICS: when true, render failures draw a typed in-world ERROR
+        // prop (GMod-style) at the failing object + record telemetry. When false, failures
+        // are INVISIBLE (voxel-or-invisible policy) but STILL recorded in RenderErrorRegistry
+        // / /diag/errors — telemetry is always on; only the visual marker is gated.
+        // Default TRUE while we fix rendering; flip false for clean play.
+        public bool RenderErrorProps = true;
+        // PER-OBJECT DIAGNOSTIC OVERLAY: tags objects with compact render-state so the
+        // failure DISTRIBUTION is visible at a glance. Opt-in; off by default.
+        public bool RenderDiagOverlay = false;
         // AutoTest set false now that Phase 1+6+10 confirmed via opus —
         // AutoTest's flag-flip cycle leaves the game in non-default state on
         // exit + spams 13×3s timing buckets per launch. Switch to manual
         // re-enable when running phase-budget regression tests.
         public bool AutoTest = false;
         // Phase 2: Procedural building meshes (vs. billboarded building sprites).
-        public bool ProceduralBuildings = false;
+        public bool ProceduralBuildings = true;
         // Optional Phase 2 style override: keep the old stylized procgen architecture
         // path instead of voxelizing building sprites directly.
         public bool BuildingStyleProcgen = false;
         // Phase 3: Crossed-quad foliage (vs. billboarded sprite top tiles).
-        public bool CrossedQuadFoliage = false;
+        // WHY default ON: the [Phase] gate skips the FoliageTileRender Harmony patch
+        // entirely when this is false, so trees fall through to vanilla 2D. Mirrors
+        // VoxelEntities=true so foliage renders 3D out-of-the-box like actors.
+        public bool CrossedQuadFoliage = true;
         // ADR-0017 M0: continuous height-field mesh terrain (replaces per-tile quads).
-        // Flat shape only. Default OFF until validated in-game.
-        public bool UseHeightFieldTerrain = false;
+        // Default ON (#201): the corner-averaged + analytic-normal + Perlin-displaced
+        // mesh is the smooth-terrain path; OFF made land fall back to blocky per-tile
+        // quads (the cube-step regression). The mesh build is shape-agnostic (operates
+        // on Rows×Cols + injected shape-aware projectPosition), so it is enabled for all
+        // shapes via the gate in Core.ConfigureHeightField.
+        public bool UseHeightFieldTerrain = true;
         // Terrain polish: blend biome colors across tile boundaries.
         public bool BiomeBlending = true;
         // Phase 4: Mesh water surface (vs. flat tile color).
-        public bool MeshWater = false;
+        public bool MeshWater = true;
         // Worldspace health bar style: true => 3D mesh bars, false => legacy billboard quads.
-        public bool WorldspaceHealth3D = false;
+        public bool WorldspaceHealth3D = true;
         // Mountain slope smoothing: smooth overlay mesh that blends the upstream
         // blocky terrain around cliff and ridge transitions.
         public bool MountainSlopeSmoothing = false;
@@ -120,9 +149,8 @@ public class SavedSettings
         public float NameplateFadeFar = 30f;
         public float NameplateReferenceDistance = 10f;
         public float NameplateMinScale = 0.25f;
-        public float NameplateMaxScale = 4f;
-        public float NameplateBaseScale = 0.15f;
-        public float NameplateScaleDistanceDivisor = 100f;
+        public float NameplateMaxScale = 2f;
+        public float NameplateBaseScale = 0.04f;
         // Phase 8: Day/night cycle + procedural sky + fog.
         public bool DayNightCycle = false;
         public float FogDensity = 0.05f;
@@ -167,23 +195,33 @@ public class SavedSettings
         // per frame, cycling through the full visible set across frames.
         // 0 = unlimited (process all). Reduces per-frame cost from O(visible)
         // to O(budget) at the expense of spreading updates over multiple frames.
-        public int BuildingRenderBudget = 200;
+        // Lowered 200 -> 50 (#208) — paired with the distance-gate in
+        // BuildingProcRender.EmitMeshes, this caps per-frame work on big kingdoms
+        // where precalculateRenderDataParallel spikes 30-40ms.
+        public int BuildingRenderBudget = 50;
 
         // Voxel disk cache: persist voxelized meshes to SQLite so subsequent
         // launches skip the async voxelization queue entirely.
         public bool VoxelDiskCache = true;
         public int VoxelDiskCacheMaxSizeMB = 50;
 
+        // Input-capture substrate: passively record the user's in-game action stream
+        // (clicks->tool+tile, camera moves, world create/load, speed changes) to an
+        // append-only JSONL session log so flows can be replayed headlessly via the bridge.
+        // Default on for now (see docs/adr/ADR-input-capture-substrate.md).
+        public bool InputCaptureEnabled = true;
+
         public static void ApplyLightweightPreset(SavedSettings s)
         {
             if (s == null) throw new ArgumentNullException(nameof(s));
 
+            s.FoliageVoxelScaleFactor = 0.125f;
             s.VoxelEntities = true;
-            s.ProceduralBuildings = false;
+            s.ProceduralBuildings = true;
             s.CrossedQuadFoliage = false;
             s.BiomeBlending = false;
             s.MeshWater = false;
-            s.WorldspaceHealth3D = false;
+            s.WorldspaceHealth3D = true;
             s.MountainSlopeSmoothing = false;
             s.HighShadows = false;
             s.HdrSkybox = false;
@@ -208,11 +246,18 @@ public class SavedSettings
         {
             if (s == null) throw new ArgumentNullException(nameof(s));
 
+            s.FoliageVoxelScaleFactor = 0.125f;
             s.VoxelEntities = true;
-            s.ProceduralBuildings = false;
-            s.CrossedQuadFoliage = false;
+            s.ProceduralBuildings = true;
+            s.CrossedQuadFoliage = true; // WHY: gates the foliage patch; off = trees stay vanilla 2D
+            s.UseHeightFieldTerrain = true; // #201: smooth corner-averaged terrain mesh (off = cube-step regression)
+            // #206: re-apply the actor voxel scale so persisted JSON (which shadows the field
+            // default) re-migrates to the current actor-size default. Requires SettingsVersion
+            // bump (Core.cs 2.4 -> 2.5) so loadedData.Version mismatch triggers this migration.
+            s.ActorVoxelScaleFactor = 0.125f;
+            s.BuildingVoxelScaleFactor = 0.125f;
             s.MeshWater = false;
-            s.WorldspaceHealth3D = false;
+            s.WorldspaceHealth3D = true;
             s.MountainSlopeSmoothing = false;
             s.HighShadows = false;
             s.HdrSkybox = false;
@@ -238,6 +283,7 @@ public class SavedSettings
         {
             if (s == null) throw new ArgumentNullException(nameof(s));
 
+            s.FoliageVoxelScaleFactor = 0.125f;
             s.VoxelEntities = true;
             s.ProceduralBuildings = true;
             s.CrossedQuadFoliage = true;
@@ -260,7 +306,7 @@ public class SavedSettings
             s.ACESTonemapping = true;
             s.ParticleEffects = true;
             s.WeatherRain = true;
-            s.DebugSanityCube = true;
+            s.DebugSanityCube = false;
             s.ProfilerDump = true;
         }
     }

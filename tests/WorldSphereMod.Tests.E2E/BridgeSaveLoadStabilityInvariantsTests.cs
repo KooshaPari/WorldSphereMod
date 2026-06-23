@@ -7,6 +7,7 @@ using Xunit;
 /// Save/load bridge hardening invariants from
 /// docs/journeys/scratch/bridge-scene-transition-known-issue.md — mock/stub level, no WorldBox DLLs.
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class BridgeSaveLoadStabilityInvariantsTests
 {
     private static string FindRepoRoot()

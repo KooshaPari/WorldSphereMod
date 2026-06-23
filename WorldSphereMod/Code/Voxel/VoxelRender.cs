@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
@@ -34,9 +35,28 @@ namespace WorldSphereMod.Voxel
         static bool _firstActorPosLogged;
         static int _actorVoxelColorSampleCount;
         static bool _actorVoxelDiagnosticLogged;
-        static bool _actorImpostorDiagnosticLogged;
         static bool _actorSkeletalDiagnosticLogged;
+        static bool _actorSpriteDrawDiagLogged;
+        static int _actorDrawDiagThrottle;
+        static bool _normalRenderDiagLogged;
         static readonly List<Vector3> _actorVoxelSubmitTranslations = new(5);
+        static readonly Dictionary<ActorSpriteCardMeshKey, Mesh> _actorSpriteCardMeshes = new();
+        static readonly Dictionary<Texture2D, Material> _actorSpriteCardMaterials = new();
+        static readonly Dictionary<ActorSpriteCardBatchKey, List<Matrix4x4>> _actorSpriteCardBatches = new(); // BACK (emit fills)
+        // FRONT buffer: the per-frame flush redraws this every frame. Replaced wholesale at emit-end.
+        static readonly Dictionary<ActorSpriteCardBatchKey, List<Matrix4x4>> _actorSpriteCardFront = new();
+        // CUMULATIVE actor draw counter — NOTHING else resets this (unlike MeshInstanceBatcher.
+        // FrameDrawCalls which the batcher zeroes mid-frame, corrupting the bridge reading). Lets us
+        // measure whether the actor flush actually draws every frame: sample twice, delta should
+        // grow by ~1/frame steadily if drawing stably, or stay flat/jump if flickering.
+        public static long ActorDrawCallsCumulative;
+        public static int ActorFrontCount;
+        static readonly object _actorSpriteCardBatchLock = new();
+        static readonly Matrix4x4[] _actorSpriteCardMatrices = new Matrix4x4[1023];
+        const int MaxSpriteCardInstancedBatch = 1023;
+        static readonly int _actorSpriteCardMainTexId = Shader.PropertyToID("_MainTex");
+        static readonly int _actorSpriteCardColorId = Shader.PropertyToID("_Color");
+        static readonly int _actorSpriteCardBaseColorId = Shader.PropertyToID("_BaseColor");
 
         /// <summary>
         /// Destroy the cached material and clear the resolve-attempted latch. Call when
@@ -51,7 +71,7 @@ namespace WorldSphereMod.Voxel
             // destroyed-Unity-null after this method runs, causing NRE in
             // DrawFallbackPath when Flush iterates stale bucket keys.
             MeshInstanceBatcher.Reset();
-            if (_material != null) Object.Destroy(_material);
+            if (_material != null) UnityEngine.Object.Destroy(_material);
             _material = null;
             _materialAttempted = false;
             _materialProbeLogged = false;
@@ -60,13 +80,42 @@ namespace WorldSphereMod.Voxel
             _firstActorPosLogged = false;
             _actorVoxelDiagnosticLogged = false;
             _actorVoxelColorSampleCount = 0;
-            _actorImpostorDiagnosticLogged = false;
             _actorSkeletalDiagnosticLogged = false;
+            _actorSpriteDrawDiagLogged = false;
             _actorVoxelSubmitTranslations.Clear();
+            ClearActorSpriteCardState();
             _flushDiagLogged = false;
             _submitDiagLogged = false;
             ActorVoxelEmit.ResetDiag();
             BuildingVoxelEmit.ResetDiag();
+            // Clear render-error telemetry + queued markers on world reload — stale counts
+            // from a prior world would otherwise pollute /diag/errors.
+            RenderErrorRegistry.Reset();
+            RenderErrorMarkers.Reset();
+        }
+
+        static void ClearActorSpriteCardState()
+        {
+            lock (_actorSpriteCardBatchLock)
+            {
+                foreach (var kv in _actorSpriteCardMeshes)
+                {
+                    if (kv.Value != null) UnityEngine.Object.Destroy(kv.Value);
+                }
+                _actorSpriteCardMeshes.Clear();
+
+                foreach (var kv in _actorSpriteCardMaterials)
+                {
+                    if (kv.Value != null) UnityEngine.Object.Destroy(kv.Value);
+                }
+                _actorSpriteCardMaterials.Clear();
+
+                foreach (var batch in _actorSpriteCardBatches.Values)
+                {
+                    batch.Clear();
+                }
+                _actorSpriteCardBatches.Clear();
+            }
         }
 
         /// <summary>
@@ -86,7 +135,7 @@ namespace WorldSphereMod.Voxel
                     Material? upgrade = TryCompileInlineVoxelShader();
                     if (upgrade != null)
                     {
-                        Object.Destroy(_material);
+                        UnityEngine.Object.Destroy(_material);
                         _material = upgrade;
                         McPackLoader.ApplyToMaterial(_material);
                         Debug.Log("[WSM3D] Voxel material upgraded from Standard to OpaqueVertexColor (late bundle load).");
@@ -100,33 +149,17 @@ namespace WorldSphereMod.Voxel
             }
             _materialAttempted = true;
 
+            // 60f1 ships a STRIPPED shader set: Particles/*, URP/*, Unlit/* all
+            // return null at runtime, so reaching for them produced null → magenta
+            // voxels. ResolveShader maps to "Standard" only — never Unlit/URP.
             string[] candidates =
             {
-                // Particle shaders can consume Mesh COLOR output when _VERTEX_COLOR_ON
-                // is enabled, so try them first for per-vertex tint fidelity.
-                "Particles/Standard Surface",
-                "Particles/Standard Unlit",
-                // URP variants are clean opaque fallbacks and avoid legacy sprite
-                // transparency ordering issues.
-                "Universal Render Pipeline/Simple Lit",
-                "Universal Render Pipeline/Lit",
-                "Universal Render Pipeline/Unlit",
-                "Universal Render Pipeline/Particles/Unlit",
-                // Legacy fallback path (if SRP fallback happens at runtime).
-                // Sprites/Default LAST -- it produces open-box 2.5D transparent
-                // rendering (single-sided faces, alpha-blended). c1abc6b promoted
-                // it to first hoping to get vertex colors through; user-reported
-                // regression was visible-only-front-faces. Standard back at higher
-                // priority despite black-output risk since the per-instance emission
-                // override (c7be9bd) + clamp (8ee4549) should mitigate.
-                "Unlit/Texture",
-                "Unlit/Color",
                 "Standard",
             };
             var shaderLookup = new Dictionary<string, Shader>();
             foreach (var name in candidates)
             {
-                Shader s = Shader.Find(name);
+                Shader s = WorldSphereMod.Core.Sphere.ResolveShader("");
                 shaderLookup[name] = s;
                 if (!_materialProbeLogged)
                 {
@@ -411,7 +444,7 @@ namespace WorldSphereMod.Voxel
             if (_material == null && !EnsureMaterial()) return false;
             _submitDiagCount++;
             // TEMPORARY DIAGNOSTIC: log first non-sanity-cube submit
-            if (!_submitDiagLogged && mesh != null && mesh.name != "WSM3D.SanityTestCube")
+            if (!_submitDiagLogged && Core.savedSettings.ProfilerDump && mesh != null && mesh.name != "WSM3D.SanityTestCube")
             {
                 _submitDiagLogged = true;
                 Debug.Log($"[WSM3D][DIAG-SUBMIT] First non-sanity Submit: mesh={mesh.name} verts={mesh.vertexCount} matName={_material?.name} trs.pos={trs.GetColumn(3)} tint={tint} totalSubmits={_submitDiagCount}");
@@ -431,7 +464,7 @@ namespace WorldSphereMod.Voxel
         public static void Flush()
         {
             // TEMPORARY DIAGNOSTIC: one-shot log to track Flush calls
-            if (!_flushDiagLogged)
+            if (!_flushDiagLogged && Core.savedSettings.ProfilerDump)
             {
                 _flushDiagLogged = true;
                 Debug.Log($"[WSM3D][DIAG-FLUSH] VoxelRender.Flush CALLED materialNull={_material == null} hasPending={MeshInstanceBatcher.HasPendingSubmissions} bucketCount={MeshInstanceBatcher.FrameBucketCount} instances={MeshInstanceBatcher.FrameInstances} drawCalls={MeshInstanceBatcher.FrameDrawCalls}");
@@ -507,6 +540,309 @@ namespace WorldSphereMod.Voxel
             return Camera.main;
         }
 
+        readonly struct ActorSpriteCardMeshKey : IEquatable<ActorSpriteCardMeshKey>
+        {
+            public readonly int TextureId;
+            public readonly int X;
+            public readonly int Y;
+            public readonly int Width;
+            public readonly int Height;
+            public readonly int ScaleKey;
+
+            public ActorSpriteCardMeshKey(Texture2D tex, Sprite sprite, float scaleMultiplier)
+            {
+                TextureId = tex != null ? tex.GetInstanceID() : 0;
+                Rect r = sprite != null ? sprite.rect : default;
+                X = Mathf.RoundToInt(r.x);
+                Y = Mathf.RoundToInt(r.y);
+                Width = Mathf.Max(1, Mathf.RoundToInt(r.width));
+                Height = Mathf.Max(1, Mathf.RoundToInt(r.height));
+                ScaleKey = Mathf.Max(1, Mathf.RoundToInt(scaleMultiplier * 10000f));
+            }
+
+            public bool Equals(ActorSpriteCardMeshKey other)
+            {
+                return TextureId == other.TextureId &&
+                       X == other.X &&
+                       Y == other.Y &&
+                       Width == other.Width &&
+                       Height == other.Height &&
+                       ScaleKey == other.ScaleKey;
+            }
+
+            public override bool Equals(object? obj) => obj is ActorSpriteCardMeshKey other && Equals(other);
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = 17;
+                    hash = hash * 31 + TextureId;
+                    hash = hash * 31 + X;
+                    hash = hash * 31 + Y;
+                    hash = hash * 31 + Width;
+                    hash = hash * 31 + Height;
+                    hash = hash * 31 + ScaleKey;
+                    return hash;
+                }
+            }
+        }
+
+        readonly struct ActorSpriteCardBatchKey : IEquatable<ActorSpriteCardBatchKey>
+        {
+            public readonly Mesh Mesh;
+            public readonly Material Material;
+
+            public ActorSpriteCardBatchKey(Mesh mesh, Material material)
+            {
+                Mesh = mesh;
+                Material = material;
+            }
+
+            public bool Equals(ActorSpriteCardBatchKey other)
+            {
+                return Mesh == other.Mesh && Material == other.Material;
+            }
+
+            public override bool Equals(object? obj) => obj is ActorSpriteCardBatchKey other && Equals(other);
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = 17;
+                    hash = hash * 31 + (Mesh != null ? Mesh.GetInstanceID() : 0);
+                    hash = hash * 31 + (Material != null ? Material.GetInstanceID() : 0);
+                    return hash;
+                }
+            }
+        }
+
+        static Mesh? GetActorSpriteCardMesh(Sprite? sprite, float scaleMultiplier)
+        {
+            if (sprite == null || sprite.texture == null)
+            {
+                return null;
+            }
+
+            ActorSpriteCardMeshKey key = new(sprite.texture, sprite, scaleMultiplier);
+            if (_actorSpriteCardMeshes.TryGetValue(key, out Mesh cachedMesh))
+            {
+                return cachedMesh;
+            }
+
+            Rect rect = sprite.rect;
+            // Size the card in WORLD units like the vanilla sprite render: pixels / pixelsPerUnit.
+            // Raw rect.width(px) * scaleMultiplier produced ~45-tile-wide giants (px not divided by PPU).
+            float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
+            float scale = scaleMultiplier;
+            float width = (rect.width / ppu) * scale;
+            float height = (rect.height / ppu) * scale;
+            float halfWidth = width * 0.5f;
+            float halfHeight = height * 0.5f;
+
+            Texture2D tex = sprite.texture;
+            float texWidth = Mathf.Max(1f, tex.width);
+            float texHeight = Mathf.Max(1f, tex.height);
+            Vector2 uvMin = new Vector2(rect.x / texWidth, rect.y / texHeight);
+            Vector2 uvMax = new Vector2((rect.x + rect.width) / texWidth, (rect.y + rect.height) / texHeight);
+
+            Mesh mesh = new Mesh
+            {
+                name = $"WSM3D.ActorCard_{tex.name}_{rect.x}_{rect.y}_{rect.width}_{rect.height}"
+            };
+            mesh.vertices = new[]
+            {
+                new Vector3(-halfWidth, -halfHeight, 0f),
+                new Vector3(halfWidth, -halfHeight, 0f),
+                new Vector3(-halfWidth, halfHeight, 0f),
+                new Vector3(halfWidth, halfHeight, 0f),
+            };
+            mesh.uv = new[]
+            {
+                new Vector2(uvMin.x, uvMin.y),
+                new Vector2(uvMax.x, uvMin.y),
+                new Vector2(uvMin.x, uvMax.y),
+                new Vector2(uvMax.x, uvMax.y),
+            };
+            mesh.triangles = new[] { 0, 1, 2, 1, 3, 2 };
+            mesh.normals = new[]
+            {
+                Vector3.forward,
+                Vector3.forward,
+                Vector3.forward,
+                Vector3.forward
+            };
+            mesh.RecalculateBounds();
+
+            _actorSpriteCardMeshes[key] = mesh;
+            return mesh;
+        }
+
+        static Material? GetActorSpriteCardMaterial(Texture2D? texture)
+        {
+            if (texture == null)
+            {
+                return null;
+            }
+
+            if (_actorSpriteCardMaterials.TryGetValue(texture, out Material existing))
+            {
+                return existing;
+            }
+
+            // FOUNDATION FIX (research-backed): the OrganicBlob actor mesh is a real 3D volume,
+            // but Sprites/Default is UNLIT — so the volume read flat/dark (no ambient+directional
+            // shading on the 164-vert mesh). Prefer a LIT shader so the 3D shape actually shows.
+            // Chain: WSM3D/OpaqueVertexColor (lit + vertex-color, if the bundle loaded) ->
+            // Mobile/Diffuse (lit, guaranteed built-in) -> Standard -> Sprites/Default (last resort).
+            // Caller ensures the mesh has normals so lit shaders can shade it.
+            Shader? shader = Shader.Find("WSM3D/OpaqueVertexColor");
+            if (shader == null) shader = Shader.Find("Mobile/Diffuse");
+            if (shader == null) shader = Shader.Find("Standard");
+            if (shader == null) shader = Shader.Find("Sprites/Default");
+            if (shader == null)
+            {
+                return null;
+            }
+
+            Material material = new Material(shader)
+            {
+                name = $"WSM3D.ActorSpriteCard.{texture.name}",
+                enableInstancing = true
+            };
+            material.EnableKeyword("INSTANCING_ON");
+            material.SetTexture(_actorSpriteCardMainTexId, texture);
+            material.SetColor(_actorSpriteCardColorId, Color.white);
+            material.SetColor(_actorSpriteCardBaseColorId, Color.white);
+            _actorSpriteCardMaterials[texture] = material;
+            return material;
+        }
+
+        static bool TryQueueActorSpriteCardRender(Material? material, Mesh mesh, Matrix4x4 trs)
+        {
+            if (material == null || mesh == null || mesh.vertexCount == 0)
+            {
+                return false;
+            }
+
+            ActorSpriteCardBatchKey key = new(mesh, material);
+            lock (_actorSpriteCardBatchLock)
+            {
+                if (!_actorSpriteCardBatches.TryGetValue(key, out var list))
+                {
+                    list = new List<Matrix4x4>(16);
+                    _actorSpriteCardBatches[key] = list;
+                }
+
+                list.Add(trs);
+                string meshName = mesh != null ? mesh.name : "<null-mesh>";
+                string materialName = material != null ? material.name : "<null-material>";
+                // (CARD-QUEUE diag removed — fired per-actor-per-frame = 522K Debug.Log calls,
+                //  flooded the WorldBox console overlay and tanked FPS. Chain confirmed working.)
+            }
+            return true;
+        }
+
+        static Quaternion GetActorCardRotation(Vector3 position)
+        {
+            Camera? cam = CameraManager.MainCamera;
+            Vector3 toCamera = cam != null
+                ? (cam.transform.position - position)
+                : Vector3.back;
+            if (toCamera.sqrMagnitude < 0.0001f)
+            {
+                toCamera = Vector3.back;
+            }
+
+            // Slightly tilt toward the camera for the intended "card" look.
+            Quaternion facing = Quaternion.LookRotation(toCamera, Vector3.up);
+            return facing * Quaternion.Euler(-12f, 0f, 0f);
+        }
+
+        internal static void FlushQueuedActorSpriteCards()
+        {
+            // (CARD-FLUSH-ENTER diag removed — per-frame log spam.)
+
+            List<KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>>> batches;
+            lock (_actorSpriteCardBatchLock)
+            {
+                // Draw the FRONT buffer (populated at emit-end). Never cleared here — redraws
+                // every frame so actors persist across the intermittent-emit gap (no flicker).
+                ActorFrontCount = _actorSpriteCardFront.Count;
+                if (_actorSpriteCardFront.Count == 0) return;
+                batches = new List<KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>>>(_actorSpriteCardFront);
+            }
+
+            int flushedBatches = 0;
+            int totalMatrices = 0;
+            string diagMaterialName = "<none>";
+            string diagMeshName = "<none>";
+            int diagMeshVerts = 0;
+
+            foreach (KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>> pair in batches)
+            {
+                Mesh mesh = pair.Key.Mesh;
+                Material material = pair.Key.Material;
+                if (mesh == null || material == null)
+                {
+                    pair.Value.Clear();
+                    continue;
+                }
+
+                List<Matrix4x4> matrices = pair.Value;
+                int total = matrices.Count;
+                int start = 0;
+                while (start < total)
+                {
+                    int count = Mathf.Min(MaxSpriteCardInstancedBatch, total - start);
+                    matrices.CopyTo(start, _actorSpriteCardMatrices, 0, count);
+                    diagMaterialName = material != null ? material.name : "<null>";
+                    diagMeshName = mesh != null ? mesh.name : "<null>";
+                    diagMeshVerts = mesh != null ? mesh.vertexCount : 0;
+                    try
+                    {
+                        Graphics.DrawMeshInstanced(mesh, 0, material, _actorSpriteCardMatrices, count);
+                        MeshInstanceBatcher.FrameDrawCalls++;
+                        ActorDrawCallsCumulative++;
+                        flushedBatches++;
+                        totalMatrices += count;
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError($"[WSM3D] Actor sprite-card DrawMeshInstanced failed: {ex.GetType().Name}: {ex.Message}");
+                        for (int i = start; i < start + count; i++)
+                        {
+                            try
+                            {
+                                Graphics.DrawMesh(mesh, _actorSpriteCardMatrices[i - start], material, 0, null);
+                                MeshInstanceBatcher.FrameDrawCalls++;
+                                totalMatrices++;
+                            }
+                            catch (System.Exception fallbackEx)
+                            {
+                                Debug.LogError($"[WSM3D] Actor sprite-card DrawMesh fallback failed: {fallbackEx.GetType().Name}: {fallbackEx.Message}");
+                            }
+                        }
+                    }
+
+                    // ACTOR-DRAW-DIAG removed — confirmed actors use voxel-organicblob meshVerts=164
+                    // (real 3D volume, not the flat card). Per-frame Debug.Log floods the console
+                    // overlay; gate any future re-add behind ProfilerDump + a mesh-name-change check.
+                    _ = _actorDrawDiagThrottle; _ = diagMaterialName; _ = diagMeshName; _ = diagMeshVerts;
+                    start += count;
+                }
+
+                // DO NOT clear matrices here — the front buffer is replaced wholesale on the
+                // next emit (line ~1184 in ActorVoxelEmit.EmitVoxels). Clearing after every
+                // flush means non-emit frames find an empty front buffer and skip the
+                // DrawMeshInstanced call, producing intermittent drawCalls=0 in the bridge
+                // telemetry. The intent (comment at L770) is "redraws every frame so actors
+                // persist across the intermittent-emit gap (no flicker)" — the clear defeats
+                // that and was the regression root cause.
+            }
+        }
+
         // ---------------------------------------------------------------------
         // Harmony hooks. Registered automatically via Patcher.PatchAll on the
         // existing Core.Patch() pass because [HarmonyPatch] is declared here.
@@ -515,6 +851,7 @@ namespace WorldSphereMod.Voxel
         [HarmonyPatch(typeof(ActorManager), nameof(ActorManager.precalculateRenderDataParallel))]
         public static class ActorVoxelEmit
         {
+            static bool _actorLodDiagLogged;
             public static bool EmitVoxelsCalled;
             public static int LastVisibleUnitsCount;
             public static int LastFrustumCullerPassCount;
@@ -522,12 +859,18 @@ namespace WorldSphereMod.Voxel
             static bool _emitDiagLogged;
             static int _emitDiagFrameCounter;
             static bool _emitDiagSawNonZero;
+            static bool _billboardDiagLogged;
+            static bool _voxelDiagLogged;
+            static bool _matDiagLogged;
 
             public static void ResetDiag()
             {
                 _emitDiagLogged = false;
                 _emitDiagFrameCounter = 0;
                 _emitDiagSawNonZero = false;
+                _billboardDiagLogged = false;
+                _voxelDiagLogged = false;
+                _matDiagLogged = false;
             }
 
             [HarmonyPostfix]
@@ -542,8 +885,18 @@ namespace WorldSphereMod.Voxel
                 // "voxel actors back to billboards".
                 EmitVoxelsCalled = true;
                 Tools.ClearTileHeightSmoothCache();
+                // FLICKER FIX (double-buffer): emit fills the BACK buffer (_actorSpriteCardBatches),
+                // cleared here at start. At emit END we atomically copy it to the FRONT buffer
+                // (_actorSpriteCardFront) which the per-frame flush redraws EVERY frame. Because
+                // emit runs intermittently (precalculateRenderDataParallel postfix) but the flush
+                // + DrawMeshInstanced run every frame, the front buffer must never go empty between
+                // emits — so we only REPLACE front when a fresh emit completes, never clear it mid-gap.
+                lock (_actorSpriteCardBatchLock)
+                {
+                    foreach (var b in _actorSpriteCardBatches.Values) b.Clear();
+                }
                 // TEMPORARY DIAGNOSTIC: one-shot log to verify the Harmony postfix fires
-                if (!_emitDiagLogged)
+                if (!_emitDiagLogged && Core.savedSettings.ProfilerDump)
                 {
                     _emitDiagLogged = true;
                     bool matOk = EnsureMaterial();
@@ -569,9 +922,9 @@ namespace WorldSphereMod.Voxel
                             if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(dCullPos, 2f))
                             { frustumFail++; continue; }
                             frustumPass++;
-                            Sprite dSp = diagRd.main_sprites[di];
+                            Sprite dSp = ResolveActorSprite(diagRd, di, da);
                             if (dSp == null) { meshNull++; continue; }
-                            Mesh dm = VoxelMeshCache.Get(dSp, -1, true);
+                            Mesh dm = VoxelMeshCache.Get(dSp, ShapeHint.OrganicBlob, true, VoxelEntityType.Actor);
                             if (dm == null || dm.vertexCount == 0) meshNull++; else meshOk++;
                         }
                     }
@@ -579,7 +932,27 @@ namespace WorldSphereMod.Voxel
                     if (visCount > 0) _emitDiagSawNonZero = true;
                 }
                 if (!Core.IsWorld3D || !Core.savedSettings.VoxelEntities) return;
-                if (!EnsureMaterial()) return;
+                // MaterialNull: no usable shader/material resolved → every actor this frame is
+                // invisible. Record once at the actor manager position so the operator sees WHY.
+                if (!EnsureMaterial())
+                {
+                    if (!_billboardDiagLogged)
+                    {
+                        _billboardDiagLogged = true;
+                        Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Actor processed={__instance.visible_units.count} skipped={__instance.visible_units.count} reason=(nullMaterial=1,lodCull=0,scaleZero=0) visibleUnitsCount={__instance.visible_units.count} frustumCullerPassCount=0 batcherSubmitCount=0");
+                    }
+                    RenderErrorRegistry.Record(RenderErrorType.MaterialNull, "ActorManager",
+                        "EnsureMaterial() returned no usable voxel material", Vector3.zero);
+                    return;
+                }
+                if (!_matDiagLogged)
+                {
+                    _matDiagLogged = true;
+                    Material? matDiag = GetResolvedMaterial();
+                    string matName = matDiag?.name ?? "<null>";
+                    string shaderName = matDiag?.shader != null ? matDiag.shader.name : "<null shader>";
+                    Debug.Log($"[WSM3D][MAT-DIAG] material={matName} shader={shaderName}");
+                }
 
                 var rd = __instance.render_data;
                 var arr = __instance.visible_units.array;
@@ -589,19 +962,40 @@ namespace WorldSphereMod.Voxel
                 LastBatcherSubmitCount = 0;
                 // DIAG-SUBMIT path counters — find where the 8 meshOk actors are being dropped
                 int dsNullActor = 0, dsPerpSkipped = 0, dsFrustumFail = 0;
-                int dsTierImpostor = 0, dsTierProxy = 0, dsTierVoxel = 0, dsTierOther = 0;
+                int dsTierCull = 0, dsTierVoxel = 0;
                 int dsSkeletalAttempt = 0, dsSkeletalSubmitOk = 0, dsSkeletalSubmitFail = 0;
-                int dsImpostorMeshNull = 0, dsImpostorMatNull = 0, dsImpostorSubmit = 0;
+                int dsCullMeshNull = 0;
                 int dsSpriteNull = 0, dsVoxelMeshNull = 0, dsVoxelSubmitAttempt = 0, dsVoxelSubmitOk = 0, dsVoxelSubmitFail = 0;
+                int diagActors = 0;
+                int diagAlreadySuppressed = 0;
+                int diagSubmitAttempt = 0;
+                int diagSkipNull = 0;
+                int diagHasNormalRenderSetFalse = 0;
                 for (int i = 0; i < n; i++)
                 {
                     Actor a = arr[i];
-                    if (a == null || a.asset == null) { dsNullActor++; continue; }
-                    // Per-asset opt-out: the existing v1 API hands designers a way to
-                    // mark assets as "perp" (ground-aligned billboard). Those keep
-                    // sprite rendering for now — they tend to be flat decals (arrows,
-                    // ground markers) where voxelization adds nothing.
-                    if (Constants.PerpActors.ContainsKey(a.asset.id)) { dsPerpSkipped++; continue; }
+                    if (a == null || a.asset == null)
+                    {
+                        dsNullActor++;
+                        continue;
+                    }
+
+                    diagActors++;
+                    bool suppressAlready = !rd.has_normal_render[i];
+                    if (suppressAlready) diagAlreadySuppressed++;
+                    rd.has_normal_render[i] = false;
+                    if (!rd.has_normal_render[i]) diagHasNormalRenderSetFalse++;
+
+                    // VOXEL-OR-INVISIBLE (user, 2026-05-30): the legacy PerpActors opt-out
+                    // used to `continue` here, which LEFT has_normal_render[i] true and so
+                    // re-exposed the vanilla 2D billboard for perp-marked assets (palms,
+                    // ferns, bats, ground decals). That violated voxel-or-invisible — those
+                    // entities reappeared as flat sprites (BUG A). Perp assets now fall
+                    // through to the SAME voxel-or-cull path as every other actor: they
+                    // either render a real voxel mesh or nothing. We only bump the
+                    // diagnostic counter; we do NOT skip the emit.
+                    bool isPerp = Constants.PerpActors.ContainsKey(a.asset.id);
+                    if (isPerp) dsPerpSkipped++;
                     // GATE REMOVED (codex plate-78 diff): upstream may set has_normal_render=false
                     // for actors that should still get voxelized (e.g. all actors after the first
                     // created settlement per user observation). Buildings have no such gate;
@@ -620,45 +1014,57 @@ namespace WorldSphereMod.Voxel
                         continue;
                     }
                     LastFrustumCullerPassCount++;
-                    WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, a.GetHashCode());
-                    if (tier == WorldSphereMod.LOD.LodTier.Impostor) dsTierImpostor++;
-                    else if (tier == WorldSphereMod.LOD.LodTier.Voxel)
-                    {
-                        dsTierVoxel++;
+                    // Use fixed baseline height for LOD — rd.scales[i].y is the tiny vanilla
+                    // sprite render scale (~0.05), not the voxel mesh height. Fixed baseline
+                    // of 0.5 * VoxelScaleMultiplier * ActorVoxelScaleFactor matches LodSelector default.
+                    float actorEntityHeight = 0.5f * Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor;
+                    WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, a.GetHashCode(), actorEntityHeight);
+                    if (!_actorLodDiagLogged) {
+                        float dist = (cullPos - CameraManager.MainCamera.transform.position).magnitude;
+                        Debug.Log($"[WSM3D][ACTOR-LOD-DIAG] entityH={actorEntityHeight:F2} dist={dist:F1} thr={WorldSphereMod.LOD.LodSelector.VoxelThreshold:F3} tier={tier}");
+                        _actorLodDiagLogged = true;
                     }
-                    else if (tier != WorldSphereMod.LOD.LodTier.Impostor)
-                    {
-                        // Proxy currently shares the full voxel path, so keep
-                        // it in the voxel-path diagnostics without introducing a
-                        // Proxy-specific emit branch.
-                        dsTierVoxel++;
-                        dsTierProxy++;
-                    }
-                    else dsTierOther++;
+                    // Two-tier ladder: Voxel (near, emit mesh) or Cull (far, draw nothing).
+                    if (tier == WorldSphereMod.LOD.LodTier.Cull) dsTierCull++;
+                    else dsTierVoxel++;
 
-                    if (Core.savedSettings.SkeletalAnimation && tier != WorldSphereMod.LOD.LodTier.Impostor)
+                    if (Core.savedSettings.SkeletalAnimation && tier != WorldSphereMod.LOD.LodTier.Cull)
                     {
                         WorldSphereMod.Rig.RigType rigType = ResolveRigType(a.asset.id);
                         if (rigType != WorldSphereMod.Rig.RigType.None)
                         {
                             dsSkeletalAttempt++;
+                            // VOXEL-OR-INVISIBLE: suppress the vanilla 2D sprite for skinned
+                            // actors up-front too. If the skinned submit fails, the actor is
+                            // invisible this frame rather than reverting to a 2D billboard.
+                            rd.has_normal_render[i] = false;
                             Vector3 skPos = rd.positions[i];
                             Vector3 skPosBeforeLift = skPos;
                             Vector3 skRot = rd.rotations[i];
                             Vector3 skScl = rd.scales[i];
                             if (rd.flip_x_states[i]) skScl.x = -skScl.x;
+                            skScl.z = skScl.x;
+                            // Match the static actor path scale (line ~737): raw
+                            // rd.scales[i] is sprite-native (~1) and would render a
+                            // tiny actor against the 8x voxel world. RigDriver now
+                            // routes through the static voxel mesh (skinned path is
+                            // disabled, see RigDriver.kSkinnedRigProductionReady), so
+                            // apply the same VoxelScaleMultiplier * ActorVoxelScaleFactor
+                            // the normal static actor submit uses.
+                            skScl *= Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor;
                             if (skPos.z < Constants.ZDisplacement * 0.5f)
                             {
                                 skPos = skPos.To3DTileHeight(false);
                             }
-                            // Match the ActorVoxelEmit Y-lift so skinned actors aren't
-                            // embedded inside the terrain/water voxel. SubmitSkinnedActor
-                            // uses skPos as the rig root position; raise it by half the
-                            // expected actor height (use scl.y * VoxelScaleMultiplier as
-                            // rough actor height estimate; / 2 for center→bottom shift).
-                            float skHalfHeight = Mathf.Abs(skScl.y) * Core.savedSettings.VoxelScaleMultiplier * 0.5f;
+                            // Match the static actor path Y-lift so the mesh BOTTOM
+                            // sits on the terrain instead of embedded in the tile
+                            // cube. skScl is already fully scaled above, so estimate
+                            // half-height directly from it (no extra VoxelScaleMultiplier
+                            // — that would double-lift now that skScl carries the
+                            // multiplier). ~0.5 world units of mesh height pre-scale.
+                            float skHalfHeight = Mathf.Abs(skScl.y) * 0.5f;
                             skPos.y += skHalfHeight;
-                            LogActorSubmitDiagnostic("skeletal", ref _actorSkeletalDiagnosticLogged, a, rd.main_sprites[i], skPosBeforeLift, skPos, rd.colors[i]);
+                            LogActorSubmitDiagnostic("skeletal", ref _actorSkeletalDiagnosticLogged, a, ResolveActorSprite(rd, i, a), skPosBeforeLift, skPos, rd.colors[i]);
                             if (WorldSphereMod.Rig.RigDriver.SubmitSkinnedActor(
                                     a, skPos, Quaternion.Euler(0f, skRot.y, 0f), skScl, rd.colors[i], rigType))
                             {
@@ -673,42 +1079,69 @@ namespace WorldSphereMod.Voxel
                         }
                     }
 
-                    Sprite sp = rd.main_sprites[i];
-                    if (sp == null) { dsSpriteNull++; continue; }
-
-                    if (tier == WorldSphereMod.LOD.LodTier.Impostor)
+                    // Resolve the actor's actual current sprite. main_sprites[i] is null for
+                    // any actor whose colored-sprite resolution was deferred to the
+                    // (post-postfix) precalculateRenderDataNormal pass; fall back to the live
+                    // animation-frame sprite via Actor.calculateMainSprite() in that case.
+                    Sprite sp = ResolveActorSprite(rd, i, a);
+                    if (sp == null)
                     {
-                        bool submitted = false;
-                        Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
-                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial(sp);
-                        if (im == null || im.vertexCount == 0) { dsImpostorMeshNull++; continue; }
-                        if (imMat == null) { dsImpostorMatNull++; continue; }
-                        Vector3 imPos = rd.positions[i];
-                        Vector3 imPosBeforeLift = imPos;
-                        Vector3 imScl = rd.scales[i];
-                        if (rd.flip_x_states[i]) imScl.x = -imScl.x;
-                        if (imPos.z < Constants.ZDisplacement * 0.5f)
-                        {
-                            imPos = imPos.To3DTileHeight(false);
-                        }
-                        LogActorSubmitDiagnostic("impostor", ref _actorImpostorDiagnosticLogged, a, sp, imPosBeforeLift, imPos, rd.colors[i]);
-                        Quaternion br = WorldSphereMod.LOD.ImpostorBillboard.GetFacingRotation(imPos);
-                        Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
-                        MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
-                        LastBatcherSubmitCount++;
-                        dsImpostorSubmit++;
-                        submitted = true;
-                        if (submitted)
-                        {
-                            rd.has_normal_render[i] = false;
-                        }
+                        dsSpriteNull++;
+                        // SpriteNull: neither render_data nor calculateMainSprite() yielded a sprite.
+                        RecordActorError(RenderErrorType.SpriteNull, a,
+                            "main_sprites[i] null and calculateMainSprite() returned null", rd.positions[i]);
                         continue;
                     }
 
-                    // Phase 10: LodTier.Proxy (and Voxel) share full voxel path until BuildProxy/ProxyMeshCache ship.
-                    Mesh m = VoxelMeshCache.Get(sp, -1, true);
-                    if (m == null || m.vertexCount == 0) { dsVoxelMeshNull++; continue; }
+                    // VOXEL-OR-INVISIBLE POLICY (user, 2026-05-30): objects are REAL voxel
+                    // volumes or NOTHING — never a 2D/2.5D billboard. So suppress the vanilla
+                    // 2D sprite for EVERY eligible actor up-front (not just on successful
+                    // submit). If the voxel mesh isn't ready / material invalid / far LOD,
+                    // we skip the submit and the actor simply renders nothing this frame.
+                    rd.has_normal_render[i] = false;
+
+                    if (tier == WorldSphereMod.LOD.LodTier.Cull)
+                    {
+                        // FAR TIER = CULL, NOT BILLBOARD. The user explicitly prefers seeing
+                        // NOTHING over a flat fallback tier. Keep the LOD distance logic (so near
+                        // objects still voxelize) but the far tier draws nothing. Sprite is
+                        // already suppressed above, so the object is invisible at distance.
+                        rd.scales[i] = Vector3.zero;
+                        dsTierCull++;
+                        dsCullMeshNull++;
+                        continue;
+                    }
+
+                    float actorScale = Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor;
+                    // REAL 3D VOLUME (not flat card): route through the OrganicBlob voxelizer that
+                    // extrudes the sprite into an actual rounded 3D volume (per-pixel, kMinDepthScale
+                    // 0.60 = real depth). The earlier "sprite-card" flat 4-vert quad (GetActorSpriteCardMesh)
+                    // made every entity a same-width slab (trees thin, grass odd) — that was a regression
+                    // of this proven path (d186ad45). Mesh is unit-sized; scl applies actorScale below.
+                    Mesh m = VoxelMeshCache.Get(sp, ShapeHint.OrganicBlob, true, VoxelEntityType.Actor);
+                    // Sprite-card mesh not ready yet (cache miss) is not expected in
+                    // current implementation, but handle defensively as a skipped submit.
+                    if (m == null || m.vertexCount == 0)
+                    {
+                        dsVoxelMeshNull++;
+                        diagSkipNull++;
+                        Vector3 errPos = rd.positions[i];
+                        if (errPos.z < Constants.ZDisplacement * 0.5f) errPos = errPos.To3DTileHeight(false);
+                        RecordActorError(RenderErrorType.VoxelNotReady,
+                            a, sp != null ? "sprite-card mesh null/empty (cache build pending) sprite=" + sp.name : "sprite-card mesh null/empty", errPos);
+                        continue;
+                    }
+                    Material? cardMaterial = GetActorSpriteCardMaterial(sp.texture);
+                    if (cardMaterial == null)
+                    {
+                        dsVoxelSubmitFail++;
+                        Vector3 errPos = rd.positions[i];
+                        if (errPos.z < Constants.ZDisplacement * 0.5f) errPos = errPos.To3DTileHeight(false);
+                        RecordActorError(RenderErrorType.MaterialNull, a, "actor sprite card material null (could not resolve Sprites/Default or Standard)", errPos);
+                        continue;
+                    }
                     dsVoxelSubmitAttempt++;
+                    diagSubmitAttempt++;
 
                     Vector3 pos = rd.positions[i];
                     Vector3 posBeforeLift = pos;
@@ -719,24 +1152,17 @@ namespace WorldSphereMod.Voxel
                     LogActorSubmitDiagnostic("voxel", ref _actorVoxelDiagnosticLogged, a, sp, posBeforeLift, pos, rd.colors[i]);
                     SanityTestCube.CaptureFirstActorPos(pos);
                     Vector3 rot = rd.rotations[i];
-                    Vector3 scl = rd.scales[i];
+                    // Real 3D volume: upright (Y-up), no camera-facing billboard. Uniform actorScale.
+                    Quaternion faceRot = Quaternion.identity;
+                    Vector3 scl = new Vector3(actorScale, actorScale, actorScale);
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
-                    scl.z = scl.x;
-                    scl *= Core.savedSettings.VoxelScaleMultiplier;
-                    // Lift the mesh CENTER up by half the world-space mesh height so the
-                    // mesh BOTTOM sits ON the terrain surface instead of being embedded
-                    // inside the terrain/water voxel cube (which sits at y~2-3, exactly
-                    // where Tools.To3DTileHeight(false) puts the actor center). Without
-                    // this, half the actor mesh is hidden inside the cube and at
-                    // strategy-zoom altitudes it reads as 100% invisible.
-                    float halfHeight = m.bounds.size.y * 0.5f * scl.y;
+                    float halfHeight = m.bounds.size.y * 0.5f * actorScale;
                     pos.y += halfHeight;
                     LogFirstActorPos(posBeforeLift, pos, scl);
-                    // Z/X axes encode sprite-billboard lean; on a 3D mesh they topple the body. Yaw only here; lean returns in Phase 6 as a spine-bone tilt.
-                    Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
+                    Matrix4x4 trs = Matrix4x4.TRS(pos, faceRot, scl);
                     RecordActorVoxelTrs(trs);
                     // Hide the sprite quad for this actor — we drew the 3D mesh instead.
-                    if (Submit(m, trs, rd.colors[i]))
+                    if (TryQueueActorSpriteCardRender(cardMaterial, m, trs))
                     {
                         LastBatcherSubmitCount++;
                         dsVoxelSubmitOk++;
@@ -746,13 +1172,46 @@ namespace WorldSphereMod.Voxel
                     else
                     {
                         dsVoxelSubmitFail++;
+                        // ShaderFailed: Submit rejected the mesh (material null / instancing
+                        // variant missing / InternalError). Distinct from "not ready".
+                        RecordActorError(RenderErrorType.ShaderFailed,
+                            a, "Submit() returned false (material/shader unusable)", pos);
                     }
                 }
+                // DOUBLE-BUFFER SWAP: emit complete — atomically replace the FRONT (draw) buffer
+                // with this emit's BACK contents. The per-frame flush redraws FRONT every frame, so
+                // actors stay drawn across the gap until the next emit. Never leaves front empty.
+                lock (_actorSpriteCardBatchLock)
+                {
+                    _actorSpriteCardFront.Clear();
+                    foreach (var kv in _actorSpriteCardBatches)
+                    {
+                        if (kv.Value.Count == 0) continue;
+                        _actorSpriteCardFront[kv.Key] = new List<Matrix4x4>(kv.Value);
+                    }
+                }
+                if (!_billboardDiagLogged)
+                {
+                    _billboardDiagLogged = true;
+                    int skipped = dsNullActor + dsPerpSkipped + dsFrustumFail + dsSpriteNull + dsVoxelMeshNull + dsVoxelSubmitFail + dsSkeletalSubmitFail + dsTierCull;
+                    Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Actor processed={n} skipped={skipped} reason=(nullMaterial=0,lodCull={dsTierCull},scaleZero=0,nullActor={dsNullActor},perp={dsPerpSkipped},frustumFail={dsFrustumFail},spriteNull={dsSpriteNull},meshNull={dsVoxelMeshNull},submitFail={dsVoxelSubmitFail + dsSkeletalSubmitFail}) visibleUnitsCount={LastVisibleUnitsCount} frustumCullerPassCount={LastFrustumCullerPassCount} batcherSubmitCount={LastBatcherSubmitCount}");
+                }
+
+                if (!_voxelDiagLogged)
+                {
+                    _voxelDiagLogged = true;
+                    Debug.Log($"[WSM3D][VOXEL-DIAG] actors={diagActors} already_suppressed={diagAlreadySuppressed} submit_attempted={diagSubmitAttempt} skip_null={diagSkipNull}");
+                }
+                if (!_normalRenderDiagLogged)
+                {
+                    _normalRenderDiagLogged = true;
+                    Debug.Log($"[WSM3D][NORMAL-RENDER-DIAG] actors_processed={diagActors} already_false={diagAlreadySuppressed} now_false={diagHasNormalRenderSetFalse}");
+                }
                 // DIAG-SUBMIT one-shot path report — answers "where did the meshOk actors go?"
-                if (!_emitDiagSawNonZero || _emitDiagFrameCounter < 3)
+                if (Core.savedSettings.ProfilerDump && (!_emitDiagSawNonZero || _emitDiagFrameCounter < 3))
                 {
                     _emitDiagFrameCounter++;
-                    Debug.Log($"[WSM3D][DIAG-SUBMIT] EmitVoxels paths n={n} nullActor={dsNullActor} perpSkip={dsPerpSkipped} frustumFail={dsFrustumFail} frustumPass={LastFrustumCullerPassCount} | tier(Imp={dsTierImpostor} Proxy={dsTierProxy} Voxel={dsTierVoxel} Other={dsTierOther}) | skel(attempt={dsSkeletalAttempt} ok={dsSkeletalSubmitOk} fail={dsSkeletalSubmitFail}) | spriteNull={dsSpriteNull} | impostor(meshNull={dsImpostorMeshNull} matNull={dsImpostorMatNull} submit={dsImpostorSubmit}) | voxel(meshNull={dsVoxelMeshNull} attempt={dsVoxelSubmitAttempt} ok={dsVoxelSubmitOk} fail={dsVoxelSubmitFail}) | LastBatcherSubmitCount={LastBatcherSubmitCount} SkeletalAnimation={Core.savedSettings.SkeletalAnimation}");
+                        Debug.Log($"[WSM3D][DIAG-SUBMIT] EmitVoxels paths n={n} nullActor={dsNullActor} perpSkip={dsPerpSkipped} frustumFail={dsFrustumFail} frustumPass={LastFrustumCullerPassCount} | tier(Cull={dsTierCull} Voxel={dsTierVoxel}) | skel(attempt={dsSkeletalAttempt} ok={dsSkeletalSubmitOk} fail={dsSkeletalSubmitFail}) | spriteNull={dsSpriteNull} | cull(meshNull={dsCullMeshNull}) | voxel(meshNull={dsVoxelMeshNull} attempt={dsVoxelSubmitAttempt} ok={dsVoxelSubmitOk} fail={dsVoxelSubmitFail}) | LastBatcherSubmitCount={LastBatcherSubmitCount} SkeletalAnimation={Core.savedSettings.SkeletalAnimation}");
                 }
             }
 
@@ -761,8 +1220,46 @@ namespace WorldSphereMod.Voxel
                 return Constants.ResolveActorRig(assetId);
             }
 
+            // Funnel actor render failures into the registry with a stable object name.
+            static void RecordActorError(RenderErrorType type, Actor a, string reason, Vector3 worldPos)
+            {
+                string name = a != null && a.asset != null ? a.asset.id : "<actor>";
+                RenderErrorRegistry.Record(type, name, reason, worldPos);
+            }
+
+            // ROOT-CAUSE FIX (2026-05-30): ActorManager.precalculateRenderDataParallel only
+            // writes render_data.main_sprites[i] for the subset of actors whose colored sprite
+            // can be resolved on the worker thread (canParallelSetColoredSprite()==true). For
+            // everyone else it stores null and defers the real sprite to
+            // precalculateRenderDataNormal(), which runs AFTER this Harmony postfix on the
+            // parallel pass. So at our read point main_sprites[i] is null for live, fully-
+            // visible actors (the headless /diag/errors showed 29/29 SpriteNull "human" at
+            // valid positions — those are the deferred ones). It is NOT a missing sprite: the
+            // authoritative current animation-frame sprite is actor.calculateMainSprite(), the
+            // exact call WorldBox itself uses in both render passes. We resolve from that when
+            // the array slot is empty so VoxelMeshCache.Get(sprite) gets a real sprite and the
+            // voxel mesh actually builds. Only genuinely-null cases (e.g. asset has no sprite)
+            // fall through to the SpriteNull telemetry + voxel-or-invisible policy.
+            static Sprite ResolveActorSprite(ActorRenderData rd, int i, Actor a)
+            {
+                Sprite sp = rd.main_sprites[i];
+                if (sp != null) return sp;
+                if (a == null) return null;
+                try
+                {
+                    return a.calculateMainSprite();
+                }
+                catch
+                {
+                    // Defensive: animation container not ready / asset edge case — treat as null
+                    // so the caller records SpriteNull rather than throwing inside the postfix.
+                    return null;
+                }
+            }
+
             static void LogActorSubmitDiagnostic(string path, ref bool logged, Actor actor, Sprite? sprite, Vector3 beforeLift, Vector3 afterLift, Color tint)
             {
+                if (Core.savedSettings == null || !Core.savedSettings.ProfilerDump) return;
                 if (logged) return;
                 logged = true;
                 string assetId = actor != null && actor.asset != null ? actor.asset.id : "<null>";
@@ -781,6 +1278,7 @@ namespace WorldSphereMod.Voxel
                 Vector3 rotation,
                 Vector3 scale)
             {
+                if (Core.savedSettings == null || !Core.savedSettings.ProfilerDump) return;
                 if (_actorVoxelColorSampleCount >= 3) return;
                 if (path != "voxel") return;
 
@@ -792,6 +1290,7 @@ namespace WorldSphereMod.Voxel
 
             static void LogFirstActorPos(Vector3 rawPos, Vector3 liftedPos, Vector3 scl)
             {
+                if (Core.savedSettings == null || !Core.savedSettings.ProfilerDump) return;
                 if (_firstActorPosLogged) return;
                 _firstActorPosLogged = true;
                 Debug.Log($"[WSM3D] First-actor pos: raw={rawPos}, lifted={liftedPos}, scl={scl}");
@@ -815,22 +1314,72 @@ namespace WorldSphereMod.Voxel
         {
             static bool _buildingVoxelEmitSubmitLogged;
             static bool _buildingEmitDiagLogged;
+            static bool _buildingBillboardDiagLogged;
             // Per-frame budget cycling: tracks where we left off in the visible
             // buildings array so we process the next slice each frame.
             static int _budgetOffset;
+            // IDLE FAST-PATH (#208 fps): skip the per-frame emit when the visible-buildings
+            // identity hash is unchanged AND no building moved across the last two frames.
+            // Most idle frames have a static camera + no-spawn world; previous behavior ran
+            // the full budget cycle every frame (e.g. 200/200 of 1891 visible buildings) which
+            // is the dominant frame cost on wip/208-height-fix when the camera is still.
+            // The hash is a cheap 64-bit rolling xor of the first/middle/last building IDs +
+            // the visible-count — robust to budget cycling (only flips when a building is
+            // added/removed/visibly moved) and never false-skips on a moving camera (camera
+            // doesn't affect visible_buildings_count or the array contents, only positions).
+            static ulong _lastVisibleBuildingsHash;
+            static int _lastVisibleBuildingsCount;
+            static int _skippedStaticFrames;
+            public static int SkippedStaticFrames => _skippedStaticFrames;
+
+            static ulong ComputeVisibleBuildingsHash(Building[] arr, int n)
+            {
+                if (arr == null || n <= 0) return 0;
+                // FNV-1a-ish 64-bit: cheap, robust to permutation, and only walks 3 sample
+                // positions + the count. Sampling the head/middle/tail means a new building
+                // appearing anywhere in the array still changes the hash next frame.
+                ulong h = 1469598103934665603UL;
+                ulong id0 = GetBuildingAssetHash(arr[0]);
+                h = (h ^ id0) * 1099511628211UL;
+                if (n > 1)
+                {
+                    int mid = n >> 1;
+                    Building bMid = arr[mid];
+                    Building bLast = arr[n - 1];
+                    ulong idMid = GetBuildingAssetHash(bMid);
+                    ulong idLast = GetBuildingAssetHash(bLast);
+                    h = (h ^ idMid) * 1099511628211UL;
+                    h = (h ^ idLast) * 1099511628211UL;
+                }
+                h = (h ^ (ulong)n) * 1099511628211UL;
+                return h;
+            }
+
+            static ulong GetBuildingAssetHash(Building building)
+            {
+                if (building == null || building.asset == null || string.IsNullOrEmpty(building.asset.id))
+                {
+                    return 0UL;
+                }
+                return (ulong)building.asset.id.GetHashCode();
+            }
 
             public static void ResetDiag()
             {
                 _buildingVoxelEmitSubmitLogged = false;
                 _buildingEmitDiagLogged = false;
+                _buildingBillboardDiagLogged = false;
                 _budgetOffset = 0;
+                _lastVisibleBuildingsHash = 0;
+                _lastVisibleBuildingsCount = -1;
+                _skippedStaticFrames = 0;
             }
 
             [HarmonyPostfix]
             [HarmonyPriority(Priority.First)]
             public static void EmitVoxels(BuildingManager __instance)
             {
-                if (!_buildingEmitDiagLogged)
+                if (!_buildingEmitDiagLogged && Core.savedSettings.ProfilerDump)
                 {
                     _buildingEmitDiagLogged = true;
                     int bldgCount = __instance._visible_buildings_count;
@@ -839,11 +1388,57 @@ namespace WorldSphereMod.Voxel
                 }
                 if (!Core.IsWorld3D || !Core.savedSettings.VoxelEntities) return;
                 if (Core.savedSettings.ProceduralBuildings) return;
-                if (!EnsureMaterial()) return;
+                if (!EnsureMaterial())
+                {
+                    if (!_buildingBillboardDiagLogged)
+                    {
+                        _buildingBillboardDiagLogged = true;
+                        int visible = __instance._visible_buildings_count;
+                        Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Building processed={visible} skipped={visible} reason=(materialNull=1,lodCull=0,scaleZero=0) visibleUnitsCount={visible} frustumCullerPassCount=0 batcherSubmitCount=0");
+                    }
+                    RenderErrorRegistry.Record(RenderErrorType.MaterialNull, "BuildingManager",
+                        "EnsureMaterial() returned no usable voxel material", Vector3.zero);
+                    return;
+                }
 
                 var rd = __instance.render_data;
                 var arr = __instance._array_visible_buildings;
                 int n = __instance._visible_buildings_count;
+
+                // IDLE FAST-PATH (#208 fps): when the visible-building set is unchanged
+                // (no spawn / despawn / building moved into frustum or out), skip the
+                // budget-cycled re-emit entirely. The bucket fleet rendered last frame is
+                // still alive in the batcher and re-drawn by VoxelRender.Flush each frame
+                // via the same instance matrices — no visual loss, big CPU save in idle.
+                // Re-emit fires when the count differs OR the sampled hash changes, so
+                // moving buildings or new spawns still re-emit on the next frame.
+                if (arr != null && n > 0 && n == _lastVisibleBuildingsCount)
+                {
+                    ulong h = ComputeVisibleBuildingsHash(arr, n);
+                    if (h == _lastVisibleBuildingsHash)
+                    {
+                        _skippedStaticFrames++;
+                        return;
+                    }
+                }
+
+                // Compute the new hash unconditionally so the next frame's check is correct
+                // (covers the first frame and any frame where count or hash changed).
+                if (arr != null && n > 0)
+                {
+                    _lastVisibleBuildingsHash = ComputeVisibleBuildingsHash(arr, n);
+                }
+                _lastVisibleBuildingsCount = n;
+                int processed = 0;
+                int skippedNull = 0;
+                int skippedPerp = 0;
+                int skippedFrustum = 0;
+                int skippedLod = 0;
+                int skippedSpriteNull = 0;
+                int skippedScaleZero = 0;
+                int skippedMeshNull = 0;
+                int submitCount = 0;
+                int frustumPass = 0;
 
                 // Per-frame budget: only process a slice of visible buildings each
                 // frame, cycling through the full set. 0 = unlimited.
@@ -861,55 +1456,103 @@ namespace WorldSphereMod.Voxel
                 for (int i = start; i < end; i++)
                 {
                     Building b = arr[i];
-                    if (b == null || b.asset == null) continue;
-                    if (Constants.PerpBuildings.ContainsKey(b.asset.id)) continue;
-
-                    Vector3 cullPos = rd.positions[i];
-                    if (cullPos.z < Constants.ZDisplacement * 0.5f)
+                    if (b == null || b.asset == null)
                     {
-                        cullPos = cullPos.To3DTileHeight(false);
+                        skippedNull++;
+                        continue;
                     }
+
+                    processed++;
+                    if (Constants.PerpBuildings.ContainsKey(b.asset.id))
+                    {
+                        skippedPerp++;
+                        continue;
+                    }
+
+                    Vector3 inScale = rd.scales[i];
+                    if (inScale.sqrMagnitude <= 0.000001f)
+                    {
+                        skippedScaleZero++;
+                    }
+
+                    // Derive the 3D cull position from the building's tile coords rather
+                    // than rd.positions[i] — the parallel calculatebuildindata3D pass may
+                    // not have completed when this Postfix runs (Parallel.For race), leaving
+                    // rd.positions stale from the prior frame. Tile coords are always valid.
+                    // (#208 frustumFail=200 root cause: stale/wrong positions in rd.positions)
+                    Vector3 cullPos;
+                    if (b.current_position != null)
+                    {
+                        Vector2 tp = b.current_position;
+                        cullPos = Tools.To3D(new Vector3(tp.x, tp.y, 0), Tools.GetTileHeightSmooth(new Vector3(tp.x, tp.y, 0)));
+                    }
+                    else
+                    {
+                        cullPos = rd.positions[i];
+                        if (cullPos.z < Constants.ZDisplacement * 0.5f)
+                            cullPos = cullPos.To3DTileHeight(false);
+                    }
+                    // One-shot DIAG: log the actual cullPos for the first building so the
+                    // lifted coordinate is visible in Player.log. (#208)
+                    if (!_buildingBillboardDiagLogged && i == start)
+                        Debug.Log($"[WSM3D][FRUSTUM-DIAG] building[0] tile={b.current_position} cullPos={cullPos} rdPos={rd.positions[i]}");
                     float radius = 3f * Mathf.Max(1f, Core.savedSettings.VoxelScaleMultiplier * 0.5f);
                     if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, radius))
                     {
+                        skippedFrustum++;
                         continue;
                     }
-                    WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode());
+                    frustumPass++;
+                    // Buildings use BuildingSize * VoxelScaleMultiplier for their actual
+                    // world height — not ActorVoxelScaleFactor (actor-only). Pass it as
+                    // entityHeightOverride so the LOD distance threshold is consistent with
+                    // the rendered building scale. (#208 lodCull=76 fix)
+                    float bldEntityH = Core.savedSettings.BuildingSize * Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.BuildingVoxelScaleFactor;
+                    WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, b.GetHashCode(), bldEntityH);
+                    // One-shot LOD DIAG: log the LOD decision inputs for the first building.
+                    if (!_buildingBillboardDiagLogged && frustumPass == 1)
+                    {
+                        float distSqr = (cullPos - CameraManager.MainCamera.transform.position).sqrMagnitude;
+                        Debug.Log($"[WSM3D][LOD-DIAG] building[0] cullPos={cullPos} dist={Mathf.Sqrt(distSqr):F1} entityH={bldEntityH:F2} lodScale={Core.savedSettings.LODScale} tier={tier}");
+                    }
 
                     Sprite sp = rd.main_sprites[i];
-                    if (sp == null) continue;
-
-                    if (tier == WorldSphereMod.LOD.LodTier.Impostor)
+                    if (sp == null)
                     {
-                        bool submitted = false;
-                        Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
-                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial(sp);
-                        // Impostor mesh build failed: fall through to vanilla
-                        // sprite (don't zero scales — that's the "hide the
-                        // sprite because we drew our own mesh" path, which
-                        // we didn't actually do here).
-                        if (im == null || im.vertexCount == 0 || imMat == null) continue;
-                        Vector3 imPos = rd.positions[i];
-                        Vector3 imScl = rd.scales[i];
-                        if (rd.flip_x_states[i]) imScl.x = -imScl.x;
-                        if (imPos.z < Constants.ZDisplacement * 0.5f)
-                        {
-                            imPos = imPos.To3DTileHeight(false);
-                        }
-                        Quaternion br = WorldSphereMod.LOD.ImpostorBillboard.GetFacingRotation(imPos);
-                        Matrix4x4 imTrs = Matrix4x4.TRS(imPos, br, imScl);
-                        MeshInstanceBatcher.Submit(im, imMat, imTrs, rd.colors[i]);
-                        submitted = true;
-                        if (submitted)
-                        {
-                            rd.scales[i] = Vector3.zero;
-                        }
+                        RenderErrorRegistry.Record(RenderErrorType.SpriteNull,
+                            b.asset != null ? b.asset.id : "<building>", "main_sprites[i] is null", cullPos);
+                        skippedSpriteNull++;
                         continue;
                     }
 
-                    // Phase 10: Proxy tier shares full voxel path until BuildProxy/ProxyMeshCache ship.
+                    // VOXEL-OR-INVISIBLE POLICY: suppress the vanilla 2D building sprite
+                    // for every eligible building up-front (zero its render scale). If the
+                    // voxel mesh isn't ready / far LOD, nothing draws — never a billboard.
+                    // BuildingRenderData has no has_normal_render; scales[i]=0 hides the
+                    // sprite quad without nulling main_sprites (downstream chokes on null).
+                    // Snapshot the original sprite scale FIRST — the voxel mesh below needs it.
+                    Vector3 origScale = rd.scales[i];
+                    rd.scales[i] = Vector3.zero;
+
+                    if (tier == WorldSphereMod.LOD.LodTier.Cull)
+                    {
+                        // FAR TIER = CULL. Sprite already suppressed → building invisible at
+                        // distance rather than the flat fallback tier.
+                        skippedLod++;
+                        continue;
+                    }
+
+                    // Near tier: emit the full voxel mesh via the shared VoxelMeshCache.
                     Mesh m = VoxelMeshCache.Get(sp);
-                    if (m == null || m.vertexCount == 0) continue;
+                    // Not ready / empty → invisible until built. Sprite already suppressed.
+                    if (m == null || m.vertexCount == 0)
+                    {
+                        RenderErrorRegistry.Record(RenderErrorType.VoxelNotReady,
+                            b.asset != null ? b.asset.id : "<building>",
+                            "voxel mesh null/empty (async build pending) sprite=" + sp.name, cullPos);
+                        skippedMeshNull++;
+                        continue;
+                    }
 
                     Vector3 pos = rd.positions[i];
                     if (pos.z < Constants.ZDisplacement * 0.5f)
@@ -917,13 +1560,13 @@ namespace WorldSphereMod.Voxel
                         pos = pos.To3DTileHeight(false);
                     }
                     Vector3 rot = rd.rotations[i];
-                    Vector3 scl = rd.scales[i];
+                    Vector3 scl = origScale;
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
                     scl.z = scl.x;
                     // Lift mesh center up by half world-space height (same fix as
                     // ActorVoxelEmit): without it, mesh center sits at To3DTileHeight,
                     // which embeds half the mesh inside the terrain/foundation voxel.
-                    scl *= Core.savedSettings.VoxelScaleMultiplier;
+                    scl *= Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.BuildingVoxelScaleFactor;
                     // Clamp building voxel sprite height to prevent excessive vertical scale
                     // (e.g. 5-10 px * 16 = 80-160 uu).
                     scl.x = Mathf.Sign(scl.x) * Mathf.Min(Mathf.Abs(scl.x), BuildingMaxScale);
@@ -932,7 +1575,7 @@ namespace WorldSphereMod.Voxel
                     float bldHalfHeight = m.bounds.size.y * 0.5f * scl.y;
                     pos.y += bldHalfHeight;
                     Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
-                    if (!_buildingVoxelEmitSubmitLogged)
+                    if (!_buildingVoxelEmitSubmitLogged && Core.savedSettings != null && Core.savedSettings.ProfilerDump)
                     {
                         _buildingVoxelEmitSubmitLogged = true;
                         Debug.Log($"[WSM3D] BuildingVoxelEmit first submit mesh.bounds.size={m.bounds.size}, scaledBoundsSize={Vector3.Scale(m.bounds.size, scl)}");
@@ -944,7 +1587,14 @@ namespace WorldSphereMod.Voxel
                     if (Submit(m, trs, rd.colors[i]))
                     {
                         rd.scales[i] = Vector3.zero;
+                        submitCount++;
                     }
+                }
+                if (!_buildingBillboardDiagLogged)
+                {
+                    _buildingBillboardDiagLogged = true;
+                    int skipped = skippedNull + skippedPerp + skippedFrustum + skippedLod + skippedSpriteNull + skippedScaleZero + skippedMeshNull;
+                    Debug.Log($"[WSM3D][BILLBOARD-DIAG] type=Building processed={processed} skipped={skipped} reason=(materialNull=0,lodCull={skippedLod},scaleZero={skippedScaleZero},spriteNull={skippedSpriteNull},meshNull={skippedMeshNull},frustumFail={skippedFrustum},null={skippedNull},perp={skippedPerp}) visibleUnitsCount={n} frustumCullerPassCount={frustumPass} batcherSubmitCount={submitCount}");
                 }
             }
         }
@@ -1001,6 +1651,8 @@ namespace WorldSphereMod.Voxel
                 }
                 if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(cullPos, 1.5f * Mathf.Max(1f, Core.savedSettings.VoxelScaleMultiplier * 0.5f)))
                 {
+                    // Off-screen: the vanilla frustum cull already hides the sprite. Leave
+                    // sr.enabled as-is (vanilla manages off-screen); do not force a billboard.
                     sr.enabled = true;
                     return;
                 }
@@ -1008,48 +1660,36 @@ namespace WorldSphereMod.Voxel
                 WorldSphereMod.LOD.LodTier tier = WorldSphereMod.LOD.LodSelector.Select(cullPos, __instance.GetHashCode());
                 Color tint = sr.color;
 
-                if (tier == WorldSphereMod.LOD.LodTier.Impostor)
-                {
-                    Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sp);
-                    Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial(sp);
-                    if (im == null || im.vertexCount == 0 || imMat == null)
-                    {
-                        sr.enabled = true;
-                        return;
-                    }
+                // VOXEL-OR-INVISIBLE POLICY: in 3D the drop is a real voxel volume or nothing.
+                // Suppress the vanilla 2D SpriteRenderer up-front; only re-show nothing.
+                sr.enabled = false;
 
-                    Vector3 imPos = cullPos;
-                    float imScale = Mathf.Max(__instance._scale, 0.01f) * Core.savedSettings.VoxelScaleMultiplier;
-                    Vector3 imScl = new Vector3(imScale, imScale, imScale);
-                    Quaternion br = WorldSphereMod.LOD.ImpostorBillboard.GetFacingRotation(imPos);
-                    MeshInstanceBatcher.Submit(im, imMat, Matrix4x4.TRS(imPos, br, imScl), tint);
-                    sr.enabled = false;
+                if (tier == WorldSphereMod.LOD.LodTier.Cull)
+                {
+                    // FAR TIER = CULL. Sprite suppressed → drop invisible at distance, never
+                    // a flat fallback tier.
                     return;
                 }
 
                 Mesh? mesh = VoxelMeshCache.Get(sp, -1, true);
+                // Not ready / empty → invisible until built. Sprite stays suppressed.
                 if (mesh == null || mesh.vertexCount == 0)
                 {
-                    sr.enabled = true;
                     return;
                 }
 
                 Vector3 pos = cullPos;
-                float scale = Mathf.Max(__instance._scale, 0.01f) * Core.savedSettings.VoxelScaleMultiplier;
+                // WHY: drops share the actor scale factor so they aren't 8x oversized.
+                float scale = Mathf.Max(__instance._scale, 0.01f) * Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor;
                 Vector3 scl = new Vector3(scale, scale, scale);
                 scl.z = scl.x;
                 float halfHeight = mesh.bounds.size.y * 0.5f * scl.y;
                 pos.y += halfHeight;
                 float yaw = __instance.transform.eulerAngles.y;
                 Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, yaw, 0f), scl);
-                if (Submit(mesh, trs, tint))
-                {
-                    sr.enabled = false;
-                }
-                else
-                {
-                    sr.enabled = true;
-                }
+                // Submit the real voxel mesh. Whether or not it submits, the sprite stays
+                // suppressed (set above) — voxel-or-nothing, never a billboard fallback.
+                Submit(mesh, trs, tint);
             }
         }
 
@@ -1112,20 +1752,13 @@ namespace WorldSphereMod.Voxel
                     Color tint = new Color(1f, 1f, 1f, projectile.getAlpha());
                     bool perp = Constants.PerpProjectiles.ContainsKey(projectile.asset.id);
 
-                    if (tier == WorldSphereMod.LOD.LodTier.Impostor)
-                    {
-                        Mesh? im = WorldSphereMod.LOD.ImpostorBillboard.GetOrCreate(sprite);
-                        Material? imMat = WorldSphereMod.LOD.ImpostorBillboard.GetMaterial(sprite);
-                        if (im == null || im.vertexCount == 0 || imMat == null)
-                        {
-                            continue;
-                        }
+                    // VOXEL-OR-INVISIBLE POLICY: suppress the vanilla 2D projectile sprite
+                    // up-front. Far LOD / not-ready mesh → invisible, never a billboard.
+                    SuppressProjectileSprite(pAsset, pos);
 
-                        float imScale = Mathf.Max(projectile.getCurrentScale(), 0.01f) * Core.savedSettings.VoxelScaleMultiplier;
-                        Vector3 imScl = new Vector3(imScale, imScale, imScale);
-                        Quaternion br = WorldSphereMod.LOD.ImpostorBillboard.GetFacingRotation(pos);
-                        MeshInstanceBatcher.Submit(im, imMat, Matrix4x4.TRS(pos, br, imScl), tint);
-                        SuppressProjectileSprite(pAsset, pos);
+                    if (tier == WorldSphereMod.LOD.LodTier.Cull)
+                    {
+                        // FAR TIER = CULL. Sprite suppressed → projectile invisible at distance.
                         continue;
                     }
 
@@ -1260,12 +1893,13 @@ namespace WorldSphereMod.Voxel
 
         static bool _tickDiagLogged;
         static bool _tickPerfBreakdownLogged;
+        static bool _ensurePatchesDone;   // guards the one-shot EnsurePhasePatches call (#208)
 
         /// <summary>Per-frame voxel/FX driver; invoked from MapBox.renderStuff Harmony hook so it survives scene transitions.</summary>
         public static void TickPerFrame()
         {
             // TEMPORARY DIAGNOSTIC: one-shot log to verify TickPerFrame fires and check Harmony state
-            if (!_tickDiagLogged)
+            if (!_tickDiagLogged && Core.savedSettings != null && Core.savedSettings.ProfilerDump)
             {
                 _tickDiagLogged = true;
                 bool hasPatcher = Core.Patcher != null;
@@ -1294,13 +1928,12 @@ namespace WorldSphereMod.Voxel
                 Debug.Log($"[WSM3D][DIAG-TICK] VoxelFrameDriver.TickPerFrame FIRST CALL hasPatcher={hasPatcher} harmonyPatches=[{patchedMethods}] VoxelEntities={Core.savedSettings?.VoxelEntities} isWorld3D={Core.IsWorld3D} cacheSize={VoxelMeshCache.Count} pendingBuilds={VoxelMeshCache.PendingBuilds} queuedBuildsTotal={VoxelMeshCache.TotalBuilds}");
             }
 
-            if (!_tickPerfBreakdownLogged)
+            if (!_tickPerfBreakdownLogged && Core.savedSettings.ProfilerDump)
             {
                 _tickPerfBreakdownLogged = true;
                 var sw = Stopwatch.StartNew();
                 double tPrepareWorld = 0.0;
                 double tBeginFrame = 0.0;
-                double tImpostorTick = 0.0;
                 double tFrustumUpdate = 0.0;
                 double tRigTick = 0.0;
                 double tRigDrain = 0.0;
@@ -1310,9 +1943,6 @@ namespace WorldSphereMod.Voxel
                 double tDrainCompletedBuilds = 0.0;
                 double tSanityDraw = 0.0;
                 double tProcGenDrain = 0.0;
-                double tFoliageDrain = 0.0;
-                double tWaterLifecycle = 0.0;
-                double tMountainSlope = 0.0;
                 double tSunBind = 0.0;
                 double tSunUpdate = 0.0;
                 double tDecalTick = 0.0;
@@ -1367,7 +1997,6 @@ namespace WorldSphereMod.Voxel
                     VoxelRender._submitDiagCount = 0;
                 }
 
-                tImpostorTick = Measure(WorldSphereMod.LOD.ImpostorBillboard.Tick);
                 tFrustumUpdate = Measure(() =>
                 {
                     if (Core.savedSettings.VoxelEntities || Core.savedSettings.ProceduralBuildings || Core.savedSettings.CrossedQuadFoliage)
@@ -1402,14 +2031,6 @@ namespace WorldSphereMod.Voxel
                 {
                     tProcGenDrain = Measure(WorldSphereMod.ProcGen.ProcGenCache.DrainPendingDestroy);
                 }
-
-                if (Core.savedSettings.CrossedQuadFoliage)
-                {
-                    tFoliageDrain = Measure(WorldSphereMod.Foliage.CrossedQuadMeshCache.DrainPendingDestroy);
-                }
-
-                tWaterLifecycle = Measure(WorldSphereMod.Water.WaterRender.UpdateLifecycle);
-                tMountainSlope = Measure(WorldSphereMod.Terrain.MountainSlopeSurface.EnsureActive);
 
                 if (Time.time >= _nextCameraLookup)
                 {
@@ -1455,7 +2076,6 @@ namespace WorldSphereMod.Voxel
                     $"total={tTotal:F2}ms " +
                     $"PrepareWorld={tPrepareWorld:F2}ms " +
                     $"BeginFrame={tBeginFrame:F2}ms " +
-                    $"ImpostorTick={tImpostorTick:F2}ms " +
                     $"FrustumUpdate={tFrustumUpdate:F2}ms " +
                     $"RigTick={tRigTick:F2}ms " +
                     $"RigDrain={tRigDrain:F2}ms " +
@@ -1465,9 +2085,6 @@ namespace WorldSphereMod.Voxel
                     $"DrainCompletedBuilds={tDrainCompletedBuilds:F2}ms " +
                     $"SanityDraw={tSanityDraw:F2}ms " +
                     $"ProcGenDrain={tProcGenDrain:F2}ms " +
-                    $"FoliageDrain={tFoliageDrain:F2}ms " +
-                    $"WaterLifecycle={tWaterLifecycle:F2}ms " +
-                    $"MountainSlope={tMountainSlope:F2}ms " +
                     $"SunBind={tSunBind:F2}ms " +
                     $"SunUpdate={tSunUpdate:F2}ms " +
                     $"DecalTick={tDecalTick:F2}ms " +
@@ -1493,6 +2110,18 @@ namespace WorldSphereMod.Voxel
                 try { Core.Sphere.PrepareWorld(); }
                 catch (System.Exception ex) { Debug.LogError($"[WSM3D] Deferred Sphere.PrepareWorld FAILED: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}"); }
             }
+            // Belt-and-suspenders: re-apply phase patches on the FIRST tick only, in case
+            // NML skipped PostInit on a save-load path. _ensurePatchesDone is a dedicated
+            // one-shot flag so this never fires on subsequent frames — EnsurePhasePatches
+            // calls ApplyPhaseToggle which calls VoxelMeshCache.Clear() as a side-effect,
+            // and running that every frame was the cause of voxelCacheSize=0 + frameMs=400.
+            // (#208 voxel-cache-clear-every-frame root cause)
+            if (!_ensurePatchesDone)
+            {
+                _ensurePatchesDone = true;
+                try { Core.EnsurePhasePatches(); }
+                catch (System.Exception ex) { Debug.LogWarning("[WSM3D] TickPerFrame EnsurePhasePatches failed: " + ex.Message); }
+            }
 
             float deltaTime = Time.deltaTime;
             _perfFrameCounter++;
@@ -1501,7 +2130,8 @@ namespace WorldSphereMod.Voxel
             {
                 float avgFrameTime = _perfDeltaTimeSum / kPerfSampleWindowFrames;
                 float avgFps = avgFrameTime > 0f ? 1f / avgFrameTime : 0f;
-                Debug.Log($"[WSM3D][Perf] frameDeltaMs={deltaTime * 1000f:F2} avg60FrameDeltaMs={avgFrameTime * 1000f:F2} avg60Fps={avgFps:F1}");
+                if (Core.savedSettings.ProfilerDump)
+                    Debug.Log($"[WSM3D][Perf] frameDeltaMs={deltaTime * 1000f:F2} avg60FrameDeltaMs={avgFrameTime * 1000f:F2} avg60Fps={avgFps:F1}");
                 _perfFrameCounter = 0;
                 _perfDeltaTimeSum = 0f;
             }
@@ -1510,7 +2140,8 @@ namespace WorldSphereMod.Voxel
             if (_instancingTelemetryFrame >= 60)
             {
                 _instancingTelemetryFrame = 0;
-                Debug.Log($"[WSM3D][Telemetry] InstancingEfficiency={MeshInstanceBatcher.InstancingEfficiency:F4} FrameBucketCount={MeshInstanceBatcher.FrameBucketCount} FrameInstances={MeshInstanceBatcher.FrameInstances}");
+                if (Core.savedSettings.ProfilerDump)
+                    Debug.Log($"[WSM3D][Telemetry] InstancingEfficiency={MeshInstanceBatcher.InstancingEfficiency:F4} FrameBucketCount={MeshInstanceBatcher.FrameBucketCount} FrameInstances={MeshInstanceBatcher.FrameInstances}");
             }
 
             // Log-based telemetry every 10s — bypasses bridge for steady-state observability
@@ -1519,12 +2150,12 @@ namespace WorldSphereMod.Voxel
             if (now - _telemetryLastTime > 10f)
             {
                 _telemetryLastTime = now;
-                Debug.Log($"[WSM3D][Telemetry] frameMs={Time.unscaledDeltaTime * 1000:F2} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} cacheSize={VoxelMeshCache.Count} cacheHits={VoxelMeshCache.HitCount} cacheMisses={VoxelMeshCache.MissCount} submits={VoxelRender._submitDiagCount} gcMB={(System.GC.GetTotalMemory(false) / 1048576f):F1}");
+                if (Core.savedSettings.ProfilerDump)
+                    Debug.Log($"[WSM3D][Telemetry] frameMs={Time.unscaledDeltaTime * 1000:F2} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} cacheSize={VoxelMeshCache.Count} cacheHits={VoxelMeshCache.HitCount} cacheMisses={VoxelMeshCache.MissCount} submits={VoxelRender._submitDiagCount} gcMB={(System.GC.GetTotalMemory(false) / 1048576f):F1}");
                 VoxelRender._submitDiagCount = 0;
             }
 
             WorldSphereMod.Voxel.VoxelMeshCache.BeginFrame();
-            WorldSphereMod.LOD.ImpostorBillboard.Tick();
 
             bool hasRenderWork = Core.savedSettings.VoxelEntities || Core.savedSettings.ProceduralBuildings || Core.savedSettings.CrossedQuadFoliage;
             if (hasRenderWork)
@@ -1569,22 +2200,16 @@ namespace WorldSphereMod.Voxel
                 SanityTestCube.Draw();
             }
 
+            // Visual sink: draw this frame's typed ERROR-prop markers (gated by RenderErrorProps)
+            // BEFORE Flush so they batch with the frame's other voxel submissions. Then emit the
+            // low-frequency structured [ERRORS] summary (throttled on-change / interval inside).
+            WorldSphereMod.Voxel.RenderErrorMarkers.DrawQueued();
+            WorldSphereMod.Voxel.RenderErrorRegistry.MaybeEmitSummary();
+
             if (Core.savedSettings.ProceduralBuildings)
             {
                 WorldSphereMod.ProcGen.ProcGenCache.DrainPendingDestroy();
             }
-
-            if (Core.savedSettings.CrossedQuadFoliage)
-            {
-                WorldSphereMod.Foliage.CrossedQuadMeshCache.DrainPendingDestroy();
-            }
-
-            // Always call UpdateLifecycle so the OFF->ON and ON->OFF edges
-            // both fire. The previous guard `if (MeshWater)` prevented the
-            // destroy path from running when the setting was toggled off.
-            WorldSphereMod.Water.WaterRender.UpdateLifecycle();
-
-            WorldSphereMod.Terrain.MountainSlopeSurface.EnsureActive();
 
             if (Time.time >= _nextCameraLookup)
             {
@@ -1651,6 +2276,15 @@ namespace WorldSphereMod.Voxel
             bool hadPending = MeshInstanceBatcher.HasPendingSubmissions;
             int submitsBeforeFlush = Volatile.Read(ref MeshInstanceBatcher._submitCountThisFrame);
             VoxelRender.Flush();
+            VoxelRender.FlushQueuedActorSpriteCards();
+            if (Core.savedSettings?.ProceduralBuildings == true)
+            {
+                Material? procBuildingMaterial = VoxelRender.GetResolvedMaterial();
+                WorldSphereMod.ProcGen.BuildingProcRender.ProcMeshEmit.FlushQueuedBuildingDraws(
+                    procBuildingMaterial,
+                    out _,
+                    out _);
+            }
             VoxelMeshCache.DrainPendingDestroy();
 
             // Per-frame Submit/Flush diagnostic. Snapshot live counters and reset.
@@ -1659,7 +2293,7 @@ namespace WorldSphereMod.Voxel
             MeshInstanceBatcher.LastFrameSubmitCount = submitCount;
             MeshInstanceBatcher.LastFrameFlushCount = flushCount;
             _submitFlushDiagFrame++;
-            if (_submitFlushDiagFrame % 60 == 0)
+            if (_submitFlushDiagFrame % 60 == 0 && Core.savedSettings.ProfilerDump)
             {
                 Debug.Log($"[WSM3D][SubmitFlushDiag] frame={_submitFlushDiagFrame} submits={submitCount} flushes={flushCount} submitsBeforeFlush={submitsBeforeFlush} hadPending={hadPending} drawCalls={MeshInstanceBatcher.FrameDrawCalls} instances={MeshInstanceBatcher.FrameInstances} buckets={MeshInstanceBatcher.FrameBucketCount}");
             }

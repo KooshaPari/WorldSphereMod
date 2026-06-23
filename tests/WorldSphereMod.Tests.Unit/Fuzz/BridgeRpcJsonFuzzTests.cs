@@ -14,6 +14,7 @@ namespace WorldSphereMod.Tests.Unit.Fuzz;
 /// <summary>
 /// Fuzz / property-style tests for BridgeRPC settings value parsing and settings JSON round-trip.
 /// </summary>
+[Trait("Category", "Unit")]
 public class BridgeRpcJsonFuzzTests
 {
     static readonly BindingFlags SettingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase;

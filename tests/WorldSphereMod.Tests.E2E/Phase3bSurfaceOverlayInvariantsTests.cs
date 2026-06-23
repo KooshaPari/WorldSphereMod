@@ -9,6 +9,7 @@ using Xunit;
 /// WorldTilemap.renderTile and QuantumSpriteLibrary.drawWallType, shared mesh
 /// submit path, overlay allow-list, and world-unload cache drain (HANDOFF Phase 3b).
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class Phase3bSurfaceOverlayInvariantsTests
 {
     const string FoliageTileRenderRelative = "WorldSphereMod/Code/Foliage/FoliageTileRender.cs";
@@ -133,7 +134,13 @@ public sealed class Phase3bSurfaceOverlayInvariantsTests
 
         var prefixBody = ExtractMethodBody(source, "public static bool Prefix(WorldTilemap __instance, WorldTile pTile)");
         prefixBody.Should().Contain("!Core.IsWorld3D");
-        prefixBody.Should().Contain("!Core.savedSettings.CrossedQuadFoliage");
+        // VOXEL-OR-INVISIBLE: the deprecated runtime fallback to the vanilla 2D
+        // billboard foliage (the old `|| !CrossedQuadFoliage return true` escape) is
+        // removed. The voxel foliage path is the sole renderer in 3D; the [Phase]
+        // attribute still gates patch installation but the runtime must NOT consult
+        // the flag (a stale/off flag must not resurrect the deprecated crossed-quad path).
+        prefixBody.Should().NotContain("!Core.savedSettings.CrossedQuadFoliage",
+            "the deprecated 2D billboard fallback must not be re-enableable by the runtime flag");
         prefixBody.Should().Contain("t.grass || t.life || t.road");
         prefixBody.Should().Contain("!t.wall && !t.animated_wall");
         prefixBody.Should().Contain("!t.liquid && !t.ocean && !t.lava");
@@ -150,8 +157,8 @@ public sealed class Phase3bSurfaceOverlayInvariantsTests
         var source = ReadSourceFile(FoliageTileRenderRelative);
         var prefixBody = ExtractMethodBody(source, "public static bool Prefix(WorldTilemap __instance, WorldTile pTile)");
 
-        prefixBody.Should().Contain("CrossedQuadMeshCache.GetOrBuild(sprite, BuildingShape.Single, 0f)",
-            "road overlays must stay flat decals via the crossed-quad cache");
+        prefixBody.Should().Contain("VoxelMeshCache.Get(sprite, ShapeHint.Flat)",
+            "road overlays must stay flat decals via the shared voxel mesh cache");
         prefixBody.Should().Contain("VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob)",
             "life/grass overlays must use the shared voxel mesh cache");
         prefixBody.Should().Contain("Tools.To3DTileHeight(pos2)",
@@ -195,7 +202,9 @@ public sealed class Phase3bSurfaceOverlayInvariantsTests
             source,
             "public static bool Prefix(TopTileType pTileTypeAsset, QuantumSpriteAsset pAsset, bool pTransparentBuildings, Material pMaterial)");
         prefixBody.Should().Contain("!Core.IsWorld3D");
-        prefixBody.Should().Contain("!Core.savedSettings.CrossedQuadFoliage");
+        // VOXEL-OR-INVISIBLE: deprecated vanilla 2D wall billboard fallback removed.
+        prefixBody.Should().NotContain("!Core.savedSettings.CrossedQuadFoliage",
+            "the deprecated 2D wall billboard fallback must not be re-enableable by the runtime flag");
         prefixBody.Should().Contain("pTileTypeAsset.animated_wall");
         prefixBody.Should().Contain("pTileTypeAsset.getCurrentTiles()");
         prefixBody.Should().Contain("tiles == null || tiles.Count == 0");

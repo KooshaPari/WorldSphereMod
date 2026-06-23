@@ -88,6 +88,10 @@ namespace WorldSphereMod.Lighting
                 Current = Mathf.Repeat(Current + Time.deltaTime * DaySpeed, 1f);
             }
             SunDriver.TimeOfDay = Current * 24f;
+            // Pump the sun driver so the directional light rotation + colour and the
+            // ambient SH bands track the day/night curve. Previously SunDriver.Update
+            // was never called by anyone, so the sun was frozen at its Init angle.
+            SunDriver.Update();
             ApplyFog(Current);
 
             WorldSphereMod.API.WorldSphereModAPI.RaiseTimeOfDay(Current);

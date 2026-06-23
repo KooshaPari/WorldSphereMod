@@ -10,6 +10,7 @@ using Xunit;
 /// Integration trace: manifest step slugs/IDs → Tools/wsm3d.ps1 subcommands (where mappable).
 /// Grounded in docs/journeys/scratch/journey-integration-trace.md.
 /// </summary>
+[Trait("Category", "Integration")]
 public class JourneyIntegrationTraceTests
 {
     private const string IndexRelative = "docs/journeys/manifests/index.json";

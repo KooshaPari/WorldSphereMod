@@ -9,6 +9,7 @@ using Xunit;
 /// <summary>
 /// Guards docs/HANDOFF.md and README phase-table drift against SavedSettings.cs.
 /// </summary>
+[Trait("Category", "E2E")]
 public class HandoffDefaultsAlignmentTests
 {
     private static string FindRepoRoot()
@@ -167,21 +168,23 @@ public class HandoffDefaultsAlignmentTests
             }
         }
 
-        defaultOff.Should().Contain(
-            "MeshWater",
-            "MeshWater defaults to false in SavedSettings.cs and must be listed under Default-off in HANDOFF.md");
+        // ProceduralBuildings and MeshWater were moved to Default-on (they are
+        // now startup-on in SavedSettings.cs). This test is the structural
+        // cross-check that no default-on phase flag leaks into the Default-off
+        // list. The presence of those flags in Default-on is enforced by
+        // Handoff_default_on_category_includes_MeshWater and the matrix test.
     }
 
     [Fact]
-    public void Handoff_default_off_category_includes_MeshWater()
+    public void Handoff_default_on_category_includes_MeshWater()
     {
         var root = FindRepoRoot();
         var handoff = ReadRepoFile(root, "docs", "HANDOFF.md");
 
-        var defaultOff = ParseHandoffCategoryFieldNames(handoff, "Default-off / opt-in").ToList();
-        defaultOff.Should().Contain(
+        var defaultOn = ParseHandoffCategoryFieldNames(handoff, "Default-on / currently enabled").ToList();
+        defaultOn.Should().Contain(
             "MeshWater",
-            "MeshWater is default-off in SavedSettings.cs and must be listed under Default-off in HANDOFF.md");
+            "MeshWater is default-on in SavedSettings.cs and must be listed under Default-on in HANDOFF.md");
     }
 
     [Fact]
@@ -210,8 +213,8 @@ public class HandoffDefaultsAlignmentTests
 
     [Theory]
     [InlineData(1, "VoxelEntities", "true")]
-    [InlineData(2, "ProceduralBuildings", "false")]
-    [InlineData(4, "MeshWater", "false")]
+    [InlineData(2, "ProceduralBuildings", "true")]
+    [InlineData(4, "MeshWater", "true")]
     [InlineData(8, "DayNightCycle", "false")]
     public void Readme_phase_table_documents_saved_settings_default(
         int phase,

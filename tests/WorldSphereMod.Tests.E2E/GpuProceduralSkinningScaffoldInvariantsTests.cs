@@ -7,6 +7,7 @@ using Xunit;
 /// Source invariants for ADR-0006 DrawProcedural GPU skinning scaffold
 /// (docs/adr/ADR-0006-phase-6-step-9-drawprocedural-skinning.md).
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class GpuProceduralSkinningScaffoldInvariantsTests
 {
     const string AdrRelativePath = "docs/adr/ADR-0006-phase-6-step-9-drawprocedural-skinning.md";

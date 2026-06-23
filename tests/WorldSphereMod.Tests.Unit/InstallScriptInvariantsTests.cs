@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Xunit;
 using FluentAssertions;
 
+[Trait("Category", "Unit")]
 public class InstallScriptInvariantsTests
 {
     // Locate the repo root from test output directory.

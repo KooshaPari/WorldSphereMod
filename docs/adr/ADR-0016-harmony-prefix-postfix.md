@@ -1,6 +1,6 @@
 # ADR-0016: Replace `precalculateRenderDataParallel` skip-prefixes with body-level Harmony patches
 
-**Status:** Proposed
+**Status:** Accepted (shipped — HarmonyPatch used across 19 files)
 
 **Date:** 2026-05-26
 

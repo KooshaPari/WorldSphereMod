@@ -66,6 +66,10 @@ namespace WorldSphereMod.ProcGen
             float halfZ = (rules.FootprintDepth > 0f)
                 ? rules.FootprintDepth * 0.5f
                 : halfX;
+            if (halfZ < halfX)
+            {
+                halfZ = halfX;
+            }
 
             int stories = InferStories(pixels, w, h, bbox, rules);
 
@@ -470,6 +474,8 @@ namespace WorldSphereMod.ProcGen
                     break;
             }
 
+            EmitFloor(halfX, halfZ, wallColor, verts, cols, tris);
+
             var mesh = new Mesh { name = $"procgen:{asset?.id ?? "null"}" };
             if (verts.Count > 65535) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
             mesh.SetVertices(verts);
@@ -603,9 +609,9 @@ namespace WorldSphereMod.ProcGen
                         float z1 = -halfZ + u1;
                         float x = halfX - inset;
                         a = new Vector3(x, v0, z0);
-                        b = new Vector3(x, v0, z1);
+                        b = new Vector3(x, v1, z0);
                         c = new Vector3(x, v1, z1);
-                        d = new Vector3(x, v1, z0);
+                        d = new Vector3(x, v0, z1);
                         break;
                     }
                 default: // Left
@@ -614,9 +620,9 @@ namespace WorldSphereMod.ProcGen
                         float z1 = halfZ - u1;
                         float x = -halfX + inset;
                         a = new Vector3(x, v0, z0);
-                        b = new Vector3(x, v0, z1);
+                        b = new Vector3(x, v1, z0);
                         c = new Vector3(x, v1, z1);
-                        d = new Vector3(x, v1, z0);
+                        d = new Vector3(x, v0, z1);
                         break;
                     }
             }
@@ -626,6 +632,25 @@ namespace WorldSphereMod.ProcGen
             cols.Add(color); cols.Add(color); cols.Add(color); cols.Add(color);
             tris.Add(i); tris.Add(i + 1); tris.Add(i + 2);
             tris.Add(i); tris.Add(i + 2); tris.Add(i + 3);
+        }
+
+        static void EmitFloor(float halfX, float halfZ, Color color, List<Vector3> verts, List<Color> cols, List<int> tris)
+        {
+            int i = verts.Count;
+            Vector3 a = new Vector3(-halfX, 0f, halfZ);
+            Vector3 b = new Vector3(halfX, 0f, -halfZ);
+            Vector3 c = new Vector3(halfX, 0f, halfZ);
+            Vector3 d = new Vector3(-halfX, 0f, -halfZ);
+            verts.Add(a);
+            verts.Add(c);
+            verts.Add(b);
+            cols.Add(color); cols.Add(color); cols.Add(color);
+            tris.Add(i); tris.Add(i + 1); tris.Add(i + 2);
+            verts.Add(a);
+            verts.Add(d);
+            verts.Add(c);
+            cols.Add(color); cols.Add(color); cols.Add(color);
+            tris.Add(i + 3); tris.Add(i + 4); tris.Add(i + 5);
         }
 
         static void EmitRoofCap(float halfX, float halfZ, float height, Color color,

@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using FluentAssertions;
 using Xunit;
 
+[Trait("Category", "E2E")]
 public class NmlCompileCompatTests
 {
     // NML's embedded Roslyn rejects some source patterns that net48/msbuild accepts.

@@ -7,6 +7,7 @@ using Xunit;
 /// Source invariants for symmetric sprite voxel depth extrusion
 /// (docs/journeys/scratch/voxel-depth-extrusion-spec.md).
 /// </summary>
+[Trait("Category", "Unit")]
 public sealed class SpriteVoxelDepthExtrusionTests
 {
     static string FindRepoRoot()

@@ -37,12 +37,52 @@ namespace WorldSphereMod.QuantumSprites
             obj.transform.eulerAngles = Rot;
             obj._last_angles_v3 = Rot;
         }
+        // HUD-style overlay assets (brush highlight, kingdom zone circles, etc.)
+        // are worldspace sprites in 3D mode. Vanilla scales them by
+        // getCameraScaleZoomMultiplier so the apparent screen size is constant
+        // regardless of camera zoom. Our transpiler hands us the raw pScale and
+        // we assign it to localScale — at zoom-out the worldspace sprite then
+        // shrinks to nothing on screen (sub-pixel). Compensate by multiplying
+        // by (cameraDistance / refDistance) so the on-screen size stays stable,
+        // with a min-scale floor as a safety net.
+        static bool IsHudOverlayAsset(QuantumSpriteAsset pAsset)
+        {
+            if (pAsset == null) return false;
+            return pAsset.id == "highlight_cursor_zones"
+                || pAsset.id == "selected_kingdom"
+                || pAsset.id == "whisper_of_war"
+                || pAsset.id == "capturing_zones"
+                || pAsset.id == "cursor_power"
+                || pAsset.id == "square_selection"
+                || pAsset.id == "debug_show_highlighted_zones"
+                || pAsset.id == "debug_show_kingdom_icons";
+        }
         public static void set(this GroupSpriteObject Object, ref Vector3 pPosition, float pScale, QuantumSpriteAsset pAsset)
         {
+            float tFinalScale = pScale;
+            if (Core.IsWorld3D && IsHudOverlayAsset(pAsset))
+            {
+                Camera tCam = CameraManager.MainCamera;
+                if (tCam != null)
+                {
+                    Vector3 tSpriteWorld = Object.m_transform != null
+                        ? Object.m_transform.position
+                        : pPosition;
+                    float tDist = Vector3.Distance(tCam.transform.position, tSpriteWorld);
+                    // refDist is the camera height we tuned the original 2D
+                    // sprite size against; icons stay the same on-screen size
+                    // when worldscale * (tDist / refDist) ≈ original.
+                    float refDist = Mathf.Max(0.1f, CameraManager.Height);
+                    tFinalScale = pScale * (tDist / refDist);
+                    // Safety floor: never let an overlay collapse to 0 even if
+                    // tDist/refDist goes pathological (near-clip, alt-tab).
+                    tFinalScale = Mathf.Max(tFinalScale, pScale * 0.25f);
+                }
+            }
             if (Object._last_pos_v3.x != pPosition.x || Object._last_pos_v3.y != pPosition.y || Object._last_pos_v3.z != pPosition.z)
             {
                 Object._last_pos_v2 = pPosition;
-                
+
                 Object._last_pos_v3 = pPosition;
                 if (!pAsset.IsQuantumUpright())
                 {
@@ -53,11 +93,23 @@ namespace WorldSphereMod.QuantumSprites
                     Object.m_transform.ToSpecialUpright(Object._last_pos_v3);
                 }
             }
-            if (Object._last_scale_v2.x != pScale)
+            if (Object._last_scale_v2.x != tFinalScale)
             {
-                Object.setScale(pScale);
+                Object.setScale(tFinalScale);
+            }
+            // Banner: only on the first brush/kingdom overlay scale write per
+            // session, so the in-game log confirms brush-zone-fix v2.12 is live
+            // without spamming Debug.Log on every frame.
+            if (Core.IsWorld3D && IsHudOverlayAsset(pAsset))
+            {
+                if (!_bannerLogged)
+                {
+                    _bannerLogged = true;
+                    global::UnityEngine.Debug.Log("[WSM3D][BANNER] brush-zone-fix v2.12 active");
+                }
             }
         }
+        static bool _bannerLogged;
         public static void drawSocialize3D(QuantumSpriteAsset pAsset)
         {
             if (!PlayerConfig.optionBoolEnabled("talk_bubbles"))
@@ -483,14 +535,37 @@ namespace WorldSphereMod.QuantumSprites
             {
                 return;
             }
-            if (pAsset.id == "highlight_cursor_zones" || pAsset.id == "square_selection")
+            if (IsMapOverlayAsset(pAsset))
             {
-                pPos.z = 4 * Core.Sphere.HeightMult;
+                pPos.z = GetOverlayHeight(pPos);
             }
             else
             {
                 pPos.z += 1 + Tools.GetTileHeightSmooth(pPos);
             }
+        }
+
+        static bool IsMapOverlayAsset(QuantumSpriteAsset pAsset)
+        {
+            if (pAsset == null)
+            {
+                return false;
+            }
+            return pAsset.id == "highlight_cursor_zones"
+                || pAsset.id == "selected_kingdom"
+                || pAsset.id == "whisper_of_war"
+                || pAsset.id == "capturing_zones"
+                || pAsset.id == "cursor_power"
+                || pAsset.id == "square_selection"
+                || pAsset.id == "debug_show_highlighted_zones"
+                || pAsset.id == "debug_show_kingdom_icons";
+        }
+
+        static float GetOverlayHeight(Vector3 pPos)
+        {
+            float terrainHeight = Tools.GetTileHeightSmooth(pPos);
+            float overlayLift = Mathf.Max(4f * Core.Sphere.HeightMult, 6f);
+            return terrainHeight + overlayLift;
         }
         static void Postfix(QuantumSpriteAsset pAsset, ref QuantumSprite __result)
         {

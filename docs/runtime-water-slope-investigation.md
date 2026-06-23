@@ -3,6 +3,18 @@
 Player.log: `C:/Users/koosh/AppData/LocalLow/mkarpenko/WorldBox/Player.log`
 Game state: alive, bridge 127.0.0.1:8766, isWorld3D=true, lastNonZeroDrawCalls=36.
 
+## Current branch snapshot — 2026-06-02 (`wip/208-water-diag`)
+
+- `WorldSphereMod/Code/Water/WaterRender.cs` is not present in `WorldSphereMod/Code/` (no `*WaterRender*.cs` hits).
+- Current water surface creation is in `Core.ConfigureHeightField(...)` (`WorldSphereMod/Code/Core.cs:1183-1359`).
+  - It always calls `hf.ConfigureWater(...)` and `hf.SetWaterMaterial(...)` when `UseHeightFieldTerrain` is enabled.
+  - Water material is created from `ResolveShader("")`.
+  - `ResolveShader("")` resolves to `Shader.Find("Standard")` when no bundle shader is supplied.
+  - Material name set to `WSM3D.HeightFieldWater`, color = `(0.20, 0.45, 0.65, 0.70)`, transparent queue `3000`.
+- `MeshWater` is still defined and default `false` in `SavedSettings` (`SavedSettings.cs:124`) and preset methods (`ApplyLightweightPreset`, `ApplyPhaseDefaults`).
+- No `MeshWater` check exists in `ConfigureHeightField` and no `WorldSphereMod/Code/*` reference to `WaterRender`, `WaterSurface`, or `WaterMaskBuffer` remains.
+- Conclusion from static code path: water is **implemented-but-suspicious/diagnostic-required**, not currently cleanly gated off by `MeshWater=false`.
+
 ## TL;DR — Root cause
 
 Both water and slope renderers crash inside `Core.Sphere.CenterCapsule`

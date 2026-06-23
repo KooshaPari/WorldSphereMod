@@ -11,6 +11,7 @@ using Xunit;
 /// docs/journeys/scratch/visual-regression-harness-design.md): screenshot path
 /// conventions and the live journey capture checklist.
 /// </summary>
+[Trait("Category", "Integration")]
 public class VisualRegressionHarnessTests
 {
     private const string ScreenshotsRelative = "docs/screenshots";

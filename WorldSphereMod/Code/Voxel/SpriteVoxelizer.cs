@@ -78,10 +78,9 @@ namespace WorldSphereMod.Voxel
         }
 
         /// <summary>
-        /// Phase 10 proxy-tier mesh entry point (half-res downsample, then voxelize at depth=1).
-        /// Deferred: returns null; <see cref="LOD.LodTier.Proxy"/> emit still uses
-        /// <see cref="VoxelMeshCache.Get"/> until this ships. See
-        /// <c>docs/journeys/scratch/phase10-proxy-tier-status.md</c>.
+        /// DEAD STUB. The mid-tier "Proxy" LOD was removed when the render ladder collapsed
+        /// to VOXEL-OR-INVISIBLE (Voxel near / Cull far, no proxy or billboard tier).
+        /// Always returns null; retained only so external references compile.
         /// </summary>
         public static Mesh BuildProxy(Sprite sprite)
         {
@@ -182,8 +181,15 @@ namespace WorldSphereMod.Voxel
 
             // Build the alpha mask. We treat any pixel with alpha > 16 as solid;
             // matches the threshold used elsewhere for WorldBox pixel art.
+            // WHY (slab fix): the old loop filled EVERY column to full depth, producing a
+            // flat constant-thickness SLAB. Instead vary depth per column (Perlin + luminance)
+            // and center it, so the body is genuinely volumetric (rounded front-to-back).
+            // Same recipe as BuildPerTexel; floored at half-depth so no column is paper-thin.
             bool[,,] solid = new bool[w, h, depth];
             Color32[,,] color = new Color32[w, h, depth];
+            float ppuMask = Mathf.Max(1f, sprite.pixelsPerUnit);
+            const float kMinDepthScale = 0.60f;
+            const float kMaxDepthScale = 1.00f;
             for (int y = 0; y < h; y++)
             {
                 int row = (y0 + y) * texW + x0;
@@ -194,7 +200,16 @@ namespace WorldSphereMod.Voxel
                         : tex[row + x];
                     if (c.a > 16)
                     {
-                        for (int z = 0; z < depth; z++)
+                        float worldX = (x - sprite.pivot.x) / ppuMask;
+                        float worldZ = (y - sprite.pivot.y) / ppuMask;
+                        float noise = Tools.PerlinNoiseCached(worldX * 0.22f + 0.13f, worldZ * 0.22f + 0.73f);
+                        float lum = (c.r * 0.299f + c.g * 0.587f + c.b * 0.114f) / 255f;
+                        float combined = noise * 0.6f + lum * 0.4f;
+                        float depthScale = Mathf.Lerp(kMinDepthScale, kMaxDepthScale, combined);
+                        int columnDepth = Mathf.Clamp(Mathf.RoundToInt(depth * depthScale), Mathf.Max(2, depth / 2), depth);
+                        int zStart = Mathf.Clamp((depth - columnDepth) / 2, 0, depth - columnDepth);
+                        int zEnd = zStart + columnDepth;
+                        for (int z = zStart; z < zEnd; z++)
                         {
                             solid[x, y, z] = true;
                             color[x, y, z] = c;
@@ -238,6 +253,13 @@ namespace WorldSphereMod.Voxel
                 RenderTexture.ReleaseTemporary(fallbackRt);
             }
             snapshot = VoxelMeshCache.CreateSnapshot(sprite, mesh, verts, cols, tris);
+            // WHY: capture full CPU arrays NOW, before UploadMeshData(true) frees the
+            // readable copy, so the disk-cache save never reads the non-readable mesh
+            // (which floods Player.log with "isReadable is false" every frame).
+            snapshot.diskVertices = verts.ToArray();
+            snapshot.diskTriangles = tris.ToArray();
+            snapshot.diskColors = cols.ToArray();
+            snapshot.diskNormals = mesh.normals;
             bool logBuild = false;
             int diagIndex = 0;
             lock (_buildGreedyDiagLock)
@@ -249,7 +271,7 @@ namespace WorldSphereMod.Voxel
                     logBuild = true;
                 }
             }
-            if (logBuild)
+            if (logBuild && Core.savedSettings != null && Core.savedSettings.ProfilerDump)
             {
                 Debug.Log($"[WSM3D][DIAG] BuildGreedy #{diagIndex}: sprite=\"{sprite.name}\" w={w} h={h} depth={depth} verts={mesh.vertexCount} tris={tris.Count / 3} bounds={mesh.bounds}");
             }
@@ -730,7 +752,10 @@ namespace WorldSphereMod.Voxel
             // 2.5D extrusions. Same recipe as BuildOrganicBlob but applied here so
             // ShapeHint routing no longer matters for the skinned path. Disable via
             // VoxelColorTonemap-style toggle later if needed.
-            const float kMinDepthScale = 0.15f;
+            // WHY: floor raised 0.15->0.60 — at 0.15 the typical body column was only
+            // 2 voxels of 8, a paper-thin central slab that reads flat from the 3D ISO
+            // camera. 0.60 keeps surface variation but guarantees real volume.
+            const float kMinDepthScale = 0.60f;
             const float kMaxDepthScale = 1.00f;
             float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
             int[] depthScaleHistogram = null;
@@ -761,7 +786,9 @@ namespace WorldSphereMod.Voxel
                         float lum = (c.r * 0.299f + c.g * 0.587f + c.b * 0.114f) / 255f;
                         float combined = noise * 0.6f + lum * 0.4f;
                         float depthScale = Mathf.Lerp(kMinDepthScale, kMaxDepthScale, combined);
-                        int columnDepth = Mathf.Clamp(Mathf.RoundToInt(depth * depthScale), 2, depth);
+                        // WHY: floor min column depth at half the volume so no body
+                        // column collapses to a thin slab regardless of noise/luminance.
+                        int columnDepth = Mathf.Clamp(Mathf.RoundToInt(depth * depthScale), Mathf.Max(2, depth / 2), depth);
                         if (logNoiseHistogram)
                         {
                             int bin = Mathf.Clamp(Mathf.FloorToInt(depthScale * depthScaleHistogram.Length), 0, depthScaleHistogram.Length - 1);
@@ -831,11 +858,12 @@ namespace WorldSphereMod.Voxel
                     shouldLog = true;
                 }
             }
-            if (shouldLog)
+            bool diagDump = Core.savedSettings != null && Core.savedSettings.ProfilerDump;
+            if (shouldLog && diagDump)
             {
                 Debug.Log($"[WSM3D][DIAG] BuildPerTexel #{diagIndex}: sprite=\"{sprite.name}\" w={w} h={h} depth={depth} verts={mesh.vertexCount} tris={tris.Count / 3} bounds={mesh.bounds}");
             }
-            if (logNoiseHistogram)
+            if (logNoiseHistogram && diagDump)
             {
                 Debug.Log($"[WSM3D][DIAG] BuildPerTexel depthScale histogram #{_buildPerTexelNoiseDiagCount}: sprite=\"{sprite.name}\" depth={depth} bins=[{string.Join(",", depthScaleHistogram)}]");
             }

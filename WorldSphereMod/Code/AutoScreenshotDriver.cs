@@ -44,7 +44,8 @@ public sealed class AutoScreenshotDriver : MonoBehaviour
                     ok = success;
                     error = message;
                     finished = true;
-                    if (success)
+                    // Gated behind ProfilerDump: fires per capture interval, flooding the viewport during capture runs.
+                    if (success && Core.savedSettings != null && Core.savedSettings.ProfilerDump)
                     {
                         Debug.Log("[WSM3D] AutoScreenshot saved " + savedPath);
                     }

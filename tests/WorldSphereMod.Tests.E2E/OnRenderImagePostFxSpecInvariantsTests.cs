@@ -7,6 +7,7 @@ using Xunit;
 /// Source invariants for docs/specs/onrenderimage-postfx-spec.md — verifies the
 /// unified WSM3DPostStack ping-pong chain replaces the old split OnRenderImage passes.
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class OnRenderImagePostFxSpecInvariantsTests
 {
     static string FindRepoRoot()

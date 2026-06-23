@@ -12,6 +12,9 @@ namespace WorldSphereMod.Worldspace
     /// Phase 7 Step 2. Per-actor world-space name label attached to the shared worldspace rig.
     /// Uses a <c>TextMesh3D</c> when available, then faces the camera each <see cref="LateUpdate"/>.
     /// </summary>
+    // Run after WorldUIRenderer (order 0) so the rig world-position is already
+    // updated before we face the camera. Fixes one-frame lag that looks camera-fixed.
+    [UnityEngine.DefaultExecutionOrder(100)]
     public sealed class NameplateWorld : MonoBehaviour
     {
         internal Actor? Actor;
@@ -25,7 +28,11 @@ namespace WorldSphereMod.Worldspace
         public static NameplateWorld? Attach(Actor a, Transform rigRoot)
         {
             if (a == null || rigRoot == null) return null;
-            if (!Core.savedSettings.WorldspaceLabel3D) return null;
+            // WorldspaceLabel3D controls whether to PREFER 3D text (TextMesh3D).
+            // Nameplates always render when WorldspaceUI is enabled; the flag only
+            // selects the rendering path (3D text vs canvas/Text fallback).
+            // Removing the early-return that was the root cause of missing labels (#191).
+            bool prefer3D = Core.savedSettings != null && Core.savedSettings.WorldspaceLabel3D;
 
             Transform parent = rigRoot;
             var existing = parent.GetComponentInChildren<NameplateWorld>(true);
@@ -43,13 +50,17 @@ namespace WorldSphereMod.Worldspace
             // Keep the label anchored to the rig root so it inherits the same lifted
             // world-space transform as the voxel actor path.
             t.localPosition = Vector3.zero;
-            float baseScale = Core.savedSettings != null ? Core.savedSettings.NameplateBaseScale : 0.15f;
+            // WHY: fallback 0.15f made labels large when settings are unavailable at startup
+            // (old behavior). Match the new configured default 0.04f that already targets
+            // smaller worldspace label sizing and avoids a one-frame "huge text" state.
+            float baseScale = Core.savedSettings != null ? Core.savedSettings.NameplateBaseScale : 0.04f;
             t.localScale = Vector3.one * baseScale;
 
             var np = go.AddComponent<NameplateWorld>();
             np.Actor = a;
             SuppressUpstreamNameplate(a);
-            np._label3d = CreateTextMesh3D(go, name);
+            // Only attempt 3D text when the setting explicitly opts in AND the type exists.
+            np._label3d = prefer3D ? CreateTextMesh3D(go, name) : null;
             if (np._label3d == null)
             {
                 SetupFallbackCanvasLabel(go, name);
@@ -120,19 +131,34 @@ namespace WorldSphereMod.Worldspace
             float d = Vector3.Distance(cam.transform.position, transform.position);
             transform.LookAt(cam.transform.position, Vector3.up);
 
-            // Phase 7 fix: labels were rendering huge because the rig sits at
-            // VoxelScaleMultiplier (~8x) world units AND distanceFactor grew with
-            // camera distance. At strategy-view distances (d > ~80) the label
-            // outgrew the actor head. Clamp the per-axis localScale to
-            // Min(1, cameraDistance / 100) so labels never exceed the rig's own
-            // mesh-unit scale, then keep a kBaseScale floor so close-up text is
-            // still legible. This replaces the previous linear-grow policy.
-            float baseScale = Core.savedSettings != null ? Core.savedSettings.NameplateBaseScale : 0.15f;
-            float divisor = Core.savedSettings != null ? Core.savedSettings.NameplateScaleDistanceDivisor : 100f;
-            float clamped = Mathf.Min(1f, d / divisor);
-            float effective = Mathf.Max(baseScale, clamped);
+            // WHY: prior `Max(baseScale, Min(1, d/100))` snapped localScale to ~1.0 at
+            // any strategy-view distance — ~6.7x the 0.15 base — making labels dwarf the
+            // actor; anchor on baseScale, then scale DOWN with distance so far tags
+            // never exceed ~1.5x tile-width, and never inflate as the camera pulls
+            // back. Closer-than-ref tags still grow (capped at baseScale*maxScale).
+            var s = Core.savedSettings;
+            float baseScale = s != null ? s.NameplateBaseScale : 0.08f;
+            float refDist = s != null ? s.NameplateReferenceDistance : 10f;
+            float minScale = s != null ? s.NameplateMinScale : 0.25f;
+            float maxScale = s != null ? s.NameplateMaxScale : 1.5f;
+            // #208: shrink worldspace nametags to read at default zoom.
+            // WHY: prior `baseScale * distFactor` shrank labels toward 0 at
+            // strategy-view distance (3*refDist), which made the close-zoom
+            // view show nametags the full baseScale — too large relative to
+            // the voxel actor. Clamp the upper end so even at refDist the
+            // label stays a fraction of the actor mesh height.
+            float distFactor = refDist > 0.0001f
+                ? Mathf.Clamp01(d / (refDist * 3f))
+                : 1f;
+            // cap baseScale-at-refDist to baseScale * 0.5 so close-zoom tags
+            // read at ~half the previously-acceptable size.
+            float effective = Mathf.Clamp(
+                baseScale * distFactor * 0.5f,
+                baseScale * minScale * 0.5f,
+                baseScale * maxScale * 0.5f);
             transform.localScale = Vector3.one * effective;
 
+            Debug.Log($"[WSM3D][BANNER] nametag-shrink v2.13 active, fontSize=6, baseScale={baseScale:F3}, distFactor={distFactor:F3}, effective={effective:F3}");
             ApplyFade(d);
         }
 
@@ -164,7 +190,10 @@ namespace WorldSphereMod.Worldspace
             textGo.transform.SetParent(parent.transform, worldPositionStays: false);
             var text = textGo.AddComponent<Text>();
             text.alignment = TextAnchor.MiddleCenter;
-            text.fontSize = 18;
+            // WHY: prior fallback font size 9 still rendered too large in the upper
+            // world-space HUD view. Halve again to 6 to drive nametag glyph height
+            // toward the 4-6 px target in screenshot-based checks.
+            text.fontSize = 6;
             text.font = _labelFont;
             text.fontStyle = FontStyle.Bold;
             text.color = Color.white;
@@ -174,7 +203,10 @@ namespace WorldSphereMod.Worldspace
             text.raycastTarget = false;
 
             var rt = text.rectTransform;
-            rt.sizeDelta = new Vector2(6f, 1.5f);
+            // WHY: companion rect-scaling to match the halved fontSize; move from
+            // 3x0.75 to 1.5x0.375 world units to preserve relative spacing
+            // while reducing rendered pixel footprint.
+            rt.sizeDelta = new Vector2(1.5f, 0.375f);
             rt.anchoredPosition = Vector2.zero;
         }
 
@@ -192,7 +224,9 @@ namespace WorldSphereMod.Worldspace
 
             SetColorValue(label, Color.black, "outlineColor", "outline_color");
             SetBoolValue(label, true, "outline");
-            SetFloatValue(label, 0.5f, "size");
+            // WHY: 3D text mesh size mirrors the same reduction pattern as canvas
+            // fallback text and was still above target after prior pass.
+            SetFloatValue(label, 0.15f, "size");
             SetFontValue(label, _labelFont);
 
             return label;

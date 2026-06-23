@@ -8,6 +8,7 @@ using Xunit;
 /// Closes Phase 2 E2E gaps: footprint extrusion, roof/door/window heuristics,
 /// rules overrides, and roof orientation (e2e-coverage-gaps.md #2).
 /// </summary>
+[Trait("Category", "E2E")]
 public class BuildingProcGenInvariantsTests
 {
     static string FindRepoRoot()

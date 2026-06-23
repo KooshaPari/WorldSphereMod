@@ -9,6 +9,7 @@ using Xunit;
 /// BuildingProcRender: default off while ProceduralBuildings is on, secondary
 /// toggle selects ProcGenCache vs VoxelMeshCache (procgen-path-precedence-analysis.md).
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class BuildingStyleProcgenInvariantsTests
 {
     const string BuildingProcRenderPath = "WorldSphereMod/Code/ProcGen/BuildingProcRender.cs";
@@ -62,12 +63,15 @@ public sealed class BuildingStyleProcgenInvariantsTests
     }
 
     [Fact]
-    public void SavedSettings_ProceduralBuildings_defaults_off_while_BuildingStyleProcgen_opt_in_off()
+    public void SavedSettings_ProceduralBuildings_defaults_on_while_BuildingStyleProcgen_opt_in_off()
     {
         var settings = ReadSource(SavedSettingsPath);
 
-        Regex.IsMatch(settings, @"public\s+bool\s+ProceduralBuildings\s*=\s*false")
-            .Should().BeTrue("Phase 2 proc buildings must default OFF");
+        // Phase 2 proc buildings are default-on in this fork (HANDOFF.md /
+        // wsm3d.ps1 PhaseDefaults / SavedSettings.cs all agree on `true`).
+        // The stylized procgen architecture path remains an opt-in style toggle.
+        Regex.IsMatch(settings, @"public\s+bool\s+ProceduralBuildings\s*=\s*true")
+            .Should().BeTrue("Phase 2 proc buildings must default ON in this fork");
         Regex.IsMatch(settings, @"public\s+bool\s+BuildingStyleProcgen\s*=\s*false")
             .Should().BeTrue("stylized procgen architecture path stays opt-in OFF by default");
     }

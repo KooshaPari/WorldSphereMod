@@ -8,6 +8,7 @@ using Xunit;
 /// Source invariants for Tier 5 Forward+ renderer scaffold
 /// (WSM3DRenderer AllocateTargets/DepthPrepass stubs, SavedSettings.ForwardPlusRenderer).
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class ForwardPlusRendererInvariantsTests
 {
     const string RendererRelativePath = "WorldSphereMod/Code/Renderer/WSM3DRenderer.cs";

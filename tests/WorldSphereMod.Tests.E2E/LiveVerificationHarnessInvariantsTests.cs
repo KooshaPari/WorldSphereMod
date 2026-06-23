@@ -7,6 +7,7 @@ using Xunit;
 /// <summary>
 /// On-disk invariants for the live verification harness: orchestrator script, PlayCUA runner, and docs.
 /// </summary>
+[Trait("Category", "E2E")]
 public class LiveVerificationHarnessInvariantsTests
 {
     private const string LiveVerifyScriptRelative = "Tools/wsm-live-verify.ps1";

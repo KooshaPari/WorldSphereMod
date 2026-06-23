@@ -20,6 +20,7 @@ using Xunit;
 ///   6. Shader load list missing OpaqueVertexColor -> bundle shaders never cached
 ///   7. Bundle load not wrapped in try/catch -> missing bundle NREs the entire mod
 /// </summary>
+[Trait("Category", "E2E")]
 public class VoxelPipelineRegressionTests
 {
     static string FindRepoRoot()
@@ -269,20 +270,29 @@ public class VoxelPipelineRegressionTests
         for (int i = 0; i < entries.Count; i++)
             shaderNames[i] = entries[i].Groups["name"].Value;
 
+        // ADR-0013 (UPDATED 2026-05-31, #204). The earlier "only OpaqueVertexColor
+        // is bundle-safe" finding was against a variant-STRIPPED 80-byte stub bundle
+        // that crashed on deserialize. The bake variant-stripping fix (b1882549)
+        // produced a VALID 157KB wsm3d-shaders bundle with real serialized variants,
+        // so SafeShaders is re-expanded to the postFX/sky set that consumers key on.
+        // Per-shader load guards (empty-name / !isSupported / try-catch) skip any
+        // bad asset so it degrades to Standard instead of crashing. Water/foliage/
+        // voxel shaders stay out (owned by other tasks) — #204 is postFX-scoped.
+        // This MUST match Core.Sphere.SafeShaders exactly.
         var expected = new[]
         {
             "OpaqueVertexColor",
-            "GerstnerWater",
-            "ColorGradingLUT",
-            "ProceduralSky",
-            "Impostor",
-            "ScreenSpaceAO",
-            "ScreenSpaceGI",
             "BrpBloom",
             "BrpACES",
+            "ColorGradingLUT",
+            "ScreenSpaceGI",
+            "ScreenSpaceAO",
+            "ProceduralSky",
         };
         shaderNames.Should().BeEquivalentTo(expected,
-            "SafeShaders must contain EXACTLY the runtime shader load set");
+            "SafeShaders must contain EXACTLY the runtime shader load set " +
+            "(ADR-0013/#204 — OpaqueVertexColor + postFX/sky set, loadable now " +
+            "that the bundle is a valid 157KB bake)");
 
         // The ADR-0013 reference must be present as a guard against uninformed edits
         source.Should().Contain("ADR-0013",
@@ -510,5 +520,78 @@ public class VoxelPipelineRegressionTests
             index += pattern.Length;
         }
         return count;
+    }
+
+    // ---------------------------------------------------------------
+    // 10. PostFxShaderBundleAvailable defaults to false (crash-safe)
+    // ---------------------------------------------------------------
+    // Regression: enabling postFX bundle load while shaders are player-side
+    // stubs causes a native crash inside Unity's GetObject path. The flag
+    // must default false so postFX is gated off until the bake is fixed.
+    // Root cause: AssetBundle version mismatch + Unity variant stripping.
+    // See ADR-0021 and issues #204 / #208.
+    [Fact]
+    public void PostFxShaderBundleAvailable_defaults_to_false()
+    {
+        var source = ReadSourceFile("WorldSphereMod/Code/Core.cs");
+
+        // The constant must exist and be false
+        source.Should().Contain("PostFxShaderBundleAvailable = false",
+            "PostFxShaderBundleAvailable must default to false — postFX shaders are " +
+            "player-side stubs that native-crash on GetObject (#204/#208). " +
+            "Only flip to true once the bundle bake version-mismatch is resolved.");
+    }
+
+    // ---------------------------------------------------------------
+    // 11. Dual-flag gating: ShaderBundleAvailable and PostFxShaderBundleAvailable are split constants
+    // ---------------------------------------------------------------
+    // Regression: a single bundle-available flag is too coarse — enabling it
+    // either loads everything (crashing on postFX stubs) or nothing (losing
+    // OVC). The split design into two independent named constants (one for
+    // non-postFX, one for postFX) lets them be enabled independently as
+    // the bake situation improves. See ADR-0021 and #208.
+    // PostFxShaderBundleAvailable must ALWAYS be false until the bake
+    // version-mismatch is resolved; ShaderBundleAvailable reflects OVC state.
+    [Fact]
+    public void Dual_flag_gating_uses_two_independent_named_constants()
+    {
+        var source = ReadSourceFile("WorldSphereMod/Code/Core.cs");
+
+        // Both constants must be declared (split-flag design is the contract)
+        source.Should().Contain("PostFxShaderBundleAvailable",
+            "PostFxShaderBundleAvailable constant must exist in Core.cs — it is the " +
+            "gate that prevents postFX stub shaders from being loaded (#208 dual-flag design)");
+
+        source.Should().Contain("ShaderBundleAvailable",
+            "ShaderBundleAvailable constant must exist in Core.cs — it gates the " +
+            "non-postFX (OVC) bundle path independently from postFX (#208 dual-flag design)");
+
+        // The postFX flag must be declared as a const (not a runtime variable that
+        // could be flipped accidentally)
+        source.Should().Contain("const bool PostFxShaderBundleAvailable",
+            "PostFxShaderBundleAvailable must be a compile-time const so it cannot be " +
+            "toggled at runtime — it encodes a build-time bake decision, not a runtime state");
+    }
+
+    // ---------------------------------------------------------------
+    // 12. VoxelEntities forced true on schema migration (any old version → current)
+    // ---------------------------------------------------------------
+    // Regression: a persisted JSON at version 2.6 with VoxelEntities=false was
+    // kept because the version-match guard bypassed migration entirely. Now
+    // ApplySchemaVersionMigration explicitly force-overwrites VoxelEntities=true
+    // so stale JSON can never disable the voxel pipeline on upgrade.
+    // Commit 893682b5 / fix/voxel-flag-force.
+    [Fact]
+    public void VoxelEntities_forced_true_in_schema_migration()
+    {
+        var source = ReadSourceFile("WorldSphereMod/Code/Core.cs");
+
+        var migrationBody = ExtractMethodBody(source, "static void ApplySchemaVersionMigration(SavedSettings loadedData)");
+
+        migrationBody.Should().Contain("loadedData.VoxelEntities = true",
+            "ApplySchemaVersionMigration must explicitly set VoxelEntities=true — " +
+            "stale-false JSON from version 2.6 (or earlier) would keep voxel actors " +
+            "disabled on upgrade. ApplyPhaseDefaults alone is insufficient because " +
+            "a future edit might omit the flag; the explicit assignment is the safety net.");
     }
 }

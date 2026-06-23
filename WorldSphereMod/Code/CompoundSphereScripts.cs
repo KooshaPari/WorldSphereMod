@@ -82,7 +82,10 @@ namespace WorldSphereMod
         }
         public static Color32 SphereTileColor(SphereTile SphereTile)
         {
-            return Core.Sphere.GetColor(SphereTile.Index());
+            // Use tile sprite texture average — bypasses world_layer.pixels which is
+            // never painted in 3D mode (tilemap.redrawTiles is intercepted). (#208)
+            WorldTile tile = World.world?.GetTileSimple(SphereTile.X, SphereTile.Y);
+            return tile != null ? Core.Sphere.GetTileColor(tile) : Core.Sphere.GetColor(SphereTile.Index());
         }
         public static Vector3 CartesianToFlat(SphereManager manager, float X, float Y, float Height = 0)
         {

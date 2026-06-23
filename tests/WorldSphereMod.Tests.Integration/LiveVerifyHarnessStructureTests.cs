@@ -4,6 +4,7 @@ using Xunit;
 /// <summary>
 /// Invariants for Tools/wsm-live-verify.ps1 (semi-deterministic live verification harness).
 /// </summary>
+[Trait("Category", "Integration")]
 public class LiveVerifyHarnessStructureTests
 {
     private const string HarnessRelative = "Tools/wsm-live-verify.ps1";

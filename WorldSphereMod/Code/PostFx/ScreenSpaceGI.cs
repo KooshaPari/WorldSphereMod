@@ -139,7 +139,17 @@ namespace WorldSphereMod.PostFx
 
         static Shader? ResolveShader()
         {
-            if (Core.IsWorld3D && Core.Sphere.LoadedShaders.TryGetValue("ScreenSpaceGI", out var bundled) && bundled != null)
+            // Belt-and-suspenders: PostFxShaderBundleAvailable=false means the
+            // ScreenSpaceGI shader was never loaded into LoadedShaders (stub-baked,
+            // native-crash on GetObject). Skip cache lookup; fall through to
+            // Shader.Find / Resources / disabled. (#204)
+            if (Core.IsWorld3D
+                && !Core.Sphere.PostFxShaderBundleAvailable
+                && Core.Sphere.PostFxShaderNames.Contains("ScreenSpaceGI"))
+            {
+                Debug.Log("[WSM3D] ScreenSpaceGI: PostFxShaderBundleAvailable=false — skipping LoadedShaders lookup. (#204)");
+            }
+            else if (Core.IsWorld3D && Core.Sphere.LoadedShaders.TryGetValue("ScreenSpaceGI", out var bundled) && bundled != null)
             {
                 Debug.Log("[WSM3D] ScreenSpaceGI shader resolved via Core.Sphere.LoadedShaders cache.");
                 return bundled;

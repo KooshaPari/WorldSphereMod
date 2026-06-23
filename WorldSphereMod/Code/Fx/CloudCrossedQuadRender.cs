@@ -1,22 +1,24 @@
 using System.Collections.Generic;
 using UnityEngine;
-using WorldSphereMod.Foliage;
 using WorldSphereMod.Effects;
-using WorldSphereMod.ProcGen;
+using WorldSphereMod.Foliage;
 using WorldSphereMod.Voxel;
 
 namespace WorldSphereMod.Fx
 {
     /// <summary>
-    /// Phase 3 cloud path: two perpendicular quads from the cloud sprite, submitted
-    /// through <see cref="MeshInstanceBatcher"/> with <see cref="FoliageMaterial"/>.
-    /// Gated on <see cref="SavedSettings.CrossedQuadFoliage"/> and
-    /// <see cref="EffectData.EmitCrossedQuad"/> (fx_cloud).
+    /// 3D cloud path. The cloud sprite is voxelized into a puffy
+    /// <see cref="ShapeHint.OrganicBlob"/> volume (the same voxelization actors
+    /// and foliage use) and submitted through <see cref="MeshInstanceBatcher"/>
+    /// with <see cref="FoliageMaterial"/>. The former crossed-quad / billboard
+    /// path is removed entirely — clouds are real 3D voxel puffs, never flat
+    /// camera-facing quads. Activated for <see cref="EffectData.EmitCrossedQuad"/>
+    /// (fx_cloud) in 3D. The runtime <see cref="SavedSettings.CrossedQuadFoliage"/>
+    /// check was removed (voxel-or-invisible) so a stale/off flag can't resurrect the
+    /// deprecated 2D cloud billboard.
     /// </summary>
     public static class CloudCrossedQuadRender
     {
-        const float CloudSwayAmplitude = 0.12f;
-
         struct CloudState
         {
             public Mesh Mesh;
@@ -28,7 +30,7 @@ namespace WorldSphereMod.Fx
         static readonly Dictionary<int, CloudState> _active = new Dictionary<int, CloudState>(32);
 
         public static bool IsEnabled(EffectData data) =>
-            Core.IsWorld3D && Core.savedSettings.CrossedQuadFoliage && data.EmitCrossedQuad;
+            Core.IsWorld3D && data.EmitCrossedQuad;
 
         public static bool IsActive(BaseEffect effect) =>
             effect != null && _active.ContainsKey(effect.GetInstanceID());
@@ -136,7 +138,10 @@ namespace WorldSphereMod.Fx
                 return false;
             }
 
-            Mesh? mesh = CrossedQuadMeshCache.GetOrBuild(sprite, BuildingShape.CrossedQuad, CloudSwayAmplitude, "fx_cloud");
+            // Voxelize the cloud sprite into a 3D puff (OrganicBlob), same as
+            // actors/foliage. Async build → returns a placeholder until ready;
+            // an empty mesh means "not built yet", so we bail and retry next tick.
+            Mesh? mesh = VoxelMeshCache.Get(sprite, ShapeHint.OrganicBlob);
             if (mesh == null || mesh.vertexCount == 0)
             {
                 return false;

@@ -1,6 +1,6 @@
 # ADR-0008 — Voxel mesh smoothing for SpriteVoxelizer output
 
-**Status:** Proposed
+**Status:** Accepted (MeshSmoother.cs shipped; MountainSlopeSmoothing defaults false)
 
 **Date:** 2026-05-19
 

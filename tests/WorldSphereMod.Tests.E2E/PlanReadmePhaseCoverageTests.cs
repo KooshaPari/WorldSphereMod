@@ -9,6 +9,7 @@ using Xunit;
 /// <summary>
 /// Guards that README.md documents every phase (0–10) defined in root PLAN.md.
 /// </summary>
+[Trait("Category", "E2E")]
 public class PlanReadmePhaseCoverageTests
 {
     private static string FindRepoRoot()

@@ -123,7 +123,7 @@ namespace WorldSphereMod.UI
         public static Text addText(string window, string textString, GameObject parent, int sizeFont, Vector3 pos, Vector2 addSize = default(Vector2))
         {
             GameObject textRef = GameObject.Find($"/Canvas Container Main/Canvas - Windows/windows/" + window + "/Background/Title");
-            GameObject textGo = Object.Instantiate(textRef, parent.transform);
+            GameObject textGo = UnityEngine.Object.Instantiate(textRef, parent.transform);
             textGo.SetActive(true);
 
             var textComp = textGo.GetComponent<Text>();
@@ -823,6 +823,7 @@ namespace WorldSphereMod.UI
         }
         private void LoadInputOptions(List<ButtonData> Buttons)
         {
+            AddSectionHeader(ID, Object);
             Object.GetComponent<RectTransform>().sizeDelta += new Vector2(0, Buttons.Count * 125);
             foreach (var data in Buttons)
             {
@@ -862,6 +863,49 @@ namespace WorldSphereMod.UI
                 }
             }
             PowerButtonSelector.instance.checkToggleIcons();
+        }
+
+        static void AddSectionHeader(string windowId, GameObject parent)
+        {
+            if (string.IsNullOrWhiteSpace(windowId))
+            {
+                return;
+            }
+
+            string labelText = windowId switch
+            {
+                "sprite_settings_window" => "<b>RENDER</b>",
+                "camera_settings_window" => "<b>TERRAIN</b>",
+                "world_settings_window" => "<b>FEATURES</b>",
+                "3D Phases" => "<b>DEBUG</b>",
+                _ => string.Empty
+            };
+
+            if (string.IsNullOrWhiteSpace(labelText))
+            {
+                return;
+            }
+
+            GameObject textRef = GameObject.Find($"/Canvas Container Main/Canvas - Windows/windows/{windowId}/Background/Title");
+            if (textRef == null)
+            {
+                return;
+            }
+
+            GameObject textGo = UnityEngine.Object.Instantiate(textRef, parent.transform);
+            textGo.SetActive(true);
+            var textComp = textGo.GetComponent<Text>();
+            if (textComp == null)
+            {
+                return;
+            }
+
+            textComp.text = labelText;
+            textComp.fontStyle = FontStyle.Bold;
+            textComp.fontSize = 16;
+            textComp.alignment = TextAnchor.MiddleLeft;
+            textComp.raycastTarget = false;
+            textGo.name = "SectionHeaderLabel";
         }
 
         static void AddQuickStartGuide(GameObject content)
@@ -1018,5 +1062,3 @@ namespace WorldSphereMod.UI
         }
     }
 }
-
-
