@@ -58,11 +58,10 @@ namespace WorldSphereMod.Worldspace
             // actor mesh extends actorH above that, add a small margin.
             go.transform.localPosition = new Vector3(0, actorH + 0.05f, 0);
             // #208: shrink worldspace health bars to read at default zoom.
-            // WHY: prior scale was `actorH` wide × `actorH*0.1` tall — a 10:1
-            // ratio, but at default zoom the bar matched or exceeded the
-            // actor's apparent body width. Halve width, halve height, and
-            // lift the bar a touch further above the head so the body
-            // remains visually dominant.
+            // WHY: prior scale was `actorH` wide × `actorH*0.1` tall — that's
+            // a 10:1 ratio, but at default zoom the bar often matched or
+            // exceeded the actor's apparent body width. Halve width and lift
+            // the bar further above the head so the body remains dominant.
             go.transform.localScale = new Vector3(actorH * 0.5f, actorH * 0.05f, 0.01f);
 
             var bar = go.AddComponent<HealthBar>();

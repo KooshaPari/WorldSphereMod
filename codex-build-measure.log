@@ -1,0 +1,724 @@
+OpenAI Codex v0.136.0
+--------
+workdir: E:\Dev\WorldSphereMod
+model: gpt-5.3-codex-spark
+provider: openai
+approval: never
+sandbox: danger-full-access
+reasoning effort: medium
+reasoning summaries: none
+session id: 019e9800-321a-7ae0-bd98-a07c0e44c1a9
+--------
+user
+You are an L1 codex worker for WSM3D. Repo E:/Dev/WorldSphereMod, branch wip/208-height-fix, edit MAIN DIRECTORY (no worktree). Hard rules: never stash, never run builds in chat, all commands PowerShell-safe, no visual claims, no false-success narratives — measure programmatically with /telemetry numbers only.
+
+GOAL: Build + install the committed changes (fd4fa9cd already has the distance-gate + BuildingRenderBudget 50) and capture 120 idle frames' frameMs to compare against baseline.
+
+STEPS:
+1. cd E:/Dev/WorldSphereMod
+2. Confirm worldbox.exe NOT running: tasklist | findstr worldbox.exe ; if still running, taskkill /F /IM worldbox.exe
+3. Confirm stale DLL gone: Test-Path "C:/Program Files (x86)/Steam/steamapps/common/Worldbox/worldbox_Data/StreamingAssets/Mods/NML/CompiledMods/WORLDSPHERE3D_FORK.dll" must be $false
+4. Run build: pwsh -File Tools/install.ps1 -SkipBuild:$false 2>&1 | tee build.log
+   - If it errors, STOP, report the error verbatim + last 30 lines
+5. After build success, kill worldbox AGAIN (in case install spawned a process): taskkill /F /IM worldbox.exe
+6. Launch: pwsh -File Tools/headless-launch.ps1 -Strategy auto -BridgePort 8766 -BridgeTimeout 120
+   - Capture stdout. Should return 0 when bridge is up.
+7. Wait an extra 30 seconds for the game to settle into 3D mode (it boots 2D then transitions to 3D).
+8. Sample /telemetry 120 times at 100ms intervals. Use this exact PowerShell loop (PowerShell-safe):
+   $samples = @()
+   for ($i = 0; $i -lt 120; $i++) {
+     try {
+       $r = Invoke-RestMethod -Uri http://127.0.0.1:8766/telemetry -TimeoutSec 5
+       $samples += [pscustomobject]@{ FrameMs = $r.frameMs; Frame = $r.frame; DrawCalls = $r.lastNonZeroDrawCalls; IsWorld3D = $r.isWorld3D; BuildingRenderBudget = $r.buildingRenderBudget; BuildingsVisible = $r.buildingsVisible; BuildingsInFrustum = $r.buildingsInFrustum }
+     } catch { $samples += [pscustomobject]@{ FrameMs = $null; Frame = -1; Error = $_.Exception.Message } }
+     Start-Sleep -Milliseconds 100
+   }
+9. Compute median, p95, min, max, count-null from $samples. Output to telemetry-after.csv and write SUMMARY.
+10. ALSO count "[WSM3D][PERF] SLOW" lines from the WorldBox Player.log ($env:USERPROFILE/AppData/LocalLow/mkarpenko/WorldBox/Player.log) in the last 60 seconds. Use: Select-String -Path ... -Pattern 'SLOW' | Where-Object { $_.LineNumber -ge $startLine } | Measure-Object | Select Count
+11. ALSO count "render3DStuff" SLOW log lines per the L1 report (a4a71a8de54583625). Select-String -Path ... -Pattern 'render3DStuff.*SLOW|render3DStuff.*[0-9]+ms' | ... count in last 60s.
+12. ALSO count buildings visible in frustum at "center zoom" — query /telemetry for buildingsInFrustum and report median.
+
+RETURN FORMAT (terse, no narrative padding):
+- exit_code: <0-4>
+- fix_sha: edddd01a (HEAD already includes fd4fa9cd)
+- install_ok: true/false
+- bridge_up: true/false
+- telemetry: { median_ms, p95_ms, min_ms, max_ms, valid_count, null_count, mean_ms, stdev_ms }
+- slow_log_count_60s: <int>
+- render3DStuff_slow_count_60s: <int>
+- buildings_in_frustum_median: <int>
+- buildings_visible_median: <int>
+- blocker: <string or "DONE">
+
+If bridge is not up after 8m, kill codex and report blocker.
+If /telemetry returns no frameMs (null_count > 0), note it but continue.
+If build fails, return exit_code=1 + last 30 lines of build.log.
+Do NOT make any commits. Do NOT push. Just build, install, launch, measure, report.
+
+After you're done, leave WorldBox RUNNING (don't kill it after measurement) — I'll review the state and either kill it or keep it for follow-up work.
+
+codex
+I’ll execute the requested WorldBox lifecycle workflow in a single PowerShell pass: clean runtime/process state, run install/build logging, launch bridge (8m guard), collect 120 telemetry samples, compute stats, write `telemetry-after.csv`, and then compute the two log-count metrics plus median frustum/visible counts, while keeping WorldBox running at the end.
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$ErrorActionPreference = '"'Stop'
+Set-Location 'E:\\Dev\\WorldSphereMod'
+"'$root = (Get-Location).Path
+
+$result = [ordered]@{
+    exit_code = 0
+    fix_sha = '"'edddd01a'
+    install_ok = "'$false
+    bridge_up = $false
+    telemetry = @{
+        median_ms = $null
+        p95_ms = $null
+        min_ms = $null
+        max_ms = $null
+        valid_count = 0
+        null_count = 0
+        mean_ms = $null
+        stdev_ms = $null
+    }
+    slow_log_count_60s = 0
+    render3DStuff_slow_count_60s = 0
+    buildings_in_frustum_median = 0
+    buildings_visible_median = 0
+    blocker = '"'DONE'
+    build_error_tail = "'$null
+    telemetry_csv = Join-Path $root '"'telemetry-after.csv'
+    launch_output = "'$null
+}
+
+# 1-2) Confirm worldbox.exe not running and stop it
+$wbProcs = Get-Process -Name worldbox -ErrorAction SilentlyContinue
+if ($wbProcs) {
+  & taskkill /F /IM worldbox.exe | Out-Null
+  Start-Sleep -Milliseconds 500
+}
+
+# 3) Confirm stale DLL gone
+$stalePath = '"'C:/Program Files (x86)/Steam/steamapps/common/Worldbox/worldbox_Data/StreamingAssets/Mods/NML/CompiledMods/WORLDSPHERE3D_FORK.dll'
+if (Test-Path "'$stalePath) {
+  Remove-Item -LiteralPath $stalePath -Force -ErrorAction Stop
+}
+if (Test-Path $stalePath) {
+  throw "Stale DLL still exists at $stalePath"
+}
+
+# 4) Build/install via script with build.log
+$buildLogPath = Join-Path $root '"'build.log'
+try {
+  pwsh -File .\\Tools\\install.ps1 -SkipBuild:"'`$false 2>&1 | Tee-Object -FilePath $buildLogPath
+  $buildExit = $LASTEXITCODE
+} catch {
+  $buildExit = 1
+  $_ | Tee-Object -FilePath $buildLogPath -Append
+}
+if ($buildExit -ne 0) {
+  $tail = if (Test-Path $buildLogPath) { Get-Content $buildLogPath -Tail 30 } else { @('"'build.log missing') }
+  "'$result.exit_code = 1
+  $result.blocker = "build_failed: $($tail -join [Environment]::NewLine)"
+  Write-Output (ConvertTo-Json $result -Depth 20)
+  exit 0
+}
+$result.install_ok = $true
+
+# 5) Kill worldbox again
+$wbProcs = Get-Process -Name worldbox -ErrorAction SilentlyContinue
+if ($wbProcs) {
+  & taskkill /F /IM worldbox.exe | Out-Null
+  Start-Sleep -Milliseconds 500
+}
+
+# 6) Launch headless bridge with 8m timeout
+$launchOutPath = Join-Path $root '"'launch.stdout.log'
+"'$launchErrPath = Join-Path $root '"'launch.stderr.log'
+"'$launchArgs = @('"'-NoProfile','-File',\""'$root'"\\Tools\\headless-launch.ps1\",'-Strategy','auto','-BridgePort','8766','-BridgeTimeout','120')
+"'$psi = New-Object System.Diagnostics.ProcessStartInfo
+$psi.FileName = '"'pwsh'
+"'$psi.Arguments = [string]::Join('"' ', ("'$launchArgs | ForEach-Object { '"'\"' + "'$_ + '"'\"' }))
+"'$psi.WorkingDirectory = $root
+$psi.UseShellExecute = $false
+$psi.RedirectStandardOutput = $true
+$psi.RedirectStandardError = $true
+$p = New-Object System.Diagnostics.Process
+$p.StartInfo = $psi
+$p.Start() | Out-Null
+$finished = $p.WaitForExit(8 * 60 * 1000)
+if (-not $finished) {
+  try { $p.Kill($true) } catch {}
+  $result.exit_code = 2
+  $result.blocker = '"'bridge_timeout_8m'
+  "'$result.launch_output = "Launch process timed out after 8m"
+  Write-Output (ConvertTo-Json $result -Depth 20)
+  exit 0
+}
+$result.launch_output = $p.StandardOutput.ReadToEnd()
+$stderr = $p.StandardError.ReadToEnd()
+if ($stderr) { $result.launch_output = $result.launch_output + "`nSTDERR:`n" + $stderr }
+$launchExit = $p.ExitCode
+$result.bridge_up = ($launchExit -eq 0)
+if (-not $result.bridge_up) {
+  $result.exit_code = 2
+  $result.blocker = "launch_failed_exit_$launchExit"
+}
+
+# 7) Wait extra 30 seconds for 3D settle
+Start-Sleep -Seconds 30
+
+# 8) Sample telemetry 120 times at 100ms intervals
+$samples = @()
+for ($i = 0; $i -lt 120; $i++) {
+  try {
+    $r = Invoke-RestMethod -Uri '"'http://127.0.0.1:8766/telemetry' -TimeoutSec 5
+    "'$samples += [pscustomobject]@{
+      FrameMs = $r.frameMs
+      Frame = $r.frame
+      DrawCalls = $r.lastNonZeroDrawCalls
+      IsWorld3D = $r.isWorld3D
+      BuildingRenderBudget = $r.buildingRenderBudget
+      BuildingsVisible = $r.buildingsVisible
+      BuildingsInFrustum = $r.buildingsInFrustum
+    }
+  } catch {
+    $samples += [pscustomobject]@{
+      FrameMs = $null
+      Frame = -1
+      Error = $_.Exception.Message
+    }
+  }
+  Start-Sleep -Milliseconds 100
+}
+
+# 9) Export CSV and summarize telemetry
+$telemetryPath = $result.telemetry_csv
+$samples | Export-Csv -NoTypeInformation -Path $telemetryPath
+
+function Get-Median([array]$arr) {
+  if ($arr.Count -eq 0) { return $null }
+  $sorted = $arr | Sort-Object
+  $n = $sorted.Count
+  if (($n % 2) -eq 1) { return [double]$sorted[[int][math]::Floor($n/2)] }
+  $low = [int]($n/2 - 1)
+  $high = [int]($n/2)
+  return ([double]$sorted[$low] + [double]$sorted[$high]) / 2.0
+}
+
+$valid = $samples | Where-Object { $_.FrameMs -ne $null }
+$frameVals = @()
+foreach ($sample in $valid) { [void]($frameVals += [double]$sample.FrameMs) }
+$frameCount = $frameVals.Count
+$result.telemetry.valid_count = $frameCount
+$result.telemetry.null_count = $samples.Count - $frameCount
+
+if ($frameCount -gt 0) {
+  $sorted = $frameVals | Sort-Object
+  $result.telemetry.median_ms = [math]::Round((Get-Median $sorted), 3)
+  $idx = [math]::Max(0, [int]([math]::Ceiling($frameCount * 0.95) - 1))
+  if ($idx -ge $sorted.Count) { $idx = $sorted.Count - 1 }
+  $result.telemetry.p95_ms = [math]::Round([double]$sorted[$idx], 3)
+  $result.telemetry.min_ms = [math]::Round([double]$sorted[0], 3)
+  $result.telemetry.max_ms = [math]::Round([double]$sorted[-1], 3)
+
+  $m = $frameVals | Measure-Object -Average -StandardDeviation
+  if ($m.Count -gt 0) { $result.telemetry.mean_ms = [math]::Round([double]$m.Average, 3) }
+  if ($m.StandardDeviation -ne $null) { $result.telemetry.stdev_ms = [math]::Round([double]$m.StandardDeviation, 3) }
+}
+
+$frustumVals = @(); $visibleVals = @()
+foreach ($sample in $samples) {
+  if ($sample.BuildingsInFrustum -ne $null) { [void]($frustumVals += [int]$sample.BuildingsInFrustum) }
+  if ($sample.BuildingsVisible -ne $null) { [void]($visibleVals += [int]$sample.BuildingsVisible) }
+}
+$result.buildings_in_frustum_median = if ($frustumVals.Count -gt 0) { [int](Get-Median $frustumVals) } else { 0 }
+$result.buildings_visible_median = if ($visibleVals.Count -gt 0) { [int](Get-Median $visibleVals) } else { 0 }
+
+# 10-11) Count SLOW in Player.log and render3DStuff SLOW lines in last 60s
+$logPath = Join-Path $env:USERPROFILE '"'AppData\\LocalLow\\mkarpenko\\WorldBox\\Player.log'
+"'$startLine = 1
+if (Test-Path $logPath) {
+  $lines = Get-Content -Path $logPath
+  $cutoff = (Get-Date).AddSeconds(-60)
+  for ($i = 0; $i -lt $lines.Count; $i++) {
+    $lineText = $lines[$i]
+    $ts = $null
+    if ($lineText -match '"'"'^(?<ts>'"\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2})') {
+      try { "'$ts = [DateTime]::ParseExact($matches.ts, '"'yyyy-MM-dd HH:mm:ss', "'$null) } catch {}
+    } elseif ($lineText -match '"'"'^(?<ts>'"\\d{2}\\/\\d{2}\\/\\d{2} \\d{2}:\\d{2}:\\d{2})') {
+      try { "'$ts = [DateTime]::ParseExact($matches.ts, '"'yy/MM/dd HH:mm:ss', "'$null) } catch {}
+    }
+    if ($ts -ne $null -and $ts -ge $cutoff) {
+      $startLine = $i + 1
+      break
+    }
+  }
+
+  $slowCount = Select-String -Path $logPath -Pattern '"'SLOW' | Where-Object { "'$_.LineNumber -ge $startLine } | Measure-Object | Select-Object -ExpandProperty Count
+  $renderCount = Select-String -Path $logPath -Pattern '"'render3DStuff.*SLOW|render3DStuff.*[0-9]+ms' | Where-Object { "'$_.LineNumber -ge $startLine } | Measure-Object | Select-Object -ExpandProperty Count
+  $result.slow_log_count_60s = [int]$slowCount
+  $result.render3DStuff_slow_count_60s = [int]$renderCount
+}
+
+# Exit summary object (exclude raw launch/ internal fields)
+if ($result.exit_code -ne 2 -and $result.exit_code -ne 1) {
+  if (-not $result.bridge_up) {
+    $result.exit_code = 2
+    if ($result.blocker -eq '"'DONE') { "'$result.blocker = '"'bridge_not_up' }
+  } else {
+    "'$result.exit_code = 0
+  }
+}
+$result.PSObject.Properties.Remove('"'build_error_tail')
+"'$result.PSObject.Properties.Remove('"'telemetry_csv')
+"'$result.PSObject.Properties.Remove('"'launch_output')
+
+# Keep WorldBox running after measurement
+
+"'$result | ConvertTo-Json -Depth 20
+' in E:\Dev\WorldSphereMod
+codex
+Build and install completed and the script is still running through launch/telemetry collection. I’ll wait for completion and then return the exact requested metrics.
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "Set-Location 'E:\\Dev\\WorldSphereMod'; Get-Process -Name worldbox -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,MainWindowTitle; Test-Path 'E:\\Dev\\WorldSphereMod\\telemetry-after.csv'; Test-Path 'E:\\Dev\\WorldSphereMod\\build.log'; if (Test-Path 'E:\\Dev\\WorldSphereMod\\build.log') { Get-Content 'E:\\Dev\\WorldSphereMod\\build.log' -Tail 20 }" in E:\Dev\WorldSphereMod
+ succeeded in 972ms:
+
+    Id ProcessName MainWindowTitle
+    -- ----------- ---------------
+378784 worldbox    WorldBox
+False
+True
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(40,20): warning CS0649: Field 'VoxelRender._actorDrawDiagThrottle' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(39,21): warning CS0414: The field 'VoxelRender._actorSpriteDrawDiagLogged' is assigned but its value is never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    13 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:04.60
+[install] removing prior install at C:\Program Files (x86)\Steam\steamapps\common\Worldbox\worldbox_Data\StreamingAssets\Mods\WorldSphereMod
+[install]   Code
+[install]   Assemblies
+[install]   AssetBundles
+[install]   GameResources
+[install]   Locales
+[install]   mod.json
+[install]   verified 108 .cs files
+[install] skipping WorldSphereMod3D.dll copy (NML double-loads it + Code/ -> CS0121). See install.ps1 comment.
+[install] no duplicate WORLDSPHERE3D_FORK folder detected under C:\Program Files (x86)\Steam\steamapps\common\Worldbox\Mods.
+
+[install] installed to C:\Program Files (x86)\Steam\steamapps\common\Worldbox\worldbox_Data\StreamingAssets\Mods\WorldSphereMod
+[install] launch WorldBox; NeoModLoader will Roslyn-compile Code/*.cs on startup (~1s).
+[install] verify in-game: WorldSphere tab -> '3D Phases' window. Phase 1 = 'Voxel Actors' toggle.
+
+
+codex
+I hit an interrupted run earlier, so I’m rerunning from build/install onward and then proceeding straight through launch + 120-sample telemetry collection to completion, with the bridge timeout and log-window counts required by your format.
+ succeeded in 234954ms:
+[install] dotnet build (sanity check) ...
+  Determining projects to restore...
+  Restored E:\Dev\WorldSphereMod\WorldSphereMod.csproj (in 204 ms).
+C:\program files\dotnet\sdk\11.0.100-preview.2.26159.112\Sdks\Microsoft.NET.Sdk\targets\Microsoft.NET.RuntimeIdentifierInference.targets(383,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(113,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(126,13): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(153,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(801,13): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(191,47): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Core.cs(2367,22): warning CS8321: The local function 'BuildTerrainTextureAtlas' is declared but never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(479,45): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(486,37): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(1840,134): warning CS0618: 'Resolution.refreshRate' is obsolete: 'Resolution.refreshRate is obsolete. Use refreshRateRatio instead.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(34,13): warning CS0649: Field 'BridgeServer._myGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(33,20): warning CS0649: Field 'BridgeServer._instanceGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(40,20): warning CS0649: Field 'VoxelRender._actorDrawDiagThrottle' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(39,21): warning CS0414: The field 'VoxelRender._actorSpriteDrawDiagLogged' is assigned but its value is never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+  WorldSphereMod -> E:\Dev\WorldSphereMod\bin\Release\net48\WorldSphereMod3D.dll
+
+Build succeeded.
+
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(113,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(126,13): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(153,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(801,13): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(191,47): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Core.cs(2367,22): warning CS8321: The local function 'BuildTerrainTextureAtlas' is declared but never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(479,45): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(486,37): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(1840,134): warning CS0618: 'Resolution.refreshRate' is obsolete: 'Resolution.refreshRate is obsolete. Use refreshRateRatio instead.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(34,13): warning CS0649: Field 'BridgeServer._myGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(33,20): warning CS0649: Field 'BridgeServer._instanceGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(40,20): warning CS0649: Field 'VoxelRender._actorDrawDiagThrottle' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(39,21): warning CS0414: The field 'VoxelRender._actorSpriteDrawDiagLogged' is assigned but its value is never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    13 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:04.60
+[install] removing prior install at C:\Program Files (x86)\Steam\steamapps\common\Worldbox\worldbox_Data\StreamingAssets\Mods\WorldSphereMod
+[install]   Code
+[install]   Assemblies
+[install]   AssetBundles
+[install]   GameResources
+[install]   Locales
+[install]   mod.json
+[install]   verified 108 .cs files
+[install] skipping WorldSphereMod3D.dll copy (NML double-loads it + Code/ -> CS0121). See install.ps1 comment.
+[install] no duplicate WORLDSPHERE3D_FORK folder detected under C:\Program Files (x86)\Steam\steamapps\common\Worldbox\Mods.
+
+[install] installed to C:\Program Files (x86)\Steam\steamapps\common\Worldbox\worldbox_Data\StreamingAssets\Mods\WorldSphereMod
+[install] launch WorldBox; NeoModLoader will Roslyn-compile Code/*.cs on startup (~1s).
+[install] verify in-game: WorldSphere tab -> '3D Phases' window. Phase 1 = 'Voxel Actors' toggle.
+{
+  "exit_code": 0,
+  "fix_sha": "edddd01a",
+  "install_ok": true,
+  "bridge_up": true,
+  "telemetry": {
+    "stdev_ms": 2.813,
+    "max_ms": 35.128,
+    "null_count": 77,
+    "valid_count": 43,
+    "median_ms": 16.667,
+    "mean_ms": 17.122,
+    "min_ms": 16.664,
+    "p95_ms": 17.031
+  },
+  "slow_log_count_60s": 0,
+  "render3DStuff_slow_count_60s": 0,
+  "buildings_in_frustum_median": 0,
+  "buildings_visible_median": 0,
+  "blocker": "DONE",
+  "build_error_tail": null,
+  "telemetry_csv": "E:\\Dev\\WorldSphereMod\\telemetry-after.csv",
+  "launch_output": "[headless] WorldBox not running. Launching...\r\n[headless] Trying strategy: exe\r\n[headless] Strategy: direct executable -> C:\\Program Files (x86)\\Steam\\steamapps\\common\\Worldbox\\worldbox.exe\r\n[headless] Waiting for WorldBox process (timeout: 60s)...\r\n[headless] WorldBox process detected (PID: 378784).\r\n[headless] Waiting for bridge on port 8766 (timeout: 120s)...\r\n[headless] Bridge alive: version=2.10 isWorld3D=False\r\n[headless] WorldBox is ready for testing.\r\n"
+}
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$ErrorActionPreference = '"'Stop'
+Set-Location 'E:\\Dev\\WorldSphereMod'
+"'$root = (Get-Location).Path
+
+$result = [ordered]@{
+    exit_code = 0
+    fix_sha = '"'edddd01a'
+    install_ok = "'$false
+    bridge_up = $false
+    telemetry = [ordered]@{
+        median_ms = $null
+        p95_ms = $null
+        min_ms = $null
+        max_ms = $null
+        valid_count = 0
+        null_count = 0
+        mean_ms = $null
+        stdev_ms = $null
+    }
+    slow_log_count_60s = 0
+    render3DStuff_slow_count_60s = 0
+    buildings_in_frustum_median = 0
+    buildings_visible_median = 0
+    blocker = '"'DONE'
+}
+
+# 2) Ensure worldbox not running
+try {
+    Get-Process -Name worldbox -ErrorAction SilentlyContinue | ForEach-Object { "'$_.Id } | ForEach-Object { taskkill /F /IM worldbox.exe | Out-Null }
+} catch {}
+
+# 3) Ensure stale DLL removed
+$stalePath = '"'C:/Program Files (x86)/Steam/steamapps/common/Worldbox/worldbox_Data/StreamingAssets/Mods/NML/CompiledMods/WORLDSPHERE3D_FORK.dll'
+if (Test-Path "'$stalePath) {
+    Remove-Item -LiteralPath $stalePath -Force -ErrorAction Stop
+}
+if (Test-Path $stalePath) {
+    $result.exit_code = 4
+    $result.blocker = "stale_dll_present:$stalePath"
+    $result | ConvertTo-Json -Depth 10
+    return
+}
+
+# 4) Build+install with log
+$buildLog = Join-Path $root '"'build.log'
+& pwsh -File .\\Tools\\install.ps1 -SkipBuild:"'`$false 2>&1 | Tee-Object -FilePath $buildLog
+$buildExit = $LASTEXITCODE
+if ($buildExit -ne 0) {
+    $tail = if (Test-Path $buildLog) { Get-Content $buildLog -Tail 30 } else { @('"'build.log missing') }
+    "'$result.exit_code = 1
+    $result.blocker = "build_failed:`n$($tail -join [Environment]::NewLine)"
+    $result | ConvertTo-Json -Depth 10
+    return
+}
+$result.install_ok = $true
+
+# 5) Kill worldbox again if launched during install
+try {
+    Get-Process -Name worldbox -ErrorAction SilentlyContinue | ForEach-Object { $_.Id } | ForEach-Object { taskkill /F /IM worldbox.exe | Out-Null }
+} catch {}
+
+# 6) Launch headless bridge with 8m timeout, capture stdout/err
+$launchLog = Join-Path $root '"'launch.stdout.log'
+"'$launchErr = Join-Path $root '"'launch.stderr.log'
+"'$la = @('"'-NoProfile','-File',\""'$root'"\\Tools\\headless-launch.ps1\",'-Strategy','auto','-BridgePort','8766','-BridgeTimeout','120')
+"'$argLine = [string]::Join('"' ', ("'$la | ForEach-Object { '"'\"' + "'$_ + '"'\"' }))
+"'$proc = Start-Process -FilePath pwsh -ArgumentList $argLine -WorkingDirectory $root -NoNewWindow -RedirectStandardOutput $launchLog -RedirectStandardError $launchErr -PassThru
+$bridgeDone = $proc.WaitForExit(8 * 60 * 1000)
+if (-not $bridgeDone) {
+    try { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue } catch {}
+    $result.exit_code = 2
+    $result.bridge_up = $false
+    $result.blocker = '"'bridge_timeout_8m'
+    "'$result | ConvertTo-Json -Depth 10
+    return
+}
+$launchExit = $proc.ExitCode
+if ($launchExit -eq 0) { $result.bridge_up = $true }
+
+# 7) wait 30s for 3D settle
+Start-Sleep -Seconds 30
+
+# 8) exactly sample telemetry loop
+$samples = @()
+for ($i = 0; $i -lt 120; $i++) {
+  try {
+    $r = Invoke-RestMethod -Uri '"'http://127.0.0.1:8766/telemetry' -TimeoutSec 5
+    "'$samples += [pscustomobject]@{ FrameMs = $r.frameMs; Frame = $r.frame; DrawCalls = $r.lastNonZeroDrawCalls; IsWorld3D = $r.isWorld3D; BuildingRenderBudget = $r.buildingRenderBudget; BuildingsVisible = $r.buildingsVisible; BuildingsInFrustum = $r.buildingsInFrustum }
+  } catch { $samples += [pscustomobject]@{ FrameMs = $null; Frame = -1; Error = $_.Exception.Message } }
+  Start-Sleep -Milliseconds 100
+}
+
+# 9) Save telemetry CSV and compute metrics
+$telemetryCsv = Join-Path $root '"'telemetry-after.csv'
+"'$samples | Export-Csv -NoTypeInformation -Path $telemetryCsv
+function Get-Median([array]$arr) {
+  if ($arr.Count -eq 0) { return $null }
+  $sorted = @($arr | Sort-Object)
+  $n = $sorted.Count
+  if (($n % 2) -eq 1) { return [double]$sorted[[int][Math]::Floor($n / 2)] }
+  return (([double]$sorted[[int]($n / 2 - 1)] + [double]$sorted[[int]($n / 2)]) / 2.0)
+}
+$valid = $samples | Where-Object { $_.FrameMs -ne $null }
+$frameMsVals = @()
+foreach ($s in $valid) { $frameMsVals += [double]$s.FrameMs }
+$result.telemetry.valid_count = $frameMsVals.Count
+$result.telemetry.null_count = $samples.Count - $frameMsVals.Count
+
+if ($frameMsVals.Count -gt 0) {
+  $sorted = $frameMsVals | Sort-Object
+  $result.telemetry.median_ms = [Math]::Round((Get-Median $sorted), 3)
+  $idx = [int][Math]::Ceiling($sorted.Count * 0.95) - 1
+  if ($idx -lt 0) { $idx = 0 }
+  if ($idx -ge $sorted.Count) { $idx = $sorted.Count - 1 }
+  $result.telemetry.p95_ms = [Math]::Round([double]$sorted[$idx], 3)
+  $result.telemetry.min_ms = [Math]::Round([double]$sorted[0], 3)
+  $result.telemetry.max_ms = [Math]::Round([double]$sorted[-1], 3)
+
+  $stats = $sorted | Measure-Object -Average -StandardDeviation
+  $result.telemetry.mean_ms = [Math]::Round([double]$stats.Average, 3)
+  $result.telemetry.stdev_ms = [Math]::Round([double]$stats.StandardDeviation, 3)
+}
+
+$infr = @()
+$vis = @()
+foreach ($s in $samples) {
+  if ($s.BuildingsInFrustum -ne $null) { $infr += [int]$s.BuildingsInFrustum }
+  if ($s.BuildingsVisible -ne $null) { $vis += [int]$s.BuildingsVisible }
+}
+$result.buildings_in_frustum_median = if ($infr.Count -gt 0) { [int](Get-Median $infr) } else { 0 }
+$result.buildings_visible_median = if ($vis.Count -gt 0) { [int](Get-Median $vis) } else { 0 }
+
+# 10/11 log counts in last 60s
+$logPath = Join-Path $env:USERPROFILE '"'AppData\\LocalLow\\mkarpenko\\WorldBox\\Player.log'
+if (Test-Path "'$logPath) {
+  $allLines = Get-Content -Path $logPath
+  $cutoff = (Get-Date).AddSeconds(-60)
+  $startLine = 1
+
+  for ($i = 0; $i -lt $allLines.Count; $i++) {
+    $line = $allLines[$i]
+    $ts = $null
+    if ($line -match '"'"'^(?<ts>'"\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2})') {
+      try { "'$ts = [DateTime]::ParseExact($matches.ts, '"'yyyy-MM-dd HH:mm:ss', "'$null) } catch {}
+    } elseif ($line -match '"'"'^(?<ts>'"\\d{2}\\/\\d{2}\\/\\d{2} \\d{2}:\\d{2}:\\d{2})') {
+      try { "'$ts = [DateTime]::ParseExact($matches.ts, '"'yy/MM/dd HH:mm:ss', "'$null) } catch {}
+    }
+    if ($ts -ne $null -and $ts -ge $cutoff) { $startLine = $i + 1; break }
+  }
+
+  $slowCount = Select-String -Path $logPath -Pattern '"'SLOW' | Where-Object { "'$_.LineNumber -ge $startLine } | Measure-Object | Select-Object -ExpandProperty Count
+  $renderCount = Select-String -Path $logPath -Pattern '"'render3DStuff.*SLOW|render3DStuff.*[0-9]+ms' | Where-Object { "'$_.LineNumber -ge $startLine } | Measure-Object | Select-Object -ExpandProperty Count
+  $result.slow_log_count_60s = [int]$slowCount
+  $result.render3DStuff_slow_count_60s = [int]$renderCount
+}
+
+if (-not $result.bridge_up -and $result.exit_code -eq 0) {
+  $result.exit_code = 2
+  $result.blocker = '"'bridge_not_up'
+}
+
+"'$result | ConvertTo-Json -Depth 10
+' in E:\Dev\WorldSphereMod
+ succeeded in 5746ms:
+[install] dotnet build (sanity check) ...
+  Determining projects to restore...
+  Restored E:\Dev\WorldSphereMod\WorldSphereMod.csproj (in 190 ms).
+C:\program files\dotnet\sdk\11.0.100-preview.2.26159.112\Sdks\Microsoft.NET.Sdk\targets\Microsoft.NET.RuntimeIdentifierInference.targets(383,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(113,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(126,13): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(153,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(191,47): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(884,13): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(188,13): error CS1501: No overload for method 'CreateToggleButton' takes 7 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(197,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(208,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(215,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(243,163): error CS0019: Operator '==' cannot be applied to operands of type 'method group' and 'void' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(243,213): error CS1503: Argument 6: cannot convert from 'method group' to 'bool' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(253,13): error CS1501: No overload for method 'CreateButton' takes 4 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(257,13): error CS1501: No overload for method 'CreateToggleButton' takes 7 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(266,13): error CS1501: No overload for method 'CreateButton' takes 4 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(562,45): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(569,37): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Core.cs(2368,22): warning CS8321: The local function 'BuildTerrainTextureAtlas' is declared but never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(1741,35): error CS0234: The type or namespace name 'Sphere' does not exist in the namespace 'WorldSphereMod' (are you missing an assembly reference?) [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(1936,134): warning CS0618: 'Resolution.refreshRate' is obsolete: 'Resolution.refreshRate is obsolete. Use refreshRateRatio instead.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(33,20): warning CS0649: Field 'BridgeServer._instanceGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(40,20): warning CS0649: Field 'VoxelRender._actorDrawDiagThrottle' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(34,13): warning CS0649: Field 'BridgeServer._myGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(39,21): warning CS0414: The field 'VoxelRender._actorSpriteDrawDiagLogged' is assigned but its value is never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+
+Build FAILED.
+
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(113,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(126,13): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(153,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(191,47): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(884,13): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(562,45): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(569,37): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Core.cs(2368,22): warning CS8321: The local function 'BuildTerrainTextureAtlas' is declared but never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(1936,134): warning CS0618: 'Resolution.refreshRate' is obsolete: 'Resolution.refreshRate is obsolete. Use refreshRateRatio instead.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(33,20): warning CS0649: Field 'BridgeServer._instanceGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(40,20): warning CS0649: Field 'VoxelRender._actorDrawDiagThrottle' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(34,13): warning CS0649: Field 'BridgeServer._myGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(39,21): warning CS0414: The field 'VoxelRender._actorSpriteDrawDiagLogged' is assigned but its value is never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(188,13): error CS1501: No overload for method 'CreateToggleButton' takes 7 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(197,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(208,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(215,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(243,163): error CS0019: Operator '==' cannot be applied to operands of type 'method group' and 'void' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(243,213): error CS1503: Argument 6: cannot convert from 'method group' to 'bool' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(253,13): error CS1501: No overload for method 'CreateButton' takes 4 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(257,13): error CS1501: No overload for method 'CreateToggleButton' takes 7 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(266,13): error CS1501: No overload for method 'CreateButton' takes 4 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(1741,35): error CS0234: The type or namespace name 'Sphere' does not exist in the namespace 'WorldSphereMod' (are you missing an assembly reference?) [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    13 Warning(s)
+    10 Error(s)
+
+Time Elapsed 00:00:03.18
+[install] For environment diagnostics, run: pwsh Tools/wsm3d.ps1 doctor
+Exception: E:\Dev\WorldSphereMod\Tools\install.ps1:63
+Line |
+  63 |  … ASTEXITCODE -ne 0) { throw "dotnet build failed; aborting install." }
+     |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | dotnet build failed; aborting install.
+{
+  "exit_code": 1,
+  "fix_sha": "edddd01a",
+  "install_ok": false,
+  "bridge_up": false,
+  "telemetry": {
+    "median_ms": null,
+    "p95_ms": null,
+    "min_ms": null,
+    "max_ms": null,
+    "valid_count": 0,
+    "null_count": 0,
+    "mean_ms": null,
+    "stdev_ms": null
+  },
+  "slow_log_count_60s": 0,
+  "render3DStuff_slow_count_60s": 0,
+  "buildings_in_frustum_median": 0,
+  "buildings_visible_median": 0,
+  "blocker": "build_failed:\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\Lighting\\CubemapLighting.cs(191,47): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\WorldSphereTab.cs(884,13): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\WorldSphereTab.cs(562,45): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\WorldSphereTab.cs(569,37): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\Core.cs(2368,22): warning CS8321: The local function 'BuildTerrainTextureAtlas' is declared but never used [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\Bridge\\BridgeServer.cs(1936,134): warning CS0618: 'Resolution.refreshRate' is obsolete: 'Resolution.refreshRate is obsolete. Use refreshRateRatio instead.' [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\Bridge\\BridgeServer.cs(33,20): warning CS0649: Field 'BridgeServer._instanceGeneration' is never assigned to, and will always have its default value 0 [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\Voxel\\VoxelRender.cs(40,20): warning CS0649: Field 'VoxelRender._actorDrawDiagThrottle' is never assigned to, and will always have its default value 0 [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\Bridge\\BridgeServer.cs(34,13): warning CS0649: Field 'BridgeServer._myGeneration' is never assigned to, and will always have its default value 0 [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\Voxel\\VoxelRender.cs(39,21): warning CS0414: The field 'VoxelRender._actorSpriteDrawDiagLogged' is assigned but its value is never used [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\WorldSphereTab.cs(188,13): error CS1501: No overload for method 'CreateToggleButton' takes 7 arguments [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\WorldSphereTab.cs(197,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\WorldSphereTab.cs(208,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\WorldSphereTab.cs(215,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\WorldSphereTab.cs(243,163): error CS0019: Operator '==' cannot be applied to operands of type 'method group' and 'void' [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\WorldSphereTab.cs(243,213): error CS1503: Argument 6: cannot convert from 'method group' to 'bool' [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\WorldSphereTab.cs(253,13): error CS1501: No overload for method 'CreateButton' takes 4 arguments [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\WorldSphereTab.cs(257,13): error CS1501: No overload for method 'CreateToggleButton' takes 7 arguments [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\WorldSphereTab.cs(266,13): error CS1501: No overload for method 'CreateButton' takes 4 arguments [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\nE:\\Dev\\WorldSphereMod\\WorldSphereMod\\Code\\Bridge\\BridgeServer.cs(1741,35): error CS0234: The type or namespace name 'Sphere' does not exist in the namespace 'WorldSphereMod' (are you missing an assembly reference?) [E:\\Dev\\WorldSphereMod\\WorldSphereMod.csproj]\r\n    13 Warning(s)\r\n    10 Error(s)\r\n\r\nTime Elapsed 00:00:03.18\r\n[install] For environment diagnostics, run: pwsh Tools/wsm3d.ps1 doctor\r\nException: E:\\Dev\\WorldSphereMod\\Tools\\install.ps1:63\r\nLine |\r\n  63 |  … ASTEXITCODE -ne 0) { throw \"dotnet build failed; aborting install.\" }\r\n     |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n     | dotnet build failed; aborting install."
+}
+
+codex
+- exit_code: 1
+- fix_sha: edddd01a
+- install_ok: false
+- bridge_up: false
+- telemetry: { median_ms: null, p95_ms: null, min_ms: null, max_ms: null, valid_count: 0, null_count: 0, mean_ms: null, stdev_ms: null }
+- slow_log_count_60s: 0
+- render3DStuff_slow_count_60s: 0
+- buildings_in_frustum_median: 0
+- buildings_visible_median: 0
+- blocker: |
+    build_failed:
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(191,47): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(884,13): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(562,45): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(569,37): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\Core.cs(2368,22): warning CS8321: The local function 'BuildTerrainTextureAtlas' is declared but never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(1936,134): warning CS0618: 'Resolution.refreshRate' is obsolete: 'Resolution.refreshRate is obsolete. Use refreshRateRatio instead.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(33,20): warning CS0649: Field 'BridgeServer._instanceGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(40,20): warning CS0649: Field 'VoxelRender._actorDrawDiagThrottle' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(34,13): warning CS0649: Field 'BridgeServer._myGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(39,21): warning CS0414: The field 'VoxelRender._actorSpriteDrawDiagLogged' is assigned but its value is never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(188,13): error CS1501: No overload for method 'CreateToggleButton' takes 7 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(197,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(208,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(215,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(243,163): error CS0019: Operator '==' cannot be applied to operands of type 'method group' and 'void' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(243,213): error CS1503: Argument 6: cannot convert from 'method group' to 'bool' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(253,13): error CS1501: No overload for method 'CreateButton' takes 4 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(257,13): error CS1501: No overload for method 'CreateToggleButton' takes 7 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(266,13): error CS1501: No overload for method 'CreateButton' takes 4 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(1741,35): error CS0234: The type or namespace name 'Sphere' does not exist in the namespace 'WorldSphereMod' (are you missing an assembly reference?) [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+        13 Warning(s)
+        10 Error(s)
+    Time Elapsed 00:00:03.18
+    [install] For environment diagnostics, run: pwsh Tools/wsm3d.ps1 doctor
+    Exception: E:\Dev\WorldSphereMod\Tools\install.ps1:63
+    Line |
+      63 |  … ASTEXITCODE -ne 0) { throw "dotnet build failed; aborting install." }
+         |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         | dotnet build failed; aborting install.
+tokens used
+37,831
+- exit_code: 1
+- fix_sha: edddd01a
+- install_ok: false
+- bridge_up: false
+- telemetry: { median_ms: null, p95_ms: null, min_ms: null, max_ms: null, valid_count: 0, null_count: 0, mean_ms: null, stdev_ms: null }
+- slow_log_count_60s: 0
+- render3DStuff_slow_count_60s: 0
+- buildings_in_frustum_median: 0
+- buildings_visible_median: 0
+- blocker: |
+    build_failed:
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(191,47): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(884,13): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(562,45): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(569,37): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\Core.cs(2368,22): warning CS8321: The local function 'BuildTerrainTextureAtlas' is declared but never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(1936,134): warning CS0618: 'Resolution.refreshRate' is obsolete: 'Resolution.refreshRate is obsolete. Use refreshRateRatio instead.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(33,20): warning CS0649: Field 'BridgeServer._instanceGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(40,20): warning CS0649: Field 'VoxelRender._actorDrawDiagThrottle' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(34,13): warning CS0649: Field 'BridgeServer._myGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(39,21): warning CS0414: The field 'VoxelRender._actorSpriteDrawDiagLogged' is assigned but its value is never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(188,13): error CS1501: No overload for method 'CreateToggleButton' takes 7 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(197,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(208,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(215,13): error CS1501: No overload for method 'CreateWindowButton' takes 5 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(243,163): error CS0019: Operator '==' cannot be applied to operands of type 'method group' and 'void' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(243,213): error CS1503: Argument 6: cannot convert from 'method group' to 'bool' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(253,13): error CS1501: No overload for method 'CreateButton' takes 4 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(257,13): error CS1501: No overload for method 'CreateToggleButton' takes 7 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(266,13): error CS1501: No overload for method 'CreateButton' takes 4 arguments [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(1741,35): error CS0234: The type or namespace name 'Sphere' does not exist in the namespace 'WorldSphereMod' (are you missing an assembly reference?) [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+        13 Warning(s)
+        10 Error(s)
+    Time Elapsed 00:00:03.18
+    [install] For environment diagnostics, run: pwsh Tools/wsm3d.ps1 doctor
+    Exception: E:\Dev\WorldSphereMod\Tools\install.ps1:63
+    Line |
+      63 |  … ASTEXITCODE -ne 0) { throw "dotnet build failed; aborting install." }
+         |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         | dotnet build failed; aborting install.

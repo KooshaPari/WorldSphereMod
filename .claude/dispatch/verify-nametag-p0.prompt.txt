@@ -1,0 +1,26 @@
+You are a background verification worker. Repo: E:/Dev/WorldSphereMod, branch wip/208-height-fix.
+
+Mission: verify commit ec8698e9 fixes P0 oversized worldspace nametags. Do not edit code unless the build fails due to a trivial compile issue in the just-edited file. Never stash. Never make visual claims from screenshots. Report only programmatic numbers.
+
+Quality charter: prefer existing tooling, no handrolled broad changes, keep hex/SOLID/DRY, xDD trace FR-WSM-011, minimize LOC and context. Build exactly once unless stale-lock/no-output then rerun once.
+
+Steps:
+1. Confirm current branch and commit include ec8698e9.
+2. Kill WorldBox if running. Delete stale NML compiled DLL traps if present:
+   - "$env:LOCALAPPDATA\worldbox\mods\CompiledMods\WORLDSPHERE3D_FORK.dll"
+   - "$env:LOCALAPPDATA\worldbox\mods\CompiledMods\WorldSphereMod3D.dll"
+   - any WorldSphereMod/WorldSphereMod3D dll under WorldBox worldbox_Data/StreamingAssets/Mods if install script expects source install.
+3. Run: pwsh -NoProfile -ExecutionPolicy Bypass -File Tools/install.ps1
+4. Launch: pwsh -NoProfile -ExecutionPolicy Bypass -File Tools/headless-launch.ps1 -Strategy exe -BridgeTimeout 120
+5. Query bridge endpoints using PowerShell Invoke-RestMethod or curl:
+   - http://127.0.0.1:8766/health
+   - http://127.0.0.1:8766/settings
+   - http://127.0.0.1:8766/diag/render_stats
+   - http://127.0.0.1:8766/diag/full_dump
+6. In the report, include:
+   - build/install outcome
+   - launch/bridge outcome
+   - settings: NameplateBaseScale, NameplateReferenceDistance, NameplateMinScale, NameplateMaxScale, WorldspaceUI, WorldspaceLabel3D
+   - camera distance/FOV/ortho values from render_stats
+   - computed expected effective scale at d=1, d=5, d=10, d=50 using code formula: distAtten=(refDist>0.0001 && d>refDist)?1:Clamp(d/refDist,min,1); effective=Clamp(base*distAtten, base*min, base*max)
+   - no visual claims.

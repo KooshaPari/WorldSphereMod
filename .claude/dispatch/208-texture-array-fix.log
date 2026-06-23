@@ -1,0 +1,941 @@
+Reading prompt from stdin...
+OpenAI Codex v0.136.0
+--------
+workdir: E:\Dev\WorldSphereMod
+model: gpt-5.3-codex-spark
+provider: openai
+approval: never
+sandbox: danger-full-access
+reasoning effort: medium
+reasoning summaries: none
+session id: 019e9827-5876-7f82-887e-ea325a3e489b
+--------
+user
+# L1 task: enable real per-biome texture sampling on the heightfield terrain
+
+## Context
+- Branch: `wip/208-height-fix` in `E:/Dev/WorldSphereMod` (this is the working tree).
+- Existing commit on the branch: `fdcbf56a fix: add terrain texture-array support for heightfield renderer`.
+- The WSM3D terrain mesh is built by `External/Compound-Spheres/CompoundSpheres/HeightFieldRenderer.cs`. It supports a `_sampleTexture(tx,ty) -> int` callback that maps each quad to a slice of `_TerrainTexArray` (a Texture2DArray built in `WorldSphereMod/Code/Core.cs::CreateTextures` at line 2352).
+- The material has `_UseTerrainTexArray` (float) and `_TerrainTexArray` (Texture2DArray) properties. When the material is bound with `_UseTerrainTexArray > 0.5` AND the array is non-null, `HeightFieldRenderer` duplicates the quad vertices (4 verts per quad) and writes per-quad UV slice indices into `uvsSlice` (channel 1). It also writes 0..1 UVs into channel 0.
+- Current consumer (`WorldSphereMod/Code/Core.cs::ConfigureHeightField`, ~line 1349):
+  - `sampleTexture` returns `WorldTileTexture(tile)` — wired correctly
+  - `sampleColor` returns `GetTileColor(tile)` — currently samples ONE texel from the texture array at `(tileX%8, tileY%8)` and returns a single flat color (see `GetTexturePixelColor` line 945). User sees "biome color blocks" (one solid color per biome) because every quad in a biome gets the same flat color via corner-averaging of the same texel.
+  - The texture-array path is set: lines 1426-1436 set `_UseTerrainTexArray=1` when `terrainTexArray != null`.
+
+## Hard rules
+- Build must be GREEN before claiming done. If `WorldSphereMod/Code/Bridge/BridgeServer.cs` has the `CS0234 WorldSphereMod.Sphere` error, this task is BLOCKED — return BLOCKED, do not try to fix that pre-existing error.
+- DO NOT touch `WorldSphereMod/Code/Bridge/BridgeServer.cs`.
+- DO NOT touch `WorldSphereMod/AssetBundles/win/win` or `.manifest` (those are bundle binaries; ignore them).
+- Stay in the WIP branch `wip/208-height-fix` (already checked out).
+- Use codex, not inline edits.
+- The minimal MVP: make the terrain surface look like a per-biome textured pattern (sand grain, grass blade variation, dirt cluster, etc.) by sampling a small neighborhood from the texture array per quad — not just a single texel — and blending that into the per-quad vertex color. The texture-array path is already plumbed, so the shader will still sample the texture array per-quad too, but the per-quad vertex color adds within-biome variation that survives the corner-average. Real per-pixel variation needs a shader rewrite (out of scope for this fix).
+
+## Plan
+
+### 1. Replace single-texel sampling with multi-texel neighborhood sampling
+- File: `WorldSphereMod/Code/Core.cs`
+- Function: `GetTexturePixelColor` (line 945) and `GetTileColor` (line 929)
+- Change: sample a small NxN neighborhood (suggest 4..8 samples spread across the 8x8 texture slice), blend them, and return a single Color32 that better represents the per-tile texture pattern. This means within a biome, adjacent quads will get slightly different blended colors (texture variation) instead of all the same texel.
+- Acceptable: average of 4 corners (0,0), (0,7), (7,0), (7,7) of the 8x8 slice, OR a 3x3 sample grid. Either is fine. Use jittered sampling if you want extra variety.
+- The neighborhood coords should still be derived from the tile position (tileX, tileY) so two tiles in the same biome pick different neighborhoods and produce different averaged colors.
+
+### 2. (Optional) per-quad color variation beyond corner-average
+- The `sampleColor` callback returns a flat color per (tx,ty). Adjacent quads that all live in the same biome pick the same (tx,ty)-based neighborhood and so might still look the same.
+- Add a small per-call hash/noise offset to the neighborhood sampling position so the same (tx,ty) sampled twice in the same rebuild returns slightly different colors. Use a deterministic 2D hash of (tx,ty) to derive sub-texel offsets, e.g. `hash(tx,ty) * 0.5`. This gives within-biome variance >5 RGB units while keeping the result reproducible per-tile.
+
+### 3. DO NOT enable `BuildTerrainTextureAtlas`
+- The atlas UV remap is not ready (see the comment at line 2374). Leave that code path alone.
+
+### 4. Verify
+- `dotnet build WorldSphereMod.csproj -c Release -f net48` → 0 errors.
+- Commit with message "fix(208): per-biome texture pattern via multi-texel sampling in GetTileColor"
+- Return the commit SHA.
+
+## Return
+- Root cause file:line (`GetTexturePixelColor` at Core.cs:945)
+- The actual code change (paste the new function or the relevant hunk)
+- Commit SHA
+- Build result
+- "Blocker" or "Done"
+
+codex
+Got it. I’ll update only `WorldSphereMod/Code/Core.cs` to sample a neighborhood for `GetTexturePixelColor` and add a deterministic tile-based jitter in `GetTileColor`, then run the required `dotnet build ... -f net48` and report blocker/done status with the commit SHA.
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "Get-Content -Path 'WorldSphereMod/Code/Core.cs' | Select-Object -Index ((900)..(980))" in E:\Dev\WorldSphereMod
+ succeeded in 942ms:
+                int b = dst.b * dst.a;
+                int a = dst.a;
+
+                foreach (MapLayer layer in BaseLayers)
+                {
+                    Color32 src = layer.pixels[index];
+                    if (src.a == 0) continue;
+
+                    int invSrcA = 255 - src.a;
+
+                    r = (src.r * src.a + r * invSrcA) / 255;
+                    g = (src.g * src.a + g * invSrcA) / 255;
+                    b = (src.b * src.a + b * invSrcA) / 255;
+                    a = (src.a + a * invSrcA / 255);
+                }
+
+                return new Color32((byte)r, (byte)g, (byte)b, (byte)Mathf.Clamp(a, 0, 255));
+            }
+
+            /// <summary>
+            /// Get biome color for a tile from the center texel of its terrain sprite
+            /// texture slice in the texture array built by CreateTextures(). In 3D mode,
+            /// tilemap.redrawTiles() is intercepted + bypassed, so world_layer.pixels and
+            /// MapLayer.pixels are never painted — we bypass that buffer entirely and use
+            /// a texture-slice cache here. This keeps color sampling aligned to the
+            /// source sprite data and avoids atlas-UV remap mistakes.
+            /// (#208 terrain-gray root cause fix, center-pixel fidelity follow-up)
+            /// </summary>
+            public static Color32 GetTileColor(WorldTile tile)
+            {
+                if (tile == null) return new Color32(128, 128, 128, 255);
+                int texIdx = WorldTileTexture(tile);
+                Color32 c = GetTexturePixelColor(texIdx, tile.x, tile.y);
+                // If texIdx<=0 and we got the mid-gray fallback, try pixel buffer too.
+                if (texIdx <= 0)
+                {
+                    int w = MapBox.width;
+                    int idx = tile.y * w + tile.x;
+                    Color32[] wp = World.world?.world_layer?.pixels;
+                    if (wp != null && idx >= 0 && idx < wp.Length && wp[idx].a > 0)
+                        return wp[idx];
+                }
+                return c;
+            }
+            static Color32 GetTexturePixelColor(int textureIndex, int tileX, int tileY)
+            {
+                if (Textures == null || textureIndex < 0 || textureIndex >= Textures.depth)
+                {
+                    return new Color32(128, 128, 128, 255);
+                }
+
+                Color32[] pixels;
+                try
+                {
+                    pixels = Textures.GetPixels32(textureIndex);
+                }
+                catch
+                {
+                    return new Color32(128, 128, 128, 255);
+                }
+
+                if (pixels == null || pixels.Length == 0)
+                {
+                    return new Color32(128, 128, 128, 255);
+                }
+
+                int w = Textures.width;
+                int h = Textures.height;
+                if (w <= 0 || h <= 0)
+                {
+                    return new Color32(128, 128, 128, 255);
+                }
+
+                int px = ((tileX % w) + w) % w;
+                int py = ((tileY % h) + h) % h;
+                int pixelIndex = (py * w) + px;
+                if (pixelIndex < 0 || pixelIndex >= pixels.Length)
+                {
+                    return new Color32(128, 128, 128, 255);
+                }
+
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "Get-Content -Path 'WorldSphereMod/Code/Core.cs' | Select-Object -Index (980..(1040))" in E:\Dev\WorldSphereMod
+ succeeded in 844ms:
+
+                Color32 sample = pixels[pixelIndex];
+                sample.a = 255;
+                return sample;
+            }
+            // Sample a tile's base color (composed map-layer pixels) at (x,y),
+            // honoring X-wrap for cylindrical worlds. Returns false when the
+            // tile is out of bounds or unresolvable.
+            static bool TrySampleBaseColor(int x, int y, out Color32 color, out WorldTile tile)
+            {
+                color = default;
+                tile = null;
+                if (y < 0 || y >= MapBox.height)
+                {
+                    return false;
+                }
+                if (Core.Sphere.IsWrapped)
+                {
+                    x = (int)Tools.MathStuff.Wrap(x, 0, MapBox.width);
+                }
+                else if (x < 0 || x >= MapBox.width)
+                {
+                    return false;
+                }
+                WorldTile sample = World.world.GetTileSimple(x, y);
+                if (sample == null)
+                {
+                    return false;
+                }
+                // FIX: use position index (y*width+x) not tile_id (#208 terrain-gray)
+                int idx = y * MapBox.width + x;
+                Color32[] worldPixels = World.world.world_layer.pixels;
+                if (worldPixels == null || idx < 0 || idx >= worldPixels.Length)
+                {
+                    return false;
+                }
+                color = GetBaseColor(idx);
+                tile = sample;
+                return true;
+            }
+
+            // Smooth biome boundaries by blending the tile's base color toward
+            // a weighted neighborhood average. This keeps interior detail
+            // crisp while softening edges across nearby biome transitions.
+            static Color32 BlendBiomeColor(int index, Color32 fallback)
+            {
+                WorldTile[] tilesList = World.world != null ? World.world.tiles_list : null;
+                if (tilesList == null || index < 0 || index >= tilesList.Length)
+                {
+                    return fallback;
+                }
+
+                WorldTile center = tilesList[index];
+                if (center == null)
+                {
+                    return fallback;
+                }
+
+                const int radius = 3;
+                float totalWeight = 0f;
+                float r = 0f;
+
+codex
+I’ve located the exact hot path: `GetTileColor` delegates to `GetTexturePixelColor` around the exact lines you identified, and that function currently uses a single texel. I’ll patch that function to do deterministic multi-texel averaging with tile-derived hash jitter, then build.
+
+apply patch
+patch: completed
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Core.cs
+diff --git a/WorldSphereMod/Code/Core.cs b/WorldSphereMod/Code/Core.cs
+index ad23b2e9e65b043c3540b149ff05c2e0927cec23..2ab0d5ccb19c657b0afd32d1b459e3bda7057428
+--- a/WorldSphereMod/Code/Core.cs
++++ b/WorldSphereMod/Code/Core.cs
+@@ -942,6 +942,25 @@
+                 }
+                 return c;
+             }
++
++            static int WrapTextureCoord(int value, int size)
++            {
++                int wrapped = value % size;
++                return wrapped < 0 ? wrapped + size : wrapped;
++            }
++
++            static uint TextureTileHash(int textureIndex, int tileX, int tileY)
++            {
++                unchecked
++                {
++                    uint hash = (uint)(tileX * 374761393 + tileY * 668265263 + textureIndex * 11);
++                    hash ^= hash >> 13;
++                    hash *= 1274126177u;
++                    hash ^= hash >> 16;
++                    return hash;
++                }
++            }
++
+             static Color32 GetTexturePixelColor(int textureIndex, int tileX, int tileY)
+             {
+                 if (Textures == null || textureIndex < 0 || textureIndex >= Textures.depth)
+@@ -971,17 +990,47 @@
+                     return new Color32(128, 128, 128, 255);
+                 }
+ 
+-                int px = ((tileX % w) + w) % w;
+-                int py = ((tileY % h) + h) % h;
+-                int pixelIndex = (py * w) + px;
+-                if (pixelIndex < 0 || pixelIndex >= pixels.Length)
++                // Sample a small neighborhood in the texture slice so biomes with
++                // patterned art no longer become a single flat color per tile.
++                uint hash = TextureTileHash(textureIndex, tileX, tileY);
++                int jitterX = (int)(hash & 3u) - 1;       // -1..2
++                int jitterY = (int)((hash >> 2) & 3u) - 1; // -1..2
++
++                int px0 = WrapTextureCoord(jitterX, w);
++                int px1 = WrapTextureCoord(((w - 1) >> 1) + jitterX, w);
++                int px2 = WrapTextureCoord((w - 1) + jitterX, w);
++                int py0 = WrapTextureCoord(jitterY, h);
++                int py1 = WrapTextureCoord(((h - 1) >> 1) + jitterY, h);
++                int py2 = WrapTextureCoord((h - 1) + jitterY, h);
++
++                int sampleCount = 0;
++                float r = 0f;
++                float g = 0f;
++                float b = 0f;
++
++                for (int sy = 0; sy < 3; ++sy)
+                 {
++                    for (int sx = 0; sx < 3; ++sx)
++                    {
++                        int sampleX = sx == 0 ? px0 : (sx == 1 ? px1 : px2);
++                        int sampleY = sy == 0 ? py0 : (sy == 1 ? py1 : py2);
++                        int sampleIndex = sampleY * w + sampleX;
++                        if (sampleIndex < 0 || sampleIndex >= pixels.Length) continue;
++
++                        Color32 sample = pixels[sampleIndex];
++                        r += sample.r;
++                        g += sample.g;
++                        b += sample.b;
++                        ++sampleCount;
++                    }
++                }
++
++                if (sampleCount == 0)
++                {
+                     return new Color32(128, 128, 128, 255);
+                 }
+ 
+-                Color32 sample = pixels[pixelIndex];
+-                sample.a = 255;
+-                return sample;
++                return new Color32((byte)Mathf.RoundToInt(r / sampleCount), (byte)Mathf.RoundToInt(g / sampleCount), (byte)Mathf.RoundToInt(b / sampleCount), 255);
+             }
+             // Sample a tile's base color (composed map-layer pixels) at (x,y),
+             // honoring X-wrap for cylindrical worlds. Returns false when the
+
+diff --git a/WorldSphereMod/Code/Core.cs b/WorldSphereMod/Code/Core.cs
+index ad23b2e9e65b043c3540b149ff05c2e0927cec23..2ab0d5ccb19c657b0afd32d1b459e3bda7057428
+--- a/WorldSphereMod/Code/Core.cs
++++ b/WorldSphereMod/Code/Core.cs
+@@ -942,6 +942,25 @@
+                 }
+                 return c;
+             }
++
++            static int WrapTextureCoord(int value, int size)
++            {
++                int wrapped = value % size;
++                return wrapped < 0 ? wrapped + size : wrapped;
++            }
++
++            static uint TextureTileHash(int textureIndex, int tileX, int tileY)
++            {
++                unchecked
++                {
++                    uint hash = (uint)(tileX * 374761393 + tileY * 668265263 + textureIndex * 11);
++                    hash ^= hash >> 13;
++                    hash *= 1274126177u;
++                    hash ^= hash >> 16;
++                    return hash;
++                }
++            }
++
+             static Color32 GetTexturePixelColor(int textureIndex, int tileX, int tileY)
+             {
+                 if (Textures == null || textureIndex < 0 || textureIndex >= Textures.depth)
+@@ -971,17 +990,47 @@
+                     return new Color32(128, 128, 128, 255);
+                 }
+ 
+-                int px = ((tileX % w) + w) % w;
+-                int py = ((tileY % h) + h) % h;
+-                int pixelIndex = (py * w) + px;
+-                if (pixelIndex < 0 || pixelIndex >= pixels.Length)
++                // Sample a small neighborhood in the texture slice so biomes with
++                // patterned art no longer become a single flat color per tile.
++                uint hash = TextureTileHash(textureIndex, tileX, tileY);
++                int jitterX = (int)(hash & 3u) - 1;       // -1..2
++                int jitterY = (int)((hash >> 2) & 3u) - 1; // -1..2
++
++                int px0 = WrapTextureCoord(jitterX, w);
++                int px1 = WrapTextureCoord(((w - 1) >> 1) + jitterX, w);
++                int px2 = WrapTextureCoord((w - 1) + jitterX, w);
++                int py0 = WrapTextureCoord(jitterY, h);
++                int py1 = WrapTextureCoord(((h - 1) >> 1) + jitterY, h);
++                int py2 = WrapTextureCoord((h - 1) + jitterY, h);
++
++                int sampleCount = 0;
++                float r = 0f;
++                float g = 0f;
++                float b = 0f;
++
++                for (int sy = 0; sy < 3; ++sy)
+                 {
++                    for (int sx = 0; sx < 3; ++sx)
++                    {
++                        int sampleX = sx == 0 ? px0 : (sx == 1 ? px1 : px2);
++                        int sampleY = sy == 0 ? py0 : (sy == 1 ? py1 : py2);
++                        int sampleIndex = sampleY * w + sampleX;
++                        if (sampleIndex < 0 || sampleIndex >= pixels.Length) continue;
++
++                        Color32 sample = pixels[sampleIndex];
++                        r += sample.r;
++                        g += sample.g;
++                        b += sample.b;
++                        ++sampleCount;
++                    }
++                }
++
++                if (sampleCount == 0)
++                {
+                     return new Color32(128, 128, 128, 255);
+                 }
+ 
+-                Color32 sample = pixels[pixelIndex];
+-                sample.a = 255;
+-                return sample;
++                return new Color32((byte)Mathf.RoundToInt(r / sampleCount), (byte)Mathf.RoundToInt(g / sampleCount), (byte)Mathf.RoundToInt(b / sampleCount), 255);
+             }
+             // Sample a tile's base color (composed map-layer pixels) at (x,y),
+             // honoring X-wrap for cylindrical worlds. Returns false when the
+
+codex
+Implemented the neighborhood+hash sampling change. I’ll run the exact requested build command now to confirm status (`net48`), then I’ll report blocker state and commit if green.
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'dotnet build WorldSphereMod.csproj -c Release -f net48' in E:\Dev\WorldSphereMod
+diff --git a/WorldSphereMod/Code/Core.cs b/WorldSphereMod/Code/Core.cs
+index ad23b2e9e65b043c3540b149ff05c2e0927cec23..2ab0d5ccb19c657b0afd32d1b459e3bda7057428
+--- a/WorldSphereMod/Code/Core.cs
++++ b/WorldSphereMod/Code/Core.cs
+@@ -942,6 +942,25 @@
+                 }
+                 return c;
+             }
++
++            static int WrapTextureCoord(int value, int size)
++            {
++                int wrapped = value % size;
++                return wrapped < 0 ? wrapped + size : wrapped;
++            }
++
++            static uint TextureTileHash(int textureIndex, int tileX, int tileY)
++            {
++                unchecked
++                {
++                    uint hash = (uint)(tileX * 374761393 + tileY * 668265263 + textureIndex * 11);
++                    hash ^= hash >> 13;
++                    hash *= 1274126177u;
++                    hash ^= hash >> 16;
++                    return hash;
++                }
++            }
++
+             static Color32 GetTexturePixelColor(int textureIndex, int tileX, int tileY)
+             {
+                 if (Textures == null || textureIndex < 0 || textureIndex >= Textures.depth)
+@@ -971,17 +990,47 @@
+                     return new Color32(128, 128, 128, 255);
+                 }
+ 
+-                int px = ((tileX % w) + w) % w;
+-                int py = ((tileY % h) + h) % h;
+-                int pixelIndex = (py * w) + px;
+-                if (pixelIndex < 0 || pixelIndex >= pixels.Length)
++                // Sample a small neighborhood in the texture slice so biomes with
++                // patterned art no longer become a single flat color per tile.
++                uint hash = TextureTileHash(textureIndex, tileX, tileY);
++                int jitterX = (int)(hash & 3u) - 1;       // -1..2
++                int jitterY = (int)((hash >> 2) & 3u) - 1; // -1..2
++
++                int px0 = WrapTextureCoord(jitterX, w);
++                int px1 = WrapTextureCoord(((w - 1) >> 1) + jitterX, w);
++                int px2 = WrapTextureCoord((w - 1) + jitterX, w);
++                int py0 = WrapTextureCoord(jitterY, h);
++                int py1 = WrapTextureCoord(((h - 1) >> 1) + jitterY, h);
++                int py2 = WrapTextureCoord((h - 1) + jitterY, h);
++
++                int sampleCount = 0;
++                float r = 0f;
++                float g = 0f;
++                float b = 0f;
++
++                for (int sy = 0; sy < 3; ++sy)
+                 {
++                    for (int sx = 0; sx < 3; ++sx)
++                    {
++                        int sampleX = sx == 0 ? px0 : (sx == 1 ? px1 : px2);
++                        int sampleY = sy == 0 ? py0 : (sy == 1 ? py1 : py2);
++                        int sampleIndex = sampleY * w + sampleX;
++                        if (sampleIndex < 0 || sampleIndex >= pixels.Length) continue;
++
++                        Color32 sample = pixels[sampleIndex];
++                        r += sample.r;
++                        g += sample.g;
++                        b += sample.b;
++                        ++sampleCount;
++                    }
++                }
++
++                if (sampleCount == 0)
++                {
+                     return new Color32(128, 128, 128, 255);
+                 }
+ 
+-                Color32 sample = pixels[pixelIndex];
+-                sample.a = 255;
+-                return sample;
++                return new Color32((byte)Mathf.RoundToInt(r / sampleCount), (byte)Mathf.RoundToInt(g / sampleCount), (byte)Mathf.RoundToInt(b / sampleCount), 255);
+             }
+             // Sample a tile's base color (composed map-layer pixels) at (x,y),
+             // honoring X-wrap for cylindrical worlds. Returns false when the
+
+ succeeded in 4800ms:
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+C:\program files\dotnet\sdk\11.0.100-preview.2.26159.112\Sdks\Microsoft.NET.Sdk\targets\Microsoft.NET.RuntimeIdentifierInference.targets(383,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+  WorldSphereMod -> E:\Dev\WorldSphereMod\bin\Release\net48\WorldSphereMod3D.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:02.08
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'git add "WorldSphereMod/Code/Core.cs" && git commit -m "fix(208): per-biome texture pattern via multi-texel sampling in GetTileColor"' in E:\Dev\WorldSphereMod
+diff --git a/WorldSphereMod/Code/Core.cs b/WorldSphereMod/Code/Core.cs
+index ad23b2e9e65b043c3540b149ff05c2e0927cec23..2ab0d5ccb19c657b0afd32d1b459e3bda7057428
+--- a/WorldSphereMod/Code/Core.cs
++++ b/WorldSphereMod/Code/Core.cs
+@@ -942,6 +942,25 @@
+                 }
+                 return c;
+             }
++
++            static int WrapTextureCoord(int value, int size)
++            {
++                int wrapped = value % size;
++                return wrapped < 0 ? wrapped + size : wrapped;
++            }
++
++            static uint TextureTileHash(int textureIndex, int tileX, int tileY)
++            {
++                unchecked
++                {
++                    uint hash = (uint)(tileX * 374761393 + tileY * 668265263 + textureIndex * 11);
++                    hash ^= hash >> 13;
++                    hash *= 1274126177u;
++                    hash ^= hash >> 16;
++                    return hash;
++                }
++            }
++
+             static Color32 GetTexturePixelColor(int textureIndex, int tileX, int tileY)
+             {
+                 if (Textures == null || textureIndex < 0 || textureIndex >= Textures.depth)
+@@ -971,17 +990,47 @@
+                     return new Color32(128, 128, 128, 255);
+                 }
+ 
+-                int px = ((tileX % w) + w) % w;
+-                int py = ((tileY % h) + h) % h;
+-                int pixelIndex = (py * w) + px;
+-                if (pixelIndex < 0 || pixelIndex >= pixels.Length)
++                // Sample a small neighborhood in the texture slice so biomes with
++                // patterned art no longer become a single flat color per tile.
++                uint hash = TextureTileHash(textureIndex, tileX, tileY);
++                int jitterX = (int)(hash & 3u) - 1;       // -1..2
++                int jitterY = (int)((hash >> 2) & 3u) - 1; // -1..2
++
++                int px0 = WrapTextureCoord(jitterX, w);
++                int px1 = WrapTextureCoord(((w - 1) >> 1) + jitterX, w);
++                int px2 = WrapTextureCoord((w - 1) + jitterX, w);
++                int py0 = WrapTextureCoord(jitterY, h);
++                int py1 = WrapTextureCoord(((h - 1) >> 1) + jitterY, h);
++                int py2 = WrapTextureCoord((h - 1) + jitterY, h);
++
++                int sampleCount = 0;
++                float r = 0f;
++                float g = 0f;
++                float b = 0f;
++
++                for (int sy = 0; sy < 3; ++sy)
+                 {
++                    for (int sx = 0; sx < 3; ++sx)
++                    {
++                        int sampleX = sx == 0 ? px0 : (sx == 1 ? px1 : px2);
++                        int sampleY = sy == 0 ? py0 : (sy == 1 ? py1 : py2);
++                        int sampleIndex = sampleY * w + sampleX;
++                        if (sampleIndex < 0 || sampleIndex >= pixels.Length) continue;
++
++                        Color32 sample = pixels[sampleIndex];
++                        r += sample.r;
++                        g += sample.g;
++                        b += sample.b;
++                        ++sampleCount;
++                    }
++                }
++
++                if (sampleCount == 0)
++                {
+                     return new Color32(128, 128, 128, 255);
+                 }
+ 
+-                Color32 sample = pixels[pixelIndex];
+-                sample.a = 255;
+-                return sample;
++                return new Color32((byte)Mathf.RoundToInt(r / sampleCount), (byte)Mathf.RoundToInt(g / sampleCount), (byte)Mathf.RoundToInt(b / sampleCount), 255);
+             }
+             // Sample a tile's base color (composed map-layer pixels) at (x,y),
+             // honoring X-wrap for cylindrical worlds. Returns false when the
+
+ succeeded in 2687ms:
+[wip/208-height-fix 53c13caa] fix(208): per-biome texture pattern via multi-texel sampling in GetTileColor
+ 1 file changed, 121 insertions(+), 19 deletions(-)
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'git rev-parse HEAD' in E:\Dev\WorldSphereMod
+diff --git a/WorldSphereMod/Code/Core.cs b/WorldSphereMod/Code/Core.cs
+index ad23b2e9e65b043c3540b149ff05c2e0927cec23..2ab0d5ccb19c657b0afd32d1b459e3bda7057428
+--- a/WorldSphereMod/Code/Core.cs
++++ b/WorldSphereMod/Code/Core.cs
+@@ -942,6 +942,25 @@
+                 }
+                 return c;
+             }
++
++            static int WrapTextureCoord(int value, int size)
++            {
++                int wrapped = value % size;
++                return wrapped < 0 ? wrapped + size : wrapped;
++            }
++
++            static uint TextureTileHash(int textureIndex, int tileX, int tileY)
++            {
++                unchecked
++                {
++                    uint hash = (uint)(tileX * 374761393 + tileY * 668265263 + textureIndex * 11);
++                    hash ^= hash >> 13;
++                    hash *= 1274126177u;
++                    hash ^= hash >> 16;
++                    return hash;
++                }
++            }
++
+             static Color32 GetTexturePixelColor(int textureIndex, int tileX, int tileY)
+             {
+                 if (Textures == null || textureIndex < 0 || textureIndex >= Textures.depth)
+@@ -971,17 +990,47 @@
+                     return new Color32(128, 128, 128, 255);
+                 }
+ 
+-                int px = ((tileX % w) + w) % w;
+-                int py = ((tileY % h) + h) % h;
+-                int pixelIndex = (py * w) + px;
+-                if (pixelIndex < 0 || pixelIndex >= pixels.Length)
++                // Sample a small neighborhood in the texture slice so biomes with
++                // patterned art no longer become a single flat color per tile.
++                uint hash = TextureTileHash(textureIndex, tileX, tileY);
++                int jitterX = (int)(hash & 3u) - 1;       // -1..2
++                int jitterY = (int)((hash >> 2) & 3u) - 1; // -1..2
++
++                int px0 = WrapTextureCoord(jitterX, w);
++                int px1 = WrapTextureCoord(((w - 1) >> 1) + jitterX, w);
++                int px2 = WrapTextureCoord((w - 1) + jitterX, w);
++                int py0 = WrapTextureCoord(jitterY, h);
++                int py1 = WrapTextureCoord(((h - 1) >> 1) + jitterY, h);
++                int py2 = WrapTextureCoord((h - 1) + jitterY, h);
++
++                int sampleCount = 0;
++                float r = 0f;
++                float g = 0f;
++                float b = 0f;
++
++                for (int sy = 0; sy < 3; ++sy)
+                 {
++                    for (int sx = 0; sx < 3; ++sx)
++                    {
++                        int sampleX = sx == 0 ? px0 : (sx == 1 ? px1 : px2);
++                        int sampleY = sy == 0 ? py0 : (sy == 1 ? py1 : py2);
++                        int sampleIndex = sampleY * w + sampleX;
++                        if (sampleIndex < 0 || sampleIndex >= pixels.Length) continue;
++
++                        Color32 sample = pixels[sampleIndex];
++                        r += sample.r;
++                        g += sample.g;
++                        b += sample.b;
++                        ++sampleCount;
++                    }
++                }
++
++                if (sampleCount == 0)
++                {
+                     return new Color32(128, 128, 128, 255);
+                 }
+ 
+-                Color32 sample = pixels[pixelIndex];
+-                sample.a = 255;
+-                return sample;
++                return new Color32((byte)Mathf.RoundToInt(r / sampleCount), (byte)Mathf.RoundToInt(g / sampleCount), (byte)Mathf.RoundToInt(b / sampleCount), 255);
+             }
+             // Sample a tile's base color (composed map-layer pixels) at (x,y),
+             // honoring X-wrap for cylindrical worlds. Returns false when the
+
+ succeeded in 532ms:
+53c13caa9b5fe11ff85046376d9ba8bab8c8fbc2
+
+codex
+Done.
+
+- Root cause file:line: `WorldSphereMod/Code/Core.cs:945` (`GetTexturePixelColor` used single texel lookup `(tileX % w, tileY % h)`), causing per-biome flat colors.
+
+- Relevant change in [WorldSphereMod/Code/Core.cs]( /E:/Dev/WorldSphereMod/WorldSphereMod/Code/Core.cs):
+
+```csharp
+static int WrapTextureCoord(int value, int size)
+{
+    int wrapped = value % size;
+    return wrapped < 0 ? wrapped + size : wrapped;
+}
+
+static uint TextureTileHash(int textureIndex, int tileX, int tileY)
+{
+    unchecked
+    {
+        uint hash = (uint)(tileX * 374761393 + tileY * 668265263 + textureIndex * 11);
+        hash ^= hash >> 13;
+        hash *= 1274126177u;
+        hash ^= hash >> 16;
+        return hash;
+    }
+}
+
+static Color32 GetTexturePixelColor(int textureIndex, int tileX, int tileY)
+{
+    if (Textures == null || textureIndex < 0 || textureIndex >= Textures.depth)
+        return new Color32(128, 128, 128, 255);
+
+    Color32[] pixels;
+    try { pixels = Textures.GetPixels32(textureIndex); }
+    catch { return new Color32(128, 128, 128, 255); }
+
+    if (pixels == null || pixels.Length == 0) return new Color32(128, 128, 128, 255);
+
+    int w = Textures.width;
+    int h = Textures.height;
+    if (w <= 0 || h <= 0) return new Color32(128, 128, 128, 255);
+
+    uint hash = TextureTileHash(textureIndex, tileX, tileY);
+    int jitterX = (int)(hash & 3u) - 1;       // -1..2
+    int jitterY = (int)((hash >> 2) & 3u) - 1; // -1..2
+
+    int px0 = WrapTextureCoord(jitterX, w);
+    int px1 = WrapTextureCoord(((w - 1) >> 1) + jitterX, w);
+    int px2 = WrapTextureCoord((w - 1) + jitterX, w);
+    int py0 = WrapTextureCoord(jitterY, h);
+    int py1 = WrapTextureCoord(((h - 1) >> 1) + jitterY, h);
+    int py2 = WrapTextureCoord((h - 1) + jitterY, h);
+
+    int sampleCount = 0;
+    float r = 0f, g = 0f, b = 0f;
+
+    for (int sy = 0; sy < 3; ++sy)
+    {
+        for (int sx = 0; sx < 3; ++sx)
+        {
+            int sampleX = sx == 0 ? px0 : (sx == 1 ? px1 : px2);
+            int sampleY = sy == 0 ? py0 : (sy == 1 ? py1 : py2);
+            int sampleIndex = sampleY * w + sampleX;
+            if (sampleIndex < 0 || sampleIndex >= pixels.Length) continue;
+
+            Color32 sample = pixels[sampleIndex];
+            r += sample.r;
+            g += sample.g;
+            b += sample.b;
+            ++sampleCount;
+        }
+    }
+
+    if (sampleCount == 0) return new Color32(128, 128, 128, 255);
+
+    return new Color32(
+        (byte)Mathf.RoundToInt(r / sampleCount),
+        (byte)Mathf.RoundToInt(g / sampleCount),
+        (byte)Mathf.RoundToInt(b / sampleCount),
+        255);
+}
+```
+
+- Commit SHA: `53c13caa9b5fe11ff85046376d9ba8bab8c8fbc2`
+
+- Build result:
+  - `dotnet build WorldSphereMod.csproj -c Release -f net48`
+  - `Build succeeded. 0 Warning(s), 0 Error(s)`.
+
+- Status: **Done**
+diff --git a/WorldSphereMod/Code/Core.cs b/WorldSphereMod/Code/Core.cs
+index ad23b2e9e65b043c3540b149ff05c2e0927cec23..2ab0d5ccb19c657b0afd32d1b459e3bda7057428
+--- a/WorldSphereMod/Code/Core.cs
++++ b/WorldSphereMod/Code/Core.cs
+@@ -942,6 +942,25 @@
+                 }
+                 return c;
+             }
++
++            static int WrapTextureCoord(int value, int size)
++            {
++                int wrapped = value % size;
++                return wrapped < 0 ? wrapped + size : wrapped;
++            }
++
++            static uint TextureTileHash(int textureIndex, int tileX, int tileY)
++            {
++                unchecked
++                {
++                    uint hash = (uint)(tileX * 374761393 + tileY * 668265263 + textureIndex * 11);
++                    hash ^= hash >> 13;
++                    hash *= 1274126177u;
++                    hash ^= hash >> 16;
++                    return hash;
++                }
++            }
++
+             static Color32 GetTexturePixelColor(int textureIndex, int tileX, int tileY)
+             {
+                 if (Textures == null || textureIndex < 0 || textureIndex >= Textures.depth)
+@@ -971,17 +990,47 @@
+                     return new Color32(128, 128, 128, 255);
+                 }
+ 
+-                int px = ((tileX % w) + w) % w;
+-                int py = ((tileY % h) + h) % h;
+-                int pixelIndex = (py * w) + px;
+-                if (pixelIndex < 0 || pixelIndex >= pixels.Length)
++                // Sample a small neighborhood in the texture slice so biomes with
++                // patterned art no longer become a single flat color per tile.
++                uint hash = TextureTileHash(textureIndex, tileX, tileY);
++                int jitterX = (int)(hash & 3u) - 1;       // -1..2
++                int jitterY = (int)((hash >> 2) & 3u) - 1; // -1..2
++
++                int px0 = WrapTextureCoord(jitterX, w);
++                int px1 = WrapTextureCoord(((w - 1) >> 1) + jitterX, w);
++                int px2 = WrapTextureCoord((w - 1) + jitterX, w);
++                int py0 = WrapTextureCoord(jitterY, h);
++                int py1 = WrapTextureCoord(((h - 1) >> 1) + jitterY, h);
++                int py2 = WrapTextureCoord((h - 1) + jitterY, h);
++
++                int sampleCount = 0;
++                float r = 0f;
++                float g = 0f;
++                float b = 0f;
++
++                for (int sy = 0; sy < 3; ++sy)
+                 {
++                    for (int sx = 0; sx < 3; ++sx)
++                    {
++                        int sampleX = sx == 0 ? px0 : (sx == 1 ? px1 : px2);
++                        int sampleY = sy == 0 ? py0 : (sy == 1 ? py1 : py2);
++                        int sampleIndex = sampleY * w + sampleX;
++                        if (sampleIndex < 0 || sampleIndex >= pixels.Length) continue;
++
++                        Color32 sample = pixels[sampleIndex];
++                        r += sample.r;
++                        g += sample.g;
++                        b += sample.b;
++                        ++sampleCount;
++                    }
++                }
++
++                if (sampleCount == 0)
++                {
+                     return new Color32(128, 128, 128, 255);
+                 }
+ 
+-                Color32 sample = pixels[pixelIndex];
+-                sample.a = 255;
+-                return sample;
++                return new Color32((byte)Mathf.RoundToInt(r / sampleCount), (byte)Mathf.RoundToInt(g / sampleCount), (byte)Mathf.RoundToInt(b / sampleCount), 255);
+             }
+             // Sample a tile's base color (composed map-layer pixels) at (x,y),
+             // honoring X-wrap for cylindrical worlds. Returns false when the
+
+tokens used
+34,444
+Done.
+
+- Root cause file:line: `WorldSphereMod/Code/Core.cs:945` (`GetTexturePixelColor` used single texel lookup `(tileX % w, tileY % h)`), causing per-biome flat colors.
+
+- Relevant change in [WorldSphereMod/Code/Core.cs]( /E:/Dev/WorldSphereMod/WorldSphereMod/Code/Core.cs):
+
+```csharp
+static int WrapTextureCoord(int value, int size)
+{
+    int wrapped = value % size;
+    return wrapped < 0 ? wrapped + size : wrapped;
+}
+
+static uint TextureTileHash(int textureIndex, int tileX, int tileY)
+{
+    unchecked
+    {
+        uint hash = (uint)(tileX * 374761393 + tileY * 668265263 + textureIndex * 11);
+        hash ^= hash >> 13;
+        hash *= 1274126177u;
+        hash ^= hash >> 16;
+        return hash;
+    }
+}
+
+static Color32 GetTexturePixelColor(int textureIndex, int tileX, int tileY)
+{
+    if (Textures == null || textureIndex < 0 || textureIndex >= Textures.depth)
+        return new Color32(128, 128, 128, 255);
+
+    Color32[] pixels;
+    try { pixels = Textures.GetPixels32(textureIndex); }
+    catch { return new Color32(128, 128, 128, 255); }
+
+    if (pixels == null || pixels.Length == 0) return new Color32(128, 128, 128, 255);
+
+    int w = Textures.width;
+    int h = Textures.height;
+    if (w <= 0 || h <= 0) return new Color32(128, 128, 128, 255);
+
+    uint hash = TextureTileHash(textureIndex, tileX, tileY);
+    int jitterX = (int)(hash & 3u) - 1;       // -1..2
+    int jitterY = (int)((hash >> 2) & 3u) - 1; // -1..2
+
+    int px0 = WrapTextureCoord(jitterX, w);
+    int px1 = WrapTextureCoord(((w - 1) >> 1) + jitterX, w);
+    int px2 = WrapTextureCoord((w - 1) + jitterX, w);
+    int py0 = WrapTextureCoord(jitterY, h);
+    int py1 = WrapTextureCoord(((h - 1) >> 1) + jitterY, h);
+    int py2 = WrapTextureCoord((h - 1) + jitterY, h);
+
+    int sampleCount = 0;
+    float r = 0f, g = 0f, b = 0f;
+
+    for (int sy = 0; sy < 3; ++sy)
+    {
+        for (int sx = 0; sx < 3; ++sx)
+        {
+            int sampleX = sx == 0 ? px0 : (sx == 1 ? px1 : px2);
+            int sampleY = sy == 0 ? py0 : (sy == 1 ? py1 : py2);
+            int sampleIndex = sampleY * w + sampleX;
+            if (sampleIndex < 0 || sampleIndex >= pixels.Length) continue;
+
+            Color32 sample = pixels[sampleIndex];
+            r += sample.r;
+            g += sample.g;
+            b += sample.b;
+            ++sampleCount;
+        }
+    }
+
+    if (sampleCount == 0) return new Color32(128, 128, 128, 255);
+
+    return new Color32(
+        (byte)Mathf.RoundToInt(r / sampleCount),
+        (byte)Mathf.RoundToInt(g / sampleCount),
+        (byte)Mathf.RoundToInt(b / sampleCount),
+        255);
+}
+```
+
+- Commit SHA: `53c13caa9b5fe11ff85046376d9ba8bab8c8fbc2`
+
+- Build result:
+  - `dotnet build WorldSphereMod.csproj -c Release -f net48`
+  - `Build succeeded. 0 Warning(s), 0 Error(s)`.
+
+- Status: **Done**

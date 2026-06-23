@@ -1,0 +1,27 @@
+You are a background verification worker. Repo: E:/Dev/WorldSphereMod, branch wip/208-height-fix.
+
+Commit ec8698e9 already committed. WIP stash 0 exists; do NOT pop it. Do not edit code. Never stash. Never make visual claims from screenshots. Report only programmatic numbers.
+
+Quality charter: prefer existing tooling, no handrolled broad changes, keep hex/SOLID/DRY, xDD trace FR-WSM-011, minimize LOC and context. Build exactly once unless stale-lock/no-output then rerun once.
+
+Steps:
+1. Confirm: git rev-parse HEAD == ec8698e9. Working tree clean (only untracked .claude/, Tools/coverage.ps1, docs/* - expected).
+2. Kill any WorldBox process: Get-Process -Name WorldBox,worldbox | Stop-Process -Force. Skip if none.
+3. Skip the sanity build (just ran successfully; 0 errors). Run install only:
+     pwsh -NoProfile -ExecutionPolicy Bypass -File Tools/install.ps1 -SkipBuild
+4. Launch: pwsh -NoProfile -ExecutionPolicy Bypass -File Tools/headless-launch.ps1 -Strategy exe -BridgeTimeout 180 -ProcessTimeout 90
+5. Query bridge endpoints via Invoke-RestMethod:
+   - http://127.0.0.1:8766/health
+   - http://127.0.0.1:8766/settings
+   - http://127.0.0.1:8766/diag/render_stats
+6. In the report include:
+   - install/launch/bridge outcomes with exit codes
+   - Worldbox PID + start time
+   - settings snapshot for: NameplateBaseScale, NameplateReferenceDistance, NameplateMinScale, NameplateMaxScale, WorldspaceUI, WorldspaceLabel3D, NameplateFadeNear, NameplateFadeFar
+   - camera distanceFromOrigin/fieldOfView/orthographic/orthographicSize from render_stats
+   - computed expected effective scale at d=0.5,1,2.5,5,10,20,50,100 using:
+       distAtten = (refDist>0.0001 && d>refDist) ? 1.0 : Clamp(d/refDist, minScale, 1.0)
+       effective = Clamp(base*distAtten, base*minScale, base*maxScale)
+   - render stats: drawCalls, instances, frameMs
+   - NO visual claims.
+7. After capturing numbers, kill WorldBox: Get-Process -Name WorldBox,worldbox | Stop-Process -Force.

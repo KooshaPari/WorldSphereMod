@@ -808,13 +808,7 @@ namespace WorldSphereMod
             public static bool PerlinNoise = true;
             #region Fancy stuff
             static SphereManager Manager;
-            // #199 GPU-compute go-live: a GpuSphereManager wired IN PARALLEL with the
-            // CPU Manager for the instanced actor/voxel tile path. The CPU Manager
-            // stays the coordinate/terrain (HeightField) authority. Null until the
-            // async GPU creator completes; null whenever CompoundCompute is unavailable
-            // (legacy CPU-only path). All consumer calls are null-guarded.
-            static CompoundSpheres.Gpu.GpuSphereManager GpuManager;
-            static CompoundSpheres.Gpu.GpuSphereManagerSettings GpuManagerConfig;
+            public static SphereManager ManagerInstance => Manager;
             static Mesh CompoundSphereMesh;
             internal static Material CompoundSphereMaterial;
             // GPU-compute keystone shader (CompoundSphereCompute), loaded from the
@@ -2173,15 +2167,13 @@ namespace WorldSphereMod
                         //
                         foreach (var shaderName in SafeShaders)
                         {
-                            // #208 PLAYER-TEST FLIP REVERT 2026-06-05: pragma + SVC +2
-                            // was insufficient — the 60f1 player still reads 80 bytes
-                            // (expected 4520/4924/4952) for the three postFX shaders and
-                            // 8 bytes (expected 2484) for CompoundSphereCompute. The C#
-                            // try/catch saved us from a native abort, but shaders are
-                            // rejected as "loaded with empty name" and consumers fall
-                            // back. Next: IPreprocessShaders / IUnityLinker XML approach
-                            // for forcing variant retention, or build the bundle with
-                            // Unity 2022.3.60f1 to match the player's serializer.
+                            // Final hard stop: in this crash-safe phase only the
+                            // one validated shader is loaded from the shader bundle.
+                            if (!string.Equals(shaderName, "OpaqueVertexColor", System.StringComparison.OrdinalIgnoreCase))
+                            {
+                                Debug.LogWarning($"[WSM3D] Skipping shader '{shaderName}' from bundle load because crash-safe phase loads only OpaqueVertexColor.");
+                                continue;
+                            }
 
                             // Never call GetObject for known-bad post-FX shader names
                             // from this bundle (BrpBloom / BrpACES) even if they are
@@ -2447,7 +2439,7 @@ namespace WorldSphereMod
             // Auto-reverts to false on any ManagedStream crash (game-test driven).
             // PostFX remains disabled until shader re-bake is fixed; keep bundle
             // enumeration for post-FX shaders fully disabled.
-            public const bool PostFxShaderBundleAvailable = false; // #208 LONG-TERM OFF per ADR-0021 (2026-06-06 re-investigation): the bake now runs on 2022.3.60f1 (matches runtime — was wrongly diagnosed as 62f3/60f1 mismatch in earlier L1 logs), all 12 shaders report 'Serialized binary data' in the bake, and the 6 postFX shaders carry the WSM3D_POSTFX_KEEP pragma + SVC +2 variants, BUT the 60f1 player still reads 80-byte stubs for BrpBloom/BrpACES/ColorGradingLUT/ScreenSpaceGI/ScreenSpaceAO/ProceduralSky and 8-byte stub for CompoundSphereCompute. Neither SVC preload, the POSTFX_KEEP keyword, a candidate-test re-bundle (e6589a46), nor the pragma+SVC+2 fix in b206c1d3 (reverted 36d57d9a) resolve the strip. The mod cannot modify the WorldBox player binary or trigger a player rebuild, so the in-tree fix surface is exhausted. Do NOT flip to true without end-to-end runtime validation; see ADR-0021 'Future Resolution Path' for the four conditions that must hold first.
+            public const bool PostFxShaderBundleAvailable = false;
 
             // SAFE WIN #208: OVC-only, ShaderBundleAvailable=true, compute gated behind PostFxShaderBundleAvailable
             public const bool ShaderBundleAvailable = true;
@@ -2468,11 +2460,6 @@ namespace WorldSphereMod
             public static readonly string[] SafeShaders = new[]
             {
                 "OpaqueVertexColor",
-                "CompoundSphere",
-                "GerstnerWater",
-                "FoliageWind",
-                "Impostor",
-                "StratumVoxelPBR",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look
