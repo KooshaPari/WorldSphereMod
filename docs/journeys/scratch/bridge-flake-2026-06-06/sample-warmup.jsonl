@@ -1,0 +1,600 @@
+﻿{"poll":0,"ts":"2026-06-06T08:12:47.7412142Z","endpoint":"/health","ok":false,"status":0,"latency_ms":2049.1,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":0,"ts":"2026-06-06T08:12:47.7581258Z","endpoint":"/telemetry","ok":false,"status":0,"latency_ms":2049.1,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":0,"ts":"2026-06-06T08:12:47.7581258Z","endpoint":"/diag/render_stats","ok":false,"status":0,"latency_ms":2049.1,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":0,"ts":"2026-06-06T08:12:47.7581258Z","endpoint":"/diag/emit_status","ok":false,"status":0,"latency_ms":2049.1,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":0,"ts":"2026-06-06T08:12:47.7581258Z","endpoint":"/diag/water_samples","ok":false,"status":0,"latency_ms":2049.1,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":1,"ts":"2026-06-06T08:12:52.5826068Z","endpoint":"/health","ok":false,"status":0,"latency_ms":2030.4,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":1,"ts":"2026-06-06T08:12:52.5826068Z","endpoint":"/telemetry","ok":false,"status":0,"latency_ms":2030.4,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":1,"ts":"2026-06-06T08:12:52.5826068Z","endpoint":"/diag/render_stats","ok":false,"status":0,"latency_ms":2030.4,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":1,"ts":"2026-06-06T08:12:52.5826068Z","endpoint":"/diag/emit_status","ok":false,"status":0,"latency_ms":2030.4,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":1,"ts":"2026-06-06T08:12:52.5826068Z","endpoint":"/diag/water_samples","ok":false,"status":0,"latency_ms":2030.4,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":2,"ts":"2026-06-06T08:12:55.7759090Z","endpoint":"/health","ok":false,"status":0,"latency_ms":2042.1,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":2,"ts":"2026-06-06T08:12:55.7759090Z","endpoint":"/telemetry","ok":false,"status":0,"latency_ms":2042.1,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":2,"ts":"2026-06-06T08:12:55.7759090Z","endpoint":"/diag/render_stats","ok":false,"status":0,"latency_ms":2042.1,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":2,"ts":"2026-06-06T08:12:55.7759090Z","endpoint":"/diag/emit_status","ok":false,"status":0,"latency_ms":2042.1,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":2,"ts":"2026-06-06T08:12:55.7759090Z","endpoint":"/diag/water_samples","ok":false,"status":0,"latency_ms":2042.1,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":3,"ts":"2026-06-06T08:12:58.3688152Z","endpoint":"/health","ok":false,"status":0,"latency_ms":2029.4,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":3,"ts":"2026-06-06T08:12:58.3688152Z","endpoint":"/telemetry","ok":false,"status":0,"latency_ms":2029.4,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":3,"ts":"2026-06-06T08:12:58.3688152Z","endpoint":"/diag/render_stats","ok":false,"status":0,"latency_ms":2029.4,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":3,"ts":"2026-06-06T08:12:58.3688152Z","endpoint":"/diag/emit_status","ok":false,"status":0,"latency_ms":2029.4,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":3,"ts":"2026-06-06T08:12:58.3688152Z","endpoint":"/diag/water_samples","ok":false,"status":0,"latency_ms":2029.4,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":4,"ts":"2026-06-06T08:13:00.9478692Z","endpoint":"/health","ok":false,"status":0,"latency_ms":2045.6,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":4,"ts":"2026-06-06T08:13:00.9478692Z","endpoint":"/telemetry","ok":false,"status":0,"latency_ms":2045.6,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":4,"ts":"2026-06-06T08:13:00.9478692Z","endpoint":"/diag/render_stats","ok":false,"status":0,"latency_ms":2045.6,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":4,"ts":"2026-06-06T08:13:00.9478692Z","endpoint":"/diag/emit_status","ok":false,"status":0,"latency_ms":2045.6,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":4,"ts":"2026-06-06T08:13:00.9478692Z","endpoint":"/diag/water_samples","ok":false,"status":0,"latency_ms":2045.6,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":5,"ts":"2026-06-06T08:13:03.5410839Z","endpoint":"/health","ok":false,"status":0,"latency_ms":2043.9,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":5,"ts":"2026-06-06T08:13:03.5410839Z","endpoint":"/telemetry","ok":false,"status":0,"latency_ms":2043.9,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":5,"ts":"2026-06-06T08:13:03.5410839Z","endpoint":"/diag/render_stats","ok":false,"status":0,"latency_ms":2043.9,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":5,"ts":"2026-06-06T08:13:03.5410839Z","endpoint":"/diag/emit_status","ok":false,"status":0,"latency_ms":2043.9,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":5,"ts":"2026-06-06T08:13:03.5410839Z","endpoint":"/diag/water_samples","ok":false,"status":0,"latency_ms":2043.9,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":6,"ts":"2026-06-06T08:13:06.3109632Z","endpoint":"/health","ok":false,"status":0,"latency_ms":2033.7,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":6,"ts":"2026-06-06T08:13:06.3109632Z","endpoint":"/telemetry","ok":false,"status":0,"latency_ms":2033.7,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":6,"ts":"2026-06-06T08:13:06.3109632Z","endpoint":"/diag/render_stats","ok":false,"status":0,"latency_ms":2033.7,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":6,"ts":"2026-06-06T08:13:06.3109632Z","endpoint":"/diag/emit_status","ok":false,"status":0,"latency_ms":2033.7,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":6,"ts":"2026-06-06T08:13:06.3109632Z","endpoint":"/diag/water_samples","ok":false,"status":0,"latency_ms":2033.7,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":7,"ts":"2026-06-06T08:13:08.9845365Z","endpoint":"/health","ok":false,"status":0,"latency_ms":2030.8,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":7,"ts":"2026-06-06T08:13:08.9845365Z","endpoint":"/telemetry","ok":false,"status":0,"latency_ms":2030.8,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":7,"ts":"2026-06-06T08:13:08.9845365Z","endpoint":"/diag/render_stats","ok":false,"status":0,"latency_ms":2030.8,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":7,"ts":"2026-06-06T08:13:08.9845365Z","endpoint":"/diag/emit_status","ok":false,"status":0,"latency_ms":2030.8,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":7,"ts":"2026-06-06T08:13:08.9845365Z","endpoint":"/diag/water_samples","ok":false,"status":0,"latency_ms":2030.8,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":8,"ts":"2026-06-06T08:13:11.8263337Z","endpoint":"/health","ok":false,"status":0,"latency_ms":2036.6,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":8,"ts":"2026-06-06T08:13:11.8263337Z","endpoint":"/telemetry","ok":false,"status":0,"latency_ms":2036.6,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":8,"ts":"2026-06-06T08:13:11.8263337Z","endpoint":"/diag/render_stats","ok":false,"status":0,"latency_ms":2036.6,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":8,"ts":"2026-06-06T08:13:11.8263337Z","endpoint":"/diag/emit_status","ok":false,"status":0,"latency_ms":2036.6,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":8,"ts":"2026-06-06T08:13:11.8263337Z","endpoint":"/diag/water_samples","ok":false,"status":0,"latency_ms":2036.6,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":9,"ts":"2026-06-06T08:13:14.4103768Z","endpoint":"/health","ok":false,"status":0,"latency_ms":2029.5,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":9,"ts":"2026-06-06T08:13:14.4103768Z","endpoint":"/telemetry","ok":false,"status":0,"latency_ms":2029.5,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":9,"ts":"2026-06-06T08:13:14.4103768Z","endpoint":"/diag/render_stats","ok":false,"status":0,"latency_ms":2029.5,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":9,"ts":"2026-06-06T08:13:14.4103768Z","endpoint":"/diag/emit_status","ok":false,"status":0,"latency_ms":2029.5,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":9,"ts":"2026-06-06T08:13:14.4103768Z","endpoint":"/diag/water_samples","ok":false,"status":0,"latency_ms":2029.5,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":10,"ts":"2026-06-06T08:13:16.9986235Z","endpoint":"/health","ok":false,"status":0,"latency_ms":2023.6,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":10,"ts":"2026-06-06T08:13:16.9991307Z","endpoint":"/telemetry","ok":false,"status":0,"latency_ms":2023.6,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":10,"ts":"2026-06-06T08:13:16.9991307Z","endpoint":"/diag/render_stats","ok":false,"status":0,"latency_ms":2023.6,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":10,"ts":"2026-06-06T08:13:16.9991307Z","endpoint":"/diag/emit_status","ok":false,"status":0,"latency_ms":2023.6,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":10,"ts":"2026-06-06T08:13:16.9991307Z","endpoint":"/diag/water_samples","ok":false,"status":0,"latency_ms":2023.6,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":11,"ts":"2026-06-06T08:13:19.5685189Z","endpoint":"/health","ok":false,"status":0,"latency_ms":2042.1,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":11,"ts":"2026-06-06T08:13:19.5685189Z","endpoint":"/telemetry","ok":false,"status":0,"latency_ms":2042.1,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":11,"ts":"2026-06-06T08:13:19.5685189Z","endpoint":"/diag/render_stats","ok":false,"status":0,"latency_ms":2042.1,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":11,"ts":"2026-06-06T08:13:19.5685189Z","endpoint":"/diag/emit_status","ok":false,"status":0,"latency_ms":2042.1,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":11,"ts":"2026-06-06T08:13:19.5685189Z","endpoint":"/diag/water_samples","ok":false,"status":0,"latency_ms":2042.1,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":12,"ts":"2026-06-06T08:13:22.1583904Z","endpoint":"/health","ok":false,"status":0,"latency_ms":2028.7,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":12,"ts":"2026-06-06T08:13:22.1583904Z","endpoint":"/telemetry","ok":false,"status":0,"latency_ms":2028.7,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":12,"ts":"2026-06-06T08:13:22.1583904Z","endpoint":"/diag/render_stats","ok":false,"status":0,"latency_ms":2028.7,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":12,"ts":"2026-06-06T08:13:22.1583904Z","endpoint":"/diag/emit_status","ok":false,"status":0,"latency_ms":2028.7,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":12,"ts":"2026-06-06T08:13:22.1583904Z","endpoint":"/diag/water_samples","ok":false,"status":0,"latency_ms":2028.7,"body_len":0,"err":"HttpRequestException: An error occurred while sending the request."}
+{"poll":13,"ts":"2026-06-06T08:13:24.9267204Z","endpoint":"/health","ok":true,"status":200,"latency_ms":2047.6,"body_len":112,"err":""}
+{"poll":13,"ts":"2026-06-06T08:13:24.9272416Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":2047.6,"body_len":160,"err":""}
+{"poll":13,"ts":"2026-06-06T08:13:24.9272416Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":2047.6,"body_len":539,"err":""}
+{"poll":13,"ts":"2026-06-06T08:13:24.9272416Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":2047.6,"body_len":179,"err":""}
+{"poll":13,"ts":"2026-06-06T08:13:24.9272416Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":2047.6,"body_len":64,"err":""}
+{"poll":14,"ts":"2026-06-06T08:13:32.1780941Z","endpoint":"/health","ok":true,"status":200,"latency_ms":105.3,"body_len":112,"err":""}
+{"poll":14,"ts":"2026-06-06T08:13:32.1780941Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":105.3,"body_len":159,"err":""}
+{"poll":14,"ts":"2026-06-06T08:13:32.1780941Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":105.3,"body_len":554,"err":""}
+{"poll":14,"ts":"2026-06-06T08:13:32.1780941Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":105.3,"body_len":179,"err":""}
+{"poll":14,"ts":"2026-06-06T08:13:32.1780941Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":105.3,"body_len":63,"err":""}
+{"poll":15,"ts":"2026-06-06T08:13:32.8341872Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":15,"ts":"2026-06-06T08:13:32.8341872Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":160,"err":""}
+{"poll":15,"ts":"2026-06-06T08:13:32.8341872Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":554,"err":""}
+{"poll":15,"ts":"2026-06-06T08:13:32.8351857Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":15,"ts":"2026-06-06T08:13:32.8351857Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":63,"err":""}
+{"poll":16,"ts":"2026-06-06T08:13:33.8546116Z","endpoint":"/health","ok":true,"status":200,"latency_ms":2.3,"body_len":112,"err":""}
+{"poll":16,"ts":"2026-06-06T08:13:33.8546116Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":2.3,"body_len":160,"err":""}
+{"poll":16,"ts":"2026-06-06T08:13:33.8546116Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":2.3,"body_len":554,"err":""}
+{"poll":16,"ts":"2026-06-06T08:13:33.8546116Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":2.3,"body_len":179,"err":""}
+{"poll":16,"ts":"2026-06-06T08:13:33.8546116Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":2.3,"body_len":63,"err":""}
+{"poll":17,"ts":"2026-06-06T08:13:35.0156693Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.8,"body_len":112,"err":""}
+{"poll":17,"ts":"2026-06-06T08:13:35.0156693Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.8,"body_len":161,"err":""}
+{"poll":17,"ts":"2026-06-06T08:13:35.0156693Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.8,"body_len":554,"err":""}
+{"poll":17,"ts":"2026-06-06T08:13:35.0156693Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.8,"body_len":179,"err":""}
+{"poll":17,"ts":"2026-06-06T08:13:35.0156693Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.8,"body_len":63,"err":""}
+{"poll":18,"ts":"2026-06-06T08:13:35.6602092Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":18,"ts":"2026-06-06T08:13:35.6602092Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":160,"err":""}
+{"poll":18,"ts":"2026-06-06T08:13:35.6602092Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":556,"err":""}
+{"poll":18,"ts":"2026-06-06T08:13:35.6602092Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":18,"ts":"2026-06-06T08:13:35.6602092Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":63,"err":""}
+{"poll":19,"ts":"2026-06-06T08:13:36.4264336Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.3,"body_len":112,"err":""}
+{"poll":19,"ts":"2026-06-06T08:13:36.4264336Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.3,"body_len":162,"err":""}
+{"poll":19,"ts":"2026-06-06T08:13:36.4264336Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.3,"body_len":554,"err":""}
+{"poll":19,"ts":"2026-06-06T08:13:36.4264336Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.3,"body_len":179,"err":""}
+{"poll":19,"ts":"2026-06-06T08:13:36.4264336Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.3,"body_len":63,"err":""}
+{"poll":20,"ts":"2026-06-06T08:13:37.0349984Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.9,"body_len":112,"err":""}
+{"poll":20,"ts":"2026-06-06T08:13:37.0349984Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.9,"body_len":160,"err":""}
+{"poll":20,"ts":"2026-06-06T08:13:37.0349984Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.9,"body_len":553,"err":""}
+{"poll":20,"ts":"2026-06-06T08:13:37.0349984Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.9,"body_len":179,"err":""}
+{"poll":20,"ts":"2026-06-06T08:13:37.0349984Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.9,"body_len":63,"err":""}
+{"poll":21,"ts":"2026-06-06T08:13:37.6610375Z","endpoint":"/health","ok":true,"status":200,"latency_ms":35.7,"body_len":112,"err":""}
+{"poll":21,"ts":"2026-06-06T08:13:37.6610375Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":35.7,"body_len":160,"err":""}
+{"poll":21,"ts":"2026-06-06T08:13:37.6610375Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":35.7,"body_len":553,"err":""}
+{"poll":21,"ts":"2026-06-06T08:13:37.6610375Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":35.7,"body_len":179,"err":""}
+{"poll":21,"ts":"2026-06-06T08:13:37.6610375Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":35.7,"body_len":63,"err":""}
+{"poll":22,"ts":"2026-06-06T08:13:38.3635279Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.5,"body_len":112,"err":""}
+{"poll":22,"ts":"2026-06-06T08:13:38.3635279Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.5,"body_len":158,"err":""}
+{"poll":22,"ts":"2026-06-06T08:13:38.3635279Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.5,"body_len":556,"err":""}
+{"poll":22,"ts":"2026-06-06T08:13:38.3635279Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.5,"body_len":179,"err":""}
+{"poll":22,"ts":"2026-06-06T08:13:38.3635279Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.5,"body_len":63,"err":""}
+{"poll":23,"ts":"2026-06-06T08:13:39.0860996Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":23,"ts":"2026-06-06T08:13:39.0860996Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":160,"err":""}
+{"poll":23,"ts":"2026-06-06T08:13:39.0860996Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":554,"err":""}
+{"poll":23,"ts":"2026-06-06T08:13:39.0860996Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":23,"ts":"2026-06-06T08:13:39.0860996Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":10299501,"err":""}
+{"poll":24,"ts":"2026-06-06T08:13:43.1808710Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.5,"body_len":112,"err":""}
+{"poll":24,"ts":"2026-06-06T08:13:43.1810047Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.5,"body_len":158,"err":""}
+{"poll":24,"ts":"2026-06-06T08:13:43.1810047Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.5,"body_len":554,"err":""}
+{"poll":24,"ts":"2026-06-06T08:13:43.1810047Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.5,"body_len":179,"err":""}
+{"poll":24,"ts":"2026-06-06T08:13:43.1810047Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.5,"body_len":10299501,"err":""}
+{"poll":25,"ts":"2026-06-06T08:13:46.8156156Z","endpoint":"/health","ok":true,"status":200,"latency_ms":3.3,"body_len":112,"err":""}
+{"poll":25,"ts":"2026-06-06T08:13:46.8156156Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":3.3,"body_len":159,"err":""}
+{"poll":25,"ts":"2026-06-06T08:13:46.8156156Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":3.3,"body_len":553,"err":""}
+{"poll":25,"ts":"2026-06-06T08:13:46.8156156Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":3.3,"body_len":179,"err":""}
+{"poll":25,"ts":"2026-06-06T08:13:46.8156156Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":3.3,"body_len":10299501,"err":""}
+{"poll":26,"ts":"2026-06-06T08:13:50.4329167Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":26,"ts":"2026-06-06T08:13:50.4329167Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":160,"err":""}
+{"poll":26,"ts":"2026-06-06T08:13:50.4329167Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":553,"err":""}
+{"poll":26,"ts":"2026-06-06T08:13:50.4329167Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":26,"ts":"2026-06-06T08:13:50.4329167Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":10299501,"err":""}
+{"poll":27,"ts":"2026-06-06T08:13:55.2775130Z","endpoint":"/health","ok":true,"status":200,"latency_ms":13,"body_len":112,"err":""}
+{"poll":27,"ts":"2026-06-06T08:13:55.2775130Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":13,"body_len":160,"err":""}
+{"poll":27,"ts":"2026-06-06T08:13:55.2775130Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":13,"body_len":556,"err":""}
+{"poll":27,"ts":"2026-06-06T08:13:55.2775130Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":13,"body_len":179,"err":""}
+{"poll":27,"ts":"2026-06-06T08:13:55.2775130Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":13,"body_len":10299501,"err":""}
+{"poll":28,"ts":"2026-06-06T08:14:00.3571613Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.8,"body_len":112,"err":""}
+{"poll":28,"ts":"2026-06-06T08:14:00.3571613Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.8,"body_len":160,"err":""}
+{"poll":28,"ts":"2026-06-06T08:14:00.3571613Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.8,"body_len":554,"err":""}
+{"poll":28,"ts":"2026-06-06T08:14:00.3571613Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.8,"body_len":179,"err":""}
+{"poll":28,"ts":"2026-06-06T08:14:00.3571613Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.8,"body_len":10299501,"err":""}
+{"poll":29,"ts":"2026-06-06T08:14:04.2134567Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.9,"body_len":112,"err":""}
+{"poll":29,"ts":"2026-06-06T08:14:04.2134567Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.9,"body_len":159,"err":""}
+{"poll":29,"ts":"2026-06-06T08:14:04.2134567Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.9,"body_len":554,"err":""}
+{"poll":29,"ts":"2026-06-06T08:14:04.2134567Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.9,"body_len":179,"err":""}
+{"poll":29,"ts":"2026-06-06T08:14:04.2134567Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.9,"body_len":10299501,"err":""}
+{"poll":30,"ts":"2026-06-06T08:14:06.8979486Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":30,"ts":"2026-06-06T08:14:06.8979486Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":160,"err":""}
+{"poll":30,"ts":"2026-06-06T08:14:06.8979486Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":553,"err":""}
+{"poll":30,"ts":"2026-06-06T08:14:06.8979486Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":30,"ts":"2026-06-06T08:14:06.8979486Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":10299501,"err":""}
+{"poll":31,"ts":"2026-06-06T08:14:09.4310088Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.8,"body_len":112,"err":""}
+{"poll":31,"ts":"2026-06-06T08:14:09.4310088Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.8,"body_len":162,"err":""}
+{"poll":31,"ts":"2026-06-06T08:14:09.4310088Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.8,"body_len":553,"err":""}
+{"poll":31,"ts":"2026-06-06T08:14:09.4310088Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.8,"body_len":179,"err":""}
+{"poll":31,"ts":"2026-06-06T08:14:09.4310088Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.8,"body_len":10299501,"err":""}
+{"poll":32,"ts":"2026-06-06T08:14:12.6585994Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1,"body_len":112,"err":""}
+{"poll":32,"ts":"2026-06-06T08:14:12.6585994Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1,"body_len":159,"err":""}
+{"poll":32,"ts":"2026-06-06T08:14:12.6585994Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1,"body_len":554,"err":""}
+{"poll":32,"ts":"2026-06-06T08:14:12.6585994Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1,"body_len":179,"err":""}
+{"poll":32,"ts":"2026-06-06T08:14:12.6585994Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1,"body_len":10299501,"err":""}
+{"poll":33,"ts":"2026-06-06T08:14:16.4586617Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.1,"body_len":112,"err":""}
+{"poll":33,"ts":"2026-06-06T08:14:16.4586617Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.1,"body_len":162,"err":""}
+{"poll":33,"ts":"2026-06-06T08:14:16.4586617Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.1,"body_len":554,"err":""}
+{"poll":33,"ts":"2026-06-06T08:14:16.4586617Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.1,"body_len":179,"err":""}
+{"poll":33,"ts":"2026-06-06T08:14:16.4586617Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.1,"body_len":10299501,"err":""}
+{"poll":34,"ts":"2026-06-06T08:14:20.1612301Z","endpoint":"/health","ok":true,"status":200,"latency_ms":2.3,"body_len":112,"err":""}
+{"poll":34,"ts":"2026-06-06T08:14:20.1612301Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":2.3,"body_len":159,"err":""}
+{"poll":34,"ts":"2026-06-06T08:14:20.1612301Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":2.3,"body_len":556,"err":""}
+{"poll":34,"ts":"2026-06-06T08:14:20.1612301Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":2.3,"body_len":179,"err":""}
+{"poll":34,"ts":"2026-06-06T08:14:20.1612301Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":2.3,"body_len":10299501,"err":""}
+{"poll":35,"ts":"2026-06-06T08:14:22.8820303Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.4,"body_len":112,"err":""}
+{"poll":35,"ts":"2026-06-06T08:14:22.8820303Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.4,"body_len":159,"err":""}
+{"poll":35,"ts":"2026-06-06T08:14:22.8820303Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.4,"body_len":554,"err":""}
+{"poll":35,"ts":"2026-06-06T08:14:22.8820303Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.4,"body_len":179,"err":""}
+{"poll":35,"ts":"2026-06-06T08:14:22.8820303Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.4,"body_len":10299501,"err":""}
+{"poll":36,"ts":"2026-06-06T08:14:25.8300839Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.8,"body_len":112,"err":""}
+{"poll":36,"ts":"2026-06-06T08:14:25.8300839Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.8,"body_len":159,"err":""}
+{"poll":36,"ts":"2026-06-06T08:14:25.8300839Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.8,"body_len":553,"err":""}
+{"poll":36,"ts":"2026-06-06T08:14:25.8300839Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.8,"body_len":179,"err":""}
+{"poll":36,"ts":"2026-06-06T08:14:25.8300839Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.8,"body_len":10299501,"err":""}
+{"poll":37,"ts":"2026-06-06T08:14:28.5728928Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.8,"body_len":112,"err":""}
+{"poll":37,"ts":"2026-06-06T08:14:28.5728928Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.8,"body_len":162,"err":""}
+{"poll":37,"ts":"2026-06-06T08:14:28.5728928Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.8,"body_len":554,"err":""}
+{"poll":37,"ts":"2026-06-06T08:14:28.5728928Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.8,"body_len":179,"err":""}
+{"poll":37,"ts":"2026-06-06T08:14:28.5728928Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.8,"body_len":10299501,"err":""}
+{"poll":38,"ts":"2026-06-06T08:14:31.0658567Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.3,"body_len":112,"err":""}
+{"poll":38,"ts":"2026-06-06T08:14:31.0658567Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.3,"body_len":160,"err":""}
+{"poll":38,"ts":"2026-06-06T08:14:31.0658567Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.3,"body_len":556,"err":""}
+{"poll":38,"ts":"2026-06-06T08:14:31.0658567Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.3,"body_len":179,"err":""}
+{"poll":38,"ts":"2026-06-06T08:14:31.0658567Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.3,"body_len":10299501,"err":""}
+{"poll":39,"ts":"2026-06-06T08:14:35.1866845Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1,"body_len":112,"err":""}
+{"poll":39,"ts":"2026-06-06T08:14:35.1866845Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1,"body_len":162,"err":""}
+{"poll":39,"ts":"2026-06-06T08:14:35.1866845Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1,"body_len":554,"err":""}
+{"poll":39,"ts":"2026-06-06T08:14:35.1866845Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1,"body_len":179,"err":""}
+{"poll":39,"ts":"2026-06-06T08:14:35.1866845Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1,"body_len":10299501,"err":""}
+{"poll":40,"ts":"2026-06-06T08:14:39.0054396Z","endpoint":"/health","ok":true,"status":200,"latency_ms":3.5,"body_len":112,"err":""}
+{"poll":40,"ts":"2026-06-06T08:14:39.0054396Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":3.5,"body_len":160,"err":""}
+{"poll":40,"ts":"2026-06-06T08:14:39.0054396Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":3.5,"body_len":556,"err":""}
+{"poll":40,"ts":"2026-06-06T08:14:39.0054396Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":3.5,"body_len":179,"err":""}
+{"poll":40,"ts":"2026-06-06T08:14:39.0054396Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":3.5,"body_len":10299501,"err":""}
+{"poll":41,"ts":"2026-06-06T08:14:42.8271400Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.6,"body_len":112,"err":""}
+{"poll":41,"ts":"2026-06-06T08:14:42.8271400Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.6,"body_len":162,"err":""}
+{"poll":41,"ts":"2026-06-06T08:14:42.8271400Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.6,"body_len":554,"err":""}
+{"poll":41,"ts":"2026-06-06T08:14:42.8271400Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.6,"body_len":179,"err":""}
+{"poll":41,"ts":"2026-06-06T08:14:42.8271400Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.6,"body_len":10299501,"err":""}
+{"poll":42,"ts":"2026-06-06T08:14:46.1619332Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.9,"body_len":112,"err":""}
+{"poll":42,"ts":"2026-06-06T08:14:46.1619332Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.9,"body_len":159,"err":""}
+{"poll":42,"ts":"2026-06-06T08:14:46.1619332Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.9,"body_len":554,"err":""}
+{"poll":42,"ts":"2026-06-06T08:14:46.1619332Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.9,"body_len":179,"err":""}
+{"poll":42,"ts":"2026-06-06T08:14:46.1619332Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.9,"body_len":10299501,"err":""}
+{"poll":43,"ts":"2026-06-06T08:14:49.8289661Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.8,"body_len":112,"err":""}
+{"poll":43,"ts":"2026-06-06T08:14:49.8289661Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.8,"body_len":159,"err":""}
+{"poll":43,"ts":"2026-06-06T08:14:49.8289661Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.8,"body_len":554,"err":""}
+{"poll":43,"ts":"2026-06-06T08:14:49.8289661Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.8,"body_len":179,"err":""}
+{"poll":43,"ts":"2026-06-06T08:14:49.8289661Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.8,"body_len":10299501,"err":""}
+{"poll":44,"ts":"2026-06-06T08:14:52.6399270Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.7,"body_len":112,"err":""}
+{"poll":44,"ts":"2026-06-06T08:14:52.6399270Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.7,"body_len":160,"err":""}
+{"poll":44,"ts":"2026-06-06T08:14:52.6399270Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.7,"body_len":553,"err":""}
+{"poll":44,"ts":"2026-06-06T08:14:52.6399270Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.7,"body_len":179,"err":""}
+{"poll":44,"ts":"2026-06-06T08:14:52.6399270Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.7,"body_len":10299501,"err":""}
+{"poll":45,"ts":"2026-06-06T08:14:55.2421698Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":45,"ts":"2026-06-06T08:14:55.2421698Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":159,"err":""}
+{"poll":45,"ts":"2026-06-06T08:14:55.2421698Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":556,"err":""}
+{"poll":45,"ts":"2026-06-06T08:14:55.2421698Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":45,"ts":"2026-06-06T08:14:55.2421698Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":10299501,"err":""}
+{"poll":46,"ts":"2026-06-06T08:14:57.5943680Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.6,"body_len":112,"err":""}
+{"poll":46,"ts":"2026-06-06T08:14:57.5943680Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.6,"body_len":160,"err":""}
+{"poll":46,"ts":"2026-06-06T08:14:57.5943680Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.6,"body_len":553,"err":""}
+{"poll":46,"ts":"2026-06-06T08:14:57.5943680Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.6,"body_len":179,"err":""}
+{"poll":46,"ts":"2026-06-06T08:14:57.5943680Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.6,"body_len":10299501,"err":""}
+{"poll":47,"ts":"2026-06-06T08:14:59.6027295Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.6,"body_len":112,"err":""}
+{"poll":47,"ts":"2026-06-06T08:14:59.6027295Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.6,"body_len":159,"err":""}
+{"poll":47,"ts":"2026-06-06T08:14:59.6037328Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.6,"body_len":556,"err":""}
+{"poll":47,"ts":"2026-06-06T08:14:59.6037328Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.6,"body_len":179,"err":""}
+{"poll":47,"ts":"2026-06-06T08:14:59.6037328Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.6,"body_len":10299501,"err":""}
+{"poll":48,"ts":"2026-06-06T08:15:01.8859164Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":48,"ts":"2026-06-06T08:15:01.8863069Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":160,"err":""}
+{"poll":48,"ts":"2026-06-06T08:15:01.8863069Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":553,"err":""}
+{"poll":48,"ts":"2026-06-06T08:15:01.8863069Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":48,"ts":"2026-06-06T08:15:01.8863069Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":10299501,"err":""}
+{"poll":49,"ts":"2026-06-06T08:15:04.1930405Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":49,"ts":"2026-06-06T08:15:04.1930405Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":162,"err":""}
+{"poll":49,"ts":"2026-06-06T08:15:04.1930405Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":556,"err":""}
+{"poll":49,"ts":"2026-06-06T08:15:04.1930405Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":49,"ts":"2026-06-06T08:15:04.1930405Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":10299501,"err":""}
+{"poll":50,"ts":"2026-06-06T08:15:06.9068018Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1,"body_len":112,"err":""}
+{"poll":50,"ts":"2026-06-06T08:15:06.9068018Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1,"body_len":159,"err":""}
+{"poll":50,"ts":"2026-06-06T08:15:06.9068018Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1,"body_len":556,"err":""}
+{"poll":50,"ts":"2026-06-06T08:15:06.9068018Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1,"body_len":179,"err":""}
+{"poll":50,"ts":"2026-06-06T08:15:06.9068018Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1,"body_len":10299501,"err":""}
+{"poll":51,"ts":"2026-06-06T08:15:09.6434525Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.3,"body_len":112,"err":""}
+{"poll":51,"ts":"2026-06-06T08:15:09.6434525Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.3,"body_len":162,"err":""}
+{"poll":51,"ts":"2026-06-06T08:15:09.6434525Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.3,"body_len":554,"err":""}
+{"poll":51,"ts":"2026-06-06T08:15:09.6434525Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.3,"body_len":179,"err":""}
+{"poll":51,"ts":"2026-06-06T08:15:09.6434525Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.3,"body_len":10299501,"err":""}
+{"poll":52,"ts":"2026-06-06T08:15:11.9259891Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.8,"body_len":112,"err":""}
+{"poll":52,"ts":"2026-06-06T08:15:11.9259891Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.8,"body_len":160,"err":""}
+{"poll":52,"ts":"2026-06-06T08:15:11.9259891Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.8,"body_len":555,"err":""}
+{"poll":52,"ts":"2026-06-06T08:15:11.9259891Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.8,"body_len":179,"err":""}
+{"poll":52,"ts":"2026-06-06T08:15:11.9259891Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.8,"body_len":10299501,"err":""}
+{"poll":53,"ts":"2026-06-06T08:15:13.9350069Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.6,"body_len":112,"err":""}
+{"poll":53,"ts":"2026-06-06T08:15:13.9350069Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.6,"body_len":159,"err":""}
+{"poll":53,"ts":"2026-06-06T08:15:13.9350069Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.6,"body_len":556,"err":""}
+{"poll":53,"ts":"2026-06-06T08:15:13.9350069Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.6,"body_len":179,"err":""}
+{"poll":53,"ts":"2026-06-06T08:15:13.9350069Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.6,"body_len":10299501,"err":""}
+{"poll":54,"ts":"2026-06-06T08:15:16.2369284Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.6,"body_len":112,"err":""}
+{"poll":54,"ts":"2026-06-06T08:15:16.2369284Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.6,"body_len":162,"err":""}
+{"poll":54,"ts":"2026-06-06T08:15:16.2369284Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.6,"body_len":553,"err":""}
+{"poll":54,"ts":"2026-06-06T08:15:16.2369284Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.6,"body_len":179,"err":""}
+{"poll":54,"ts":"2026-06-06T08:15:16.2369284Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.6,"body_len":10299501,"err":""}
+{"poll":55,"ts":"2026-06-06T08:15:18.9359681Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":55,"ts":"2026-06-06T08:15:18.9359681Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":160,"err":""}
+{"poll":55,"ts":"2026-06-06T08:15:18.9359681Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":553,"err":""}
+{"poll":55,"ts":"2026-06-06T08:15:18.9359681Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":55,"ts":"2026-06-06T08:15:18.9359681Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":10299501,"err":""}
+{"poll":56,"ts":"2026-06-06T08:15:21.8772204Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.9,"body_len":112,"err":""}
+{"poll":56,"ts":"2026-06-06T08:15:21.8772735Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.9,"body_len":159,"err":""}
+{"poll":56,"ts":"2026-06-06T08:15:21.8772735Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.9,"body_len":554,"err":""}
+{"poll":56,"ts":"2026-06-06T08:15:21.8772735Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.9,"body_len":179,"err":""}
+{"poll":56,"ts":"2026-06-06T08:15:21.8772735Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.9,"body_len":10299501,"err":""}
+{"poll":57,"ts":"2026-06-06T08:15:24.8519331Z","endpoint":"/health","ok":true,"status":200,"latency_ms":2.4,"body_len":112,"err":""}
+{"poll":57,"ts":"2026-06-06T08:15:24.8519331Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":2.4,"body_len":159,"err":""}
+{"poll":57,"ts":"2026-06-06T08:15:24.8519331Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":2.4,"body_len":554,"err":""}
+{"poll":57,"ts":"2026-06-06T08:15:24.8519331Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":2.4,"body_len":179,"err":""}
+{"poll":57,"ts":"2026-06-06T08:15:24.8519331Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":2.4,"body_len":10299501,"err":""}
+{"poll":58,"ts":"2026-06-06T08:15:27.7332548Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.6,"body_len":112,"err":""}
+{"poll":58,"ts":"2026-06-06T08:15:27.7332548Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.6,"body_len":162,"err":""}
+{"poll":58,"ts":"2026-06-06T08:15:27.7332548Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.6,"body_len":552,"err":""}
+{"poll":58,"ts":"2026-06-06T08:15:27.7332548Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.6,"body_len":179,"err":""}
+{"poll":58,"ts":"2026-06-06T08:15:27.7332548Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.6,"body_len":10299501,"err":""}
+{"poll":59,"ts":"2026-06-06T08:15:31.1465405Z","endpoint":"/health","ok":true,"status":200,"latency_ms":2,"body_len":112,"err":""}
+{"poll":59,"ts":"2026-06-06T08:15:31.1465405Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":2,"body_len":159,"err":""}
+{"poll":59,"ts":"2026-06-06T08:15:31.1465405Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":2,"body_len":553,"err":""}
+{"poll":59,"ts":"2026-06-06T08:15:31.1465405Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":2,"body_len":179,"err":""}
+{"poll":59,"ts":"2026-06-06T08:15:31.1465405Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":2,"body_len":10299501,"err":""}
+{"poll":60,"ts":"2026-06-06T08:15:34.2060072Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.4,"body_len":112,"err":""}
+{"poll":60,"ts":"2026-06-06T08:15:34.2060072Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.4,"body_len":162,"err":""}
+{"poll":60,"ts":"2026-06-06T08:15:34.2060072Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.4,"body_len":556,"err":""}
+{"poll":60,"ts":"2026-06-06T08:15:34.2060072Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.4,"body_len":179,"err":""}
+{"poll":60,"ts":"2026-06-06T08:15:34.2060072Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.4,"body_len":10299501,"err":""}
+{"poll":61,"ts":"2026-06-06T08:15:38.4156574Z","endpoint":"/health","ok":true,"status":200,"latency_ms":5,"body_len":112,"err":""}
+{"poll":61,"ts":"2026-06-06T08:15:38.4156574Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":5,"body_len":156,"err":""}
+{"poll":61,"ts":"2026-06-06T08:15:38.4156574Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":5,"body_len":555,"err":""}
+{"poll":61,"ts":"2026-06-06T08:15:38.4156574Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":5,"body_len":179,"err":""}
+{"poll":61,"ts":"2026-06-06T08:15:38.4156574Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":5,"body_len":10299501,"err":""}
+{"poll":62,"ts":"2026-06-06T08:15:42.5295992Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.9,"body_len":112,"err":""}
+{"poll":62,"ts":"2026-06-06T08:15:42.5295992Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.9,"body_len":159,"err":""}
+{"poll":62,"ts":"2026-06-06T08:15:42.5295992Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.9,"body_len":554,"err":""}
+{"poll":62,"ts":"2026-06-06T08:15:42.5295992Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.9,"body_len":179,"err":""}
+{"poll":62,"ts":"2026-06-06T08:15:42.5295992Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.9,"body_len":10299501,"err":""}
+{"poll":63,"ts":"2026-06-06T08:15:45.6640376Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.4,"body_len":112,"err":""}
+{"poll":63,"ts":"2026-06-06T08:15:45.6640376Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.4,"body_len":160,"err":""}
+{"poll":63,"ts":"2026-06-06T08:15:45.6640376Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.4,"body_len":554,"err":""}
+{"poll":63,"ts":"2026-06-06T08:15:45.6640376Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.4,"body_len":179,"err":""}
+{"poll":63,"ts":"2026-06-06T08:15:45.6640376Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.4,"body_len":10299501,"err":""}
+{"poll":64,"ts":"2026-06-06T08:15:48.6821955Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.9,"body_len":112,"err":""}
+{"poll":64,"ts":"2026-06-06T08:15:48.6821955Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.9,"body_len":159,"err":""}
+{"poll":64,"ts":"2026-06-06T08:15:48.6821955Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.9,"body_len":554,"err":""}
+{"poll":64,"ts":"2026-06-06T08:15:48.6821955Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.9,"body_len":179,"err":""}
+{"poll":64,"ts":"2026-06-06T08:15:48.6821955Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.9,"body_len":10299501,"err":""}
+{"poll":65,"ts":"2026-06-06T08:15:51.9042597Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.2,"body_len":112,"err":""}
+{"poll":65,"ts":"2026-06-06T08:15:51.9042597Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.2,"body_len":160,"err":""}
+{"poll":65,"ts":"2026-06-06T08:15:51.9042597Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.2,"body_len":556,"err":""}
+{"poll":65,"ts":"2026-06-06T08:15:51.9042597Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.2,"body_len":179,"err":""}
+{"poll":65,"ts":"2026-06-06T08:15:51.9042597Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.2,"body_len":10299501,"err":""}
+{"poll":66,"ts":"2026-06-06T08:15:54.2681090Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.5,"body_len":112,"err":""}
+{"poll":66,"ts":"2026-06-06T08:15:54.2681090Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.5,"body_len":158,"err":""}
+{"poll":66,"ts":"2026-06-06T08:15:54.2681090Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.5,"body_len":554,"err":""}
+{"poll":66,"ts":"2026-06-06T08:15:54.2681090Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.5,"body_len":179,"err":""}
+{"poll":66,"ts":"2026-06-06T08:15:54.2681090Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.5,"body_len":10299501,"err":""}
+{"poll":67,"ts":"2026-06-06T08:15:56.7819306Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":67,"ts":"2026-06-06T08:15:56.7819306Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":159,"err":""}
+{"poll":67,"ts":"2026-06-06T08:15:56.7819306Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":556,"err":""}
+{"poll":67,"ts":"2026-06-06T08:15:56.7819306Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":67,"ts":"2026-06-06T08:15:56.7819306Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":10299501,"err":""}
+{"poll":68,"ts":"2026-06-06T08:15:59.4885992Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.8,"body_len":112,"err":""}
+{"poll":68,"ts":"2026-06-06T08:15:59.4885992Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.8,"body_len":159,"err":""}
+{"poll":68,"ts":"2026-06-06T08:15:59.4885992Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.8,"body_len":554,"err":""}
+{"poll":68,"ts":"2026-06-06T08:15:59.4885992Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.8,"body_len":179,"err":""}
+{"poll":68,"ts":"2026-06-06T08:15:59.4885992Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.8,"body_len":10299501,"err":""}
+{"poll":69,"ts":"2026-06-06T08:16:02.3936728Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.3,"body_len":112,"err":""}
+{"poll":69,"ts":"2026-06-06T08:16:02.3936728Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.3,"body_len":159,"err":""}
+{"poll":69,"ts":"2026-06-06T08:16:02.3936728Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.3,"body_len":554,"err":""}
+{"poll":69,"ts":"2026-06-06T08:16:02.3936728Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.3,"body_len":179,"err":""}
+{"poll":69,"ts":"2026-06-06T08:16:02.3936728Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.3,"body_len":10299501,"err":""}
+{"poll":70,"ts":"2026-06-06T08:16:05.5322177Z","endpoint":"/health","ok":true,"status":200,"latency_ms":4.1,"body_len":112,"err":""}
+{"poll":70,"ts":"2026-06-06T08:16:05.5322177Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":4.1,"body_len":160,"err":""}
+{"poll":70,"ts":"2026-06-06T08:16:05.5322177Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":4.1,"body_len":553,"err":""}
+{"poll":70,"ts":"2026-06-06T08:16:05.5322177Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":4.1,"body_len":179,"err":""}
+{"poll":70,"ts":"2026-06-06T08:16:05.5322177Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":4.1,"body_len":10299501,"err":""}
+{"poll":71,"ts":"2026-06-06T08:16:09.0279400Z","endpoint":"/health","ok":true,"status":200,"latency_ms":4.5,"body_len":112,"err":""}
+{"poll":71,"ts":"2026-06-06T08:16:09.0279400Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":4.5,"body_len":160,"err":""}
+{"poll":71,"ts":"2026-06-06T08:16:09.0279400Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":4.5,"body_len":554,"err":""}
+{"poll":71,"ts":"2026-06-06T08:16:09.0279400Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":4.5,"body_len":179,"err":""}
+{"poll":71,"ts":"2026-06-06T08:16:09.0279400Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":4.5,"body_len":10299501,"err":""}
+{"poll":72,"ts":"2026-06-06T08:16:12.6773883Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.9,"body_len":112,"err":""}
+{"poll":72,"ts":"2026-06-06T08:16:12.6773883Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.9,"body_len":162,"err":""}
+{"poll":72,"ts":"2026-06-06T08:16:12.6773883Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.9,"body_len":554,"err":""}
+{"poll":72,"ts":"2026-06-06T08:16:12.6773883Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.9,"body_len":179,"err":""}
+{"poll":72,"ts":"2026-06-06T08:16:12.6773883Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.9,"body_len":10299501,"err":""}
+{"poll":73,"ts":"2026-06-06T08:16:16.7921546Z","endpoint":"/health","ok":true,"status":200,"latency_ms":2.8,"body_len":112,"err":""}
+{"poll":73,"ts":"2026-06-06T08:16:16.7921546Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":2.8,"body_len":160,"err":""}
+{"poll":73,"ts":"2026-06-06T08:16:16.7921546Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":2.8,"body_len":556,"err":""}
+{"poll":73,"ts":"2026-06-06T08:16:16.7921546Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":2.8,"body_len":179,"err":""}
+{"poll":73,"ts":"2026-06-06T08:16:16.7921546Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":2.8,"body_len":10299501,"err":""}
+{"poll":74,"ts":"2026-06-06T08:16:21.0044942Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.9,"body_len":112,"err":""}
+{"poll":74,"ts":"2026-06-06T08:16:21.0044942Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.9,"body_len":162,"err":""}
+{"poll":74,"ts":"2026-06-06T08:16:21.0044942Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.9,"body_len":554,"err":""}
+{"poll":74,"ts":"2026-06-06T08:16:21.0044942Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.9,"body_len":179,"err":""}
+{"poll":74,"ts":"2026-06-06T08:16:21.0044942Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.9,"body_len":10299501,"err":""}
+{"poll":75,"ts":"2026-06-06T08:16:24.4987086Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.3,"body_len":112,"err":""}
+{"poll":75,"ts":"2026-06-06T08:16:24.4987086Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.3,"body_len":159,"err":""}
+{"poll":75,"ts":"2026-06-06T08:16:24.4987086Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.3,"body_len":554,"err":""}
+{"poll":75,"ts":"2026-06-06T08:16:24.4987086Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.3,"body_len":179,"err":""}
+{"poll":75,"ts":"2026-06-06T08:16:24.4987086Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.3,"body_len":10299501,"err":""}
+{"poll":76,"ts":"2026-06-06T08:16:27.4483082Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.9,"body_len":112,"err":""}
+{"poll":76,"ts":"2026-06-06T08:16:27.4483082Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.9,"body_len":160,"err":""}
+{"poll":76,"ts":"2026-06-06T08:16:27.4483082Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.9,"body_len":553,"err":""}
+{"poll":76,"ts":"2026-06-06T08:16:27.4483082Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.9,"body_len":179,"err":""}
+{"poll":76,"ts":"2026-06-06T08:16:27.4483082Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.9,"body_len":10299501,"err":""}
+{"poll":77,"ts":"2026-06-06T08:16:30.5342992Z","endpoint":"/health","ok":true,"status":200,"latency_ms":3,"body_len":112,"err":""}
+{"poll":77,"ts":"2026-06-06T08:16:30.5342992Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":3,"body_len":159,"err":""}
+{"poll":77,"ts":"2026-06-06T08:16:30.5342992Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":3,"body_len":554,"err":""}
+{"poll":77,"ts":"2026-06-06T08:16:30.5353109Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":3,"body_len":179,"err":""}
+{"poll":77,"ts":"2026-06-06T08:16:30.5353109Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":3,"body_len":10299501,"err":""}
+{"poll":78,"ts":"2026-06-06T08:16:34.3559931Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.5,"body_len":112,"err":""}
+{"poll":78,"ts":"2026-06-06T08:16:34.3559931Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.5,"body_len":160,"err":""}
+{"poll":78,"ts":"2026-06-06T08:16:34.3559931Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.5,"body_len":556,"err":""}
+{"poll":78,"ts":"2026-06-06T08:16:34.3559931Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.5,"body_len":179,"err":""}
+{"poll":78,"ts":"2026-06-06T08:16:34.3559931Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.5,"body_len":10299501,"err":""}
+{"poll":79,"ts":"2026-06-06T08:16:38.6014894Z","endpoint":"/health","ok":true,"status":200,"latency_ms":4.3,"body_len":112,"err":""}
+{"poll":79,"ts":"2026-06-06T08:16:38.6014894Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":4.3,"body_len":160,"err":""}
+{"poll":79,"ts":"2026-06-06T08:16:38.6014894Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":4.3,"body_len":556,"err":""}
+{"poll":79,"ts":"2026-06-06T08:16:38.6014894Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":4.3,"body_len":179,"err":""}
+{"poll":79,"ts":"2026-06-06T08:16:38.6014894Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":4.3,"body_len":10299501,"err":""}
+{"poll":80,"ts":"2026-06-06T08:16:42.6687206Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.3,"body_len":112,"err":""}
+{"poll":80,"ts":"2026-06-06T08:16:42.6687206Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.3,"body_len":160,"err":""}
+{"poll":80,"ts":"2026-06-06T08:16:42.6687206Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.3,"body_len":554,"err":""}
+{"poll":80,"ts":"2026-06-06T08:16:42.6687206Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.3,"body_len":179,"err":""}
+{"poll":80,"ts":"2026-06-06T08:16:42.6687206Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.3,"body_len":10299501,"err":""}
+{"poll":81,"ts":"2026-06-06T08:16:47.7356372Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.2,"body_len":112,"err":""}
+{"poll":81,"ts":"2026-06-06T08:16:47.7356372Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.2,"body_len":160,"err":""}
+{"poll":81,"ts":"2026-06-06T08:16:47.7356372Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.2,"body_len":554,"err":""}
+{"poll":81,"ts":"2026-06-06T08:16:47.7356372Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.2,"body_len":179,"err":""}
+{"poll":81,"ts":"2026-06-06T08:16:47.7356372Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.2,"body_len":10299501,"err":""}
+{"poll":82,"ts":"2026-06-06T08:16:52.0250297Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.6,"body_len":112,"err":""}
+{"poll":82,"ts":"2026-06-06T08:16:52.0250297Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.6,"body_len":162,"err":""}
+{"poll":82,"ts":"2026-06-06T08:16:52.0250297Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.6,"body_len":554,"err":""}
+{"poll":82,"ts":"2026-06-06T08:16:52.0250297Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.6,"body_len":179,"err":""}
+{"poll":82,"ts":"2026-06-06T08:16:52.0250297Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.6,"body_len":10299501,"err":""}
+{"poll":83,"ts":"2026-06-06T08:16:55.8526436Z","endpoint":"/health","ok":true,"status":200,"latency_ms":4.6,"body_len":112,"err":""}
+{"poll":83,"ts":"2026-06-06T08:16:55.8536548Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":4.6,"body_len":160,"err":""}
+{"poll":83,"ts":"2026-06-06T08:16:55.8536548Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":4.6,"body_len":554,"err":""}
+{"poll":83,"ts":"2026-06-06T08:16:55.8536548Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":4.6,"body_len":179,"err":""}
+{"poll":83,"ts":"2026-06-06T08:16:55.8536548Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":4.6,"body_len":10299501,"err":""}
+{"poll":84,"ts":"2026-06-06T08:17:00.4514239Z","endpoint":"/health","ok":true,"status":200,"latency_ms":2.4,"body_len":112,"err":""}
+{"poll":84,"ts":"2026-06-06T08:17:00.4514239Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":2.4,"body_len":159,"err":""}
+{"poll":84,"ts":"2026-06-06T08:17:00.4514239Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":2.4,"body_len":553,"err":""}
+{"poll":84,"ts":"2026-06-06T08:17:00.4514239Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":2.4,"body_len":179,"err":""}
+{"poll":84,"ts":"2026-06-06T08:17:00.4514239Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":2.4,"body_len":10299501,"err":""}
+{"poll":85,"ts":"2026-06-06T08:17:03.9712737Z","endpoint":"/health","ok":true,"status":200,"latency_ms":5.4,"body_len":112,"err":""}
+{"poll":85,"ts":"2026-06-06T08:17:03.9712737Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":5.4,"body_len":159,"err":""}
+{"poll":85,"ts":"2026-06-06T08:17:03.9712737Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":5.4,"body_len":551,"err":""}
+{"poll":85,"ts":"2026-06-06T08:17:03.9712737Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":5.4,"body_len":179,"err":""}
+{"poll":85,"ts":"2026-06-06T08:17:03.9712737Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":5.4,"body_len":10299501,"err":""}
+{"poll":86,"ts":"2026-06-06T08:17:07.8527636Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":86,"ts":"2026-06-06T08:17:07.8527636Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":162,"err":""}
+{"poll":86,"ts":"2026-06-06T08:17:07.8527636Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":554,"err":""}
+{"poll":86,"ts":"2026-06-06T08:17:07.8527636Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":86,"ts":"2026-06-06T08:17:07.8527636Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":10299501,"err":""}
+{"poll":87,"ts":"2026-06-06T08:17:10.5963155Z","endpoint":"/health","ok":true,"status":200,"latency_ms":2.1,"body_len":112,"err":""}
+{"poll":87,"ts":"2026-06-06T08:17:10.5963155Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":2.1,"body_len":162,"err":""}
+{"poll":87,"ts":"2026-06-06T08:17:10.5963155Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":2.1,"body_len":554,"err":""}
+{"poll":87,"ts":"2026-06-06T08:17:10.5963155Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":2.1,"body_len":179,"err":""}
+{"poll":87,"ts":"2026-06-06T08:17:10.5963155Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":2.1,"body_len":10299501,"err":""}
+{"poll":88,"ts":"2026-06-06T08:17:13.7348405Z","endpoint":"/health","ok":true,"status":200,"latency_ms":4.3,"body_len":112,"err":""}
+{"poll":88,"ts":"2026-06-06T08:17:13.7348405Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":4.3,"body_len":160,"err":""}
+{"poll":88,"ts":"2026-06-06T08:17:13.7348405Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":4.3,"body_len":555,"err":""}
+{"poll":88,"ts":"2026-06-06T08:17:13.7348405Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":4.3,"body_len":179,"err":""}
+{"poll":88,"ts":"2026-06-06T08:17:13.7348405Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":4.3,"body_len":10299501,"err":""}
+{"poll":89,"ts":"2026-06-06T08:17:16.7848348Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":89,"ts":"2026-06-06T08:17:16.7848348Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":160,"err":""}
+{"poll":89,"ts":"2026-06-06T08:17:16.7848348Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":554,"err":""}
+{"poll":89,"ts":"2026-06-06T08:17:16.7848348Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":89,"ts":"2026-06-06T08:17:16.7848348Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":10299501,"err":""}
+{"poll":90,"ts":"2026-06-06T08:17:20.0595157Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":90,"ts":"2026-06-06T08:17:20.0595157Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":159,"err":""}
+{"poll":90,"ts":"2026-06-06T08:17:20.0595157Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":554,"err":""}
+{"poll":90,"ts":"2026-06-06T08:17:20.0595157Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":90,"ts":"2026-06-06T08:17:20.0595157Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":10299501,"err":""}
+{"poll":91,"ts":"2026-06-06T08:17:22.7678168Z","endpoint":"/health","ok":true,"status":200,"latency_ms":2.7,"body_len":112,"err":""}
+{"poll":91,"ts":"2026-06-06T08:17:22.7678168Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":2.7,"body_len":159,"err":""}
+{"poll":91,"ts":"2026-06-06T08:17:22.7678168Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":2.7,"body_len":552,"err":""}
+{"poll":91,"ts":"2026-06-06T08:17:22.7678168Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":2.7,"body_len":179,"err":""}
+{"poll":91,"ts":"2026-06-06T08:17:22.7678168Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":2.7,"body_len":10299501,"err":""}
+{"poll":92,"ts":"2026-06-06T08:17:25.3406615Z","endpoint":"/health","ok":true,"status":200,"latency_ms":4.4,"body_len":112,"err":""}
+{"poll":92,"ts":"2026-06-06T08:17:25.3406615Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":4.4,"body_len":160,"err":""}
+{"poll":92,"ts":"2026-06-06T08:17:25.3406615Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":4.4,"body_len":553,"err":""}
+{"poll":92,"ts":"2026-06-06T08:17:25.3406615Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":4.4,"body_len":179,"err":""}
+{"poll":92,"ts":"2026-06-06T08:17:25.3406615Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":4.4,"body_len":10299501,"err":""}
+{"poll":93,"ts":"2026-06-06T08:17:28.3922859Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.8,"body_len":112,"err":""}
+{"poll":93,"ts":"2026-06-06T08:17:28.3922859Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.8,"body_len":160,"err":""}
+{"poll":93,"ts":"2026-06-06T08:17:28.3922859Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.8,"body_len":556,"err":""}
+{"poll":93,"ts":"2026-06-06T08:17:28.3932848Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.8,"body_len":179,"err":""}
+{"poll":93,"ts":"2026-06-06T08:17:28.3932848Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.8,"body_len":10299501,"err":""}
+{"poll":94,"ts":"2026-06-06T08:17:31.7434299Z","endpoint":"/health","ok":true,"status":200,"latency_ms":2,"body_len":112,"err":""}
+{"poll":94,"ts":"2026-06-06T08:17:31.7434299Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":2,"body_len":160,"err":""}
+{"poll":94,"ts":"2026-06-06T08:17:31.7434299Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":2,"body_len":554,"err":""}
+{"poll":94,"ts":"2026-06-06T08:17:31.7434299Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":2,"body_len":179,"err":""}
+{"poll":94,"ts":"2026-06-06T08:17:31.7434299Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":2,"body_len":10299501,"err":""}
+{"poll":95,"ts":"2026-06-06T08:17:34.7878521Z","endpoint":"/health","ok":true,"status":200,"latency_ms":3.6,"body_len":112,"err":""}
+{"poll":95,"ts":"2026-06-06T08:17:34.7878521Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":3.6,"body_len":162,"err":""}
+{"poll":95,"ts":"2026-06-06T08:17:34.7878521Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":3.6,"body_len":553,"err":""}
+{"poll":95,"ts":"2026-06-06T08:17:34.7878521Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":3.6,"body_len":179,"err":""}
+{"poll":95,"ts":"2026-06-06T08:17:34.7878521Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":3.6,"body_len":10299501,"err":""}
+{"poll":96,"ts":"2026-06-06T08:17:37.9371914Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":96,"ts":"2026-06-06T08:17:37.9371914Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":162,"err":""}
+{"poll":96,"ts":"2026-06-06T08:17:37.9371914Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":556,"err":""}
+{"poll":96,"ts":"2026-06-06T08:17:37.9371914Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":96,"ts":"2026-06-06T08:17:37.9371914Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":10299501,"err":""}
+{"poll":97,"ts":"2026-06-06T08:17:41.2593103Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.5,"body_len":112,"err":""}
+{"poll":97,"ts":"2026-06-06T08:17:41.2593103Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.5,"body_len":159,"err":""}
+{"poll":97,"ts":"2026-06-06T08:17:41.2593103Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.5,"body_len":554,"err":""}
+{"poll":97,"ts":"2026-06-06T08:17:41.2593103Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.5,"body_len":179,"err":""}
+{"poll":97,"ts":"2026-06-06T08:17:41.2593103Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.5,"body_len":10299501,"err":""}
+{"poll":98,"ts":"2026-06-06T08:17:44.0489465Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1,"body_len":112,"err":""}
+{"poll":98,"ts":"2026-06-06T08:17:44.0489465Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1,"body_len":160,"err":""}
+{"poll":98,"ts":"2026-06-06T08:17:44.0489465Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1,"body_len":556,"err":""}
+{"poll":98,"ts":"2026-06-06T08:17:44.0489465Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1,"body_len":179,"err":""}
+{"poll":98,"ts":"2026-06-06T08:17:44.0489465Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1,"body_len":10299501,"err":""}
+{"poll":99,"ts":"2026-06-06T08:17:47.2861167Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.5,"body_len":112,"err":""}
+{"poll":99,"ts":"2026-06-06T08:17:47.2861167Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.5,"body_len":162,"err":""}
+{"poll":99,"ts":"2026-06-06T08:17:47.2871130Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.5,"body_len":554,"err":""}
+{"poll":99,"ts":"2026-06-06T08:17:47.2871130Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.5,"body_len":179,"err":""}
+{"poll":99,"ts":"2026-06-06T08:17:47.2871130Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.5,"body_len":10299501,"err":""}
+{"poll":100,"ts":"2026-06-06T08:17:50.5005241Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.9,"body_len":112,"err":""}
+{"poll":100,"ts":"2026-06-06T08:17:50.5005241Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.9,"body_len":160,"err":""}
+{"poll":100,"ts":"2026-06-06T08:17:50.5005241Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.9,"body_len":554,"err":""}
+{"poll":100,"ts":"2026-06-06T08:17:50.5005241Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.9,"body_len":179,"err":""}
+{"poll":100,"ts":"2026-06-06T08:17:50.5005241Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.9,"body_len":10299501,"err":""}
+{"poll":101,"ts":"2026-06-06T08:17:53.6234222Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.1,"body_len":112,"err":""}
+{"poll":101,"ts":"2026-06-06T08:17:53.6234222Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.1,"body_len":160,"err":""}
+{"poll":101,"ts":"2026-06-06T08:17:53.6234222Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.1,"body_len":553,"err":""}
+{"poll":101,"ts":"2026-06-06T08:17:53.6234222Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.1,"body_len":179,"err":""}
+{"poll":101,"ts":"2026-06-06T08:17:53.6239288Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.1,"body_len":10299501,"err":""}
+{"poll":102,"ts":"2026-06-06T08:17:56.3396770Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.8,"body_len":112,"err":""}
+{"poll":102,"ts":"2026-06-06T08:17:56.3396770Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.8,"body_len":160,"err":""}
+{"poll":102,"ts":"2026-06-06T08:17:56.3396770Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.8,"body_len":553,"err":""}
+{"poll":102,"ts":"2026-06-06T08:17:56.3396770Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.8,"body_len":179,"err":""}
+{"poll":102,"ts":"2026-06-06T08:17:56.3396770Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.8,"body_len":10299501,"err":""}
+{"poll":103,"ts":"2026-06-06T08:17:59.2822032Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.2,"body_len":112,"err":""}
+{"poll":103,"ts":"2026-06-06T08:17:59.2822032Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.2,"body_len":160,"err":""}
+{"poll":103,"ts":"2026-06-06T08:17:59.2832043Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.2,"body_len":555,"err":""}
+{"poll":103,"ts":"2026-06-06T08:17:59.2832043Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.2,"body_len":179,"err":""}
+{"poll":103,"ts":"2026-06-06T08:17:59.2832043Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.2,"body_len":10299501,"err":""}
+{"poll":104,"ts":"2026-06-06T08:18:02.8764847Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":104,"ts":"2026-06-06T08:18:02.8764847Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":161,"err":""}
+{"poll":104,"ts":"2026-06-06T08:18:02.8764847Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":554,"err":""}
+{"poll":104,"ts":"2026-06-06T08:18:02.8764847Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":104,"ts":"2026-06-06T08:18:02.8774836Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":10299501,"err":""}
+{"poll":105,"ts":"2026-06-06T08:18:05.8434090Z","endpoint":"/health","ok":true,"status":200,"latency_ms":2.6,"body_len":112,"err":""}
+{"poll":105,"ts":"2026-06-06T08:18:05.8434090Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":2.6,"body_len":160,"err":""}
+{"poll":105,"ts":"2026-06-06T08:18:05.8434090Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":2.6,"body_len":553,"err":""}
+{"poll":105,"ts":"2026-06-06T08:18:05.8434090Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":2.6,"body_len":179,"err":""}
+{"poll":105,"ts":"2026-06-06T08:18:05.8434090Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":2.6,"body_len":10299501,"err":""}
+{"poll":106,"ts":"2026-06-06T08:18:08.3815685Z","endpoint":"/health","ok":true,"status":200,"latency_ms":5.3,"body_len":112,"err":""}
+{"poll":106,"ts":"2026-06-06T08:18:08.3815685Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":5.3,"body_len":160,"err":""}
+{"poll":106,"ts":"2026-06-06T08:18:08.3815685Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":5.3,"body_len":554,"err":""}
+{"poll":106,"ts":"2026-06-06T08:18:08.3815685Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":5.3,"body_len":179,"err":""}
+{"poll":106,"ts":"2026-06-06T08:18:08.3815685Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":5.3,"body_len":10299501,"err":""}
+{"poll":107,"ts":"2026-06-06T08:18:11.1847618Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.4,"body_len":112,"err":""}
+{"poll":107,"ts":"2026-06-06T08:18:11.1850197Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.4,"body_len":160,"err":""}
+{"poll":107,"ts":"2026-06-06T08:18:11.1850197Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.4,"body_len":553,"err":""}
+{"poll":107,"ts":"2026-06-06T08:18:11.1850197Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.4,"body_len":179,"err":""}
+{"poll":107,"ts":"2026-06-06T08:18:11.1850197Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.4,"body_len":10299501,"err":""}
+{"poll":108,"ts":"2026-06-06T08:18:13.9250076Z","endpoint":"/health","ok":true,"status":200,"latency_ms":2.6,"body_len":112,"err":""}
+{"poll":108,"ts":"2026-06-06T08:18:13.9250076Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":2.6,"body_len":159,"err":""}
+{"poll":108,"ts":"2026-06-06T08:18:13.9250076Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":2.6,"body_len":554,"err":""}
+{"poll":108,"ts":"2026-06-06T08:18:13.9250076Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":2.6,"body_len":179,"err":""}
+{"poll":108,"ts":"2026-06-06T08:18:13.9250076Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":2.6,"body_len":10299501,"err":""}
+{"poll":109,"ts":"2026-06-06T08:18:16.7181200Z","endpoint":"/health","ok":true,"status":200,"latency_ms":4.1,"body_len":112,"err":""}
+{"poll":109,"ts":"2026-06-06T08:18:16.7181200Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":4.1,"body_len":159,"err":""}
+{"poll":109,"ts":"2026-06-06T08:18:16.7181200Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":4.1,"body_len":554,"err":""}
+{"poll":109,"ts":"2026-06-06T08:18:16.7181200Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":4.1,"body_len":179,"err":""}
+{"poll":109,"ts":"2026-06-06T08:18:16.7181200Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":4.1,"body_len":10299501,"err":""}
+{"poll":110,"ts":"2026-06-06T08:18:20.0093522Z","endpoint":"/health","ok":true,"status":200,"latency_ms":2.3,"body_len":112,"err":""}
+{"poll":110,"ts":"2026-06-06T08:18:20.0093522Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":2.3,"body_len":162,"err":""}
+{"poll":110,"ts":"2026-06-06T08:18:20.0093522Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":2.3,"body_len":554,"err":""}
+{"poll":110,"ts":"2026-06-06T08:18:20.0093522Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":2.3,"body_len":179,"err":""}
+{"poll":110,"ts":"2026-06-06T08:18:20.0093522Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":2.3,"body_len":10299501,"err":""}
+{"poll":111,"ts":"2026-06-06T08:18:22.1617621Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":111,"ts":"2026-06-06T08:18:22.1617621Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":162,"err":""}
+{"poll":111,"ts":"2026-06-06T08:18:22.1617621Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":553,"err":""}
+{"poll":111,"ts":"2026-06-06T08:18:22.1617621Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":111,"ts":"2026-06-06T08:18:22.1617621Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":10299501,"err":""}
+{"poll":112,"ts":"2026-06-06T08:18:24.9600512Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1.2,"body_len":112,"err":""}
+{"poll":112,"ts":"2026-06-06T08:18:24.9600512Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1.2,"body_len":162,"err":""}
+{"poll":112,"ts":"2026-06-06T08:18:24.9600512Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1.2,"body_len":556,"err":""}
+{"poll":112,"ts":"2026-06-06T08:18:24.9600512Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1.2,"body_len":179,"err":""}
+{"poll":112,"ts":"2026-06-06T08:18:24.9600512Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1.2,"body_len":10299501,"err":""}
+{"poll":113,"ts":"2026-06-06T08:18:27.9037061Z","endpoint":"/health","ok":true,"status":200,"latency_ms":4.1,"body_len":112,"err":""}
+{"poll":113,"ts":"2026-06-06T08:18:27.9037061Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":4.1,"body_len":160,"err":""}
+{"poll":113,"ts":"2026-06-06T08:18:27.9037061Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":4.1,"body_len":554,"err":""}
+{"poll":113,"ts":"2026-06-06T08:18:27.9037061Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":4.1,"body_len":179,"err":""}
+{"poll":113,"ts":"2026-06-06T08:18:27.9037061Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":4.1,"body_len":10299501,"err":""}
+{"poll":114,"ts":"2026-06-06T08:18:30.9795925Z","endpoint":"/health","ok":true,"status":200,"latency_ms":2.8,"body_len":112,"err":""}
+{"poll":114,"ts":"2026-06-06T08:18:30.9797846Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":2.8,"body_len":159,"err":""}
+{"poll":114,"ts":"2026-06-06T08:18:30.9797846Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":2.8,"body_len":556,"err":""}
+{"poll":114,"ts":"2026-06-06T08:18:30.9797846Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":2.8,"body_len":179,"err":""}
+{"poll":114,"ts":"2026-06-06T08:18:30.9797846Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":2.8,"body_len":10299501,"err":""}
+{"poll":115,"ts":"2026-06-06T08:18:33.3474257Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":115,"ts":"2026-06-06T08:18:33.3474257Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":160,"err":""}
+{"poll":115,"ts":"2026-06-06T08:18:33.3474257Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":553,"err":""}
+{"poll":115,"ts":"2026-06-06T08:18:33.3474257Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":115,"ts":"2026-06-06T08:18:33.3474257Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":10299501,"err":""}
+{"poll":116,"ts":"2026-06-06T08:18:36.0392458Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.9,"body_len":112,"err":""}
+{"poll":116,"ts":"2026-06-06T08:18:36.0392458Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.9,"body_len":160,"err":""}
+{"poll":116,"ts":"2026-06-06T08:18:36.0392458Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.9,"body_len":556,"err":""}
+{"poll":116,"ts":"2026-06-06T08:18:36.0392458Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.9,"body_len":179,"err":""}
+{"poll":116,"ts":"2026-06-06T08:18:36.0392458Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.9,"body_len":10299501,"err":""}
+{"poll":117,"ts":"2026-06-06T08:18:38.6371468Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":117,"ts":"2026-06-06T08:18:38.6371468Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":162,"err":""}
+{"poll":117,"ts":"2026-06-06T08:18:38.6371468Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":553,"err":""}
+{"poll":117,"ts":"2026-06-06T08:18:38.6371468Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":117,"ts":"2026-06-06T08:18:38.6371468Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":10299501,"err":""}
+{"poll":118,"ts":"2026-06-06T08:18:41.2020325Z","endpoint":"/health","ok":true,"status":200,"latency_ms":0.7,"body_len":112,"err":""}
+{"poll":118,"ts":"2026-06-06T08:18:41.2020325Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":0.7,"body_len":162,"err":""}
+{"poll":118,"ts":"2026-06-06T08:18:41.2020325Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":0.7,"body_len":553,"err":""}
+{"poll":118,"ts":"2026-06-06T08:18:41.2020325Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":0.7,"body_len":179,"err":""}
+{"poll":118,"ts":"2026-06-06T08:18:41.2020325Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":0.7,"body_len":10299501,"err":""}
+{"poll":119,"ts":"2026-06-06T08:18:43.6009955Z","endpoint":"/health","ok":true,"status":200,"latency_ms":1,"body_len":112,"err":""}
+{"poll":119,"ts":"2026-06-06T08:18:43.6009955Z","endpoint":"/telemetry","ok":true,"status":200,"latency_ms":1,"body_len":162,"err":""}
+{"poll":119,"ts":"2026-06-06T08:18:43.6009955Z","endpoint":"/diag/render_stats","ok":true,"status":200,"latency_ms":1,"body_len":554,"err":""}
+{"poll":119,"ts":"2026-06-06T08:18:43.6009955Z","endpoint":"/diag/emit_status","ok":true,"status":200,"latency_ms":1,"body_len":179,"err":""}
+{"poll":119,"ts":"2026-06-06T08:18:43.6009955Z","endpoint":"/diag/water_samples","ok":true,"status":200,"latency_ms":1,"body_len":10299501,"err":""}

@@ -1,0 +1,273 @@
+{
+  "build": {
+    "exit": 0,
+    "errors": 0,
+    "warnings": 13,
+    "duration_s": 22.13,
+    "assembly": "WorldSphereMod3D.dll",
+    "assembly_bytes": 731648
+  },
+  "bridge": {
+    "alive": true,
+    "version": "2.13",
+    "isWorld3D": true,
+    "port": 8766,
+    "flaky_under_load": true,
+    "timeout_rate": "19/60 (31.7%)"
+  },
+  "telemetry": {
+    "samples_valid": 41,
+    "samples_missing": 19,
+    "min_frameMs": 16.66,
+    "max_frameMs": 43.79,
+    "median_frameMs": 18.76,
+    "p95_frameMs": 34.24,
+    "mean_frameMs": 21.58,
+    "slow_count_over_33ms": 3,
+    "drawCalls_during_sample": 0,
+    "voxelCacheHit": 0.999936
+  },
+  "water_probe": {
+    "surfaceFlat": true,
+    "meshWater": true,
+    "vertexCount": 66049,
+    "triangleCount": 78448,
+    "mapW": 256,
+    "mapH": 256,
+    "seaLevel": 2.0,
+    "boundsMin": {
+      "x": -42.74,
+      "y": -42.74,
+      "z": 0.0
+    },
+    "boundsMax": {
+      "x": 42.74,
+      "y": 42.74,
+      "z": 355.5
+    },
+    "computedMinY": -42.74,
+    "computedMaxY": 42.74,
+    "spanY": 85.48,
+    "sampledWaterLevel_constant": true,
+    "samples_tested": 6,
+    "all_at_seaLevel": true
+  },
+  "emit_status": {
+    "visibleUnits": 4,
+    "frustumCullerPassCount": 2,
+    "batcherSubmitCount": 2,
+    "skippedStaticBuildingFrames": 0,
+    "skippedStaticProcgenBuildingFrames": 279420,
+    "emitVoxelsCalled": true
+  },
+  "render_stats": {
+    "materialShader": "WSM3D/OpaqueVertexColor",
+    "visibleBuildings": 698,
+    "voxelEntitiesEnabled": true,
+    "instancingBroken": false,
+    "fallbackPath": true,
+    "voxelCacheSize": 1,
+    "procgenCacheSize": 0,
+    "impostorCount": 0,
+    "frameCount": 152280,
+    "note": "drawCalls=0 during sample window (no voxel actors in view)"
+  },
+  "screenshots": [
+    "E:/Dev/WorldSphereMod/docs/journeys/scratch/l1-verify-default.png",
+    "E:/Dev/WorldSphereMod/docs/journeys/scratch/l1-verify-frame2.png",
+    "E:/Dev/WorldSphereMod/docs/journeys/scratch/l1-verify-zoomout.png",
+    "E:/Dev/WorldSphereMod/docs/journeys/scratch/l1-verify-menu.png"
+  ],
+  "log_grep": {
+    "render3DSLOW": 0,
+    "heightfieldSLOW": 154,
+    "heightfieldSLOW_detail": "DrawTiles HEIGHTFIELD SLOW 5-7 SECONDS per call (rows=78-92 cols=256)",
+    "bundle_stub": 0,
+    "banners_found": [
+      "water-flat-sealevel v2.12 active"
+    ],
+    "isWorld3D_lines": 1,
+    "LOD-POLICY": 1,
+    "MeshWater_True": true,
+    "NML_compile_time_s": 12.59,
+    "NML_init_time_s": 10.98
+  },
+  "xunit": {
+    "unit": {
+      "pass": 156,
+      "fail": 2,
+      "skip": 3,
+      "total": 161
+    },
+    "integration": {
+      "pass": 68,
+      "fail": 1,
+      "skip": 0,
+      "total": 69
+    },
+    "e2e": {
+      "pass": 303,
+      "fail": 10,
+      "skip": 0,
+      "total": 313
+    },
+    "grand_total": {
+      "pass": 527,
+      "fail": 13,
+      "skip": 3,
+      "total": 543
+    }
+  },
+  "failing_tests": [
+    {
+      "class": "LodPhase10InvariantsTests",
+      "name": "LodSelector_exposes_two_tier_voxel_or_cull_ladder_with_hysteresis",
+      "tier": "Unit"
+    },
+    {
+      "class": "WorldSphereTesterCoverageTests",
+      "name": "LodSelector_hysteresis_requires_three_frames_before_tier_change",
+      "tier": "Unit"
+    },
+    {
+      "class": "InstallScriptStructureTests",
+      "name": "Install_script_defaults_match_mod_packaging_conventions",
+      "tier": "Integration"
+    },
+    {
+      "class": "Phase3bSurfaceOverlayInvariantsTests",
+      "name": "FoliageTileRender_routes_road_and_life_overlays_through_shared_mesh_pipeline",
+      "tier": "E2E"
+    },
+    {
+      "class": "VoxelRenderInvariantsTests",
+      "name": "VoxelRender_reset_clears_material_state_and_diagnostics",
+      "tier": "E2E"
+    },
+    {
+      "class": "VoxelMeshCacheInvariantsTests",
+      "name": "VoxelMeshCache_exposes_cache_lifecycle_and_build_entrypoints",
+      "tier": "E2E"
+    },
+    {
+      "class": "BuildingStyleProcgenInvariantsTests",
+      "name": "BuildingProcRender_patch_gates_on_ProceduralBuildings_not_style_toggle",
+      "tier": "E2E"
+    },
+    {
+      "class": "SourceContentInvariantsTests",
+      "name": "VoxelRender_cs_EnsureMaterial_excludes_default_sprites_and_hidden_colored",
+      "tier": "E2E"
+    },
+    {
+      "class": "BuildingStyleProcgenInvariantsTests",
+      "name": "BuildingProcRender_style_procgen_branch_selects_architecture_vs_voxel_mesh_cache",
+      "tier": "E2E"
+    },
+    {
+      "class": "LodPhase10InvariantsTests",
+      "name": "Mod_OnLoad_enables_cull_only_when_compute_indirect_unsupported",
+      "tier": "E2E"
+    },
+    {
+      "class": "VoxelPipelineRegressionTests",
+      "name": "Core_shader_load_list_matches_SafeShaders_exactly",
+      "tier": "E2E"
+    },
+    {
+      "class": "SpriteVoxelDepthExtrusionTests",
+      "name": "VoxelMeshCache_Get_passes_unset_depth_to_build_queue",
+      "tier": "E2E"
+    },
+    {
+      "class": "SpriteVoxelDepthExtrusionTests",
+      "name": "Rig_paths_resolve_depth_via_unset_not_hardcoded_eight",
+      "tier": "E2E"
+    }
+  ],
+  "static_invariants": {
+    "branch_ahead_origin": 4,
+    "ahead_commits_all_testing_tooling": true,
+    "commits_on_branch": [
+      "1267cc2 Wave 4: fix coverage.ps1 line-coverage regex",
+      "1af897a Wave 4: reconcile phase-default drift",
+      "0eb7f75 Wave 4: wire coverage.ps1 gate + build.yml",
+      "b59e8d8 Wave 4: add [Trait(Category)] to all test classes"
+    ],
+    "water_flat_literal": "found in Core.cs:1554 sampleWaterLevel:(tx,ty)=>seaLevel",
+    "render_budget_50": "found in SavedSettings.cs:201 BuildingRenderBudget=50",
+    "water_samples_endpoint": "found in BridgeServer.cs:398"
+  },
+  "verdicts_per_P0": {
+    "fps_idle": {
+      "pass": "~",
+      "evidence": "median 18.76ms (not 16.67 ideal), p95 34.24ms, 3/41 slow>33ms; bridge flaked 19/60 polls under load"
+    },
+    "water_flat": {
+      "pass": true,
+      "evidence": "surfaceFlat=true, seaLevel=2.0, all 6 samples at waterLevel=2.0, sampleWaterLevel literal confirmed"
+    },
+    "scale_actors": {
+      "pass": "~",
+      "evidence": "voxelEntitiesEnabled=true via bridge, but drawCalls=0 in current sample (no voxel actors in view), fallbackPath=true"
+    },
+    "terrain_redraw_cpu_bound": {
+      "pass": false,
+      "evidence": "HEIGHTFIELD SLOW: 154 events in last 1000 lines, each 5-7 SECONDS; DrawTiles blocking main thread rows=78-92 cols=256"
+    },
+    "shader_postfx": {
+      "pass": true,
+      "evidence": "materialShader=WSM3D/OpaqueVertexColor, no bundle-stub mismatch errors"
+    },
+    "settings_preserved": {
+      "pass": true,
+      "evidence": "ProceduralBuildings=True, MeshWater=True per bridge diag + PhasePatchManager log"
+    },
+    "frustum_cull": {
+      "pass": true,
+      "evidence": "frustumCullerPassCount=2, 4 visibleUnits"
+    },
+    "build_clean": {
+      "pass": true,
+      "evidence": "exit=0, errors=0, 13 warnings, no uncommitted WorldSphereMod/Code/"
+    }
+  },
+  "blockers": [
+    {
+      "id": "HEIGHTFIELD_BLOCKING",
+      "severity": "P0",
+      "desc": "DrawTiles HEIGHTFIELD SLOW @ 5-7s/call (154 events/1000 lines) - main thread block on terrain mesh rebuild"
+    },
+    {
+      "id": "BRIDGE_FLAKY",
+      "severity": "P1",
+      "desc": "Bridge dropped 19/60 poll requests (31.7% timeout) under telemetry load"
+    },
+    {
+      "id": "FALLBACK_PATH",
+      "severity": "P1",
+      "desc": "render_stats fallbackPath=true (instancing broken for voxel render path)"
+    },
+    {
+      "id": "NO_INSTANCING",
+      "severity": "P1",
+      "desc": "drawCalls=0 during sample window - voxel actor instancing not active; only fallback batch path running"
+    },
+    {
+      "id": "UI_SCREENSHOT_FAIL",
+      "severity": "P2",
+      "desc": "mode=ui screenshot produces same world-view colors as mode=camera; settings UI capture path broken"
+    }
+  ],
+  "artifacts": [
+    "E:/Dev/WorldSphereMod/docs/journeys/scratch/l1-verify-default.png",
+    "E:/Dev/WorldSphereMod/docs/journeys/scratch/l1-verify-frame2.png",
+    "E:/Dev/WorldSphereMod/docs/journeys/scratch/l1-verify-zoomout.png",
+    "E:/Dev/WorldSphereMod/docs/journeys/scratch/l1-verify-menu.png",
+    "E:/Dev/WorldSphereMod/docs/journeys/scratch/l1-frame-sample.log",
+    "E:/Dev/WorldSphereMod/docs/journeys/scratch/l1-frame-clean.txt",
+    "E:/Dev/WorldSphereMod/docs/journeys/scratch/l1-xunit.log",
+    "E:/Dev/WorldSphereMod/docs/journeys/scratch/l1-build-final.log",
+    "E:/Dev/WorldSphereMod/docs/journeys/scratch/l1-verify-report.json"
+  ]
+}

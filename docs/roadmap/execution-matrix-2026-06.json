@@ -1,0 +1,98 @@
+{
+  "updated_at": "2026-06-20T17:20:00-07:00",
+  "tracks": [
+    {
+      "track": "WSM",
+      "items": [
+        {
+          "id": "WSM-R0",
+          "owner": "orchestrator",
+          "task": "Lane freeze and evidence lock",
+          "status": "done",
+          "target_date": "2026-06-18",
+          "started_at": "2026-06-17T22:36:00-07:00",
+          "completed_at": "2026-06-18T05:38:00Z",
+          "dod": [
+            "Single branch pinned in docs/HANDOFF.md",
+            "stale branches/stashes archived",
+            "fresh build+install + hash log captured"
+          ],
+          "evidence": [
+            "artifacts/2026-06-18/WSM-R0-branch-lock.txt"
+          ]
+        },
+        {
+          "id": "WSM-R1",
+          "owner": "qa-engineer",
+          "task": "Truth gates: test and Harmony contradiction",
+          "status": "in_progress",
+          "target_date": "2026-06-19",
+          "started_at": "2026-06-18T09:45:00-07:00",
+          "dod": [
+            "source-shape failures reduced to intentional scope",
+            "coverage strategy documented",
+            "Harmony patch contradiction resolved"
+          ],
+          "notes": "Runtime smoke, Player.log exception baseline, launch screenshot proof, and R2 phase-0 proof remain blocked until a live WSM runtime session is available. WSM-R1-phase-flags.txt is a completed static snapshot only: MeshWater ctor default is true, ApplyPhaseDefaults resets it false, and many later phase flags remain static OFF.",
+          "evidence": [
+            "artifacts/2026-06-18/WSM-R1-branch-commit.txt",
+            "artifacts/2026-06-18/WSM-R1-cache-archive.txt",
+            "artifacts/2026-06-18/WSM-R1-startup-lock.txt",
+            "artifacts/2026-06-18/WSM-R1-smoke-startup.txt",
+            "artifacts/2026-06-18/WSM-R1-exception-baseline.txt",
+            "artifacts/2026-06-18/WSM-R1-phase-flags.txt",
+            "artifacts/2026-06-18/WSM-R1-source-fail-map.txt",
+            "artifacts/2026-06-18/WSM-R1-harmony-resolve.txt",
+            "artifacts/2026-06-18/WSM-R1-coverage-decision.md",
+            "artifacts/2026-06-18/WSM-R1-batch-1-notes.md",
+            "artifacts/2026-06-18/WSM-R1-batch-2-notes.md"
+          ]
+        },
+        {
+          "id": "WSM-R2",
+          "owner": "runtime-specialist",
+          "task": "Phase ladder smoke execution",
+          "status": "blocked_live_runtime",
+          "target_date": "2026-06-22",
+          "dod": [
+            "each phase has proof artifact",
+            "defaults remain OFF until proof complete",
+            "exception budget met in smoke run"
+          ],
+          "notes": "Static R2 prep artifacts exist, but phase-0 proof is not complete. Do not mark phase-0 or any phase ladder item complete without live startup, Player.log, and screenshot evidence.",
+          "evidence": [
+            "artifacts/2026-06-18/WSM-R2-evidence-template.md",
+            "artifacts/2026-06-18/WSM-R2-blocker-map.txt",
+            "artifacts/2026-06-18/WSM-R2-proof-directory-schema.md"
+          ]
+        },
+        {
+          "id": "WSM-R3",
+          "owner": "architecture",
+          "task": "Substrate hardening and shader policy",
+          "status": "ready",
+          "target_date": "2026-06-24",
+          "dod": [
+            "shader fallback and load order policy committed",
+            "duplicate render paths removed or quarantined",
+            "no silent critical fallbacks"
+          ],
+          "evidence": []
+        },
+        {
+          "id": "WSM-R4",
+          "owner": "docs-curator",
+          "task": "Ship readiness and merge gate",
+          "status": "ready",
+          "target_date": "2026-06-25",
+          "dod": [
+            "release notes + changelog updated",
+            "proof artifacts linked",
+            "known issues list only runtime blockers"
+          ],
+          "evidence": []
+        }
+      ]
+    }
+  ]
+}

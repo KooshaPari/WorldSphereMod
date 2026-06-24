@@ -1,0 +1,3 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+C:\program files\dotnet\sdk\11.0.100-preview.2.26159.112\Sdks\Microsoft.NET.Sdk\targets\Microsoft.NET.RuntimeIdentifierInference.targets(383,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]

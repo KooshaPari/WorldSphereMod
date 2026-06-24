@@ -1,0 +1,37 @@
+  Determining projects to restore...
+  Restored E:\Dev\WorldSphereMod\WorldSphereMod.csproj (in 208 ms).
+C:\program files\dotnet\sdk\11.0.100-preview.2.26159.112\Sdks\Microsoft.NET.Sdk\targets\Microsoft.NET.RuntimeIdentifierInference.targets(383,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(113,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(126,13): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(153,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(191,47): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(801,13): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(479,45): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(486,37): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(2052,134): warning CS0618: 'Resolution.refreshRate' is obsolete: 'Resolution.refreshRate is obsolete. Use refreshRateRatio instead.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Core.cs(2449,22): warning CS8321: The local function 'BuildTerrainTextureAtlas' is declared but never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(40,20): warning CS0649: Field 'VoxelRender._actorDrawDiagThrottle' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(33,20): warning CS0649: Field 'BridgeServer._instanceGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(34,13): warning CS0649: Field 'BridgeServer._myGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(39,21): warning CS0414: The field 'VoxelRender._actorSpriteDrawDiagLogged' is assigned but its value is never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+  WorldSphereMod -> E:\Dev\WorldSphereMod\bin\Release\net48\WorldSphereMod3D.dll
+
+Build succeeded.
+
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(113,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(126,13): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(153,17): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Lighting\CubemapLighting.cs(191,47): warning CS0618: 'RenderSettings.customReflection' is obsolete: 'RenderSettings.customReflection has been deprecated in favor of RenderSettings.customReflectionTexture.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(801,13): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(479,45): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\WorldSphereTab.cs(486,37): warning CS0618: 'Windows' is obsolete: 'Compatible Layer will not be maintained and be removed in the future' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(2052,134): warning CS0618: 'Resolution.refreshRate' is obsolete: 'Resolution.refreshRate is obsolete. Use refreshRateRatio instead.' [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Core.cs(2449,22): warning CS8321: The local function 'BuildTerrainTextureAtlas' is declared but never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(40,20): warning CS0649: Field 'VoxelRender._actorDrawDiagThrottle' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(33,20): warning CS0649: Field 'BridgeServer._instanceGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Bridge\BridgeServer.cs(34,13): warning CS0649: Field 'BridgeServer._myGeneration' is never assigned to, and will always have its default value 0 [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+E:\Dev\WorldSphereMod\WorldSphereMod\Code\Voxel\VoxelRender.cs(39,21): warning CS0414: The field 'VoxelRender._actorSpriteDrawDiagLogged' is assigned but its value is never used [E:\Dev\WorldSphereMod\WorldSphereMod.csproj]
+    13 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:22.13
