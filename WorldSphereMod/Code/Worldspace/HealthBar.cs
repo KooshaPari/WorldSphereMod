@@ -18,7 +18,7 @@ namespace WorldSphereMod.Worldspace
         // Actor height in world-units (VoxelScaleMultiplier * ActorVoxelScaleFactor).
         // Cached at Attach time; used in LateUpdate to keep bar width proportional.
         float _actorH = 0.8f;
-
+        bool _uiVisible = true;
         const float kFullLength = 1f;
         const float kThickness = 0.1f;
         const float kHeadOffset = 0.2f;
@@ -31,6 +31,16 @@ namespace WorldSphereMod.Worldspace
         static MethodInfo? _ratioMethod;
         static bool _ratioMethodResolved;
         static readonly Dictionary<System.Type, MemberInfo?> _healthBarMemberCache = new();
+
+        public void SetUiVisible(bool visible)
+        {
+            _uiVisible = visible;
+            if (!visible)
+            {
+                var renderer = GetComponent<MeshRenderer>();
+                if (renderer != null) renderer.enabled = false;
+            }
+        }
 
         public static HealthBar? Attach(Actor a, Transform rigRoot)
         {
@@ -57,8 +67,13 @@ namespace WorldSphereMod.Worldspace
             // Lift bar just above actor head: rig anchor is at kRigLift above terrain,
             // actor mesh extends actorH above that, add a small margin.
             go.transform.localPosition = new Vector3(0, actorH + 0.05f, 0);
-            // Width proportional to actor width; keep bar thin in Y; flat in Z.
-            go.transform.localScale = new Vector3(actorH, actorH * 0.1f, 0.01f);
+            // #208: shrink worldspace health bars to read at default zoom.
+            // WHY: prior scale was `actorH` wide × `actorH*0.1` tall — a 10:1
+            // ratio, but at default zoom the bar matched or exceeded the
+            // actor's apparent body width. Halve width, halve height, and
+            // lift the bar a touch further above the head so the body
+            // remains visually dominant.
+            go.transform.localScale = new Vector3(actorH * 0.5f, actorH * 0.05f, 0.01f);
 
             var bar = go.AddComponent<HealthBar>();
             bar.Actor = a;
@@ -120,7 +135,7 @@ namespace WorldSphereMod.Worldspace
 
         void LateUpdate()
         {
-            if (Actor == null) return;
+            if (!_uiVisible || Actor == null) return;
             float hp = GetHpRatio(Actor);
             hp = Mathf.Clamp01(hp);
 

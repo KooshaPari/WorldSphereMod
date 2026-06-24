@@ -123,7 +123,7 @@ namespace WorldSphereMod.UI
         public static Text addText(string window, string textString, GameObject parent, int sizeFont, Vector3 pos, Vector2 addSize = default(Vector2))
         {
             GameObject textRef = GameObject.Find($"/Canvas Container Main/Canvas - Windows/windows/" + window + "/Background/Title");
-            GameObject textGo = Object.Instantiate(textRef, parent.transform);
+            GameObject textGo = UnityEngine.Object.Instantiate(textRef, parent.transform);
             textGo.SetActive(true);
 
             var textComp = textGo.GetComponent<Text>();
@@ -557,54 +557,26 @@ namespace WorldSphereMod.UI
         }
         static void ResetToDefaults()
         {
-            bool previousVoxelEntities = Core.savedSettings.VoxelEntities;
-            bool previousProceduralBuildings = Core.savedSettings.ProceduralBuildings;
-            bool previousCrossedQuadFoliage = Core.savedSettings.CrossedQuadFoliage;
-            bool previousBiomeBlending = Core.savedSettings.BiomeBlending;
-            bool previousMeshWater = Core.savedSettings.MeshWater;
-            bool previousMountainSlopeSmoothing = Core.savedSettings.MountainSlopeSmoothing;
-            bool previousHighShadows = Core.savedSettings.HighShadows;
-            bool previousHdrSkybox = Core.savedSettings.HdrSkybox;
-            bool previousColorGradingLut = Core.savedSettings.ColorGradingLut;
-            bool previousSSAOEnabled = Core.savedSettings.SSAOEnabled;
-            bool previousSSGIEnabled = Core.savedSettings.SSGIEnabled;
-            bool previousBloomEnabled = Core.savedSettings.BloomEnabled;
-            bool previousACESTonemapping = Core.savedSettings.ACESTonemapping;
-            bool previousSkeletalAnimation = Core.savedSettings.SkeletalAnimation;
-            bool previousWorldspaceUI = Core.savedSettings.WorldspaceUI;
-            bool previousWorldspaceHealth3D = Core.savedSettings.WorldspaceHealth3D;
-            bool previousDayNightCycle = Core.savedSettings.DayNightCycle;
-            bool previousWeatherRain = Core.savedSettings.WeatherRain;
-            bool previousWeatherSnow = Core.savedSettings.WeatherSnow;
-            bool previousWeatherLightning = Core.savedSettings.WeatherLightning;
-            bool previousPostFX = Core.savedSettings.PostFX;
-            bool previousParticleEffects = Core.savedSettings.ParticleEffects;
-
+            SavedSettings previous = Core.savedSettings;
             Core.savedSettings = new SavedSettings();
             Core.SaveSettings();
 
-            if (previousVoxelEntities != Core.savedSettings.VoxelEntities)               Core.ApplyPhaseToggle(nameof(SavedSettings.VoxelEntities),       Core.savedSettings.VoxelEntities);
-            if (previousProceduralBuildings != Core.savedSettings.ProceduralBuildings)   Core.ApplyPhaseToggle(nameof(SavedSettings.ProceduralBuildings), Core.savedSettings.ProceduralBuildings);
-            if (previousCrossedQuadFoliage != Core.savedSettings.CrossedQuadFoliage)     Core.ApplyPhaseToggle(nameof(SavedSettings.CrossedQuadFoliage),  Core.savedSettings.CrossedQuadFoliage);
-            if (previousBiomeBlending != Core.savedSettings.BiomeBlending && Core.IsWorld3D) Core.Sphere.RefreshColors();
-            if (previousMeshWater != Core.savedSettings.MeshWater)                       Core.ApplyPhaseToggle(nameof(SavedSettings.MeshWater),           Core.savedSettings.MeshWater);
-            if (previousMountainSlopeSmoothing != Core.savedSettings.MountainSlopeSmoothing)         Core.ApplyPhaseToggle(nameof(SavedSettings.MountainSlopeSmoothing),    Core.savedSettings.MountainSlopeSmoothing);
-            if (previousHighShadows != Core.savedSettings.HighShadows)                   Core.ApplyPhaseToggle(nameof(SavedSettings.HighShadows),         Core.savedSettings.HighShadows);
-            if (previousHdrSkybox != Core.savedSettings.HdrSkybox)                       Core.ApplyPhaseToggle(nameof(SavedSettings.HdrSkybox),           Core.savedSettings.HdrSkybox);
-            if (previousColorGradingLut != Core.savedSettings.ColorGradingLut)         Core.ApplyPhaseToggle(nameof(SavedSettings.ColorGradingLut),      Core.savedSettings.ColorGradingLut);
-            if (previousSSAOEnabled != Core.savedSettings.SSAOEnabled)                 Core.ApplyPhaseToggle(nameof(SavedSettings.SSAOEnabled),          Core.savedSettings.SSAOEnabled);
-            if (previousSSGIEnabled != Core.savedSettings.SSGIEnabled)                 Core.ApplyPhaseToggle(nameof(SavedSettings.SSGIEnabled),          Core.savedSettings.SSGIEnabled);
-            if (previousBloomEnabled != Core.savedSettings.BloomEnabled)               Core.ApplyPhaseToggle(nameof(SavedSettings.BloomEnabled),        Core.savedSettings.BloomEnabled);
-            if (previousACESTonemapping != Core.savedSettings.ACESTonemapping)         Core.ApplyPhaseToggle(nameof(SavedSettings.ACESTonemapping),      Core.savedSettings.ACESTonemapping);
-            if (previousSkeletalAnimation != Core.savedSettings.SkeletalAnimation)       Core.ApplyPhaseToggle(nameof(SavedSettings.SkeletalAnimation),   Core.savedSettings.SkeletalAnimation);
-            if (previousWorldspaceUI != Core.savedSettings.WorldspaceUI)                 Core.ApplyPhaseToggle(nameof(SavedSettings.WorldspaceUI),        Core.savedSettings.WorldspaceUI);
-            if (previousWorldspaceHealth3D != Core.savedSettings.WorldspaceHealth3D)     Core.ApplyPhaseToggle(nameof(SavedSettings.WorldspaceHealth3D), Core.savedSettings.WorldspaceHealth3D);
-            if (previousDayNightCycle != Core.savedSettings.DayNightCycle)               Core.ApplyPhaseToggle(nameof(SavedSettings.DayNightCycle),       Core.savedSettings.DayNightCycle);
-            if (previousWeatherRain != Core.savedSettings.WeatherRain)                   Core.ApplyPhaseToggle(nameof(SavedSettings.WeatherRain),         Core.savedSettings.WeatherRain);
-            if (previousWeatherSnow != Core.savedSettings.WeatherSnow)                   Core.ApplyPhaseToggle(nameof(SavedSettings.WeatherSnow),         Core.savedSettings.WeatherSnow);
-            if (previousWeatherLightning != Core.savedSettings.WeatherLightning)         Core.ApplyPhaseToggle(nameof(SavedSettings.WeatherLightning),    Core.savedSettings.WeatherLightning);
-            if (previousPostFX != Core.savedSettings.PostFX)                             Core.ApplyPhaseToggle(nameof(SavedSettings.PostFX),              Core.savedSettings.PostFX);
-            if (previousParticleEffects != Core.savedSettings.ParticleEffects)           Core.ApplyPhaseToggle(nameof(SavedSettings.ParticleEffects),     Core.savedSettings.ParticleEffects);
+            foreach (FieldInfo field in typeof(SavedSettings).GetFields(BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (field.FieldType != typeof(bool)) continue;
+                bool prevValue = (bool)field.GetValue(previous);
+                bool newValue = (bool)field.GetValue(Core.savedSettings);
+                if (prevValue == newValue) continue;
+
+                if (field.Name == nameof(SavedSettings.BiomeBlending) && Core.IsWorld3D)
+                {
+                    Core.Sphere.RefreshColors();
+                }
+                else
+                {
+                    Core.ApplyPhaseToggle(field.Name, newValue);
+                }
+            }
 
             UnityEngine.Debug.Log("[WSM3D] SavedSettings reset to defaults. Restart recommended for full effect.");
         }
@@ -823,6 +795,7 @@ namespace WorldSphereMod.UI
         }
         private void LoadInputOptions(List<ButtonData> Buttons)
         {
+            AddSectionHeader(ID, Object);
             Object.GetComponent<RectTransform>().sizeDelta += new Vector2(0, Buttons.Count * 125);
             foreach (var data in Buttons)
             {
@@ -862,6 +835,49 @@ namespace WorldSphereMod.UI
                 }
             }
             PowerButtonSelector.instance.checkToggleIcons();
+        }
+
+        static void AddSectionHeader(string windowId, GameObject parent)
+        {
+            if (string.IsNullOrWhiteSpace(windowId))
+            {
+                return;
+            }
+
+            string labelText = windowId switch
+            {
+                "sprite_settings_window" => "<b>RENDER</b>",
+                "camera_settings_window" => "<b>TERRAIN</b>",
+                "world_settings_window" => "<b>FEATURES</b>",
+                "3D Phases" => "<b>DEBUG</b>",
+                _ => string.Empty
+            };
+
+            if (string.IsNullOrWhiteSpace(labelText))
+            {
+                return;
+            }
+
+            GameObject textRef = GameObject.Find($"/Canvas Container Main/Canvas - Windows/windows/{windowId}/Background/Title");
+            if (textRef == null)
+            {
+                return;
+            }
+
+            GameObject textGo = UnityEngine.Object.Instantiate(textRef, parent.transform);
+            textGo.SetActive(true);
+            var textComp = textGo.GetComponent<Text>();
+            if (textComp == null)
+            {
+                return;
+            }
+
+            textComp.text = labelText;
+            textComp.fontStyle = FontStyle.Bold;
+            textComp.fontSize = 16;
+            textComp.alignment = TextAnchor.MiddleLeft;
+            textComp.raycastTarget = false;
+            textGo.name = "SectionHeaderLabel";
         }
 
         static void AddQuickStartGuide(GameObject content)
@@ -1018,5 +1034,3 @@ namespace WorldSphereMod.UI
         }
     }
 }
-
-

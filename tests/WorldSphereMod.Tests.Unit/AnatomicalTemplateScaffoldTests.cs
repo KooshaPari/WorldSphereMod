@@ -7,6 +7,7 @@ using Xunit;
 /// Source invariants for anatomical template scaffolding
 /// (docs/journeys/scratch/anatomical-template-spec.md).
 /// </summary>
+[Trait("Category", "Unit")]
 public sealed class AnatomicalTemplateScaffoldTests
 {
     static string FindRepoRoot()

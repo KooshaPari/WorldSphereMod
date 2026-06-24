@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using FluentAssertions;
 using Xunit;
 
+[Trait("Category", "E2E")]
 public class CiWorkflowInvariantsTests
 {
     private static string FindRepoRoot()

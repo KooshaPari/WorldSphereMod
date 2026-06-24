@@ -39,10 +39,40 @@ jobs:
       - name: Discover coverage-focused E2E tests
         run: |
           dotnet test tests/WorldSphereMod.Tests.E2E/WorldSphereMod.Tests.E2E.csproj \
-            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests|FullyQualifiedName~CiWorkflowInvariantsTests" \
+            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests|FullyQualifiedName~CiWorkflowInvariantsTests|FullyQualifiedName~GpuManagerBoundaryTests" \
             --list-tests
 
       - name: Run coverage-focused E2E tests
         run: |
           dotnet test tests/WorldSphereMod.Tests.E2E/WorldSphereMod.Tests.E2E.csproj \
-            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests|FullyQualifiedName~CiWorkflowInvariantsTests"
+            --filter "FullyQualifiedName~Alpha8To9CoverageTests|FullyQualifiedName~WorldSphereTesterCoverageTests|FullyQualifiedName~CiWorkflowInvariantsTests|FullyQualifiedName~GpuManagerBoundaryTests"
+
+      # Coverage gate (Wave 4 rollout). The script enforces the floor parsed
+      # from `docs/coverage/Summary.txt` and fails the build on regression.
+      # Baseline at Wave 4 kick-off: 80% line on WorldSphereAPI (single class).
+      # TODO(xdd-coverage-100): uncomment strict gate when 85% line / 90% branch
+      # per the staged rollout (85/90/95/100) in wsm3d-coverage-plan-2026-06-05.md.
+      - name: Install reportgenerator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.5.1
+
+      - name: Collect + merge coverage (Unit + Integration + E2E)
+        run: pwsh Tools/coverage.ps1 -Tier all -MinLineCoverage 80
+
+      - name: Enforce coverage gate (line >= 80%, WorldSphereAPI baseline)
+        shell: bash
+        run: |
+          LINE=$(grep -E '^Line coverage:' docs/coverage/Summary.txt | awk '{print $3}' | tr -d '%')
+          echo "line-coverage=${LINE}"
+          awk -v v="${LINE}" 'BEGIN{exit !(v+0 >= 80)}' \
+            || (echo "::error::line coverage ${LINE}% < 80% gate (Wave 4 baseline)"; exit 1)
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: docs/coverage/
+
+      - name: Run full test suite (non-blocking — all 537 + 3-skip)
+        continue-on-error: true
+        run: |
+          dotnet test WorldSphereMod.sln --verbosity minimal

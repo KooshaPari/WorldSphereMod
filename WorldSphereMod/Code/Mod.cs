@@ -7,8 +7,9 @@ using System.IO;
 using System.Reflection;
 using UnityEngine;
 using WorldSphereMod;
-    public class Mod : MonoBehaviour, IMod, IStagedLoad, ILocalizable
+public class Mod : MonoBehaviour, IMod, IStagedLoad, ILocalizable
 {
+    private const string PerfBuildTag = "wsm3d-perf-208-hfquiet-v1";
     public ModDeclare GetDeclaration()
     {
         return declare;
@@ -22,6 +23,7 @@ using WorldSphereMod;
         declare = pModDecl;
         Object = pGameObject;
         WorldSphereMod.Rig.RigDriver.Clear();
+        Debug.Log($"[WSM3D][PERF] banner={PerfBuildTag}");
         if (!SystemInfo.supportsInstancing)
         {
             throw new IncompatibleHardwareException();
@@ -29,7 +31,7 @@ using WorldSphereMod;
         if (!SystemInfo.supportsComputeShaders || !SystemInfo.supportsIndirectArgumentsBuffer)
         {
             Debug.LogWarning("[WSM3D] Compute/IndirectArgs not supported; impostor-only mode.");
-            WorldSphereMod.LOD.LodSelector.ImpostorOnlyMode = true;
+            WorldSphereMod.LOD.LodSelector.FallbackOnlyMode = true;
         }
         WorldSphereMod.Bridge.BridgeServer.EnsureCreated();
         IsAutoTest = System.Environment.GetEnvironmentVariable("WSM3D_AUTOTEST") == "1"

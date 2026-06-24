@@ -8,6 +8,7 @@ using Xunit;
 /// and QuantumSpriteLibrary.drawProjectiles, shared VoxelMeshCache + Submit path, and sprite
 /// suppression when voxel submission succeeds (phase1b-drops-projectiles-spec.md).
 /// </summary>
+[Trait("Category", "E2E")]
 public class Phase1bVoxelEmitInvariantsTests
 {
     static string FindRepoRoot()

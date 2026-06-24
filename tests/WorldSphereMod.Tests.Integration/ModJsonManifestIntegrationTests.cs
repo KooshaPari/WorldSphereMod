@@ -3,6 +3,7 @@ using System.Text.Json;
 using FluentAssertions;
 using Xunit;
 
+[Trait("Category", "Integration")]
 public class ModJsonManifestIntegrationTests
 {
     private static string ModJsonPath => Path.Combine(TestRepo.FindRoot(), "WorldSphereMod", "mod.json");

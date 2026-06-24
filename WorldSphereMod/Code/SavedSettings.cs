@@ -15,7 +15,7 @@ public class SavedSettings
     public float AutoScreenshotIntervalSeconds = 60f;
     public string AutoScreenshotPath = @"C:\Users\koosh\Dev\WorldSphereMod\docs\journeys\scratch\";
 
-        public string Version = "2.7";
+        public string Version = "2.14";
         public bool Is3D = true;
         public bool InvertedCameraMovement = false;
         public bool PerlinNoise = true;
@@ -74,16 +74,20 @@ public class SavedSettings
         // vary shape but still use ResolveDepth. "lathe" ignores depth setting.
         // "auto" defers to AssetShapeRegistry per sprite name. See spec Known gaps.
         public string VoxelInflationStyle = "pertexel";
+        // The 8x multiplier is for the TERRAIN (tile-space → world-space). Actor/foliage/
+        // building voxel meshes are sprite-pixel-sized in their mesh-local units, so the
+        // per-entity *VoxelScaleFactor below multiplies VoxelScaleMultiplier back down toward
+        // 1.0× for those paths. Without this, entities render ~3-8× too big.
         public float VoxelScaleMultiplier = 8.0f;
-        // WHY: actor/drop voxel meshes are already sprite-sized in world units; the full 8x
-        // terrain VoxelScaleMultiplier made actors gigantic (clipping the camera at max zoom).
-        // Effective actor render scale = VoxelScaleMultiplier * ActorVoxelScaleFactor. The old
-        // 0.25 gave net 2x (8 * 0.25) — a humanoid was still ~2 terrain tiles tall and ungraspable
-        // even at max zoom (user-reported). Dropped to 0.10 → net 0.8x (8 * 0.10), so a humanoid
-        // reads at slightly under one tile; the voxel mesh extends above the tile so net 1.0x still
-        // looked oversized, hence the small undershoot. Terrain (raw VoxelScaleMultiplier) and
-        // buildings/projectiles (raw 8x, do NOT use this factor) are unaffected.
-        public float ActorVoxelScaleFactor = 0.10f;
+        // Buildings: effective scale = VoxelScaleMultiplier * BuildingVoxelScaleFactor
+        // (legacy default 0.25 → net 2×; lowered to 0.125 → net 1× sprite-pixel size).
+        public float BuildingVoxelScaleFactor = 0.125f;
+        // Actors: effective scale = VoxelScaleMultiplier * ActorVoxelScaleFactor
+        // (legacy default 0.35 → net 2.8×; 0.5 in live JSON → net 4×. Fixed at 0.125 → net 1×).
+        public float ActorVoxelScaleFactor = 0.125f;
+        // Foliage (trees, rocks, bushes, grass tufts): effective scale =
+        // VoxelScaleMultiplier * FoliageVoxelScaleFactor. Legacy 0.20 → net 1.6×; fixed at 0.125 → net 1×.
+        public float FoliageVoxelScaleFactor = 0.125f;
         public bool DebugVoxelOutline = false;
         public bool DebugSanityCube = false;
         public bool DebugSpawnBuildings = false;
@@ -102,14 +106,11 @@ public class SavedSettings
         // re-enable when running phase-budget regression tests.
         public bool AutoTest = false;
         // Phase 2: Procedural building meshes (vs. billboarded building sprites).
-        public bool ProceduralBuildings = false;
+        public bool ProceduralBuildings = true;
         // Optional Phase 2 style override: keep the old stylized procgen architecture
         // path instead of voxelizing building sprites directly.
         public bool BuildingStyleProcgen = false;
         // Phase 3: Crossed-quad foliage (vs. billboarded sprite top tiles).
-        // WHY default ON: the [Phase] gate skips the FoliageTileRender Harmony patch
-        // entirely when this is false, so trees fall through to vanilla 2D. Mirrors
-        // VoxelEntities=true so foliage renders 3D out-of-the-box like actors.
         public bool CrossedQuadFoliage = true;
         // ADR-0017 M0: continuous height-field mesh terrain (replaces per-tile quads).
         // Default ON (#201): the corner-averaged + analytic-normal + Perlin-displaced
@@ -121,9 +122,9 @@ public class SavedSettings
         // Terrain polish: blend biome colors across tile boundaries.
         public bool BiomeBlending = true;
         // Phase 4: Mesh water surface (vs. flat tile color).
-        public bool MeshWater = false;
+        public bool MeshWater = true;
         // Worldspace health bar style: true => 3D mesh bars, false => legacy billboard quads.
-        public bool WorldspaceHealth3D = false;
+        public bool WorldspaceHealth3D = true;
         // Mountain slope smoothing: smooth overlay mesh that blends the upstream
         // blocky terrain around cliff and ridge transitions.
         public bool MountainSlopeSmoothing = false;
@@ -145,10 +146,16 @@ public class SavedSettings
         public float NameplateFadeFar = 30f;
         public float NameplateReferenceDistance = 10f;
         public float NameplateMinScale = 0.25f;
-        public float NameplateMaxScale = 4f;
-        public float NameplateBaseScale = 0.15f;
+        public float NameplateMaxScale = 2f;
+        public float NameplateBaseScale = 0.04f;
+        public float NameplateScaleDistanceDivisor = 100f;
+        public float BadgeFadeNear = 10f;
+        public float BadgeFadeFar = 20f;
+        public int DamagePopPoolSize = 64;
+        public float DamagePopRiseHeight = 1.5f;
+        public float DamagePopDuration = 0.6f;
         // Phase 8: Day/night cycle + procedural sky + fog.
-        public bool DayNightCycle = false;
+        public bool DayNightCycle = true;
         public float FogDensity = 0.05f;
         // Tier 5: Forward+ CommandBuffer renderer (docs/specs/forward-plus-renderer-spec.md).
         // Opt-in last-resort path; defaults OFF until depth/color passes ship.
@@ -170,9 +177,10 @@ public class SavedSettings
         // First-run experience: set true after the welcome dialog has been shown once.
         public bool HasSeenWelcome = false;
 
-        // Safety: maximum tile count (width*height) for 3D mode. Maps larger
-        // than this skip Become3D to prevent GPU hangs. ~316x316 = 100K default.
-        public int MaxTilesFor3D = 100000;
+        // Safety: maximum tile count (width*height) for 3D mode. 576x576 saves
+        // are eligible now that incremental heightfield + #208 perf work is in
+        // place, but this remains a setting because large worlds are still costly.
+        public int MaxTilesFor3D = 360000;
 
         // Phase 10: LOD ladder + impostor fallback.
         public float LODScale = 0.5f;
@@ -191,7 +199,10 @@ public class SavedSettings
         // per frame, cycling through the full visible set across frames.
         // 0 = unlimited (process all). Reduces per-frame cost from O(visible)
         // to O(budget) at the expense of spreading updates over multiple frames.
-        public int BuildingRenderBudget = 200;
+        // Lowered 200 -> 50 (#208) — paired with the distance-gate in
+        // BuildingProcRender.EmitMeshes, this caps per-frame work on big kingdoms
+        // where precalculateRenderDataParallel spikes 30-40ms.
+        public int BuildingRenderBudget = 50;
 
         // Voxel disk cache: persist voxelized meshes to SQLite so subsequent
         // launches skip the async voxelization queue entirely.
@@ -208,12 +219,13 @@ public class SavedSettings
         {
             if (s == null) throw new ArgumentNullException(nameof(s));
 
+            s.FoliageVoxelScaleFactor = 0.125f;
             s.VoxelEntities = true;
-            s.ProceduralBuildings = false;
+            s.ProceduralBuildings = true;
             s.CrossedQuadFoliage = false;
             s.BiomeBlending = false;
             s.MeshWater = false;
-            s.WorldspaceHealth3D = false;
+            s.WorldspaceHealth3D = true;
             s.MountainSlopeSmoothing = false;
             s.HighShadows = false;
             s.HdrSkybox = false;
@@ -222,7 +234,7 @@ public class SavedSettings
             s.GpuProceduralSkinning = false;
             s.WorldspaceUI = false;
             s.WorldspaceLabel3D = false;
-            s.DayNightCycle = false;
+            s.DayNightCycle = true;
             s.PostFX = false;
             s.SSAOEnabled = false;
             s.SSGIEnabled = false;
@@ -238,16 +250,18 @@ public class SavedSettings
         {
             if (s == null) throw new ArgumentNullException(nameof(s));
 
+            s.FoliageVoxelScaleFactor = 0.125f;
             s.VoxelEntities = true;
-            s.ProceduralBuildings = false;
+            s.ProceduralBuildings = true;
             s.CrossedQuadFoliage = true; // WHY: gates the foliage patch; off = trees stay vanilla 2D
             s.UseHeightFieldTerrain = true; // #201: smooth corner-averaged terrain mesh (off = cube-step regression)
             // #206: re-apply the actor voxel scale so persisted JSON (which shadows the field
-            // default) re-migrates to the smaller net 0.8x actor size. Requires SettingsVersion
+            // default) re-migrates to the current actor-size default. Requires SettingsVersion
             // bump (Core.cs 2.4 -> 2.5) so loadedData.Version mismatch triggers this migration.
-            s.ActorVoxelScaleFactor = 0.10f;
+            s.ActorVoxelScaleFactor = 0.125f;
+            s.BuildingVoxelScaleFactor = 0.125f;
             s.MeshWater = false;
-            s.WorldspaceHealth3D = false;
+            s.WorldspaceHealth3D = true;
             s.MountainSlopeSmoothing = false;
             s.HighShadows = false;
             s.HdrSkybox = false;
@@ -256,7 +270,7 @@ public class SavedSettings
             s.GpuProceduralSkinning = false;
             s.WorldspaceUI = false;
             s.WorldspaceLabel3D = false;
-            s.DayNightCycle = false;
+            s.DayNightCycle = true;
             s.ForwardPlusRenderer = false;
             s.PostFX = false;
             s.SSAOEnabled = false;
@@ -273,6 +287,7 @@ public class SavedSettings
         {
             if (s == null) throw new ArgumentNullException(nameof(s));
 
+            s.FoliageVoxelScaleFactor = 0.125f;
             s.VoxelEntities = true;
             s.ProceduralBuildings = true;
             s.CrossedQuadFoliage = true;
@@ -295,7 +310,7 @@ public class SavedSettings
             s.ACESTonemapping = true;
             s.ParticleEffects = true;
             s.WeatherRain = true;
-            s.DebugSanityCube = true;
+            s.DebugSanityCube = false;
             s.ProfilerDump = true;
         }
     }

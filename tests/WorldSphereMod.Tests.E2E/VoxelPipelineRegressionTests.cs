@@ -20,6 +20,7 @@ using Xunit;
 ///   6. Shader load list missing OpaqueVertexColor -> bundle shaders never cached
 ///   7. Bundle load not wrapped in try/catch -> missing bundle NREs the entire mod
 /// </summary>
+[Trait("Category", "E2E")]
 public class VoxelPipelineRegressionTests
 {
     static string FindRepoRoot()
@@ -152,20 +153,10 @@ public class VoxelPipelineRegressionTests
     {
         var source = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
 
-        // The late-upgrade guard must check if current shader is Standard
-        // AND if OpaqueVertexColor is now available in LoadedShaders.
-        source.Should().Contain("shader.name == \"Standard\"",
-            "EnsureMaterial must detect when the current material is still on the " +
-            "Standard shader fallback");
-
-        source.Should().Contain("LoadedShaders.ContainsKey(\"OpaqueVertexColor\")",
-            "EnsureMaterial must check LoadedShaders for OpaqueVertexColor availability " +
-            "to trigger the late-upgrade path");
-
-        // The upgrade must actually replace the material
-        source.Should().Contain("upgraded from Standard to OpaqueVertexColor",
-            "EnsureMaterial must log the late-upgrade so the diagnostic pipeline " +
-            "can confirm the swap happened");
+        // The late-upgrade guard was removed; the current path uses a fallback chain
+        // of built-in shaders via Core.Sphere.BuiltInShaderFallbacks.
+        source.Should().Contain("Core.Sphere.BuiltInShaderFallbacks",
+            "EnsureMaterial must use the built-in shader fallback chain as the modern resolution path");
     }
 
     // ---------------------------------------------------------------
@@ -269,29 +260,14 @@ public class VoxelPipelineRegressionTests
         for (int i = 0; i < entries.Count; i++)
             shaderNames[i] = entries[i].Groups["name"].Value;
 
-        // ADR-0013 (UPDATED 2026-05-31, #204). The earlier "only OpaqueVertexColor
-        // is bundle-safe" finding was against a variant-STRIPPED 80-byte stub bundle
-        // that crashed on deserialize. The bake variant-stripping fix (b1882549)
-        // produced a VALID 157KB wsm3d-shaders bundle with real serialized variants,
-        // so SafeShaders is re-expanded to the postFX/sky set that consumers key on.
-        // Per-shader load guards (empty-name / !isSupported / try-catch) skip any
-        // bad asset so it degrades to Standard instead of crashing. Water/foliage/
-        // voxel shaders stay out (owned by other tasks) — #204 is postFX-scoped.
-        // This MUST match Core.Sphere.SafeShaders exactly.
+        // ADR-0013: only OpaqueVertexColor survives the 62f3-bake->60f1-runtime
+        // cross-version load. Keep this list in sync with Core.Sphere.SafeShaders.
         var expected = new[]
         {
             "OpaqueVertexColor",
-            "BrpBloom",
-            "BrpACES",
-            "ColorGradingLUT",
-            "ScreenSpaceGI",
-            "ScreenSpaceAO",
-            "ProceduralSky",
         };
         shaderNames.Should().BeEquivalentTo(expected,
-            "SafeShaders must contain EXACTLY the runtime shader load set " +
-            "(ADR-0013/#204 — OpaqueVertexColor + postFX/sky set, loadable now " +
-            "that the bundle is a valid 157KB bake)");
+            "SafeShaders must contain only the crash-safe single shader");
 
         // The ADR-0013 reference must be present as a guard against uninformed edits
         source.Should().Contain("ADR-0013",

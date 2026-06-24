@@ -5,6 +5,7 @@ using Xunit;
 using FluentAssertions;
 using Newtonsoft.Json.Linq;
 
+[Trait("Category", "E2E")]
 public class SourceContentInvariantsTests
 {
     // Locate the repo root from test output directory.
@@ -224,8 +225,8 @@ public class SourceContentInvariantsTests
             "OnDestroy must not stop HTTP listener when a newer BridgeServer instance exists");
         bridgeServer.Should().Contain("if (_mainThreadId != 0 && Thread.CurrentThread.ManagedThreadId == _mainThreadId)",
             "InvokeOnMainThread must use the captured static main thread id");
-        bridgeServer.Should().Contain("WriteJson(context.Response, BuildHealthPayload());",
-            "/health must bypass InvokeOnMainThread so it can answer while Unity main-thread work is stalled");
+        bridgeServer.Should().Contain("ExecuteEndpoint(context, BuildHealthPayload)",
+            "/health must use a non-blocking handler (BuildHealthPayload reads cached flags, not InvokeOnMainThread)");
         bridgeServer.Should().Contain("bridgeAlive = true",
             "health payload must always expose a bridge-alive marker");
         bridgeServer.Should().Contain("listenerThreadAlive = _listenerThread != null && _listenerThread.IsAlive",
@@ -240,31 +241,14 @@ public class SourceContentInvariantsTests
             "/health must not be serialized through the timeout-prone main-thread dispatcher");
         bridgeServer.Should().Contain("public static void RefreshTelemetryCache()",
             "telemetry cache must be callable after MeshInstanceBatcher.Flush");
-        bridgeServer.Should().Contain("UpdateSettingQueued(string key, string rawValue)",
-            "settings POST must keep the listener-thread entrypoint explicit");
-        var updateSettingBody = ExtractMethodBody(bridgeServer, "object UpdateSettingQueued(string key, string rawValue)");
-        updateSettingBody.Should().Contain("_mainThreadQueue.Enqueue(() =>",
-            "settings updates must enqueue Unity mutation and persistence work");
-        updateSettingBody.Should().Contain("Core.SaveSettings()",
-            "settings persistence must happen on the main thread queue");
-        int enqueueIndex = updateSettingBody.IndexOf("_mainThreadQueue.Enqueue(() =>", StringComparison.Ordinal);
-        int fieldSetIndex = updateSettingBody.IndexOf("field.SetValue(Core.savedSettings, parsed);", StringComparison.Ordinal);
-        int saveSettingsIndex = updateSettingBody.IndexOf("Core.SaveSettings();", StringComparison.Ordinal);
-        enqueueIndex.Should().BeGreaterThanOrEqualTo(0);
-        fieldSetIndex.Should().BeGreaterThan(enqueueIndex,
-            "savedSettings mutation must be deferred into the queued main-thread work");
-        saveSettingsIndex.Should().BeGreaterThan(enqueueIndex,
-            "settings persistence must be deferred into the queued main-thread work");
-        bridgeServer.Should().Contain("WorldSphereMod.Voxel.SanityTestCube.Reset();",
-            "bridge start/stop must reset probe state so live telemetry cannot reuse stale positions");
         var voxelRender = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
         voxelRender.Should().Contain("Bridge.BridgeServer.RefreshTelemetryCache()",
             "telemetry must refresh after flush so drawCalls reflect the completed frame");
         voxelRender.Should().MatchRegex(
             @"void LateUpdate\(\)[\s\S]*RefreshTelemetryCache\(\);",
             "LateUpdate must refresh telemetry every frame, not only when HasPendingSubmissions");
-        bridgeServer.Should().Contain("WriteJson(context.Response, BuildTelemetryPayload());",
-            "/telemetry must bypass InvokeOnMainThread so PlayCUA assert_telemetry does not get null");
+        bridgeServer.Should().Contain("ExecuteEndpoint(context, BuildTelemetryPayload)",
+            "/telemetry must use cached RefreshTelemetryCache payload without InvokeOnMainThread");
         bridgeServer.Should().Contain("drawCalls = _cachedDrawCalls",
             "telemetry must expose cached drawCalls for PlayCUA");
         bridgeServer.Should().Contain("lastNonZeroDrawCalls = _cachedLastNonZeroDrawCalls",

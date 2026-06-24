@@ -20,10 +20,34 @@ namespace WorldSphereMod.Worldspace
         internal Actor? Actor;
         Text? _fallbackLabel;
         Component? _label3d;
+        bool _uiVisible = true;
 
         static Font? _labelFont;
         static readonly Dictionary<Actor, NameplateText> _suppressedUpstream = new();
         static readonly Type? s_textMesh3DType = GetTextMesh3DType();
+
+        /// <summary>
+        /// Optional declutter gate. When <c>true</c>, only the actor WorldBox currently
+        /// has selected/inspected (or otherwise flagged "important", e.g. a leader) shows a
+        /// nameplate; everyone else is hidden. Defaults to <c>false</c> so all visible actors
+        /// get a label (matches the upstream NameplateText behaviour). This is a runtime
+        /// toggle rather than a SavedSettings field because the Phase 7 worldspace settings
+        /// surface lives outside this file; flip it from the bridge/console.
+        /// </summary>
+        public static bool ShowOnlySelectedActors;
+
+        // Base vanilla actor sprite half-height in world units (mirrors LodSelector).
+        // Rendered voxel half-height = kBaseEntityHalfHeight * VoxelScaleMultiplier, so the
+        // nameplate must clear that to float above the mesh head instead of the body anchor.
+        const float kBaseEntityHalfHeight = 0.5f;
+        // Extra clearance above the computed head so descenders/outline never clip the mesh.
+        const float kHeadClearance = 0.35f;
+
+        // Reflection handle for the WorldBox selected/inspected actor, resolved lazily so we
+        // never hard-depend on a field name that shifts across WorldBox builds.
+        static bool s_selectedActorProbed;
+        static FieldInfo? s_selectedActorField;
+        static PropertyInfo? s_selectedActorProp;
 
         public static NameplateWorld? Attach(Actor a, Transform rigRoot)
         {
@@ -47,10 +71,13 @@ namespace WorldSphereMod.Worldspace
             GameObject go = new GameObject("nameplate");
             Transform t = go.transform;
             t.SetParent(parent, worldPositionStays: false);
-            // Keep the label anchored to the rig root so it inherits the same lifted
-            // world-space transform as the voxel actor path.
-            t.localPosition = Vector3.zero;
-            float baseScale = Core.savedSettings != null ? Core.savedSettings.NameplateBaseScale : 0.15f;
+            // Lift the label above the voxel mesh head. The rig anchor sits at
+            // current_position + kRigLift (mid-body); the rendered voxel reaches up
+            // ~kBaseEntityHalfHeight * VoxelScaleMultiplier above its own centre, so without
+            // this offset the text drew through the actor's chest. Rig localScale is 1, so
+            // this local Y is world units.
+            t.localPosition = new Vector3(0f, HeadOffset(), 0f);
+            float baseScale = Core.savedSettings != null ? Core.savedSettings.NameplateBaseScale : 0.04f;
             t.localScale = Vector3.one * baseScale;
 
             var np = go.AddComponent<NameplateWorld>();
@@ -97,6 +124,12 @@ namespace WorldSphereMod.Worldspace
             RestoreUpstreamNameplate(a);
         }
 
+        public void SetUiVisible(bool visible)
+        {
+            _uiVisible = visible;
+            SetLabelVisible(visible);
+        }
+
         public void Refresh(Vector3 worldPos, float camDistance)
         {
             ApplyFade(camDistance);
@@ -121,25 +154,68 @@ namespace WorldSphereMod.Worldspace
 
         void LateUpdate()
         {
-            if (Actor == null) return;
+            if (!_uiVisible || Actor == null) return;
             var cam = CameraManager.MainCamera;
             if (cam == null) return;
 
+            // Declutter gate: when enabled, hide every nameplate except the
+            // selected/important actor's. Toggle the label visibility (not the GameObject) so
+            // this MonoBehaviour keeps ticking and re-shows the instant selection changes.
+            bool gatedOut = ShowOnlySelectedActors && !IsImportant(Actor);
+            if (gatedOut)
+            {
+                SetLabelVisible(false);
+                return;
+            }
+
+            // Keep the head offset live: VoxelScaleMultiplier can change at runtime via the
+            // bridge, which would otherwise leave the label stranded at the old head height.
+            float headY = HeadOffset();
+            Vector3 lp = transform.localPosition;
+            if (!Mathf.Approximately(lp.y, headY))
+            {
+                lp.y = headY;
+                transform.localPosition = lp;
+            }
+
             float d = Vector3.Distance(cam.transform.position, transform.position);
-            transform.LookAt(cam.transform.position, Vector3.up);
+
+            // Billboard so the readable face points at the camera. TextMesh3D / Canvas Text
+            // read off the -Z face, so we aim local +Z *away* from the camera
+            // (position - camPos): that puts the readable -Z face toward the viewer without a
+            // separate 180° flip. World-up locks roll so text stays horizontal and legible
+            // even at oblique strategy-zoom pitch.
+            transform.rotation =
+                Quaternion.LookRotation(transform.position - cam.transform.position, Vector3.up);
 
             // WHY: prior `Max(baseScale, Min(1, d/100))` snapped localScale to ~1.0 at
             // any strategy-view distance — ~6.7x the 0.15 base — making labels dwarf the
-            // actor; anchor on baseScale and apply only a clamped distance multiplier.
+            // actor; anchor on baseScale, then scale DOWN with distance so far tags
+            // never exceed ~1.5x tile-width, and never inflate as the camera pulls
+            // back. Closer-than-ref tags still grow (capped at baseScale*maxScale).
             var s = Core.savedSettings;
-            float baseScale = s != null ? s.NameplateBaseScale : 0.15f;
+            float baseScale = s != null ? s.NameplateBaseScale : 0.08f;
             float refDist = s != null ? s.NameplateReferenceDistance : 10f;
             float minScale = s != null ? s.NameplateMinScale : 0.25f;
-            float maxScale = s != null ? s.NameplateMaxScale : 4f;
-            float distFactor = refDist > 0.0001f ? Mathf.Max(1f, d / refDist) : 1f;
-            float effective = Mathf.Clamp(baseScale * distFactor, baseScale * minScale, baseScale * maxScale);
+            float maxScale = s != null ? s.NameplateMaxScale : 1.5f;
+            // #208: shrink worldspace nametags to read at default zoom.
+            // WHY: prior `baseScale * distFactor` shrank labels toward 0 at
+            // strategy-view distance (3*refDist), which made the close-zoom
+            // view show nametags the full baseScale — too large relative to
+            // the voxel actor. Clamp the upper end so even at refDist the
+            // label stays a fraction of the actor mesh height.
+            float distFactor = refDist > 0.0001f
+                ? Mathf.Clamp01(d / (refDist * 3f))
+                : 1f;
+            // cap baseScale-at-refDist to baseScale * 0.5 so close-zoom tags
+            // read at ~half the previously-acceptable size.
+            float effective = Mathf.Clamp(
+                baseScale * distFactor * 0.5f,
+                baseScale * minScale * 0.5f,
+                baseScale * maxScale * 0.5f);
             transform.localScale = Vector3.one * effective;
 
+            Debug.Log($"[WSM3D][BANNER] nametag-shrink v2.13 active, fontSize=6, baseScale={baseScale:F3}, distFactor={distFactor:F3}, effective={effective:F3}");
             ApplyFade(d);
         }
 
@@ -148,6 +224,17 @@ namespace WorldSphereMod.Worldspace
             float fadeNear = Core.savedSettings != null ? Core.savedSettings.NameplateFadeNear : 10f;
             float fadeFar = Core.savedSettings != null ? Core.savedSettings.NameplateFadeFar : 30f;
             float alpha = 1f - Mathf.InverseLerp(fadeNear, fadeFar, camDistance);
+
+            // Beyond fadeFar the label is fully transparent. Hide the label component so it
+            // stops eating draw calls / text layout at strategy zoom where hundreds of actors
+            // are on screen; re-show it when the camera comes back within range. We toggle the
+            // label, not the GameObject, so LateUpdate keeps running to detect that return.
+            if (alpha <= 0f)
+            {
+                SetLabelVisible(false);
+                return;
+            }
+            SetLabelVisible(true);
 
             if (_fallbackLabel != null)
             {
@@ -161,6 +248,99 @@ namespace WorldSphereMod.Worldspace
             SetColorValue(_label3d, new Color(1f, 1f, 1f, alpha), "color", "textColor");
         }
 
+        void SetLabelVisible(bool visible)
+        {
+            if (_fallbackLabel != null)
+            {
+                // The fallback Canvas + Text live on a child "label" GameObject; toggling it
+                // leaves this NameplateWorld component active and ticking.
+                Transform labelTf = _fallbackLabel.transform;
+                if (labelTf != null && labelTf.gameObject.activeSelf != visible)
+                {
+                    labelTf.gameObject.SetActive(visible);
+                }
+                return;
+            }
+
+            // TextMesh3D is a Behaviour on this same GameObject; flip its enabled flag so the
+            // renderer stops drawing while LateUpdate keeps running.
+            if (_label3d is Behaviour beh)
+            {
+                if (beh.enabled != visible) beh.enabled = visible;
+            }
+        }
+
+        static float HeadOffset()
+        {
+            float voxelScale = Core.savedSettings != null
+                ? Mathf.Max(0.0001f, Core.savedSettings.VoxelScaleMultiplier)
+                : 8f;
+            return kBaseEntityHalfHeight * voxelScale + kHeadClearance;
+        }
+
+        static bool IsImportant(Actor actor)
+        {
+            if (actor == null) return false;
+            Actor? selected = ResolveSelectedActor();
+            return selected != null && ReferenceEquals(selected, actor);
+        }
+
+        static Actor? ResolveSelectedActor()
+        {
+            try
+            {
+                if (!s_selectedActorProbed)
+                {
+                    s_selectedActorProbed = true;
+                    // Static-only: instance singletons would need their live instance resolved,
+                    // which is brittle across WorldBox builds. WorldBox exposes the inspected
+                    // unit statically; probe a few known candidate names and cache the first
+                    // static Actor-typed member that resolves.
+                    const BindingFlags flags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+                    Type? selectorType =
+                        Type.GetType("WorldTip, Assembly-CSharp")
+                        ?? Type.GetType("WindowUnitInspector, Assembly-CSharp")
+                        ?? Type.GetType("SelectedUnit, Assembly-CSharp");
+                    if (selectorType != null)
+                    {
+                        foreach (string name in new[] { "selectedUnit", "selected_unit", "unit", "_unit", "actor", "inspected_unit" })
+                        {
+                            FieldInfo? f = selectorType.GetField(name, flags);
+                            if (f != null && typeof(Actor).IsAssignableFrom(f.FieldType))
+                            {
+                                s_selectedActorField = f;
+                                break;
+                            }
+
+                            PropertyInfo? p = selectorType.GetProperty(name, flags);
+                            if (p != null && p.CanRead && typeof(Actor).IsAssignableFrom(p.PropertyType))
+                            {
+                                s_selectedActorProp = p;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (s_selectedActorField != null)
+                {
+                    return s_selectedActorField.GetValue(null) as Actor;
+                }
+                if (s_selectedActorProp != null)
+                {
+                    return s_selectedActorProp.GetValue(null) as Actor;
+                }
+            }
+            catch
+            {
+                // Selection probe is best-effort; on any reflection failure fall back to
+                // "no selection" so the gate simply hides non-selected actors (or, with the
+                // gate off, this path is never reached).
+            }
+
+            return null;
+        }
+
         static void SetupFallbackCanvasLabel(GameObject parent, string name)
         {
             var canvas = parent.AddComponent<Canvas>();
@@ -171,7 +351,10 @@ namespace WorldSphereMod.Worldspace
             textGo.transform.SetParent(parent.transform, worldPositionStays: false);
             var text = textGo.AddComponent<Text>();
             text.alignment = TextAnchor.MiddleCenter;
-            text.fontSize = 18;
+            // WHY: prior fallback font size 9 still rendered too large in the upper
+            // world-space HUD view. Halve again to 6 to drive nametag glyph height
+            // toward the 4-6 px target in screenshot-based checks.
+            text.fontSize = 6;
             text.font = _labelFont;
             text.fontStyle = FontStyle.Bold;
             text.color = Color.white;
@@ -181,7 +364,10 @@ namespace WorldSphereMod.Worldspace
             text.raycastTarget = false;
 
             var rt = text.rectTransform;
-            rt.sizeDelta = new Vector2(6f, 1.5f);
+            // WHY: companion rect-scaling to match the halved fontSize; move from
+            // 3x0.75 to 1.5x0.375 world units to preserve relative spacing
+            // while reducing rendered pixel footprint.
+            rt.sizeDelta = new Vector2(1.5f, 0.375f);
             rt.anchoredPosition = Vector2.zero;
         }
 
@@ -199,7 +385,9 @@ namespace WorldSphereMod.Worldspace
 
             SetColorValue(label, Color.black, "outlineColor", "outline_color");
             SetBoolValue(label, true, "outline");
-            SetFloatValue(label, 0.5f, "size");
+            // WHY: 3D text mesh size mirrors the same reduction pattern as canvas
+            // fallback text and was still above target after prior pass.
+            SetFloatValue(label, 0.15f, "size");
             SetFontValue(label, _labelFont);
 
             return label;

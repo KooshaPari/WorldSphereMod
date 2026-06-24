@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using FluentAssertions;
 using Xunit;
 
+[Trait("Category", "E2E")]
 public class WorldSphereTesterCoverageTests
 {
     private static string FindRepoRoot()
@@ -85,7 +86,7 @@ public class WorldSphereTesterCoverageTests
         source.Should().Contain("h.pendingFrames++");
         // Debounce holds a proposed tier for _hystFrames (== 3) frames before promotion,
         // which kills the per-frame Voxel<->Cull flip (the LOD flash-wave).
-        source.Should().Contain("if (h.pendingFrames >= _hystFrames)");
+        source.Should().Contain("if (h.pendingFrames >= hysteresisFrames)");
         source.Should().Contain("const int _hystFrames = 3");
         source.Should().Contain("h.current = proposed;");
         source.Should().Contain("h.pendingFrames = 0;");

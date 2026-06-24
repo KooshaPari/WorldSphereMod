@@ -7,6 +7,7 @@ using Xunit;
 /// Invariants for QuantumSprites calculateactordata3D: parallel transform bookkeeping only
 /// (sprite/item work lives elsewhere after perf refactor).
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class QuantumSpritesPerfInvariantsTests
 {
     const string QuantumSpritesRelativePath = "WorldSphereMod/Code/QuantumSprites.cs";

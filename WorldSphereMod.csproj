@@ -2,7 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
-	  <LangVersion>10.0</LangVersion>
+    <LangVersion>10.0</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <Nullable>annotations</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>WorldSphereMod3D</AssemblyName>
@@ -10,11 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="WorldSphereAPI\**" />
-    <Compile Remove="WorldSphereTester\**" />
-    <Compile Remove="tests\**" />
-    <Compile Remove="Tools\Unity-Bake-Project\**" />
-    <Compile Remove="External\**" />
+    <Compile Include="WorldSphereMod/Code/**/*.cs" />
     <EmbeddedResource Remove="WorldSphereAPI\**" />
     <EmbeddedResource Remove="WorldSphereTester\**" />
     <EmbeddedResource Remove="tests\**" />
@@ -129,10 +126,6 @@
     <Reference Include="CompoundSpheres">
       <HintPath>WorldSphereMod\Assemblies\CompoundSpheres.dll</HintPath>
     </Reference>
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Remove="External\**" />
-
   </ItemGroup>
 
 </Project>

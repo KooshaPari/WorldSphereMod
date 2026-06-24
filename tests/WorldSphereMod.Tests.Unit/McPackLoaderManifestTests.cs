@@ -5,6 +5,7 @@ using WorldSphereMod.Import;
 using WorldSphereMod.Textures;
 using Xunit;
 
+[Trait("Category", "Unit")]
 public sealed class McPackLoaderManifestTests
 {
     [Fact]

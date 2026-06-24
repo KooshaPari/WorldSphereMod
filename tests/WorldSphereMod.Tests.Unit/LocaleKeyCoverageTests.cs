@@ -7,6 +7,7 @@ using Xunit;
 using FluentAssertions;
 using Newtonsoft.Json.Linq;
 
+[Trait("Category", "Unit")]
 public class LocaleKeyCoverageTests
 {
     // Locate the repo root from test output directory.

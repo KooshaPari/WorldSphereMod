@@ -77,6 +77,22 @@ namespace WorldSphereMod.Rig
         static int _perfFrameCounter;
         static double _perfWindowMs;
 
+        // Per-frame budget on *new* SkinnedMeshRenderer rigs. Building a rig
+        // allocates a GameObject hierarchy (one transform per bone) + a cloned
+        // skinned mesh — that is the expensive churn that tanked FPS when
+        // SkeletalAnimation hijacked every actor (frameSkinnedActors=822).
+        // Existing visible rigs always keep refreshing; only first-time rig
+        // CREATION is throttled. Actors that exceed the budget this frame fall
+        // back to the static voxel path so they stay visible, and get a rig on
+        // a later frame. Mirrors SavedSettings.BuildingRenderBudget=200.
+        const int kMaxNewRigsPerFrame = 64;
+        // Hard cap on total live rigs so a dense crowd can't accumulate
+        // thousands of SkinnedMeshRenderers across frames. Beyond this, extra
+        // actors render via the static voxel path until rigs are reaped.
+        const int kMaxLiveRigs = 256;
+        static int _rigBudgetFrame = -1;
+        static int _newRigsThisFrame;
+
         public static bool SubmitSkinnedActor(
             Actor a, Vector3 pos, Quaternion rot, Vector3 scl, Color tint,
             RigType rigType)
@@ -111,6 +127,17 @@ namespace WorldSphereMod.Rig
             }
 
             if (!EnsureHumanoidRigMaterial())
+            {
+                return VoxelRender.Submit(svm.BaseMesh, Matrix4x4.TRS(pos, rot, scl), tint);
+            }
+
+            // Refresh-vs-create: an actor that already owns a matching live rig
+            // is always refreshed (no budget cost) so visible actors never
+            // flicker. Only first-time rig creation is throttled — that's the
+            // allocation that tanks FPS. When the per-frame or total-rig budget
+            // is spent, fall back to the static voxel path; the actor stays
+            // visible and picks up a rig on a later frame.
+            if (!HasLiveRig(a, sp, rigType) && !TryConsumeRigCreationBudget())
             {
                 return VoxelRender.Submit(svm.BaseMesh, Matrix4x4.TRS(pos, rot, scl), tint);
             }
@@ -194,7 +221,7 @@ namespace WorldSphereMod.Rig
             _perfFrameCounter = 0;
             _perfWindowMs = 0.0;
             if (Core.savedSettings != null && Core.savedSettings.ProfilerDump)
-                UnityDebug.Log($"[WSM3D][Perf] RigDriver.Update avg60FrameMs={avgFrameMs:F3}ms frameSkinnedActors={activeRigCount}");
+                UnityDebug.Log($"[WSM3D][Perf] RigDriver.Update avg60FrameMs={avgFrameMs:F3}ms frameSkinnedActors={activeRigCount} liveRigCap={kMaxLiveRigs} newRigBudget={kMaxNewRigsPerFrame}/frame");
         }
 
         public static void Clear()
@@ -220,6 +247,43 @@ namespace WorldSphereMod.Rig
 
             _actorRigs.Clear();
             _scratchRemove.Clear();
+            _rigBudgetFrame = -1;
+            _newRigsThisFrame = 0;
+        }
+
+        static bool HasLiveRig(Actor actor, Sprite sprite, RigType rigType)
+        {
+            long actorKey = RuntimeHelpers.GetHashCode(actor);
+            long sourceKey = ((long)(uint)sprite.GetInstanceID() << 8) | (byte)rigType;
+            return _actorRigs.TryGetValue(actorKey, out ActorRigInstance existing) &&
+                   existing != null &&
+                   existing.SourceKey == sourceKey &&
+                   existing.RootObject != null &&
+                   existing.Mesh != null &&
+                   existing.Renderer != null;
+        }
+
+        static bool TryConsumeRigCreationBudget()
+        {
+            int frame = Time.frameCount;
+            if (frame != _rigBudgetFrame)
+            {
+                _rigBudgetFrame = frame;
+                _newRigsThisFrame = 0;
+            }
+
+            if (_newRigsThisFrame >= kMaxNewRigsPerFrame)
+            {
+                return false;
+            }
+
+            if (_actorRigs.Count >= kMaxLiveRigs)
+            {
+                return false;
+            }
+
+            _newRigsThisFrame++;
+            return true;
         }
 
         static ActorRigInstance? GetOrCreateRig(Actor actor, Sprite sprite, RigType rigType, SkinnedVoxelMesh svm)

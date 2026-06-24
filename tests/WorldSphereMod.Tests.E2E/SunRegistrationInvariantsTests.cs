@@ -14,6 +14,7 @@ using Xunit;
 /// These source-level checks guard against the null-sun regression being
 /// re-introduced by a future refactor.
 /// </summary>
+[Trait("Category", "E2E")]
 public class SunRegistrationInvariantsTests
 {
     static string FindRepoRoot()

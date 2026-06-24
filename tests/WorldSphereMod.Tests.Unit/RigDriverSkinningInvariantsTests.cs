@@ -16,6 +16,7 @@ using FluentAssertions;
 ///   2. skin weights are BLENDED across &lt;=4 bones and NORMALIZED to sum 1, so
 ///      bone rotation bends seams instead of tearing them.
 /// </summary>
+[Trait("Category", "Unit")]
 public class RigDriverSkinningInvariantsTests
 {
     static string FindRepoRoot()

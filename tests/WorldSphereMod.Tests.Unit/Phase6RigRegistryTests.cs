@@ -9,6 +9,7 @@ using Xunit;
 /// The unit test project cannot reference the Unity-facing mod assembly directly,
 /// so it verifies the committed source text instead.
 /// </summary>
+[Trait("Category", "Unit")]
 public sealed class Phase6RigRegistryTests
 {
     static string FindRepoRoot()

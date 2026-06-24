@@ -27,6 +27,8 @@ ShaderVariantCollection:
       variants:
       - keywords: 
         passType: 0
+      - keywords: WSM3D_POSTFX_KEEP
+        passType: 0
   - first: {fileID: 4800000, guid: 2b026d77133e3114bbec693de8d5cc46, type: 3}
     second:
       variants:
@@ -47,8 +49,6 @@ ShaderVariantCollection:
         passType: 0
       - keywords: 
         passType: 4
-      - keywords: INSTANCING_ON
-        passType: 4
       - keywords: 
         passType: 5
       - keywords: 
@@ -64,8 +64,6 @@ ShaderVariantCollection:
         passType: 0
       - keywords: 
         passType: 4
-      - keywords: INSTANCING_ON
-        passType: 4
       - keywords: 
         passType: 5
       - keywords: 
@@ -77,10 +75,14 @@ ShaderVariantCollection:
       variants:
       - keywords: 
         passType: 0
+      - keywords: WSM3D_POSTFX_KEEP
+        passType: 0
   - first: {fileID: 4800000, guid: 7aa5202bf3c7cc64e8746ffcf17d1944, type: 3}
     second:
       variants:
       - keywords: 
+        passType: 0
+      - keywords: WSM3D_POSTFX_KEEP
         passType: 0
   - first: {fileID: 4800000, guid: f47d69eeb7d7d0b4c88ac4bd89c98855, type: 3}
     second:
@@ -98,29 +100,10 @@ ShaderVariantCollection:
         passType: 0
       - keywords: 
         passType: 4
-      - keywords: INSTANCING_ON
-        passType: 4
       - keywords: 
         passType: 5
-      - keywords: 
-        passType: 8
-      - keywords: INSTANCING_ON
-        passType: 8
-  - first: {fileID: 4800000, guid: 0b970160e6eed014482ff73ac7ed60fe, type: 3}
+  - first: {fileID: 4800000, guid: a0bb10778c7a8d24a9701ceede90917b, type: 3}
     second:
       variants:
       - keywords: 
         passType: 0
-      - keywords: INSTANCING_ON
-        passType: 0
-  - first: {fileID: 4800000, guid: 6c34244684341924f8405b4f57daf76b, type: 3}
-    second:
-      variants:
-      - keywords: 
-        passType: 0
-      - keywords: INSTANCING_ON
-        passType: 0
-      - keywords: 
-        passType: 8
-      - keywords: INSTANCING_ON
-        passType: 8

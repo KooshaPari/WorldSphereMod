@@ -22,6 +22,8 @@ Shader "WSM3D/OpaqueVertexColor"
     {
         _Color ("Tint", Color) = (1,1,1,1)
         _MainTex ("Main Tex (sampled white if unset)", 2D) = "white" {}
+        _TerrainTexArray ("Terrain TexArray", 2DArray) = "white" {}
+        _UseTerrainTexArray ("Use Terrain TexArray", Float) = 0
         _EmissionColor ("Emission", Color) = (0.15,0.15,0.15,1)
     }
 
@@ -49,6 +51,7 @@ Shader "WSM3D/OpaqueVertexColor"
             {
                 float4 vertex : POSITION;
                 float2 uv : TEXCOORD0;
+                float2 uv1 : TEXCOORD1;
                 float3 normal : NORMAL;
                 fixed4 color : COLOR;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
@@ -58,13 +61,16 @@ Shader "WSM3D/OpaqueVertexColor"
             {
                 float4 pos : SV_POSITION;
                 float2 uv : TEXCOORD0;
+                float2 texSlice : TEXCOORD1;
                 fixed4 color : COLOR;
-                float3 worldNormal : TEXCOORD1;
+                float3 worldNormal : TEXCOORD2;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             sampler2D _MainTex;
             float4 _MainTex_ST;
+            sampler2DArray _TerrainTexArray;
+            float _UseTerrainTexArray;
 
             UNITY_INSTANCING_BUFFER_START(Props)
                 UNITY_DEFINE_INSTANCED_PROP(fixed4, _Color)
@@ -78,6 +84,7 @@ Shader "WSM3D/OpaqueVertexColor"
                 UNITY_TRANSFER_INSTANCE_ID(v, o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
+                o.texSlice = v.uv1;
                 o.color = v.color;
                 o.worldNormal = UnityObjectToWorldNormal(v.normal);
                 return o;
@@ -89,6 +96,10 @@ Shader "WSM3D/OpaqueVertexColor"
                 fixed4 tint = UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
                 fixed4 emiss = UNITY_ACCESS_INSTANCED_PROP(Props, _EmissionColor);
                 fixed4 tex = tex2D(_MainTex, i.uv);
+                if (_UseTerrainTexArray > 0.5f)
+                {
+                    tex = tex2D(_TerrainTexArray, float3(i.uv, i.texSlice.x));
+                }
                 fixed3 albedo = i.color.rgb * tint.rgb * tex.rgb;
                 float NdotL = max(0.0, dot(normalize(i.worldNormal), _WorldSpaceLightPos0.xyz));
                 // DARK-LOWLAND fix: flat low terrain has a straight-up normal and

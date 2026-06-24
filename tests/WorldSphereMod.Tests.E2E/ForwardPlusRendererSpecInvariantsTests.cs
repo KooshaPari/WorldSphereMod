@@ -7,6 +7,7 @@ using Xunit;
 /// Source invariants for docs/specs/forward-plus-renderer-spec.md — Tier 5 Forward+
 /// CommandBuffer renderer scaffold and dimension constants.
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class ForwardPlusRendererSpecInvariantsTests
 {
     const string SpecRelativePath = "docs/specs/forward-plus-renderer-spec.md";

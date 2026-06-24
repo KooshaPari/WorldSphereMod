@@ -8,6 +8,7 @@ using Newtonsoft.Json.Linq;
 using WorldSphereMod.Import;
 using Xunit;
 
+[Trait("Category", "Unit")]
 public sealed class TexturePackImporterTests
 {
     [Fact]

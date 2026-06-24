@@ -7,6 +7,7 @@ using FluentAssertions;
 // hand-rolled "fake host" types that mimic the surface of WorldSphereMod /
 // WorldSphereMod3D's static API entry point. This lets us verify the v1/v2
 // detection logic without dragging in WorldBox or Unity assemblies.
+[Trait("Category", "Unit")]
 public class DelegateBindingTests
 {
     private static ConstructorInfo GetReflectiveCtor()

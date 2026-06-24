@@ -4,6 +4,7 @@ using System.Reflection;
 using Xunit;
 using FluentAssertions;
 
+[Trait("Category", "Unit")]
 public class PublicApiSurfaceTests
 {
     private static class HostWithMismatchedOptionalSurface

@@ -8,6 +8,7 @@ using Xunit;
 /// Source invariants for luminance-based depth complement settings
 /// (docs/journeys/scratch/luminance-depth-spec.md).
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class LuminanceDepthInvariantsTests
 {
     static string FindRepoRoot()

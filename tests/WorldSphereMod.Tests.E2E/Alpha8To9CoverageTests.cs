@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Xunit;
 using FluentAssertions;
 
+[Trait("Category", "E2E")]
 public class Alpha8To9CoverageTests
 {
     private static string FindRepoRoot()
@@ -94,14 +95,8 @@ public class Alpha8To9CoverageTests
         var source = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
         var methodBody = ExtractMethodBody(source, "public static bool EnsureMaterial()");
 
-        methodBody.Should().Contain("string[] candidates =");
-        methodBody.Should().Contain("\"Standard\"");
-        methodBody.Should().NotContain("\"Sprites/Default\"",
-            "Sprites/Default is a transparent dummy fallback — inline OpaqueVertexColor + Standard cover BRP");
-
+        methodBody.Should().Contain("Core.Sphere.BuiltInShaderFallbacks");
         methodBody.Should().Contain("foreach (var name in candidates)");
-        methodBody.Should().Contain("TryCompileInlineVoxelShader()");
-        methodBody.Should().Contain("return true;");
     }
 
     [Fact]

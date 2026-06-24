@@ -8,6 +8,7 @@ using Xunit;
 /// These tests intentionally inspect source text only, so they can run in E2E
 /// without needing Unity or WorldBox runtime availability.
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class WSM3DPostStackInvariantsTests
 {
     static string FindRepoRoot()

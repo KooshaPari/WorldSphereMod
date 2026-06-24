@@ -7,6 +7,7 @@ using Xunit;
 /// Source-invariant checks for the action bridge endpoints in BridgeServer.
 /// These tests only inspect source text and do not require Unity runtime.
 /// </summary>
+[Trait("Category", "E2E")]
 public sealed class BridgeActionEndpointsInvariantsTests
 {
     private static string FindRepoRoot()
@@ -69,18 +70,23 @@ public sealed class BridgeActionEndpointsInvariantsTests
 
         processRequestBody.Should().Contain("string.Equals(method, \"POST\", StringComparison.OrdinalIgnoreCase)",
             "the action endpoints must remain POST-only");
-        processRequestBody.Should().Contain("string.Equals(path, \"/actions/spawn_units\", StringComparison.OrdinalIgnoreCase)",
-            "spawn_units route must be dispatched from ProcessRequest");
-        processRequestBody.Should().Contain("string.Equals(path, \"/actions/generate_world\", StringComparison.OrdinalIgnoreCase)",
-            "generate_world route must be dispatched from ProcessRequest");
-        processRequestBody.Should().Contain("WriteJson(context.Response, SpawnUnitsQueued(countText, race, xText, yText));",
-            "spawn_units must return a JSON response via the bridge writer (anchor x/y now honored)");
-        processRequestBody.Should().Contain("WriteJson(context.Response, GenerateWorldQueued());",
-            "generate_world must return a JSON response via the bridge writer");
+        processRequestBody.Should().Contain("_postRoutes.TryGetValue(path, out Action<HttpListenerContext> handler)",
+            "action routes must be dispatched through the POST route table");
+        processRequestBody.Should().Contain("handler(context);",
+            "ProcessRequest must invoke the matched route handler");
         processRequestBody.Should().Contain("catch (Exception ex)",
             "ProcessRequest must keep the top-level try/catch so failures serialize as JSON errors");
         processRequestBody.Should().Contain("new { ok = false, error = ex.Message }",
             "ProcessRequest exceptions must be normalized into JSON error payloads");
+
+        bridgeServer.Should().Contain("[\"/actions/spawn_units\"] = HandleSpawnUnits",
+            "spawn_units route must be registered in the POST route table");
+        bridgeServer.Should().Contain("[\"/actions/generate_world\"] = HandleGenerateWorld",
+            "generate_world route must be registered in the POST route table");
+        bridgeServer.Should().Contain("void HandleSpawnUnits(HttpListenerContext context)",
+            "spawn_units handler must be extracted as a named method");
+        bridgeServer.Should().Contain("void HandleGenerateWorld(HttpListenerContext context)",
+            "generate_world handler must be extracted as a named method");
 
         bridgeServer.Should().Contain("void WriteJson(HttpListenerResponse response, object payload, HttpStatusCode statusCode = HttpStatusCode.OK) => WriteRawJson(response, JsonConvert.SerializeObject(payload, Formatting.None), statusCode);",
             "WriteJson must serialize action responses with compact JSON and forward them to the raw writer");
@@ -134,7 +140,7 @@ public sealed class BridgeActionEndpointsInvariantsTests
 
         generateWorldBody.Should().Contain("MapBox.instance == null",
             "generate_world must guard against a missing MapBox instance");
-        generateWorldBody.Should().Contain("MapBox.instance.generateNewMap();",
+        generateWorldBody.Should().Contain("MapBox.instance.startTheGame(true);",
             "generate_world must invoke the WorldBox map generation entrypoint");
         generateWorldBody.Should().Contain("catch (Exception ex)",
             "generate_world must catch and log queued work failures");

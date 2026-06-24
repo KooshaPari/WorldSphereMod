@@ -4,6 +4,7 @@ using System.IO;
 using FluentAssertions;
 using Xunit;
 
+[Trait("Category", "Integration")]
 public class LiveVerificationIntegrationTests
 {
     private const string ScriptRelative = "Tools/wsm-ssim-compare.py";
