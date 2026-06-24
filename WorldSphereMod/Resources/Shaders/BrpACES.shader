@@ -19,7 +19,6 @@ Shader "Hidden/WSM3D/BrpACES"
             #pragma vertex vert
             #pragma fragment frag
             #pragma target 3.0
-            #pragma multi_compile _ WSM3D_POSTFX_KEEP
             #include "UnityCG.cginc"
 
             sampler2D _MainTex;
@@ -65,5 +64,5 @@ Shader "Hidden/WSM3D/BrpACES"
             ENDCG
         }
     }
-    Fallback "Unlit/Color"
+    Fallback Off
 }

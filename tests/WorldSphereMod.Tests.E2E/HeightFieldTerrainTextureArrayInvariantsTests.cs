@@ -43,21 +43,15 @@ public class HeightFieldTerrainTextureArrayInvariantsTests
     }
 
     [Fact]
-    public void HeightFieldRenderer_uses_corner_dominant_texture_for_terrain_array_path()
+    public void HeightFieldRenderer_uses_unified_corner_mesh_for_terrain()
     {
         var source = ReadRepoFile("External/Compound-Spheres/CompoundSpheres/HeightFieldRenderer.cs");
 
-        source.Should().Contain("int[] _cornerTexture",
-            "HeightFieldRenderer must store per-corner dominant texture indices so duplicated quads can pick slices consistently");
+        source.Should().Contain("int vertCount = cornerRows * cornerCols",
+            "HeightFieldRenderer must use a single unified corner-averaged mesh (not duplicated per-quad geometry)");
 
-        source.Should().Contain("DominantTexture(_cornerTexture[bl], _cornerTexture[br], _cornerTexture[tl], _cornerTexture[tr])",
-            "Terrain-array path should select a dominant texture slice from surrounding corner samples");
-
-        source.Should().Contain("_mesh.SetUVs(1, _uvsSlice",
-            "HeightFieldRenderer should upload texture-slice UV channel for shader sampling");
-
-        source.Should().Contain("int vertCount = _materialSetUsesTerrainTexture ? rowCount * cols * 4",
-            "Terrain-array path should use duplicated per-quad geometry");
+        source.Should().Contain("_mesh.SetUVs(0, _uvs, 0, vertCount)",
+            "HeightFieldRenderer should upload single UV channel for the unified terrain mesh");
     }
 
     public static TheoryData<string> OpaqueVertexColorSources =>

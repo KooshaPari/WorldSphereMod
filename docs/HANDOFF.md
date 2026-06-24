@@ -14,7 +14,7 @@ Canonical "next session starts here" doc for WorldSphereMod3D.
 
 **Active branch:** `feat/phase-7-ui-kickoff` — Phase 7 worldspace UI kickoff ([`docs/phases/phase-7-worldspace-ui.md`](phases/phase-7-worldspace-ui.md)). Synced with `origin/main` after [PR #7](https://github.com/KooshaPari/WorldSphereMod/pull/7) landed (`4efa128` — automation, PlayCUA gates, live-verify harness).
 
-**Latest `do-all-latest` (desk, vision off):** PlayCUA **passed on 1st attempt** (`run-all`, `-VisionBackend off`); **`live-verify-live`** and **`audit-tick`** stages failed. OmniRoute funnel (`https://omniroute-a6e82363-1.tail2b570.ts.net/v1`) often times out from the desk — use `-SkipLive` / vision-off PlayCUA for laptop-only loops; see [OmniRoute (kooshas-laptop)](#omniroute-kooshas-laptop). Report: `Tools/.reports/do-all-latest.json`.
+**Latest `do-all-latest` (desk, vision off):** **`overallOk=True`** — PlayCUA passed@1×, live-verify-live + audit-tick + offline gates all passed (~47 min, `-SkipRelaunch`). OmniRoute / Mac SSH deferred; use vision-off desk loops. Report: `Tools/.reports/do-all-latest.json`.
 
 Recent validation:
 
@@ -105,7 +105,7 @@ instead of carrying the underlying implementation inline.
 | 5  Sun + cascaded shadows              | code present, runtime unverified | Current code defaults: `HighShadows = false`, `HdrSkybox = false`, `ColorGradingLut = false`. |
 | 6  Skeletal animation                  | code present, runtime unverified; **disable-gate PROVEN** | Current code default: `SkeletalAnimation = false`. Core.LoadSettings force-overrides to `false` on every load (Core.cs L70 + L79). ActorVoxelEmit.EmitVoxels gates BOTH `ResolveRigType` and `RigDriver.SubmitSkinnedActor` behind `if (Core.savedSettings.SkeletalAnimation && tier != LodTier.Impostor)` (VoxelRender.cs L630). Invariant locked by `SkeletalAnimationDisabledGateTests` (E2E). DIAG-SUBMIT `skel(attempt=0 ok=0 fail=0)` is the runtime confirmation. |
 | 7  Worldspace UI                       | code present, runtime unverified | Current code defaults: `WorldspaceUI = false`, `WorldspaceLabel3D = false`. |
-| 8  Day/night + sky + fog               | code present, runtime unverified | Current code default: `DayNightCycle = false`; `FogDensity = 0.05f`. |
+| 8  Day/night + sky + fog               | code present, runtime unverified | Current code default: `DayNightCycle = true`; `FogDensity = 0.05f`. |
 | 9  Particles + decals + PostFX         | code present, runtime unverified | Current code defaults: `ParticleEffects = false`, `PostFX = false`, `SSAOEnabled = false`, `SSGIEnabled = false`. |
 | 10 LOD + impostor fallback             | code present, runtime unverified | Current code defaults: `LODScale = 0.5f`, `WaterDetail = 1.0f`, `FoliageDensity = 1.0f`. |
 
@@ -128,7 +128,7 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 | `SkeletalAnimation` | `false` | 6 | Default-off skeletal path |
 | `WorldspaceUI` | `false` | 7 | Default-off worldspace UI |
 | `WorldspaceLabel3D` | `false` | 7 | Default-off 3D labels |
-| `DayNightCycle` | `false` | 8 | Default-off TOD driver |
+| `DayNightCycle` | `true` | 8 | Default-on TOD driver |
 | `FogDensity` | `0.05f` | 8 | Current live default |
 | `PostFX` | `false` | 9 | Current live default |
 | `SSAOEnabled` | `false` | 9 | Default-off SSAO |
@@ -155,6 +155,7 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 - `MeshWater` — Phase 4
 - `BiomeBlending` — terrain polish
 - `WorldspaceHealth3D` — worldspace HP bar style
+- `DayNightCycle` — Phase 8
 - `ACESTonemapping` — Phase 9
 
 ### Default-off / opt-in
@@ -165,7 +166,6 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 - `SkeletalAnimation` — Phase 6
 - `WorldspaceUI` — Phase 7
 - `WorldspaceLabel3D` — Phase 7
-- `DayNightCycle` — Phase 8
 - `PostFX` — Phase 9
 - `SSAOEnabled` — Phase 9
 - `ParticleEffects` — Phase 9 (decals + bursts)
@@ -177,7 +177,6 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 - `BloomEnabled` — Phase 9
 - `WeatherSnow` — weather
 - `WeatherLightning` — weather
-
 ### CI dependency audit gate
 
 - `docs/package-lock.json` currently reports moderate `npm audit` advisories

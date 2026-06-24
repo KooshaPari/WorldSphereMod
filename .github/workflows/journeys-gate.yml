@@ -24,7 +24,7 @@ jobs:
     name: journeys verify
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install Rust 1.88
         shell: bash
@@ -35,7 +35,7 @@ jobs:
           rustc --version
           cargo --version
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry/index/
@@ -141,9 +141,7 @@ jobs:
             echo ""
             echo "→ $phase_id"
 
-            # Run verify in mock mode; accept failure from screenshot checks but
-            # reject errors from schema/binary issues. Extract just result status.
-            "$PJ_BIN" verify "$manifest" 2>&1 | tail -5 || true
+            "$PJ_BIN" verify "$manifest" --mock 2>&1 | tail -5
           done
 
           echo ""
@@ -151,7 +149,7 @@ jobs:
 
       - name: Upload artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: journeys-manifests
           path: docs/journeys/manifests/

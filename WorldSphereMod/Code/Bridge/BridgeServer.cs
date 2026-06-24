@@ -26,6 +26,8 @@ namespace WorldSphereMod.Bridge
         volatile bool _running;
         static int _mainThreadId;
         int _boundPort = Port;
+        Dictionary<string, Action<HttpListenerContext>> _getRoutes;
+        Dictionary<string, Action<HttpListenerContext>> _postRoutes;
 
         public static bool EnableFailed;
 
@@ -105,6 +107,7 @@ namespace WorldSphereMod.Bridge
             CaptureMainThread();
             // Survive scene transitions (save load destroys Mod.Object's scene → bridge dies → main-thread queue stops draining → all HTTP requests time out at 5s default(T)).
             try { UnityEngine.Object.DontDestroyOnLoad(gameObject); } catch { /* root-only requirement */ }
+            BuildRouteTables();
             StartListener();
         }
 
@@ -370,269 +373,29 @@ namespace WorldSphereMod.Bridge
 
                 if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase))
+                    if (_getRoutes.TryGetValue(path, out Action<HttpListenerContext> handler))
                     {
-                        WriteJson(context.Response, BuildHealthPayload());
-                        return;
-                    }
-                    if (string.Equals(path, "/telemetry", StringComparison.OrdinalIgnoreCase))
-                    {
-                        WriteJson(context.Response, BuildTelemetryPayload());
-                        return;
-                    }
-                    if (string.Equals(path, "/settings", StringComparison.OrdinalIgnoreCase)) { WriteRawJson(context.Response, InvokeOnMainThread(BuildSettingsJson)); return; }
-                    if (string.Equals(path, "/voxel/sprite", StringComparison.OrdinalIgnoreCase))
-                    {
-                        string spriteName = context.Request.QueryString["name"] ?? string.Empty;
-                        if (string.IsNullOrWhiteSpace(spriteName))
-                        {
-                            WriteJson(context.Response, InvokeOnMainThread(BuildVoxelSpriteListPayload));
-                            return;
-                        }
-
-                        HttpStatusCode statusCode = HttpStatusCode.OK;
-                        object payload = InvokeOnMainThread(() => BuildVoxelSpritePayload(spriteName, out statusCode));
-                        WriteJson(context.Response, payload, statusCode);
-                        return;
-                    }
-                    if (string.Equals(path, "/voxel/stats", StringComparison.OrdinalIgnoreCase))
-                    {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildVoxelStatsPayload));
-                        return;
-                    }
-                    if (string.Equals(path, "/voxel/queue", StringComparison.OrdinalIgnoreCase))
-                    {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildVoxelQueuePayload));
-                        return;
-                    }
-                    if (string.Equals(path, "/memory", StringComparison.OrdinalIgnoreCase))
-                    {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildMemoryPayload));
-                        return;
-                    }
-                    if (string.Equals(path, "/voxel/actor", StringComparison.OrdinalIgnoreCase))
-                    {
-                        string indexText = context.Request.QueryString["index"] ?? "0";
-                        WriteJson(context.Response, InvokeOnMainThread(() => BuildVoxelActorPayload(indexText)));
-                        return;
-                    }
-                    if (string.Equals(path, "/voxel/diff", StringComparison.OrdinalIgnoreCase))
-                    {
-                        string baselinePath = context.Request.QueryString["baseline"] ?? string.Empty;
-                        WriteJson(context.Response, InvokeOnMainThread(() => BuildVoxelDiffPayload(baselinePath)));
+                        handler(context);
                         return;
                     }
                     if (path.StartsWith("/phase/", StringComparison.OrdinalIgnoreCase))
                     {
-                        string phaseName = Uri.UnescapeDataString(path.Substring("/phase/".Length));
-                        WriteJson(context.Response, InvokeOnMainThread(() => BuildPhasePayload(phaseName)));
+                        HandlePhase(context);
                         return;
                     }
-                    if (string.Equals(path, "/diag/emit_status", StringComparison.OrdinalIgnoreCase))
+                }
+                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (_postRoutes.TryGetValue(path, out Action<HttpListenerContext> handler))
                     {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildEmitStatusPayload));
+                        handler(context);
                         return;
                     }
-                    if (string.Equals(path, "/diag/errors", StringComparison.OrdinalIgnoreCase))
+                    if (path.StartsWith("/settings/", StringComparison.OrdinalIgnoreCase))
                     {
-                        // Registry is internally locked; no Unity main-thread state read needed.
-                        WriteJson(context.Response, BuildDiagErrorsPayload());
+                        HandleSettingsUpdate(context);
                         return;
                     }
-                    if (string.Equals(path, "/diag/render_stats", StringComparison.OrdinalIgnoreCase))
-                    {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildRenderStatsPayload));
-                        return;
-                    }
-                    if (string.Equals(path, "/diag/water_samples", StringComparison.OrdinalIgnoreCase))
-                    {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildWaterSamplesPayload));
-                        return;
-                    }
-                    if (string.Equals(path, "/diag/full_dump", StringComparison.OrdinalIgnoreCase))
-                    {
-                        WriteJson(context.Response, InvokeOnMainThread(BuildFullDumpPayload));
-                        return;
-                    }
-                    if (string.Equals(path, "/world/state", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Null-safe on main thread: returns hasWorld:false at title screen instead of NRE.
-                        WriteJson(context.Response, InvokeOnMainThread(() => BridgeActions.WorldState(Core.IsWorld3D)));
-                        return;
-                    }
-                    if (string.Equals(path, "/tools", StringComparison.OrdinalIgnoreCase))
-                    {
-                        WriteJson(context.Response, InvokeOnMainThread(BridgeActions.ListTools));
-                        return;
-                    }
-                    // Input-capture flow library: list recorded sessions + named flows.
-                    if (string.Equals(path, "/capture/list", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var flows = WorldSphereMod.Capture.FlowLibrary.List();
-                        WriteJson(context.Response, new { ok = true, root = WorldSphereMod.Capture.CaptureRecorder.CaptureRoot, count = flows.Count, flows });
-                        return;
-                    }
-                    if (string.Equals(path, "/capture/status", StringComparison.OrdinalIgnoreCase))
-                    {
-                        WriteJson(context.Response, new
-                        {
-                            ok = true,
-                            enabled = WorldSphereMod.Capture.CaptureRecorder.Enabled,
-                            session = WorldSphereMod.Capture.CaptureRecorder.SessionPath,
-                            events = WorldSphereMod.Capture.CaptureRecorder.EventCount,
-                        });
-                        return;
-                    }
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && path.StartsWith("/settings/", StringComparison.OrdinalIgnoreCase))
-                {
-                    string key = path.Substring("/settings/".Length);
-                    string rawValue = context.Request.QueryString["value"] ?? string.Empty;
-                    WriteJson(context.Response, UpdateSettingQueued(key, rawValue));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/load_save", StringComparison.OrdinalIgnoreCase))
-                {
-                    string slotText = context.Request.QueryString["slot"] ?? string.Empty;
-                    WriteJson(context.Response, LoadSaveQueued(slotText));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && (string.Equals(path, "/actions/screenshot", StringComparison.OrdinalIgnoreCase) || string.Equals(path, "/screenshot/now", StringComparison.OrdinalIgnoreCase)))
-                {
-                    // Read path + mode from EITHER ?query= or the JSON body in a SINGLE body read
-                    // (the InputStream is non-seekable). Previously `path` was query-only and the body
-                    // was consumed only to sniff mode, so {"path":...} was silently dropped.
-                    // mode=camera renders ONLY the 3D scene camera into a RenderTexture,
-                    // bypassing WorldBox's debug-console / UI overlay layers. Default
-                    // (screen) keeps the legacy full-framebuffer capture for back-compat.
-                    BridgeParams shot = BridgeParams.From(context.Request);
-                    string outputPath = shot.Get("path", string.Empty);
-                    string mode = shot.Get("mode", string.Empty);
-                    bool cameraMode = string.Equals(mode, "camera", StringComparison.OrdinalIgnoreCase);
-                    WriteJson(context.Response, CaptureScreenshot(outputPath, cameraMode));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/voxel/dump_all", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, InvokeOnMainThread(DumpVoxelMeshes));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/diag/dump_now", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, InvokeOnMainThread(ForceDiagDumpNow));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/texturepack/import", StringComparison.OrdinalIgnoreCase))
-                {
-                    string packPath = context.Request.QueryString["path"] ?? string.Empty;
-                    WriteJson(context.Response, InvokeOnMainThread(() => BuildTexturePackImportPayload(packPath)));
-                    return;
-                }
-
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/spawn_units", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Honor count/race/x/y from EITHER ?query= or the JSON body (the live operator
-                    // POSTs {"count":80}); query wins when both are present.
-                    BridgeParams sp = BridgeParams.From(context.Request);
-                    string countText = sp.Get("count", "10");
-                    string race = sp.Get("race", "human");
-                    string xText = sp.Get("x");
-                    string yText = sp.Get("y");
-                    WriteJson(context.Response, SpawnUnitsQueued(countText, race, xText, yText));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/generate_world", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, GenerateWorldQueued());
-                    return;
-                }
-                // #1 priority: drive world-creation headlessly so the operator never needs the 3 menu clicks.
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/new_world", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, QueueAction("new_world", BridgeActions.NewWorld));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/regenerate", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, QueueAction("regenerate", BridgeActions.Regenerate));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/save", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, QueueAction("save", BridgeActions.Save));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/close_dialog", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, QueueAction("close_dialog", BridgeActions.CloseDialog));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/pause", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, QueueAction("pause", BridgeActions.Pause));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/play", StringComparison.OrdinalIgnoreCase))
-                {
-                    WriteJson(context.Response, QueueAction("play", BridgeActions.Play));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/set_speed", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Honor speed from ?query= OR {"speed":...} body (live-bridge param contract).
-                    string speed = BridgeParams.From(context.Request).Get("speed", string.Empty);
-                    WriteJson(context.Response, QueueAction("set_speed", () => BridgeActions.SetSpeed(speed)));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/camera", StringComparison.OrdinalIgnoreCase))
-                {
-                    // x/y/zoom from ?query= or JSON body {"x":128,"y":128,"zoom":6}.
-                    BridgeParams cp = BridgeParams.From(context.Request);
-                    string cx = cp.Get("x", string.Empty);
-                    string cy = cp.Get("y", string.Empty);
-                    string cz = cp.Get("zoom", string.Empty);
-                    WriteJson(context.Response, QueueAction("camera", () => BridgeActions.Camera(cx, cy, cz)));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/camera_focus", StringComparison.OrdinalIgnoreCase))
-                {
-                    string target = BridgeParams.From(context.Request).Get("target", string.Empty);
-                    WriteJson(context.Response, QueueAction("camera_focus", () => BridgeActions.CameraFocus(target)));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/select_tool", StringComparison.OrdinalIgnoreCase))
-                {
-                    string id = BridgeParams.From(context.Request).Get("id", string.Empty);
-                    WriteJson(context.Response, QueueAction("select_tool", () => BridgeActions.SelectTool(id)));
-                    return;
-                }
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/actions/use_tool", StringComparison.OrdinalIgnoreCase))
-                {
-                    BridgeParams up = BridgeParams.From(context.Request);
-                    string id = up.Get("id", string.Empty);
-                    string ux = up.Get("x", string.Empty);
-                    string uy = up.Get("y", string.Empty);
-                    WriteJson(context.Response, QueueAction("use_tool", () => BridgeActions.UseTool(id, ux, uy)));
-                    return;
-                }
-                // Input-capture replay: re-drive a recorded flow headlessly through the same
-                // main-thread BridgeActions path the live /actions/* routes use.
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/capture/replay", StringComparison.OrdinalIgnoreCase))
-                {
-                    string file = context.Request.QueryString["file"] ?? string.Empty;
-                    if (string.IsNullOrWhiteSpace(file)) { WriteJson(context.Response, new { ok = false, error = "missing_file" }, HttpStatusCode.BadRequest); return; }
-                    WriteJson(context.Response, QueueAction("capture_replay", () => WorldSphereMod.Capture.CaptureReplayer.ReplayFile(file)));
-                    return;
-                }
-                // Promote the current/last session (or a named source) into a named flow.
-                else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "/capture/save", StringComparison.OrdinalIgnoreCase))
-                {
-                    string name = context.Request.QueryString["name"] ?? string.Empty;
-                    string source = context.Request.QueryString["source"] ?? string.Empty;
-                    if (string.IsNullOrWhiteSpace(name)) { WriteJson(context.Response, new { ok = false, error = "missing_name" }, HttpStatusCode.BadRequest); return; }
-                    var (ok, savedPath, error) = WorldSphereMod.Capture.FlowLibrary.SaveAs(name, source);
-                    WriteJson(context.Response, ok ? (object)new { ok = true, name, path = savedPath } : new { ok = false, error, name }, ok ? HttpStatusCode.OK : HttpStatusCode.BadRequest);
-                    return;
                 }
 
                 WriteJson(context.Response, new { ok = false, error = "not_found", path, method }, HttpStatusCode.NotFound);
@@ -643,6 +406,229 @@ namespace WorldSphereMod.Bridge
             }
         }
 
+        void BuildRouteTables()
+        {
+            _getRoutes = new Dictionary<string, Action<HttpListenerContext>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["/health"] = HandleHealth,
+                ["/telemetry"] = HandleTelemetry,
+                ["/settings"] = HandleSettings,
+                ["/voxel/sprite"] = HandleVoxelSprite,
+                ["/voxel/stats"] = HandleVoxelStats,
+                ["/voxel/queue"] = HandleVoxelQueue,
+                ["/memory"] = HandleMemory,
+                ["/voxel/actor"] = HandleVoxelActor,
+                ["/voxel/diff"] = HandleVoxelDiff,
+                ["/diag/emit_status"] = HandleDiagEmitStatus,
+                ["/diag/errors"] = HandleDiagErrors,
+                ["/diag/render_stats"] = HandleDiagRenderStats,
+                ["/diag/water_samples"] = HandleDiagWaterSamples,
+                ["/diag/full_dump"] = HandleDiagFullDump,
+                ["/world/state"] = HandleWorldState,
+                ["/tools"] = HandleTools,
+                ["/capture/list"] = HandleCaptureList,
+                ["/capture/status"] = HandleCaptureStatus,
+            };
+
+            _postRoutes = new Dictionary<string, Action<HttpListenerContext>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["/actions/load_save"] = HandleLoadSave,
+                ["/actions/screenshot"] = HandleScreenshot,
+                ["/screenshot/now"] = HandleScreenshot,
+                ["/voxel/dump_all"] = HandleVoxelDumpAll,
+                ["/diag/dump_now"] = HandleDiagDumpNow,
+                ["/texturepack/import"] = HandleTexturePackImport,
+                ["/actions/spawn_units"] = HandleSpawnUnits,
+                ["/actions/generate_world"] = HandleGenerateWorld,
+                ["/actions/new_world"] = HandleNewWorld,
+                ["/actions/regenerate"] = HandleRegenerate,
+                ["/actions/save"] = HandleSave,
+                ["/actions/close_dialog"] = HandleCloseDialog,
+                ["/actions/pause"] = HandlePause,
+                ["/actions/play"] = HandlePlay,
+                ["/actions/set_speed"] = HandleSetSpeed,
+                ["/actions/camera"] = HandleCamera,
+                ["/actions/camera_focus"] = HandleCameraFocus,
+                ["/actions/select_tool"] = HandleSelectTool,
+                ["/actions/use_tool"] = HandleUseTool,
+                ["/capture/replay"] = HandleCaptureReplay,
+                ["/capture/save"] = HandleCaptureSave,
+            };
+        }
+
+        void HandleHealth(HttpListenerContext context) => WriteJson(context.Response, BuildHealthPayload());
+        void HandleTelemetry(HttpListenerContext context) => WriteJson(context.Response, BuildTelemetryPayload());
+        void HandleSettings(HttpListenerContext context) => WriteRawJson(context.Response, InvokeOnMainThread(BuildSettingsJson));
+
+        void HandleVoxelSprite(HttpListenerContext context)
+        {
+            string spriteName = context.Request.QueryString["name"] ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(spriteName))
+            {
+                WriteJson(context.Response, InvokeOnMainThread(BuildVoxelSpriteListPayload));
+                return;
+            }
+
+            HttpStatusCode statusCode = HttpStatusCode.OK;
+            object payload = InvokeOnMainThread(() => BuildVoxelSpritePayload(spriteName, out statusCode));
+            WriteJson(context.Response, payload, statusCode);
+        }
+
+        void HandleVoxelStats(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(BuildVoxelStatsPayload));
+        void HandleVoxelQueue(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(BuildVoxelQueuePayload));
+        void HandleMemory(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(BuildMemoryPayload));
+
+        void HandleVoxelActor(HttpListenerContext context)
+        {
+            string indexText = context.Request.QueryString["index"] ?? "0";
+            WriteJson(context.Response, InvokeOnMainThread(() => BuildVoxelActorPayload(indexText)));
+        }
+
+        void HandleVoxelDiff(HttpListenerContext context)
+        {
+            string baselinePath = context.Request.QueryString["baseline"] ?? string.Empty;
+            WriteJson(context.Response, InvokeOnMainThread(() => BuildVoxelDiffPayload(baselinePath)));
+        }
+
+        void HandlePhase(HttpListenerContext context)
+        {
+            string path = context.Request.Url?.AbsolutePath ?? "/";
+            string phaseName = Uri.UnescapeDataString(path.Substring("/phase/".Length));
+            WriteJson(context.Response, InvokeOnMainThread(() => BuildPhasePayload(phaseName)));
+        }
+
+        void HandleDiagEmitStatus(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(BuildEmitStatusPayload));
+        void HandleDiagErrors(HttpListenerContext context) => WriteJson(context.Response, BuildDiagErrorsPayload());
+        void HandleDiagRenderStats(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(BuildRenderStatsPayload));
+        void HandleDiagWaterSamples(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(BuildWaterSamplesPayload));
+        void HandleDiagFullDump(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(BuildFullDumpPayload));
+
+        void HandleWorldState(HttpListenerContext context)
+        {
+            WriteJson(context.Response, InvokeOnMainThread(() => BridgeActions.WorldState(Core.IsWorld3D)));
+        }
+
+        void HandleTools(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(BridgeActions.ListTools));
+
+        void HandleCaptureList(HttpListenerContext context)
+        {
+            var flows = WorldSphereMod.Capture.FlowLibrary.List();
+            WriteJson(context.Response, new { ok = true, root = WorldSphereMod.Capture.CaptureRecorder.CaptureRoot, count = flows.Count, flows });
+        }
+
+        void HandleCaptureStatus(HttpListenerContext context)
+        {
+            WriteJson(context.Response, new
+            {
+                ok = true,
+                enabled = WorldSphereMod.Capture.CaptureRecorder.Enabled,
+                session = WorldSphereMod.Capture.CaptureRecorder.SessionPath,
+                events = WorldSphereMod.Capture.CaptureRecorder.EventCount,
+            });
+        }
+
+        void HandleSettingsUpdate(HttpListenerContext context)
+        {
+            string path = context.Request.Url?.AbsolutePath ?? "/";
+            string key = path.Substring("/settings/".Length);
+            string rawValue = context.Request.QueryString["value"] ?? string.Empty;
+            WriteJson(context.Response, UpdateSettingQueued(key, rawValue));
+        }
+
+        void HandleLoadSave(HttpListenerContext context)
+        {
+            string slotText = context.Request.QueryString["slot"] ?? string.Empty;
+            WriteJson(context.Response, LoadSaveQueued(slotText));
+        }
+
+        void HandleScreenshot(HttpListenerContext context)
+        {
+            BridgeParams shot = BridgeParams.From(context.Request);
+            string outputPath = shot.Get("path", string.Empty);
+            string mode = shot.Get("mode", string.Empty);
+            bool cameraMode = string.Equals(mode, "camera", StringComparison.OrdinalIgnoreCase);
+            WriteJson(context.Response, CaptureScreenshot(outputPath, cameraMode));
+        }
+
+        void HandleVoxelDumpAll(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(DumpVoxelMeshes));
+        void HandleDiagDumpNow(HttpListenerContext context) => WriteJson(context.Response, InvokeOnMainThread(ForceDiagDumpNow));
+
+        void HandleTexturePackImport(HttpListenerContext context)
+        {
+            string packPath = context.Request.QueryString["path"] ?? string.Empty;
+            WriteJson(context.Response, InvokeOnMainThread(() => BuildTexturePackImportPayload(packPath)));
+        }
+
+        void HandleSpawnUnits(HttpListenerContext context)
+        {
+            BridgeParams sp = BridgeParams.From(context.Request);
+            string countText = sp.Get("count", "10");
+            string race = sp.Get("race", "human");
+            string xText = sp.Get("x");
+            string yText = sp.Get("y");
+            WriteJson(context.Response, SpawnUnitsQueued(countText, race, xText, yText));
+        }
+
+        void HandleGenerateWorld(HttpListenerContext context) => WriteJson(context.Response, GenerateWorldQueued());
+        void HandleNewWorld(HttpListenerContext context) => WriteJson(context.Response, QueueAction("new_world", BridgeActions.NewWorld));
+        void HandleRegenerate(HttpListenerContext context) => WriteJson(context.Response, QueueAction("regenerate", BridgeActions.Regenerate));
+        void HandleSave(HttpListenerContext context) => WriteJson(context.Response, QueueAction("save", BridgeActions.Save));
+        void HandleCloseDialog(HttpListenerContext context) => WriteJson(context.Response, QueueAction("close_dialog", BridgeActions.CloseDialog));
+        void HandlePause(HttpListenerContext context) => WriteJson(context.Response, QueueAction("pause", BridgeActions.Pause));
+        void HandlePlay(HttpListenerContext context) => WriteJson(context.Response, QueueAction("play", BridgeActions.Play));
+
+        void HandleSetSpeed(HttpListenerContext context)
+        {
+            string speed = BridgeParams.From(context.Request).Get("speed", string.Empty);
+            WriteJson(context.Response, QueueAction("set_speed", () => BridgeActions.SetSpeed(speed)));
+        }
+
+        void HandleCamera(HttpListenerContext context)
+        {
+            BridgeParams cp = BridgeParams.From(context.Request);
+            string cx = cp.Get("x", string.Empty);
+            string cy = cp.Get("y", string.Empty);
+            string cz = cp.Get("zoom", string.Empty);
+            WriteJson(context.Response, QueueAction("camera", () => BridgeActions.Camera(cx, cy, cz)));
+        }
+
+        void HandleCameraFocus(HttpListenerContext context)
+        {
+            string target = BridgeParams.From(context.Request).Get("target", string.Empty);
+            WriteJson(context.Response, QueueAction("camera_focus", () => BridgeActions.CameraFocus(target)));
+        }
+
+        void HandleSelectTool(HttpListenerContext context)
+        {
+            string id = BridgeParams.From(context.Request).Get("id", string.Empty);
+            WriteJson(context.Response, QueueAction("select_tool", () => BridgeActions.SelectTool(id)));
+        }
+
+        void HandleUseTool(HttpListenerContext context)
+        {
+            BridgeParams up = BridgeParams.From(context.Request);
+            string id = up.Get("id", string.Empty);
+            string ux = up.Get("x", string.Empty);
+            string uy = up.Get("y", string.Empty);
+            WriteJson(context.Response, QueueAction("use_tool", () => BridgeActions.UseTool(id, ux, uy)));
+        }
+
+        void HandleCaptureReplay(HttpListenerContext context)
+        {
+            string file = context.Request.QueryString["file"] ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(file)) { WriteJson(context.Response, new { ok = false, error = "missing_file" }, HttpStatusCode.BadRequest); return; }
+            WriteJson(context.Response, QueueAction("capture_replay", () => WorldSphereMod.Capture.CaptureReplayer.ReplayFile(file)));
+        }
+
+        void HandleCaptureSave(HttpListenerContext context)
+        {
+            string name = context.Request.QueryString["name"] ?? string.Empty;
+            string source = context.Request.QueryString["source"] ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(name)) { WriteJson(context.Response, new { ok = false, error = "missing_name" }, HttpStatusCode.BadRequest); return; }
+            var (ok, savedPath, error) = WorldSphereMod.Capture.FlowLibrary.SaveAs(name, source);
+            WriteJson(context.Response, ok ? (object)new { ok = true, name, path = savedPath } : new { ok = false, error, name }, ok ? HttpStatusCode.OK : HttpStatusCode.BadRequest);
+        }
+
         // Reads request params from BOTH the query string and the JSON request body.
         // The HttpListener body stream can only be consumed ONCE, so callers build a single
         // BridgeParams per request and reuse it for every lookup (query takes precedence; the
@@ -650,61 +636,36 @@ namespace WorldSphereMod.Bridge
         // that every /actions param works whether passed as ?name= or {"name":...}.
         sealed class BridgeParams
         {
-            readonly System.Collections.Specialized.NameValueCollection _query;
-            Newtonsoft.Json.Linq.JObject _body;
-            bool _bodyParsed;
-            readonly string _rawBody;
+            ExecuteEndpoint(context, () => (HttpStatusCode.OK, handler()));
+        }
 
-            BridgeParams(System.Collections.Specialized.NameValueCollection query, string rawBody)
-            {
-                _query = query;
-                _rawBody = rawBody;
-            }
+        void ExecuteEndpoint(HttpListenerContext context, Func<string> handler, bool rawJson)
+        {
+            ExecuteEndpoint(context, () => (HttpStatusCode.OK, handler()), rawJson);
+        }
 
-            // Reads the body stream exactly once (it is non-seekable) so subsequent param lookups
-            // can fall back to JSON values without re-reading a now-exhausted stream.
-            public static BridgeParams From(HttpListenerRequest request)
+        void ExecuteEndpoint(HttpListenerContext context, Func<(HttpStatusCode statusCode, object payload)> handler)
+        {
+            ExecuteEndpoint(context, handler, rawJson: false);
+        }
+
+        void ExecuteEndpoint(HttpListenerContext context, Func<(HttpStatusCode statusCode, object payload)> handler, bool rawJson)
+        {
+            try
             {
-                string raw = string.Empty;
-                try
+                (HttpStatusCode statusCode, object payload) = handler();
+                if (rawJson)
                 {
-                    if (request.HasEntityBody)
-                        using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
-                            raw = reader.ReadToEnd();
+                    WriteRawJson(context.Response, payload as string ?? JsonConvert.SerializeObject(payload, Formatting.None), statusCode);
                 }
-                catch { /* body optional */ }
-                return new BridgeParams(request.QueryString, raw);
-            }
-
-            Newtonsoft.Json.Linq.JObject Body()
-            {
-                if (!_bodyParsed)
+                else
                 {
-                    _bodyParsed = true;
-                    if (!string.IsNullOrWhiteSpace(_rawBody))
-                    {
-                        try { _body = Newtonsoft.Json.Linq.JObject.Parse(_rawBody); }
-                        catch { _body = null; }
-                    }
+                    WriteJson(context.Response, payload, statusCode);
                 }
-                return _body;
             }
-
-            /// <summary>Query value wins; otherwise the JSON body value (numbers/strings/bools coerced to string). null when absent.</summary>
-            public string Get(string name)
+            catch (Exception ex)
             {
-                string q = _query[name];
-                if (!string.IsNullOrEmpty(q)) return q;
-                Newtonsoft.Json.Linq.JObject body = Body();
-                Newtonsoft.Json.Linq.JToken tok = body?[name];
-                if (tok == null || tok.Type == Newtonsoft.Json.Linq.JTokenType.Null) return null;
-                return tok.ToString(Newtonsoft.Json.Formatting.None).Trim('"');
-            }
-
-            public string Get(string name, string fallback)
-            {
-                string v = Get(name);
-                return string.IsNullOrEmpty(v) ? fallback : v;
+                WriteJson(context.Response, new { ok = false, error = "endpoint_error", message = ex.Message }, HttpStatusCode.InternalServerError);
             }
         }
 
@@ -1220,7 +1181,82 @@ namespace WorldSphereMod.Bridge
             // per-frame actor draws: actorDrawCumulative grows ~1/frame if drawing stably.
             actorDrawCumulative = WorldSphereMod.Voxel.VoxelRender.ActorDrawCallsCumulative,
             actorFrontCount = WorldSphereMod.Voxel.VoxelRender.ActorFrontCount,
+            // Render-foundation MACHINE state (commit 40f903d): lets wsm3d-verify.ps1
+            // confirm the LIT built-in fallback + lighting setup WITHOUT pixel sampling.
+            // All reads are cheap static-field / RenderSettings property accesses computed
+            // only on a /telemetry request (no per-frame cost).
+            renderFoundation = BuildRenderFoundationPayload(),
         };
+
+        /// <summary>
+        /// Machine-readable snapshot of the render-foundation: resolved shaders on the
+        /// live actor + terrain materials, ambient/sun lighting setup, and representative
+        /// mesh vertex counts. Read by Tools/wsm3d-verify.ps1 (TIER 1, pixel-free).
+        /// Fully null-safe so /telemetry never throws at the title screen.
+        /// </summary>
+        object BuildRenderFoundationPayload()
+        {
+            string actorShader = null;
+            int actorVerts = 0;
+            try
+            {
+                var actorMat = WorldSphereMod.Voxel.VoxelRender._material;
+                if (actorMat != null && actorMat.shader != null) actorShader = actorMat.shader.name;
+                actorVerts = WorldSphereMod.Voxel.VoxelRender.LastActorMeshVertCount;
+            }
+            catch { }
+
+            string terrainShader = null;
+            int terrainVerts = 0;
+            try
+            {
+                var terrainMat = Core.Sphere.LastTerrainMaterial;
+                if (terrainMat != null && terrainMat.shader != null) terrainShader = terrainMat.shader.name;
+                var terrainMesh = Core.Sphere.LastTerrainMesh;
+                if (terrainMesh != null) terrainVerts = terrainMesh.vertexCount;
+            }
+            catch { }
+
+            float ar = 0f, ag = 0f, ab = 0f;
+            string ambientMode = null;
+            bool sunPresent = false, sunIsDirectional = false;
+            float sunEulerX = 0f, sunEulerY = 0f, sunEulerZ = 0f, sunRotationDeg = 0f;
+            float timeOfDay = 0f;
+            try
+            {
+                UnityEngine.Color a = UnityEngine.RenderSettings.ambientLight;
+                ar = a.r; ag = a.g; ab = a.b;
+                ambientMode = UnityEngine.RenderSettings.ambientMode.ToString();
+                UnityEngine.Light sun = UnityEngine.RenderSettings.sun;
+                sunPresent = sun != null;
+                sunIsDirectional = sun != null && sun.type == UnityEngine.LightType.Directional;
+                if (sun != null)
+                {
+                    UnityEngine.Vector3 sunEuler = sun.transform.rotation.eulerAngles;
+                    sunEulerX = sunEuler.x;
+                    sunEulerY = sunEuler.y;
+                    sunEulerZ = sunEuler.z;
+                    sunRotationDeg = sunEuler.x;
+                }
+                timeOfDay = WorldSphereMod.Lighting.TimeOfDay.Current;
+            }
+            catch { }
+
+            return new
+            {
+                actorMaterialShader = actorShader,
+                terrainMaterialShader = terrainShader,
+                ambientLight = new { r = ar, g = ag, b = ab },
+                ambientMode,
+                sunPresent,
+                sunIsDirectional,
+                sunEuler = new { x = sunEulerX, y = sunEulerY, z = sunEulerZ },
+                sunRotationDeg,
+                timeOfDay,
+                actorMeshVertCount = actorVerts,
+                terrainMeshVertCount = terrainVerts,
+            };
+        }
 
         string BuildSettingsJson() => JsonConvert.SerializeObject(Core.savedSettings ?? new SavedSettings(), Formatting.Indented);
 
@@ -1300,12 +1336,36 @@ namespace WorldSphereMod.Bridge
                     }
 
                     SaveManager.setCurrentPathAndId(queuedPath, queuedSlot);
-                    World.world.save_manager.prepareLoading();
-                    World.world.save_manager.loadWorld(queuedPath, false);
+
+                    // ROOT-CAUSE FIX (#scene-entry): loadWorld() only ENQUEUES the load steps
+                    // (setMapSize -> finishMakingWorld) into SmoothLoader. SmoothLoader is pumped
+                    // by MapBox.Update, but MapBox.Update early-returns while Config.game_loaded
+                    // is false (it stays false at the main menu / pre-first-world). So a bare
+                    // loadWorld from the bridge enqueued everything and NOTHING drained it:
+                    // MapBox.width/height stayed 0 and the fork's Become3D (guarded on width>0)
+                    // never ran. The menu "Load" button avoids this because startTheGame() sets
+                    // Config.game_loaded = true BEFORE enqueuing. Mirror the menu path exactly:
+                    // drive startTheGame with load_save_on_start so the engine sets game_loaded,
+                    // queues loadWorld + addLastStep (re-enables the SpriteRenderer/nameplate),
+                    // and the SmoothLoader pump drains to a real in-gameplay world.
+                    Config.game_loaded = true;
+                    Config.load_new_map = false;
+                    Config.load_save_on_start = true;
+                    Config.load_save_on_start_slot = queuedSlot;
+                    // NOTE: do NOT call save_manager.prepareLoading() here — it's a private
+                    // WorldBox method (publicizer trap: compiles but throws under NML's Roslyn).
+                    // startTheGame's load_save_on_start branch calls loadWorld() directly without
+                    // a manual prepareLoading, so the menu path does not need it either.
+                    MapBox.instance.startTheGame(false);
+
                     // loadWorld Postfix also runs survival; belt-and-suspenders if patch order differs.
                     CaptureMainThread();
                     EnsureCreated();
                     DrainStaticQueue();
+
+                    // Post-condition log fires once SmoothLoader has drained setMapSize
+                    // (MapBox.width becomes non-zero) so the operator can confirm scene entry.
+                    LogWorldEnteredWhenReady("load_save slot=" + queuedSlot);
                 }
                 catch (Exception ex)
                 {
@@ -1314,6 +1374,152 @@ namespace WorldSphereMod.Bridge
             });
 
             return new { ok = true, slot, path, queued = true };
+        }
+
+        /// <summary>
+        /// Post-condition probe: poll up to ~10s (on the main thread via coroutine) until
+        /// SmoothLoader has drained setMapSize so MapBox.width becomes non-zero, then log the
+        /// real entered dimensions. Confirms the scene-entry fix worked without blocking the
+        /// HTTP response. Safe no-op if the BridgeServer host coroutine can't start.
+        /// </summary>
+        void LogWorldEnteredWhenReady(string source)
+        {
+            try { StartCoroutine(WorldEnteredProbe(source)); }
+            catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] world-entered probe failed to start: " + ex.Message); }
+        }
+
+        System.Collections.IEnumerator WorldEnteredProbe(string source)
+        {
+            const int maxFrames = 600; // ~10s at 60fps; world load streams over many frames
+            // SCENE-ENTRY DETECTION (#generate-path fix): the original gate required
+            // !SmoothLoader.isLoading(), but on the bridge GENERATE path SmoothLoader never
+            // fully drains to isLoading()==false within the probe window (the post-gen idle
+            // steps / addLastStep keep a step queued), so the probe always TIMED OUT and
+            // EnsureBecome3D never fired -> isWorld3D stayed false, drawCalls=0.
+            //
+            // The real readiness signal the menu path relies on is: the engine considers the
+            // game loaded (Config.game_loaded) AND MapBox has real dimensions (width/height>0,
+            // i.e. setMapSize ran). Once both hold the world IS entered; isLoading() merely
+            // reflects residual streaming steps. So we PROCEED to Become3D as soon as map dims
+            // are non-zero and game_loaded is set, without waiting for isLoading()==false. We
+            // still give SmoothLoader a brief grace settle so most streaming finishes first.
+            const int settleFramesAfterReady = 30; // ~0.5s grace once dims+game_loaded hold
+            int readyFor = 0;
+            for (int i = 0; i < maxFrames; i++)
+            {
+                int w = 0, h = 0;
+                try { w = MapBox.width; h = MapBox.height; } catch { }
+                bool gameLoaded = false;
+                try { gameLoaded = Config.game_loaded; } catch { }
+                bool loading = true;
+                try { loading = SmoothLoader.isLoading(); } catch { }
+
+                bool dimsReady = w > 0 && h > 0 && gameLoaded;
+                // Fast path: full drain (dims + game_loaded + streaming finished).
+                // Fallback path: dims + game_loaded held stable for a short grace window even
+                // though isLoading() never cleared (the generate-path symptom).
+                if (dimsReady) readyFor++; else readyFor = 0;
+                bool proceed = dimsReady && (!loading || readyFor >= settleFramesAfterReady);
+
+                if (proceed)
+                {
+                    Debug.Log($"[WSM3D][Bridge] world entered: mapSize={w}x{h} gameLoaded={gameLoaded} stillLoading={loading} (via {source})");
+                    // DOWNSTREAM FIX: on the bridge-driven entry path (startTheGame from the
+                    // RPC queue) the General.cs SphereControl.CreateSphere postfix on
+                    // MapBox.finishMakingWorld does NOT fire/queue Become3D the way the menu
+                    // path does (empirically: "Tidying Up The World" runs but no "Becoming 3D!"
+                    // SmoothLoader step and no Become3D/HEIGHT-DIAG/COLOR-DIAG log appears), so
+                    // Sphere is never created and isWorld3D stays false. Drive the 3D conversion
+                    // explicitly here, mirroring what the postfix is supposed to do: only when
+                    // Is3D is enabled and the map fits the 3D tile budget. If a prior Sphere
+                    // exists, EnsureBecome3D tears it down and rebuilds it for this map.
+                    EnsureBecome3D(source, w, h);
+                    yield break;
+                }
+                yield return null;
+            }
+            int fw = 0, fh = 0;
+            try { fw = MapBox.width; fh = MapBox.height; } catch { }
+            bool fGameLoaded = false; try { fGameLoaded = Config.game_loaded; } catch { }
+            bool fLoading = true; try { fLoading = SmoothLoader.isLoading(); } catch { }
+            // Last-ditch: if dims are valid we still drive Become3D rather than abandoning the
+            // entry — a non-zero map is a real world regardless of the loading flag.
+            if (fw > 0 && fh > 0)
+            {
+                Debug.LogWarning($"[WSM3D][Bridge] world entered: dims ready at timeout mapSize={fw}x{fh} gameLoaded={fGameLoaded} stillLoading={fLoading} (via {source}) — driving Become3D anyway");
+                EnsureBecome3D(source, fw, fh);
+                yield break;
+            }
+            Debug.LogWarning($"[WSM3D][Bridge] world entered: TIMEOUT mapSize={fw}x{fh} gameLoaded={fGameLoaded} stillLoading={fLoading} (via {source}) — scene entry did not complete");
+        }
+
+        /// <summary>
+        /// Explicitly drive the 3D conversion on the bridge entry path when the finishMakingWorld
+        /// postfix did not. No-op when Is3D is off, or the map exceeds the 3D tile budget
+        /// (Become3D would skip it anyway). If a prior sphere exists, tear it down first so the
+        /// heightfield and camera rebuild against the newly entered world.
+        /// </summary>
+        static void EnsureBecome3D(string source, int w, int h)
+        {
+            try
+            {
+                var settings = Core.savedSettings;
+                if (settings == null || !settings.Is3D) return;
+                if (Core.IsWorld3D)
+                {
+                    Debug.Log($"[WSM3D][Bridge] rebuilding 3D for new world (prior sphere existed) via {source}");
+                    try { Core.Become2D(); }
+                    catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] Become2D teardown failed: " + ex.Message); }
+                }
+                long totalTiles = (long)w * h;
+                if (totalTiles > settings.MaxTilesFor3D)
+                {
+                    Debug.LogWarning($"[WSM3D][Bridge] skipping Become3D: {w}x{h}={totalTiles} > MaxTilesFor3D={settings.MaxTilesFor3D} (via {source})");
+                    return;
+                }
+                Debug.Log($"[WSM3D][Bridge] driving Become3D explicitly via {source}");
+                // When the bridge drives startTheGame, NML's IStagedLoad Init()/PostInit()
+                // callbacks (which call Core.Init -> Sphere.PrepareAssets) may not have fired,
+                // so the 'worldsphere' AssetBundle (CompoundSphereMaterial + CompoundSphereMesh)
+                // was never loaded and Sphere.Begin aborts with "...missing — Bundle load likely
+                // failed." PrepareAssets is idempotent and has NO World dependency, so force it
+                // here before Become3D so the Sphere manager can be created.
+                try { Core.Sphere.PrepareAssets(); }
+                catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] PrepareAssets (forced) failed: " + ex.Message); }
+                // Core.Init (which sets Sphere.HeightMult = Max(TileHeight,1)) also never ran on
+                // the bridge staged-load path, leaving HeightMult=0. CompoundSpheres'
+                // SphereManager.SphereTilePosition NREs when building tiles with HeightMult=0,
+                // so seed it from settings here (mirrors Core.Init).
+                try
+                {
+                    if (Core.Sphere.HeightMult <= 0f)
+                    {
+                        float th = settings.TileHeight > 0f ? settings.TileHeight : 1f;
+                        Core.Sphere.HeightMult = Mathf.Max(th, 1f);
+                        Debug.Log($"[WSM3D][Bridge] seeded Sphere.HeightMult={Core.Sphere.HeightMult} (Core.Init had not run)");
+                    }
+                }
+                catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] HeightMult seed failed: " + ex.Message); }
+                // Ensure CurrentShape is selected. The General.cs setMapSize prefix
+                // (SphereControl.PrepareShape -> Core.Sphere.PrepareShape) is what normally
+                // assigns CurrentShape = Shapes[CurrentShape]; if it did not fire on the bridge
+                // path, CreateSettings wires a null getSphereTilePosition delegate and
+                // CompoundSpheres' SphereManager.SphereTilePosition NREs while building tiles.
+                try
+                {
+                    int sw2 = w, sh = h;
+                    Core.Sphere.PrepareShape(ref sw2, ref sh);
+                }
+                catch (Exception ex) { Debug.LogWarning("[WSM3D][Bridge] PrepareShape (forced) failed: " + ex.Message); }
+                // Mirror SphereControl.CreateSphere: reset the PrepareWorld guard so Become3D
+                // reads real biome pixels (else vertex colors stay white). (#208)
+                try { Core.Sphere.ResetPrepared(); } catch { }
+                Core.Become3D();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[WSM3D][Bridge] EnsureBecome3D failed: " + ex.Message);
+            }
         }
 
         /// <summary>
@@ -1506,8 +1712,19 @@ namespace WorldSphereMod.Bridge
                         Debug.LogWarning("[WSM3D][Bridge] generate_world skipped: MapBox not ready");
                         return;
                     }
-                    MapBox.instance.generateNewMap();
-                    Debug.Log("[WSM3D][Bridge] generate_world: new map generated");
+                    // ROOT-CAUSE FIX: bare generateNewMap() enqueues finishMakingWorld into
+                    // SmoothLoader but does NOT set Config.game_loaded, so MapBox.Update never
+                    // pumps SmoothLoader and MapBox.width stays 0 (Become3D never runs).
+                    // startTheGame(true) is the menu "Generate New World" path: it sets
+                    // Config.game_loaded = true, generates, and queues addLastStep so the
+                    // pump drains to a real in-gameplay world.
+                    Config.game_loaded = true;
+                    MapBox.instance.startTheGame(true);
+                    CaptureMainThread();
+                    EnsureCreated();
+                    DrainStaticQueue();
+                    LogWorldEnteredWhenReady("generate_world");
+                    Debug.Log("[WSM3D][Bridge] generate_world: startTheGame(true) driven");
                 }
                 catch (Exception ex)
                 {
@@ -1652,23 +1869,25 @@ namespace WorldSphereMod.Bridge
 
         object BuildRenderStatsPayload()
         {
-            long drawCalls = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameDrawCalls;
-            long instances = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameInstances;
-            long buckets = WorldSphereMod.Voxel.MeshInstanceBatcher.FrameBucketCount;
-            bool fallbackPath = WorldSphereMod.Voxel.MeshInstanceBatcher.UseFallbackPath;
-            bool instancingBroken = WorldSphereMod.Voxel.MeshInstanceBatcher.InstancingBroken;
+            long drawCalls = SafeLong(() => WorldSphereMod.Voxel.MeshInstanceBatcher.FrameDrawCalls);
+            long instances = SafeLong(() => WorldSphereMod.Voxel.MeshInstanceBatcher.FrameInstances);
+            long buckets = SafeLong(() => WorldSphereMod.Voxel.MeshInstanceBatcher.FrameBucketCount);
+            bool fallbackPath = SafeBool(() => WorldSphereMod.Voxel.MeshInstanceBatcher.UseFallbackPath);
+            bool instancingBroken = SafeBool(() => WorldSphereMod.Voxel.MeshInstanceBatcher.InstancingBroken);
 
             int visibleUnits = 0;
             int visibleBuildings = 0;
             try
             {
-                ActorManager units = World.world != null ? World.world.units : null;
+                var world = World.world;
+                ActorManager units = world != null ? world.units : null;
                 if (units != null) visibleUnits = units.visible_units.count;
             }
             catch { }
             try
             {
-                BuildingManager buildings = World.world != null ? World.world.buildings : null;
+                var world = World.world;
+                BuildingManager buildings = world != null ? world.buildings : null;
                 if (buildings != null) visibleBuildings = buildings._visible_buildings_count;
             }
             catch { }
@@ -1715,6 +1934,7 @@ namespace WorldSphereMod.Bridge
             return new
             {
                 ok = true,
+                worldReady = World.world != null,
                 drawCalls,
                 instances,
                 buckets,
@@ -2305,6 +2525,11 @@ namespace WorldSphereMod.Bridge
         static int SafeCount(Func<int> read)
         {
             try { return read(); } catch { return 0; }
+        }
+
+        static bool SafeBool(Func<bool> read)
+        {
+            try { return read(); } catch { return false; }
         }
 
         static float SafeHitRate(Func<long> hits, Func<long> misses)

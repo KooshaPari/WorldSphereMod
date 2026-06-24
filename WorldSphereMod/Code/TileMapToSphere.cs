@@ -450,7 +450,7 @@ namespace WorldSphereMod.TileMapToSphere
             long timerMs = frameSw.ElapsedMilliseconds;
 
             long totalFrame = spriteMs + precalcMs + redrawMs + debugMs + timerMs;
-            if (totalFrame > 16 && Core.savedSettings != null && Core.savedSettings.ProfilerDump)
+            if (totalFrame > 16 && Core.savedSettings.ProfilerDump)
             {
                 UnityEngine.Debug.LogWarning($"[WSM3D][PERF] render3DStuff SLOW: {totalFrame}ms " +
                     $"(sprite={spriteMs}ms precalc={precalcMs}ms redraw={redrawMs}ms debug={debugMs}ms " +

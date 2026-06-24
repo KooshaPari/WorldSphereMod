@@ -18,7 +18,7 @@ namespace WorldSphereMod.Worldspace
         // Actor height in world-units (VoxelScaleMultiplier * ActorVoxelScaleFactor).
         // Cached at Attach time; used in LateUpdate to keep bar width proportional.
         float _actorH = 0.8f;
-
+        bool _uiVisible = true;
         const float kFullLength = 1f;
         const float kThickness = 0.1f;
         const float kHeadOffset = 0.2f;
@@ -31,6 +31,16 @@ namespace WorldSphereMod.Worldspace
         static MethodInfo? _ratioMethod;
         static bool _ratioMethodResolved;
         static readonly Dictionary<System.Type, MemberInfo?> _healthBarMemberCache = new();
+
+        public void SetUiVisible(bool visible)
+        {
+            _uiVisible = visible;
+            if (!visible)
+            {
+                var renderer = GetComponent<MeshRenderer>();
+                if (renderer != null) renderer.enabled = false;
+            }
+        }
 
         public static HealthBar? Attach(Actor a, Transform rigRoot)
         {
@@ -124,7 +134,7 @@ namespace WorldSphereMod.Worldspace
 
         void LateUpdate()
         {
-            if (Actor == null) return;
+            if (!_uiVisible || Actor == null) return;
             float hp = GetHpRatio(Actor);
             hp = Mathf.Clamp01(hp);
 

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using System.Diagnostics;
+using System.Collections.Generic;
 using HarmonyLib;
 using UnityEngine;
 using WorldSphereMod.Foliage;
@@ -132,6 +133,7 @@ namespace WorldSphereMod.ProcGen
                 Stopwatch regularSw = new Stopwatch();
                 int impostorCount = 0;
                 int regularCount = 0;
+                Dictionary<int, Mesh> frameSpriteMeshCache = new Dictionary<int, Mesh>(128);
 
                 if (profile) totalSw.Start();
 
@@ -155,6 +157,18 @@ namespace WorldSphereMod.ProcGen
                     if (Constants.PerpBuildings.ContainsKey(b.asset.id)) continue;
 
                     Vector3 cullPos = rd.positions[i];
+                    Vector3 rawPos = rd.positions[i];
+                    int tileX = Mathf.RoundToInt(rawPos.x);
+                    int tileY = Mathf.RoundToInt(rawPos.y);
+                    float height = rawPos.z;
+                    int buildingId = b.GetHashCode();
+                    string assetId = b.asset.id;
+                    if (_lastRenderStateByBuildingId.TryGetValue(buildingId, out BuildingRenderState lastState) &&
+                        lastState.Matches(assetId, tileX, tileY, height))
+                    {
+                        continue;
+                    }
+
                     if (cullPos.z < Constants.ZDisplacement * 0.5f)
                     {
                         cullPos = cullPos.To3DTileHeight(false);
@@ -223,7 +237,7 @@ namespace WorldSphereMod.ProcGen
                             BuildingRules rules = BuildingRulesRegistry.Resolve(b.asset.id);
 
                             Vector3 pos = rd.positions[i];
-                            Vector3 rawPos = pos;
+                            rawPos = pos;
                             if (pos.z < Constants.ZDisplacement * 0.5f)
                             {
                                 pos = pos.To3DTileHeight(false);
@@ -310,6 +324,7 @@ namespace WorldSphereMod.ProcGen
                     if (submitted)
                     {
                         rd.scales[i] = Vector3.zero;
+                        _lastRenderStateByBuildingId[buildingId] = new BuildingRenderState(assetId, tileX, tileY, height);
                     }
                 }
                 // Build-time queue is now rendered every Unity frame from the shared

@@ -25,7 +25,8 @@ public class VoxelMeshCacheInvariantsTests
     public void VoxelMeshCache_exposes_cache_lifecycle_and_build_entrypoints()
     {
         var source = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelMeshCache.cs");
-        source.Should().Contain("public static Mesh Get(Sprite sprite, int depth = -1, bool forceSyncBuild = false)");
+        source.Should().Contain("public static Mesh Get(Sprite sprite, int depth = -1, bool forceSyncBuild = false, VoxelEntityType entityType = VoxelEntityType.Unknown)");
+        source.Should().Contain("public static Mesh Get(Sprite sprite, ShapeHint shapeHint, bool forceSyncBuild = false, VoxelEntityType entityType = VoxelEntityType.Unknown)");
         source.Should().Contain("public static void PumpQueuedBuilds(int maxBuildsPerFrame = 1)");
         source.Should().Contain("public static void DrainCompletedBuilds(int maxCompletionsPerFrame = 8)");
         source.Should().Contain("public static void BeginFrame()");

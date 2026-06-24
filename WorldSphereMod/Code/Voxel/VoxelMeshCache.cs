@@ -61,12 +61,87 @@ namespace WorldSphereMod.Voxel
             public List<int> triangles = new List<int>();
             public List<Color32> colors = new List<Color32>();
             public MeshInvariantsSnapshot invariants;
-            // WHY: full CPU-side arrays captured BEFORE Mesh.UploadMeshData(true) freed the
-            // readable copy; disk-cache save reads these instead of the non-readable mesh.
-            public Vector3[] diskVertices;
-            public int[] diskTriangles;
-            public Color32[] diskColors;
-            public Vector3[] diskNormals;
+
+            // PERF: full CPU-side mesh data captured in SpriteVoxelizer.Build BEFORE
+            // mesh.UploadMeshData(true) strips it (isReadable=false). The truncated
+            // vertices/triangles/colors lists above are sampled (SampleLimit) for Bridge
+            // diagnostics; these full arrays exist solely so VoxelDiskCache can persist
+            // the mesh WITHOUT re-reading the stripped mesh — which otherwise emits four
+            // synchronous "Not allowed to access ... isReadable is false" LogWarnings per
+            // build, flushed to Player.log, blowing frame time up to ~2s (regression).
+            public Vector3[] fullVertices;
+            public int[] fullTriangles;
+            public Color32[] fullColors;
+            public Vector3[] fullNormals;
+
+            public bool HasFullData =>
+                fullVertices != null && fullVertices.Length > 0 &&
+                fullTriangles != null && fullTriangles.Length > 0;
+        }
+
+        /// <summary>
+        /// Reconstruct a transient CPU-readable <see cref="Mesh"/> from a snapshot's full
+        /// arrays so <see cref="VoxelDiskCache.EnqueueSave"/> can serialize it without
+        /// touching the GPU-uploaded (non-readable) source mesh. The caller owns the
+        /// returned mesh and must Destroy it after the save data is captured.
+        /// </summary>
+        static Mesh BuildReadableMeshFromSnapshot(MeshSnapshot snapshot)
+        {
+            if (snapshot == null || !snapshot.HasFullData) return null;
+            var mesh = new Mesh { name = snapshot.meshName ?? "voxel:disksave" };
+            if (snapshot.fullVertices.Length > 65535)
+            {
+                mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            }
+            mesh.SetVertices(snapshot.fullVertices);
+            if (snapshot.fullColors != null && snapshot.fullColors.Length == snapshot.fullVertices.Length)
+            {
+                mesh.SetColors(snapshot.fullColors);
+            }
+            mesh.SetTriangles(snapshot.fullTriangles, 0);
+            if (snapshot.fullNormals != null && snapshot.fullNormals.Length == snapshot.fullVertices.Length)
+            {
+                mesh.SetNormals(snapshot.fullNormals);
+            }
+            else
+            {
+                mesh.RecalculateNormals();
+            }
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        /// <summary>
+        /// Persist a freshly built voxel mesh to the disk cache. Prefers the snapshot's
+        /// full CPU-side arrays (captured pre-UploadMeshData) so we never read the
+        /// GPU-uploaded mesh's vertices/colors/triangles/normals — those reads emit the
+        /// "isReadable is false" LogWarning flood that regressed frame time to ~2s.
+        /// Falls back to the live mesh only when no full snapshot data is available.
+        /// </summary>
+        static void EnqueueDiskSave(string spriteName, Mesh mesh, MeshSnapshot snapshot, int depth, string style, string spriteHash)
+        {
+            if (Core.savedSettings == null || !Core.savedSettings.VoxelDiskCache) return;
+
+            if (snapshot != null && snapshot.HasFullData)
+            {
+                Mesh readable = BuildReadableMeshFromSnapshot(snapshot);
+                if (readable != null)
+                {
+                    try
+                    {
+                        VoxelDiskCache.EnqueueSave(spriteName, readable, depth, style, spriteHash);
+                    }
+                    finally
+                    {
+                        Object.DestroyImmediate(readable);
+                    }
+                    return;
+                }
+            }
+
+            // Fallback: no full snapshot data (non-Build sources). May still warn if the
+            // mesh is GPU-uploaded, but Build-sourced meshes always carry full snapshot data.
+            VoxelDiskCache.EnqueueSave(spriteName, mesh, depth, style, spriteHash);
         }
 
         struct Entry
@@ -612,15 +687,8 @@ namespace WorldSphereMod.Voxel
                 {
                     int depth = Core.savedSettings != null ? Core.savedSettings.VoxelSpriteDepth : 8;
                     string spriteHash = VoxelDiskCache.ComputeSpriteHash(completion.Sprite);
-                    VoxelDiskCache.EnqueueSave(
-                        completion.Sprite.name,
-                        completion.Snapshot.diskVertices,
-                        completion.Snapshot.diskTriangles,
-                        completion.Snapshot.diskColors,
-                        completion.Snapshot.diskNormals,
-                        depth,
-                        completion.InflationStyle ?? "pertexel",
-                        spriteHash);
+                    EnqueueDiskSave(completion.Sprite.name, mesh, completion.Snapshot, depth,
+                        completion.InflationStyle ?? "pertexel", spriteHash);
                 }
 
                 drained++;
@@ -1123,7 +1191,10 @@ namespace WorldSphereMod.Voxel
             }
 
             int triCount = mesh.subMeshCount > 0 ? (int)(mesh.GetIndexCount(0) / 3) : 0;
-            Debug.Log($"[WSM3D] Voxelized sprite \"{sprite.name}\" style=\"{inflationStyle}\" -> {mesh.vertexCount} verts, {triCount} tris, bounds={mesh.bounds}");
+            if (Core.savedSettings.ProfilerDump)
+            {
+                Debug.Log($"[WSM3D] Voxelized sprite \"{sprite.name}\" style=\"{inflationStyle}\" -> {mesh.vertexCount} verts, {triCount} tris, bounds={mesh.bounds}");
+            }
         }
 
         static Mesh BuildVoxelMesh(Sprite sprite, int depth, out Mesh mesh)
@@ -1164,7 +1235,7 @@ namespace WorldSphereMod.Voxel
                     int key = sprite.GetInstanceID();
                     lock (_lock)
                     {
-                        if (_diagnosedShapeHints.Add(key))
+                        if (Core.savedSettings.ProfilerDump)
                         {
                             Debug.Log($"[WSM3D][ShapeHintMap] sprite=\"{sprite.name}\" hint={shapeHint} bucket={inflationStyle}");
                         }

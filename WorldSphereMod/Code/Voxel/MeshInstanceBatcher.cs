@@ -40,7 +40,7 @@ namespace WorldSphereMod.Voxel
             // Scratch buffers reused across frames; grown (never shrunk) to current batch
             // size for DrawMeshInstanced fast-path arrays.
             public Matrix4x4[] MatScratch = new Matrix4x4[kBatch];
-            public Vector4[] ColScratch = new Vector4[kBatch];
+            public Vector4[] ColorScratch = new Vector4[kBatch];
         }
 
         readonly struct SubmitRecord
@@ -56,6 +56,38 @@ namespace WorldSphereMod.Voxel
                 Material = material;
                 Matrix = matrix;
                 Tint = tint;
+            }
+        }
+
+        // Per-mesh normals-recalc guard. RENDER-FOUNDATION: a lit / vertex-lit
+        // shader (Mobile/VertexLit, Standard, Diffuse) on a mesh with zero
+        // normals renders as pure black — every fragment normalizes (0,0,0) and
+        // the diffuse term collapses. The greedy-mesh / building-mesh / foliage
+        // generators DO call RecalculateNormals, but the normal array can be
+        // empty if UploadMeshData(true) freed the readable copy, the mesh was
+        // mutated later, or an importer stripped the channel. Track per-mesh
+        // whether we've already inspected it so the per-frame Submit path stays
+        // O(1) on the hot path.
+        static readonly System.Collections.Generic.HashSet<int> _normalsEnsuredIds =
+            new System.Collections.Generic.HashSet<int>();
+        static void EnsureNormals(Mesh mesh)
+        {
+            if (mesh == null) return;
+            int id = mesh.GetInstanceID();
+            if (_normalsEnsuredIds.Contains(id)) return;
+            _normalsEnsuredIds.Add(id);
+            Vector3[]? existing = mesh.normals;
+            if (existing != null && existing.Length >= mesh.vertexCount && mesh.vertexCount > 0)
+            {
+                return;
+            }
+            try
+            {
+                mesh.RecalculateNormals();
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[WSM3D][RENDER-FOUNDATION] RecalculateNormals failed for mesh '{mesh.name}': {ex.Message}");
             }
         }
 
@@ -133,7 +165,7 @@ namespace WorldSphereMod.Voxel
         // (no INSTANCING_ON), which IS present (terrain MeshRenderer + foliage prove
         // it), and UNITY_ACCESS_INSTANCED_PROP falls back to the MPB/material _Color
         // there. Default to that path so actors render with correct per-actor color.
-        static bool _useFallbackPath = true;
+        static bool _useFallbackPath = false;
         static bool _verboseDrawLoggingArmed;
         static bool _verboseDrawLoggingConsumed;
         static bool _renderTargetLogged;
@@ -180,6 +212,11 @@ namespace WorldSphereMod.Voxel
             // to 2D sprite billboards. Trust upstream mesh validity beyond
             // the vertexCount check.
             if (mesh.vertexCount <= 0) return;
+
+            // RENDER-FOUNDATION: a lit / vertex-lit shader on a normals-less
+            // mesh renders as pure black. O(1) on the hot path: one HashSet
+            // lookup per mesh, then early-out. See EnsureNormals.
+            EnsureNormals(mesh);
 
             if (Core.savedSettings.ProfilerDump && !_verboseDrawLoggingArmed && !_verboseDrawLoggingConsumed)
             {
@@ -304,10 +341,10 @@ namespace WorldSphereMod.Voxel
                     if (bucket.MatScratch.Length < n)
                     {
                         bucket.MatScratch = new Matrix4x4[n];
-                        bucket.ColScratch = new Vector4[n];
+                        bucket.ColorScratch = new Vector4[n];
                     }
                     bucket.Matrices.CopyTo(offset, bucket.MatScratch, 0, n);
-                    bucket.Colors.CopyTo(offset, bucket.ColScratch, 0, n);
+                    bucket.Colors.CopyTo(offset, bucket.ColorScratch, 0, n);
 
                     if (!CanUseInstancedDraw(material, out string disableReason))
                     {
@@ -321,13 +358,12 @@ namespace WorldSphereMod.Voxel
                     }
 
                     bucket.Block.Clear();
-                    bucket.Block.SetVectorArray(_colorProp, bucket.ColScratch);
-                    bucket.Block.SetVectorArray(_colorPropUnlit, bucket.ColScratch);
-                    // Fill emission scratch array so UNITY_ACCESS_INSTANCED_PROP
-                    // reads the correct value. SetColor alone writes a shared
-                    // value that the per-instance cbuffer ignores, causing
-                    // _EmissionColor to fall back to the material default (0,0,0)
-                    // — which makes voxels invisible against dark backgrounds.
+                    // OpaqueVertexColor reads instanced _Color/_EmissionColor via
+                    // UNITY_ACCESS_INSTANCED_PROP, so these must be populated with
+                    // SetVectorArray. SetColor would write only the shared fallback
+                    // value, which the instanced cbuffer ignores.
+                    bucket.Block.SetVectorArray(_colorProp, bucket.ColorScratch);
+                    bucket.Block.SetVectorArray(_colorPropUnlit, bucket.ColorScratch);
                     if (_emissionScratch.Length < n)
                         _emissionScratch = new Vector4[n];
                     Vector4 emV = _bakeEmission;
@@ -378,7 +414,7 @@ namespace WorldSphereMod.Voxel
 
                 }
 
-                    bucket.Matrices.Clear();
+                bucket.Matrices.Clear();
                 bucket.Colors.Clear();
                 FrameBucketCount++;
             }
@@ -586,10 +622,7 @@ namespace WorldSphereMod.Voxel
 
             Interlocked.Exchange(ref _pendingSubmissionCount, 0);
             _buckets.Clear();
-            // Keep non-instanced default across world reloads — the bundled
-            // OpaqueVertexColor INSTANCING_ON variant is missing (see field decl),
-            // so re-enabling instancing here would resurrect the magenta bug.
-            _useFallbackPath = true;
+            _useFallbackPath = Core.savedSettings != null && Core.savedSettings.ForceFallbackDrawPath;
             _instancingErrorLogged = false;
             _standardInstancingAttempted = false;
             _verboseDrawLoggingArmed = false;
