@@ -16,9 +16,9 @@ jobs:
     name: live verify (offline)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: |
             5.0.x
@@ -76,7 +76,7 @@ jobs:
 
       - name: Upload live-verify report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: live-verify-offline-report
           path: Tools/.reports/live-verify-latest.json
