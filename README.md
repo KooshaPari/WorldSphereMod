@@ -1,288 +1,51 @@
-<!-- AI-DD-META:START -->
-<!-- This repository is planned, maintained, and managed by AI Agents only. -->
-<!-- Slop issues are expected and intentionally present as part of an HITL-less -->
-<!-- /minimized AI-DD metaproject of learning, refining, and building brute-force -->
-<!-- training for both agents and the human operator. -->
-![Downloads](https://img.shields.io/github/downloads/KooshaPari/worldspheremod/total?style=flat-square&label=downloads&color=blue)
-![GitHub release](https://img.shields.io/github/v/release/KooshaPari/worldspheremod?style=flat-square&label=release)
-![License](https://img.shields.io/github/license/KooshaPari/worldspheremod?style=flat-square)
-![AI-Slop](https://img.shields.io/badge/AI--DD-Slop%20Expected-orange?style=flat-square)
-![AI-Only-Maintained](https://img.shields.io/badge/Planned%20%26%20Maintained%20by-AI%20Agents%20Only-red?style=flat-square)
-![HITL-less](https://img.shields.io/badge/HITL--less%20AI--DD-metaproject-yellow?style=flat-square)
+# WorldSphereMod (WSM3D) â€” Backup Repository
 
-> ⚠️ **AI-Agent-Only Repository**
->
-> This repo is **planned, maintained, and managed exclusively by AI Agents**.
-> Slop issues, rough edges, and AI artifacts are **expected and intentionally
-> present** as part of an **HITL-less / minimized AI-DD** metaproject focused
-> on learning, refining, and brute-force training both the agents and the
-> human operator. Bug reports and contributions are still welcome, but please
-> expect AI-generated code, comments, and documentation throughout.
-<!-- AI-DD-META:END -->
-# WorldSphereMod3D (hard fork)
+**This is a backup of the deleted `KooshaPari/WorldSphereMod` repository.**
 
-**Canonical checkout:** `E:\Dev\WorldSphereMod` on branch `wip/208-height-fix`. Install path: `worldbox_Data/StreamingAssets/Mods/WorldSphereMod`. See [`docs/CANONICAL.md`](docs/CANONICAL.md).
+The original WSM3D repo (a Unity/BepInEx mod for WorldBox) was deleted from
+GitHub prior to 2026-06-23. This backup was created from a complete local
+clone on the same day.
 
-Docs: <https://kooshapari.github.io/WorldSphereMod/>
+## What's here
 
-A hard fork of [MelvinShwuaner/WorldSphereMod](https://github.com/MelvinShwuaner/WorldSphereMod)
-that finishes the 3D conversion of WorldBox.
+| Branch | Description |
+|--------|-------------|
+| `main` | Primary main from `C:\Users\koosh\Dev\WorldSphereMod`, including the IGridDimensions Compound-Spheres submodule fix |
+| `backup/e-main-snapshot` | Secondary main from `E:\dev\WorldSphereMod` (E: drive), preserving the `wip/208-height-fix` and other WIP merges that diverged from C: main |
+| `preserve/stash-0-feat-render-foundation-builtin` through `preserve/stash-8-shader-wip` | 9 git stashes preserved as branches (the original `git stash list` is also still intact in the local repo) |
+| `scratch/wip-state-2026-06` | WIP scratch state (docs/journeys, docs/progress, .claude, wsm3d_L1_progress) preserved as a branch |
 
-Upstream `WorldSphereMod` puts the **terrain** in 3D but leaves every visible
-entity — actors, buildings, drops, items, projectiles, effects, talk bubbles,
-shadows, even Crabzilla and dragons — as a 2D `SpriteRenderer` that's been
-rotated to face the camera. UI is flat Canvas, water is tile colour, foliage
-is sprite cards, lighting is a skybox + per-tile baked colour, animation is
-frame-swap sprite arrays.
+All 38 GitHub `origin/*` remote branches are also cached locally in the
+recovered `.git` object store. To re-fetch them, use the bundle at
+`C:\Users\koosh\_wsm3d_audit\wsm3d-full-backup.bundle` (173 MB).
 
-This fork lands a real 3D pipeline on top of that foundation:
+## Submodule: Compound-Spheres-3D
 
-| Phase | Status | What changes |
-|---|---|---|
-| 0  | CODE_LANDED | Fork metadata, build portability (`WORLDBOX_PATH`), CI, settings/API v2 |
-| 1  | PROVEN | Voxelized actors + buildings. **default ON** — `VoxelEntities = true`. visible_units=46 confirmed in-game. |
-| 2  | CODE_LANDED | Procedural building meshes. **default ON** — `ProceduralBuildings = true`. |
-| 3  | CODE_LANDED | 3a trees/bushes/rocks crossed-quads + 3b surface overlays + walls as 3D prisms. Current code default: `CrossedQuadFoliage = false`. |
-| 4  | CODE_LANDED | Mesh water — WaterGerstner shader source landed; AssetBundle bake deferred. **default ON** — `MeshWater = true`. |
-| 5  | CODE_LANDED | Sun driver + shadow cascade config + procedural sky landed. Current code defaults: `HighShadows = false`, `HdrSkybox = false`, `ColorGradingLut = false`. |
-| 6  | CODE_LANDED | Skeletal pipeline. Current code default: `SkeletalAnimation = false`. |
-| 7  | CODE_LANDED | Worldspace UI: nameplate, HP bar, damage popups, selection ring all landed; SelectionHooks wired via `SelectedUnit`. Current code defaults: `WorldspaceUI = false`, `WorldspaceLabel3D = false`. |
-| 8  | CODE_LANDED | TimeOfDay autonomous driver + SunRig color gradient; ProceduralSky landed. **default ON** — `DayNightCycle = true`; `FogDensity = 0.05f`. |
-| 9  | CODE_LANDED | Particle bursts on 5 effect IDs + URP PostFX volume. Current code defaults: `ParticleEffects = false`, `PostFX = false`, `SSAOEnabled = false`, `SSGIEnabled = false`. |
-| 10 | CODE_LANDED | FrustumCuller + LodSelector + ImpostorBillboard + softened hardware gate; Proxy tier still routes to Voxel. |
+`External/Compound-Spheres` is a git submodule pointing to
+[`KooshaPari/Compound-Spheres-3D-Backup`](https://github.com/KooshaPari/Compound-Spheres-3D-Backup),
+which contains the merged `sota/gpu-compute-golive` + `perf/incremental-heightfield`
+work that was integrated as part of the WSM3D finish.
 
-`v2.0.0-beta.0` marks the start of beta in the project history. Phase 1 voxel actors are now PROVEN with visible_units=46 confirmed in-game. Remaining phases await runtime validation per `docs/issue-triage.md`.
+## Build status
 
-The full plan, including file-by-file changes and verification steps, lives
-at `docs/PLAN.md`.
+- **Compound-Spheres** (submodule): builds clean, 19/19 tests pass
+- **WorldSphereMod.Tests.Unit**: 157/161 pass (1 pre-existing test failure, 3 skipped)
+- **WorldSphereMod.Tests.E2E**: 387/399 pass (12 pre-existing test failures â€” all caused by the intentional Phase 6 â†’ CS3D water-surface migration, not by the merge work)
+- **WorldSphereMod main project**: requires Unity / WorldBox DLLs; cannot build standalone
 
-## Divergence from upstream
+The `main` branch in this repo includes a fix for a merge-induced interface
+gap: `IGridDimensions` was missing 3 members (`HasDirtyHeights`,
+`SnapshotDirtyHeights()`, `TotalTiles`) that `HeightFieldRenderer.cs` called
+after the sota+perf merges. See Compound-Spheres commit `75c7f96`.
 
-Forked at upstream `2188cb7a` (2026-05-18). As of 2026-05-30 we are **10 ahead / 682 behind**
-(the "behind" count is inflated by hard-fork history; the substantive missing upstream
-work is 10 commits from 05-25→05-29). Full audit: [`docs/upstream-divergence-audit.md`](docs/upstream-divergence-audit.md).
+## Recovery context
 
-| Feature | Upstream behavior | Our fork behavior | User-facing change | Technical change | Outcome (what the user sees/gets) |
-|---|---|---|---|---|---|
-| Entities (actors/buildings/drops/etc.) | 2D `SpriteRenderer` rotated to face camera | Voxelized actors + buildings, procedural meshes | Real 3D units instead of flat billboards | Voxel/mesh pipeline, `VoxelEntities=true` default (Phase 1, PROVEN) | Solid 3D characters and structures |
-| Rendering backend | Vendored `CompoundSpheres.dll` binary | Submodule `External/Compound-Spheres` (`wsm3d/main`) with per-vertex normals + water-mask + FrustumCuller + HeightFieldRenderer | — | Replaces vendored DLL with source submodule build | Terrain relief, water, culling we control |
-| Terrain | Flat 3D tile tops | Height-field terrain with biome colors, slopes, Perlin detail | Elevation and smooth biome-colored surface | `HeightFieldRenderer` in submodule | Hills/valleys instead of flat grid |
-| Foliage | 2D sprite cards | Crossed-quad 3D trees/bushes/rocks (scale 8x) | Trees stand up in 3D | `CrossedQuadFoliage` (Phase 3) | 3D vegetation |
-| Water | Tile color | Mesh water (translucent fluid; Gerstner shader source) | Water looks like a fluid surface | `MeshWater` + water sub-mesh | Translucent animated water |
-| Walls | (upstream `170faf30` adds a 3D wall path — NOT yet merged) | 3D prism walls via our Phase 3 overlays | Walls render in 3D | Our overlay path; upstream's `QuantumSprites.drawWallType` prefix is a safe future cherry-pick | Standing walls |
-| Lighting / sky | Skybox + baked per-tile color | Sun driver, shadow cascades, procedural sky, day/night driver | Dynamic lighting + optional day/night | Phases 5/8 (defaults OFF pending validation) | Real-time shadows, sky gradient |
-| UI | Flat Canvas | Worldspace 3D nameplates, HP bars, damage popups, selection ring | Floating in-world labels | Phase 7 (`WorldspaceUI`, default OFF) | 3D UI anchored to units |
-| API | v1 surface | v1 preserved + v2 (`IsModel3D`, `RegisterCustomMesh`) no-op on upstream host | External mods get 3D hooks | `WorldSphereAPI` v2, co-installable GUID `worldsphere3d.fork` | Other mods can register custom meshes |
-| Diagnostics | None | Typed render-error markers + `ErrorRegistry` + `/diag/errors` | Clearer failure reporting | `5c137e10` | Actionable render errors |
-| **NOT taken from upstream (05-25→05-29)** | `aab82167` cube-mesh terrain, `170faf30` wall fix, `19e73d6c`+`79bed66e` compute-backend re-integration + rebuilt DLL/AssetBundles | We use our own voxel + submodule pipeline | — | Upstream DLL is built against the new compute backend and bypasses our submodule; high conflict with voxel/heightfield work | Our 3D pipeline, not upstream's recent backend rewrite |
+- Original repo: `KooshaPari/WorldSphereMod` (deleted, not restorable via API)
+- GitHub Support restore: only via https://support.github.com/contact form
+- Local backup: `C:\Users\koosh\_wsm3d_audit\AUDIT_REPORT.md` (16 sections)
+- Bundle: `C:\Users\koosh\_wsm3d_audit\wsm3d-full-backup.bundle` (173 MB, 77 refs)
 
-## Installation
+## License
 
-This fork uses a different `GUID` (`worldsphere3d.fork`) than upstream so it
-is **co-installable** with the original `WorldSphereMod`. Enable only one at a
-time in NeoModLoader to avoid double-patching.
-
-NeoModLoader compiles `Code/*.cs` at runtime, so the install copies sources
-(plus `Assemblies/`, `AssetBundles/`, `GameResources/`, `Locales/`, `mod.json`)
-into `<WorldBox>/Mods/WorldSphereMod3D/`. On Windows the fastest path is:
-
-```powershell
-./Tools/install.ps1
-```
-
-The script auto-detects the default Steam install at
-`C:/Program Files (x86)/Steam/steamapps/common/Worldbox/`. Override with
-`-WorldBoxPath`, `-InstallFolderName`, or by setting `$env:WORLDBOX_PATH`.
-Pass `-SkipBuild` to skip the `dotnet build` sanity check.
-
-## Building
-
-The build uses your local WorldBox install for reference assemblies. Point
-`WORLDBOX_PATH` at it (the folder containing `worldbox_Data/`):
-
-```bash
-# Linux/macOS
-export WORLDBOX_PATH="$HOME/.steam/steam/steamapps/common/worldbox"
-dotnet build WorldSphereMod.csproj -c Release
-
-# Windows PowerShell
-$env:WORLDBOX_PATH = "C:/Program Files (x86)/Steam/steamapps/common/worldbox"
-dotnet build WorldSphereMod.csproj -c Release
-```
-
-If `WORLDBOX_PATH` is unset the build falls back to the default Steam
-location for the host OS (see `Directory.Build.props`).
-
-## Testing
-
-Full gate layout (programmatic vs agentic, OmniRoute vision, bridge checklist):
-[`docs/live-verification.md`](docs/live-verification.md).
-
-### dotnet test
-
-Fast, CI-friendly checks — API surface, install/manifest contracts, bridge source
-invariants, harness preflight:
-
-```powershell
-dotnet test tests/WorldSphereMod.Tests.Unit
-dotnet test tests/WorldSphereMod.Tests.Integration
-dotnet test tests/WorldSphereMod.Tests.E2E
-```
-
-Or run the full suite via the CLI: `./Tools/wsm3d.ps1 test` (same three projects).
-
-### wsm-live-verify.ps1
-
-Orchestrates the programmatic pipeline and optional live stages; writes
-`Tools/.reports/live-verify-latest.json`:
-
-```powershell
-# Offline (CI-equivalent): dotnet test + journey mock verify
-pwsh Tools/wsm-live-verify.ps1
-
-# With WorldBox + bridge on :8766: PlayCUA scenarios + optional SSIM
-pwsh Tools/wsm-live-verify.ps1 -Live
-pwsh Tools/wsm-live-verify.ps1 -Live -Vision   # OmniRoute vision on screenshot steps
-```
-
-Stages: (1) `dotnet test` unit/integration/e2e, (2) `phenotype-journey verify --mock`,
-(3) `[-Live]` bridge + all `sample-scenarios/*.yaml` + SSIM vs `phase-previews/`,
-(4) JSON report.
-
-### playcua run-all
-
-Agentic gate — requires a running game, mod installed, and BridgeRPC on
-`127.0.0.1:8766`. Runs every YAML under `Tools/wsm3d-playcua/sample-scenarios/`:
-
-```powershell
-pip install -r Tools/wsm3d-playcua/requirements.txt
-pwsh Tools/wsm3d.ps1 launch
-Start-Sleep -Seconds 20
-pwsh Tools/wsm3d.ps1 playcua run-all
-pwsh Tools/wsm3d.ps1 playcua run-all -VisionBackend omniroute
-```
-
-Per-scenario artifacts land in `Tools/wsm3d-playcua/.reports/run-all-artifacts/`.
-
-### CI gates
-
-| Workflow | What it enforces |
-|---|---|
-| `build.yml` | `dotnet build` Release |
-| `test-gate.yml` | Unit + integration tests (E2E not in this gate) |
-| `live-verify-gate.yml` | Offline stages 1–2 of `wsm-live-verify.ps1` (`dotnet test` + journey mock) |
-| `lint-gate.yml` | Format / analyzers |
-| `journeys-gate.yml` | Journey JSON + fixture PNGs when `docs/journeys/**` changes |
-| `docs-build-gate.yml` | Docs site build when docs change |
-| `nightly.yml` | Full test matrix including E2E (integration may be allowed to fail) |
-
-**PR merge bar:** green `build`, `test-gate`, `lint-gate`, `journeys-gate` (when
-journeys change), and `docs-build-gate` (when docs change). PlayCUA, OmniRoute
-vision, and live journey capture stay local until a Windows game runner exists.
-
-## API
-
-External mods linking against `WorldSphereAPI.dll` keep the v1 surface
-unchanged. New v2 calls (`IsModel3D`, `RegisterCustomMesh`, …) safely no-op
-when the connected host is upstream rather than this fork.
-
-```csharp
-if (WorldSphereAPI.Connect(out var api))
-{
-    if (api.IsModel3D) {
-        api.RegisterCustomMesh("my_unit", myHandMadeMesh, myAlbedo);
-    }
-}
-```
-
-## Compatibility & hardware
-
-The compute-shader / GPU-instancing / indirect-args gate from upstream is
-preserved (`Mod.cs:21`). Hardware that fails the gate gets the same red icon
-as before. Phase 10 will add an impostor-billboard fallback path so the mod
-still does *something* useful on incompatible GPUs.
-
-## Credits
-
-- Upstream mod and `Compound-Spheres` rendering backend: **Melvin Shwuaner**.
-- This fork: documented in `docs/PLAN.md`.
-
-## Dev tooling
-
-Parallel topic work uses git worktrees under `%USERPROFILE%\.cursor\worktrees\WorldSphereMod` (`wt/<topic>` branches, one subagent each).
-Merge to `claude/research-ultraplan-fork-DdgI5` before a single `pwsh Tools/do-all.ps1 -Vision` from the main repo (OmniRoute vision degrades to off when the laptop probe fails).
-Full workflow: [`docs/HANDOFF.md`](docs/HANDOFF.md#parallel-development-worktrees).
-
-| Component | Purpose | Invocation |
-|---|---|---|
-| **wsm3d.ps1** | 540-LOC CLI: build, install, reload, toggle phases, screenshot, profiler, startup profile parse | `./Tools/wsm3d.ps1 build` / `install` / `reload-nml` / `toggle-phase` / `profile` / etc. (14 subcommands) |
-| **wsm3d profile** | Parse `[WSM3D] InitProfiler` startup buckets from latest `Player.log`, sort by slowest, and show per-bucket totals; profiler overlay remains opt-in | `./Tools/wsm3d.ps1 profile` / `./Tools/wsm3d.ps1 profile -DryRun` / `/wsm-profile` |
-| **wsm3d-stats.ps1** | Auto-generates stats dashboard (tests, LOC, patches, journeys, git, CI) to `docs/dashboard.md` | `pwsh Tools/wsm3d-stats.ps1` (runs nightly + on-demand) |
-| **wsm3d tab-completion** | PowerShell argument completer for all CLI subcommands | See "Enable tab-completion" below |
-| **MCP server** | Python FastMCP on port 8766; exposes phase state, build logs, manifest queries | `python Tools/wsm3d-mcp/main.py` (auto-launched by Claude commands) |
-| **/wsm-* slash commands** | 10 Claude Code shortcuts: build, install, reload, phases, tests, profile | `/wsm-build`, `/wsm-install`, `/wsm-reload`, `/wsm-toggle-phase`, etc. |
-| **wsm3d skill** | Auto-routed `.claude/skills/wsm3d/SKILL.md` for guided dev tasks | Invoked via Claude Code agent dispatch |
-| **phase journeys** | 10 Phenotype-org manifests (Phase 1–10) with checklist + validation steps; phase-0 hardening journeys cover capability discovery, profiler overlay, and capture tooling | `docs/journeys/manifests/us-wsm-phase-*/` |
-| **test suite** | 42 unit + 15 e2e tests (27 new); all green | `dotnet test` or `/wsm-test` |
-
-### Day in the life of an iteration
-
-```powershell
-# 1. Make a code change
-# 2. Build + install in one step
-./Tools/wsm3d.ps1 install
-
-# 3. Launch WorldBox with NML, wait for hot-reload (auto)
-# 4. Toggle Phase 1 in NML settings or via:
-./Tools/wsm3d.ps1 toggle-phase 1
-
-# 5. Screenshot in-game result
-./Tools/wsm3d.ps1 screenshot
-
-# 6. Verify with test suite
-./Tools/wsm3d.ps1 test
-
-# 7. Commit
-git add -A && git commit -m "Phase 1: ..."
-```
-
-### Slash commands available in Claude Code
-
-| Command | Tooltip |
-|---|---|
-| `/wsm-build` | Build WorldSphereMod.csproj to bin/Release |
-| `/wsm-install` | Install mod sources + assemblies to `<WorldBox>/Mods/WorldSphereMod3D/` |
-| `/wsm-reload` | Signal NML to hot-reload this mod (if running) |
-| `/wsm-toggle-phase` | Toggle a phase flag (1–10) on/off in SavedSettings |
-| `/wsm-current-phase` | Show which phases are active |
-| `/wsm-test` | Run full test suite (unit + e2e) |
-| `/wsm-test-unit` | Run unit tests only |
-| `/wsm-test-e2e` | Run e2e tests only |
-| `/wsm-profile` | Start frame profiler, collect 60s, export CSV |
-| `/wsm-manifest-query` | Search phase manifests by keyword (e.g., "water", "shadow") |
-
-### Enable tab-completion (PowerShell)
-
-The `wsm3d.ps1` CLI ships with a PowerShell argument completer. To enable it,
-add this line to your PowerShell `$PROFILE`:
-
-```powershell
-. "$env:USERPROFILE\Dev\WorldSphereMod\Tools\wsm3d.completion.ps1"
-```
-
-Or run this one-liner from the repo root:
-
-```powershell
-Add-Content $PROFILE "`n. `"$pwd\Tools\wsm3d.completion.ps1`""
-```
-
-Then reload your shell. Type `wsm3d.ps1 <TAB>` to see completions for all
-subcommands, phase toggles, and journey IDs.
-
-## Backend
-
-Upstream ships `CompoundSpheres.dll` as a vendored binary built from
-[MelvinShwuaner/Compound-Spheres](https://github.com/MelvinShwuaner/Compound-Spheres).
-Phase 0 keeps the vendored DLL for compatibility; Phase 5 replaces it with a
-submodule build (`External/Compound-Spheres-3D/`) that emits per-vertex normals
-and exposes a water-mask buffer.
+See individual source files. The original repo did not have a top-level
+LICENSE file.
