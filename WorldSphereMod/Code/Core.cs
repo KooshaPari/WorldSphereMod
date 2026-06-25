@@ -2403,8 +2403,7 @@ namespace WorldSphereMod
             // bundle deserialization with a valid Shader.name on this Unity
             // 2022.3 cross-patch build; the other wsm3d-shaders-bundle shaders
             // trigger a native ManagedStream crash that C# try/catch cannot
-            // intercept and would take the whole mod offline. DO NOT ADD MORE
-            // SHADERS to SafeShaders without re-validating the bundle on the
+            // intercept and would take the whole mod offline. DO NOT ADD MORE SHADERS to SafeShaders without re-validating the bundle on the
             // real Unity 60f1 runtime — see ADR-0013 for full rationale.
             public static readonly string[] SafeShaders = new[]
             {
