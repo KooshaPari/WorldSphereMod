@@ -34,6 +34,7 @@
     <Compile Include="..\..\WorldSphereMod\Code\SavedSettings.cs" Link="Mod\SavedSettings.cs" />
     <Compile Include="..\..\WorldSphereMod\Code\SavedSettingsJson.cs" Link="Mod\SavedSettingsJson.cs" />
     <Compile Include="..\..\WorldSphereMod\Code\Bridge\BridgeSettingParser.cs" Link="Mod\BridgeSettingParser.cs" />
+    <!-- Constants.cs pulled in UnityEngine via Rig/Effects namespaces; tests use reflection on the loaded WorldSphereMod assembly instead. -->
     <Compile Include="..\..\WorldSphereMod\Code\Import\TexturePackRegistry.cs" Link="Mod/TexturePackRegistry.cs" />
     <Compile Include="..\..\WorldSphereMod\Code\Import\TexturePackImporter.cs" Link="Mod/TexturePackImporter.cs" />
     <Compile Include="..\..\WorldSphereMod\Code\Texture\McPackManifestIO.cs" Link="Mod/McPackManifestIO.cs" />

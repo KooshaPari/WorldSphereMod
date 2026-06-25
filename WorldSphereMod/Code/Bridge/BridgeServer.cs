@@ -456,8 +456,8 @@ namespace WorldSphereMod.Bridge
             };
         }
 
-        void HandleHealth(HttpListenerContext context) => WriteJson(context.Response, BuildHealthPayload());
-        void HandleTelemetry(HttpListenerContext context) => WriteJson(context.Response, BuildTelemetryPayload());
+        void HandleHealth(HttpListenerContext context) => ExecuteEndpoint(context, BuildHealthPayload);
+        void HandleTelemetry(HttpListenerContext context) => ExecuteEndpoint(context, BuildTelemetryPayload);
         void HandleSettings(HttpListenerContext context) => WriteRawJson(context.Response, InvokeOnMainThread(BuildSettingsJson));
 
         void HandleVoxelSprite(HttpListenerContext context)
