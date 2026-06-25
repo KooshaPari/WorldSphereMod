@@ -844,7 +844,12 @@ namespace WorldSphereMod.Voxel
                 // billboards instead of 3D voxels. Symptom: user reports
                 // "voxel actors back to billboards".
                 EmitVoxelsCalled = true;
-                Tools.ClearTileHeightSmoothCache();
+                // PERF FIX: do NOT clear the tile-height-smooth cache per emit frame.
+                // The cache is bounded (TileHeightSmoothCacheCap) and self-trimming via LRU.
+                // Clearing it on every emit caused a 1160ms cold-miss storm on the first
+                // GetTileHeightSmooth() lookups in the same frame. The LRU eviction is
+                // sufficient to bound memory; the cache is meant to be populated, not cleared.
+                // (See TileHeightCacheInvariantsTests.EmitVoxels_does_not_clear_tile_height_cache_per_frame)
                 // FLICKER FIX (double-buffer): emit fills the BACK buffer (_actorSpriteCardBatches),
                 // cleared here at start. At emit END we atomically copy it to the FRONT buffer
                 // (_actorSpriteCardFront) which the per-frame flush redraws EVERY frame. Because
