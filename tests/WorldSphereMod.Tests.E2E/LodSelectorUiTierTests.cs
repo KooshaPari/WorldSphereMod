@@ -42,7 +42,7 @@ public sealed class LodSelectorUiTierTests
     public void VoxelRender_exposes_OnActorDamaged_hook_for_worldspace_ui()
     {
         var source = ReadSourceFile("WorldSphereMod/Code/Voxel/VoxelRender.cs");
-        source.Should().Contain("public static event Action<Actor, int> OnActorDamaged");
-        source.Should().Contain("public static void NotifyActorDamaged(Actor a, int damage)");
+        source.Should().Contain("public static event System.Action<Actor, int>? OnActorDamaged");
+        source.Should().Contain("public static void NotifyActorDamaged(Actor actor, int damageAmount)");
     }
 }

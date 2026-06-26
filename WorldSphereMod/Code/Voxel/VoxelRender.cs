@@ -73,9 +73,6 @@ namespace WorldSphereMod.Voxel
         static readonly int _actorSpriteCardColorId = Shader.PropertyToID("_Color");
         static readonly int _actorSpriteCardBaseColorId = Shader.PropertyToID("_BaseColor");
 
-        public static event Action<Actor, int> OnActorDamaged;
-        public static void NotifyActorDamaged(Actor a, int damage) => OnActorDamaged?.Invoke(a, damage);
-
         /// <summary>
         /// Destroy the cached material and clear the resolve-attempted latch. Call when
         /// the world reloads — static fields outlive Unity's scene teardown and the
