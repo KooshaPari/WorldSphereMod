@@ -815,6 +815,17 @@ namespace WorldSphereMod
             public static UnityEngine.Material LastTerrainMaterial;
             public static UnityEngine.Mesh LastTerrainMesh;
 
+            // ADR-0013: built-in shader names to fall back to when neither the
+            // CompoundSphere bundle nor Unity's global lookup finds a match.
+            // Used only when GeneratingSphere is true and the compound shader
+            // is unavailable (e.g. mod loaded before WorldSphereMod.dll).
+            public static readonly string[] BuiltInShaderFallbacks =
+            {
+                "Hidden/InternalErrorShader",
+                "Sprites/Default",
+                "Standard"
+            };
+
             public static void AddShape(Shape shape)
             {
                 Shapes.Add(shape);
