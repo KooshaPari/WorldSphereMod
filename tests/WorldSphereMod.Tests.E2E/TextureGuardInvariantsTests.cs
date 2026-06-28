@@ -18,7 +18,7 @@ public sealed class TextureGuardInvariantsTests
     static readonly string[] SkyMaterialSources =
     {
         "WorldSphereMod/Code/Lighting/ProceduralSky.cs",
-        "WorldSphereMod/Code/Water/WaterSurface.cs",
+        "External/Compound-Spheres/CompoundSpheres/HeightFieldRenderer.cs",
     };
 
     static string FindRepoRoot()
