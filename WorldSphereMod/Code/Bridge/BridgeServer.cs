@@ -636,7 +636,6 @@ namespace WorldSphereMod.Bridge
         // that every /actions param works whether passed as ?name= or {"name":...}.
         sealed class BridgeParams
         {
-            ExecuteEndpoint(context, () => (HttpStatusCode.OK, handler()));
         }
 
         void ExecuteEndpoint(HttpListenerContext context, Func<string> handler, bool rawJson)
