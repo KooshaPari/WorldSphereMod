@@ -456,8 +456,8 @@ namespace WorldSphereMod.Bridge
             };
         }
 
-        void HandleHealth(HttpListenerContext context) => WriteJson(context.Response, BuildHealthPayload());
-        void HandleTelemetry(HttpListenerContext context) => WriteJson(context.Response, BuildTelemetryPayload());
+        void HandleHealth(HttpListenerContext context) => ExecuteEndpoint(context, BuildHealthPayload);
+        void HandleTelemetry(HttpListenerContext context) => ExecuteEndpoint(context, BuildTelemetryPayload);
         void HandleSettings(HttpListenerContext context) => WriteRawJson(context.Response, InvokeOnMainThread(BuildSettingsJson));
 
         void HandleVoxelSprite(HttpListenerContext context)
@@ -636,6 +636,11 @@ namespace WorldSphereMod.Bridge
         // that every /actions param works whether passed as ?name= or {"name":...}.
         sealed class BridgeParams
         {
+            // Reads request params from BOTH the query string and the JSON request body.
+            // The HttpListener body stream can only be consumed ONCE, so callers build a single
+            // BridgeParams per request and reuse it for every lookup (query takes precedence; the
+            // body is parsed lazily on first body-backed lookup). Honors the live-bridge contract
+            // that every /actions param works whether passed as ?name= or {"name":...}.
         }
 
         void ExecuteEndpoint(HttpListenerContext context, Func<string> handler, bool rawJson)
