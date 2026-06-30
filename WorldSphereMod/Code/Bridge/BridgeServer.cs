@@ -456,8 +456,8 @@ namespace WorldSphereMod.Bridge
             };
         }
 
-        void HandleHealth(HttpListenerContext context) => ExecuteEndpoint(context, BuildHealthPayload);
-        void HandleTelemetry(HttpListenerContext context) => ExecuteEndpoint(context, BuildTelemetryPayload);
+        void HandleHealth(HttpListenerContext context) => WriteJson(context.Response, BuildHealthPayload());
+        void HandleTelemetry(HttpListenerContext context) => WriteJson(context.Response, BuildTelemetryPayload());
         void HandleSettings(HttpListenerContext context) => WriteRawJson(context.Response, InvokeOnMainThread(BuildSettingsJson));
 
         void HandleVoxelSprite(HttpListenerContext context)
@@ -636,72 +636,6 @@ namespace WorldSphereMod.Bridge
         // that every /actions param works whether passed as ?name= or {"name":...}.
         sealed class BridgeParams
         {
-            // Reads request params from BOTH the query string and the JSON request body.
-            // The HttpListener body stream can only be consumed ONCE, so callers build a single
-            // BridgeParams per request and reuse it for every lookup (query takes precedence; the
-            // body is parsed lazily on first body-backed lookup). Honors the live-bridge contract
-            // that every /actions param works whether passed as ?name= or {"name":...}.
-
-            private readonly Dictionary<string, string> _query;
-            private Dictionary<string, object>? _body;
-            private readonly Stream _bodyStream;
-            private readonly Encoding _encoding;
-            private bool _bodyConsumed;
-
-            public BridgeParams(HttpListenerRequest request)
-            {
-                _query = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                foreach (string? key in request.QueryString.AllKeys ?? Array.Empty<string>())
-                {
-                    if (key == null) continue;
-                    _query[key] = request.QueryString[key] ?? string.Empty;
-                }
-                _bodyStream = request.InputStream;
-                _encoding = request.ContentEncoding ?? Encoding.UTF8;
-                _bodyConsumed = false;
-            }
-
-            public static BridgeParams From(HttpListenerRequest request) => new BridgeParams(request);
-
-            public string Get(string key)
-            {
-                if (string.IsNullOrEmpty(key)) return string.Empty;
-                if (_query.TryGetValue(key, out string? qv)) return qv ?? string.Empty;
-                EnsureBody();
-                return _body != null && _body.TryGetValue(key, out object? bv) ? Convert.ToString(bv, CultureInfo.InvariantCulture) ?? string.Empty : string.Empty;
-            }
-
-            public string Get(string key, string defaultValue)
-            {
-                string v = Get(key);
-                return string.IsNullOrEmpty(v) ? defaultValue : v;
-            }
-
-            public T Get<T>(string key, T defaultValue)
-            {
-                string v = Get(key);
-                if (string.IsNullOrEmpty(v)) return defaultValue;
-                try { return (T)Convert.ChangeType(v, typeof(T), CultureInfo.InvariantCulture); }
-                catch { return defaultValue; }
-            }
-
-            private void EnsureBody()
-            {
-                if (_bodyConsumed) return;
-                _bodyConsumed = true;
-                try
-                {
-                    using var reader = new StreamReader(_bodyStream, _encoding, false, 1024, leaveOpen: true);
-                    string text = reader.ReadToEnd();
-                    if (string.IsNullOrWhiteSpace(text)) { _body = new Dictionary<string, object>(); return; }
-                    var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(text);
-                    _body = dict ?? new Dictionary<string, object>();
-                }
-                catch
-                {
-                    _body = new Dictionary<string, object>();
-                }
-            }
         }
 
         void ExecuteEndpoint(HttpListenerContext context, Func<string> handler, bool rawJson)
