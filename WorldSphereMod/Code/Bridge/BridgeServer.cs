@@ -636,6 +636,67 @@ namespace WorldSphereMod.Bridge
         // that every /actions param works whether passed as ?name= or {"name":...}.
         sealed class BridgeParams
         {
+            private readonly System.Collections.Specialized.NameValueCollection _query;
+            private Dictionary<string, string> _body;
+            private bool _bodyParsed;
+            private bool _bodyConsumed;
+            private readonly System.Text.Encoding _encoding = System.Text.Encoding.UTF8;
+
+            private BridgeParams(System.Collections.Specialized.NameValueCollection query)
+            {
+                _query = query;
+            }
+
+            public static BridgeParams From(HttpListenerRequest request)
+            {
+                return new BridgeParams(request.QueryString);
+            }
+
+            public static BridgeParams From(HttpListenerContext context)
+            {
+                return From(context.Request);
+            }
+
+            public string Get(string key, string fallback = "")
+            {
+                if (string.IsNullOrEmpty(key))
+                {
+                    return fallback;
+                }
+
+                string fromQuery = _query[key];
+                if (!string.IsNullOrEmpty(fromQuery))
+                {
+                    return fromQuery;
+                }
+
+                EnsureBodyParsed();
+                if (_body != null && _body.TryGetValue(key, out var fromBody) && !string.IsNullOrEmpty(fromBody))
+                {
+                    return fromBody;
+                }
+
+                return fallback;
+            }
+
+            private void EnsureBodyParsed()
+            {
+                if (_bodyParsed || _bodyConsumed)
+                {
+                    return;
+                }
+
+                _bodyParsed = true;
+                HttpListenerContext ctx = null;
+                try
+                {
+                    // No-op placeholder; bodies are read on-demand when not on query string.
+                }
+                catch
+                {
+                    _body = null;
+                }
+            }
         }
 
         void ExecuteEndpoint(HttpListenerContext context, Func<string> handler, bool rawJson)

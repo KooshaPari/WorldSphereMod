@@ -823,6 +823,30 @@ namespace WorldSphereMod
             const int TerrainTextureAtlasTileSize = 8;
             static SphereManagerSettings SphereManagerConfig;
             static Dictionary<Tile, int> TileIDS;
+            // ===== Merge-introduced members (fix #2) =====
+            // Active GpuSphereManager instance when ChunkedLOD compute path is enabled.
+            static CompoundSpheres.GpuManager GpuManager;
+            // Configuration blob for the GpuManager (render-foundation builtin path).
+            static CompoundSpheres.GpuManagerConfig GpuManagerConfig;
+            // Cached material/mesh references from the last terrain rebuild, used by
+            // runtime render-foundation assert to avoid GC churn on hot-rebuild paths.
+            static UnityEngine.Material LastTerrainMaterial;
+            static UnityEngine.Mesh LastTerrainMesh;
+            // ADR-0013 allowlist: fallback shader names that don't ship with SafeShaders
+            // (built-in fallback). Order matters: first match wins at shader resolve.
+            static readonly string[] BuiltInShaderFallbacks = {
+                "Hidden/InternalErrorShader",
+                "Sprites/Default",
+                "UI/Default",
+                "Unlit/Texture",
+            };
+            // Corrupt-shader diagnostic strings populated by the renderer on first
+            // SafeShaders miss. Used for telemetry + the live-verify invariant tests.
+            static readonly HashSet<string> CorruptedShaderNames = new HashSet<string>();
+            // Re-runs the render-foundation ambient assertion on the next LateUpdate.
+            // Used by the live-verify invariant + some test scenarios that toggle scene
+            // states outside the normal flow.
+            static bool ReassertRenderFoundationAmbient;
             #endregion
             public static List<MapLayer> BaseLayers;
             public static Dictionary<MapLayer, PixelArray> CachedColors;
