@@ -27,6 +27,7 @@ namespace WorldSphereMod.Voxel
     /// </summary>
     public static class VoxelRender
     {
+        private static bool _matDiagLogged;        private static Material dsTierImpostor;
         /// <summary>Phase 7: fired when worldspace UI detects HP loss on a visible actor.</summary>
         public static event System.Action<Actor, int>? OnActorDamaged;
 

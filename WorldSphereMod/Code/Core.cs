@@ -825,9 +825,9 @@ namespace WorldSphereMod
             static Dictionary<Tile, int> TileIDS;
             // ===== Merge-introduced members (fix #2) =====
             // Active GpuSphereManager instance when ChunkedLOD compute path is enabled.
-            static CompoundSpheres.GpuManager GpuManager;
+            static CompoundSpheres.Gpu.GpuSphereManager GpuManager;
             // Configuration blob for the GpuManager (render-foundation builtin path).
-            static CompoundSpheres.GpuManagerConfig GpuManagerConfig;
+            static CompoundSpheres.Gpu.GpuSphereManagerSettings GpuManagerConfig;
             // Cached material/mesh references from the last terrain rebuild, used by
             // runtime render-foundation assert to avoid GC churn on hot-rebuild paths.
             static UnityEngine.Material LastTerrainMaterial;
@@ -1707,32 +1707,32 @@ namespace WorldSphereMod
                 // Translucent water material (alpha-blended) so terrain reads through.
                 // GerstnerWater supports Standard-style alpha blending; falls back to
                 // Standard via ResolveShader if not in SafeShaders/LoadedShaders (#208).
-                Shader waterShader = ResolveShader("GerstnerWater");
-                if (waterShader != null)
+                Shader waterShaderLocal = ResolveShader("GerstnerWater");
+                if (waterShaderLocal != null)
                 {
                     Color waterColor = new Color(0.20f, 0.45f, 0.65f, 0.72f);
-                    Shader waterShader = null;
+                    Shader waterShaderLocal = null;
 
                     if (HasBundleShader("GerstnerWater"))
                     {
                         Shader bundledWater = Sphere.LoadedShaders["GerstnerWater"];
                         if (bundledWater != null && bundledWater.passCount > 0)
                         {
-                            waterShader = bundledWater;
+                            waterShaderLocal = bundledWater;
                         }
                     }
-                    if (waterShader == null)
+                    if (waterShaderLocal == null)
                     {
-                        waterShader = ResolveShader("");
+                        waterShaderLocal = ResolveShader("");
                     }
 
-                    if (waterShader == null)
+                    if (waterShaderLocal == null)
                     {
                         Debug.LogWarning("[WSM3D] ConfigureHeightField water shader unresolved; skipping water material.");
                         return;
                     }
 
-                    Material waterMat = new Material(waterShader) { name = "WSM3D.HeightFieldWater" };
+                    Material waterMat = new Material(waterShaderLocal) { name = "WSM3D.HeightFieldWater" };
                     if (waterMat.HasProperty("_Color"))
                         waterMat.SetColor("_Color", waterColor);
                     waterMat.color = waterColor;
