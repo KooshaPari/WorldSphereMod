@@ -6,7 +6,7 @@ violation; ship on GameBanana + GitHub only).
 
 ## Pre-release checklist
 
-- [ ] `git status` clean on `claude/research-ultraplan-fork-DdgI5`
+- [ ] `git status` clean on `main`
 - [ ] `task release:check` (or `dotnet build && dotnet test && dotnet format --verify-no-changes`) passes
 - [ ] `CHANGELOG.md` `[Unreleased]` section is populated and dated
 - [ ] `VERSION` matches the tag you're about to cut
@@ -21,7 +21,7 @@ violation; ship on GameBanana + GitHub only).
 
 ```powershell
 # 1. Bump version
-$ver = "2.0.0-alpha.N"  # pick the next pre-release identifier
+$ver = "2.0.0-beta.N"  # pick the next pre-release identifier
 Set-Content -Path VERSION -Value $ver
 # update mod.json `version` field by hand
 
@@ -31,7 +31,7 @@ Set-Content -Path VERSION -Value $ver
 git add VERSION mod.json CHANGELOG.md
 git commit -m "release: $ver"
 git tag -a "v$ver" -m "WorldSphereMod3D $ver"
-git push origin claude/research-ultraplan-fork-DdgI5 --tags
+git push origin main --tags
 
 # 3. Build the release artifacts
 dotnet build WorldSphereMod.csproj -c Release
@@ -53,7 +53,7 @@ gh release create "v$ver" `
 ## After release
 
 - Update `docs/HANDOFF.md` "What's shipped" if a new phase flipped its default.
-- Bump `VERSION` to the next `-alpha.N+1` and commit `chore: bump to v$next`.
+- Bump `VERSION` to the next `-beta.N+1` and commit `chore: bump to v$next`.
 - Notify GameBanana page if one exists.
 
 ## Yanking a release
