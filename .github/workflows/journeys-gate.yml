@@ -141,9 +141,8 @@ jobs:
             echo ""
             echo "→ $phase_id"
 
-            # Run verify in mock mode; accept failure from screenshot checks but
-            # reject errors from schema/binary issues. Extract just result status.
-            "$PJ_BIN" verify "$manifest" 2>&1 | tail -5 || true
+            # Run verify in mock mode; properly fail on manifest errors.
+            "$PJ_BIN" verify "$manifest" --mock 2>&1 | tail -5
           done
 
           echo ""
