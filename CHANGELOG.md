@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.8] - 2026-08-19
+
+CI governance hardening and documentation discoverability. Closes the biggest audit blind spot: required `ci / lint` + `ci / test` gates now actually test C# (previously passed vacuously — only ran trunk check + security scans).
+
+### Fixed
+
+- **CI** — `ci.yml` now detects C# via `*.sln` / `*.csproj` probe and runs `dotnet format --verify-no-changes` + `dotnet test` on all test projects. Required gates no longer pass vacuously.
+- **Workflow** — journeys-gate: removed `|| true` after `PJ_BIN verify` (was swallowing all errors); added `--mock` flag. Release: prefer version-specific changelog section over `## [Unreleased]` when a version tag is present.
+
+### Added
+
+- `BUILD.md` — top-level build-entry discoverability (canonical `WORLDBOX_PATH` + `dotnet build` one-liner, test project layout, Unity Bake context).
+- Infisical integration workflow.
+
+[2.0.0-beta.8]: https://github.com/kooshapari/WorldSphereMod/compare/v2.0.0-beta.7...v2.0.0-beta.8
+
 ## [2.0.0-beta.7] - 2026-06-03
 
 Windows-tested pre-release from the #208 render sprint. Mac/Linux bundles ship untested; see [`docs/release-notes/v2.0.0-beta.7.md`](docs/release-notes/v2.0.0-beta.7.md) for honest known-issue list and voxel-flash workaround.
