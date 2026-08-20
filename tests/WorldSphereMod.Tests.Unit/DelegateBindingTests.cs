@@ -100,7 +100,7 @@ public class DelegateBindingTests
         api.IsModel3D.Should().BeFalse(
             "IsModel3D must report false when the host doesn't expose IsModel3D");
 
-        Action mesh = () => api.RegisterCustomMesh("human", new object(), null);
+        Action mesh = () => api.RegisterCustomMesh("human", new object(), null!);
         Action rules = () => api.RegisterBuildingRules("house_human", new object());
         mesh.Should().NotThrow("RegisterCustomMesh must no-op on v1 hosts");
         rules.Should().NotThrow("RegisterBuildingRules must no-op on v1 hosts");
