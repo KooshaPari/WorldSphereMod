@@ -12,7 +12,7 @@ plugins:
     - id: community
       ref: main
 
-# Linters (auto-detected by file type)
+# Linters (C#-relevant only)
 linters:
   actionlint:
     enabled: true
@@ -21,68 +21,20 @@ linters:
         run: actionlint ${target}
         direct_configs:
           - .github/workflows/*.yml
-  black:
-    enabled: true
-    commands:
-      - name: black
-        run: black --check --line-length 100 ${target}
-        direct_configs:
-          - pyproject.toml
-          - ruff.toml
-  clippy:
-    enabled: true
-    commands:
-      - name: clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
-  eslint:
-    enabled: true
-    direct_configs:
-      - .eslintrc.*
-      - eslint.config.*
-  golangci-lint:
-    enabled: true
-    direct_configs:
-      - .golangci.yml
-      - .golangci.yaml
-  mypy:
-    enabled: true
-    commands:
-      - name: mypy
-        run: mypy --ignore-missing-imports ${target}
-  ruff:
-    enabled: true
-    commands:
-      - name: ruff
-        run: ruff check --output-format=github ${target}
-        direct_configs:
-          - ruff.toml
-          - pyproject.toml
-  shellcheck:
+  yamllint:
     enabled: true
   taplo:
     enabled: true
-  yamllint:
+  shellcheck:
     enabled: true
 
 # Formatters
 formatters:
-  black:
-    enabled: true
-    commands:
-      - name: black
-        run: black --line-length 100 ${target}
-        direct_configs:
-          - pyproject.toml
   prettier:
     enabled: true
     direct_configs:
       - .prettierrc
       - prettier.config.*
-  rustfmt:
-    enabled: true
-    commands:
-      - name: rustfmt
-        run: rustfmt ${target}
 
 # Actions (CI optimization)
 actions:
