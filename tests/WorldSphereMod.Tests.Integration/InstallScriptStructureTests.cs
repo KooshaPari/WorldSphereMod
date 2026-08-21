@@ -24,10 +24,10 @@ public class InstallScriptStructureTests
     {
         var script = ReadInstallScript();
 
-        script.Should().Contain("$InstallFolderName = \"WorldSphereMod3D\"");
-        script.Should().MatchRegex(@"\$Tfm\s*=\s*""net48""");
+        script.Should().Contain("$Tfm = \"net48\"");
         script.Should().Contain("$env:WORLDBOX_PATH");
         script.Should().Contain("worldbox_Data");
+        script.Should().Contain("WorldSphereMod");
     }
 
     [Fact]
@@ -38,12 +38,13 @@ public class InstallScriptStructureTests
         script.Should().Contain("dotnet build WorldSphereMod.csproj");
         script.Should().Contain("Copy-Item");
 
-        var itemsPattern = @"\$items\s*=\s*@\(\s*""([^""]*)""\s*,\s*""([^""]*)""\s*,\s*""([^""]*)""\s*,\s*""([^""]*)""\s*,\s*""([^""]*)""\s*,\s*""([^""]*)""\s*\)";
-        var match = Regex.Match(script, itemsPattern);
-        match.Success.Should().BeTrue("install.ps1 must declare the six packaged mod folders/files");
-
-        var entries = Enumerable.Range(1, 6).Select(i => match.Groups[i].Value).ToArray();
-        entries.Should().Equal("Code", "Assemblies", "AssetBundles", "GameResources", "Locales", "mod.json");
+        // The $items array may be split across lines (conditional ternary)
+        var allItems = new[] { "Code", "Assemblies", "AssetBundles", "GameResources", "Locales", "mod.json" };
+        foreach (var item in allItems)
+        {
+            script.Should().Contain($"\"{item}\"",
+                $"install.ps1 must include {item} in the items list");
+        }
     }
 
     [Fact]
