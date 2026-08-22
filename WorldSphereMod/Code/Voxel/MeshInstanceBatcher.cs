@@ -134,6 +134,24 @@ namespace WorldSphereMod.Voxel
         // it), and UNITY_ACCESS_INSTANCED_PROP falls back to the MPB/material _Color
         // there. Default to that path so actors render with correct per-actor color.
         static bool _useFallbackPath = false;
+
+        // -safe-render flag: bypasses DrawMeshInstanced entirely, using per-instance
+        // Graphics.DrawMesh on the first frame. Prevents GPU driver crashes caused by
+        // shader compilation failures on unsupported hardware.
+        static MeshInstanceBatcher()
+        {
+            string[] args = System.Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (string.Equals(args[i], "-safe-render", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    _useFallbackPath = true;
+                    Debug.Log("[WSM3D] -safe-render: using per-instance DrawMesh (safe mode).");
+                    break;
+                }
+            }
+        }
+
         static bool _verboseDrawLoggingArmed;
         static bool _verboseDrawLoggingConsumed;
         static bool _renderTargetLogged;
