@@ -2041,10 +2041,11 @@ namespace WorldSphereMod
                     return;
                 }
                 SafeInvoke("LogAssetBundleInventory threw", () => Mod.LogAssetBundleInventory(ab));
-                CompoundSphereMesh = ab.GetObject<Mesh>("assets/worldspheremod/compoundspheremesh.asset")
-                    ?? ab.GetObject<Mesh>("assets/wsm3d/legacyassets/compoundspheremesh.asset");
-                CompoundSphereMaterial = ab.GetObject<Material>("assets/worldspheremod/compoundspherematerial.mat")
-                    ?? ab.GetObject<Material>("assets/wsm3d/legacyassets/compoundspherematerial.mat");
+                // Bundle manifest reference: Assets/WSM3D/LegacyAssets/CompoundSphereMesh.asset
+                // (capitalized, with LegacyAssets/ prefix). Prior lowercase lookups never matched
+                // and triggered ArgumentException: ManagedStream not readable at Core.cs:2044/1260.
+                CompoundSphereMesh = ab.GetObject<Mesh>("Assets/WSM3D/LegacyAssets/CompoundSphereMesh.asset");
+                CompoundSphereMaterial = ab.GetObject<Material>("Assets/WSM3D/LegacyAssets/CompoundSphereMaterial.mat");
                 // Null-guard each asset get so a missing SkyBox.mat in the
                 // combined-bake bundle doesn't NRE here and trip NML's
                 // post-init error handler (which disables the entire mod —
@@ -2300,8 +2301,7 @@ namespace WorldSphereMod
                         }
                     }
                 }
-                var skyboxMat = ab.GetObject<Material>("assets/worldspheremod/SkyBox.mat")
-                    ?? ab.GetObject<Material>("assets/wsm3d/legacyassets/skybox.mat");
+                var skyboxMat = ab.GetObject<Material>("Assets/WSM3D/LegacyAssets/SkyBox.mat");
                 if (skyboxMat != null && skyboxMat.shader != null)
                 {
                     CameraManager.Begin(skyboxMat.shader);
