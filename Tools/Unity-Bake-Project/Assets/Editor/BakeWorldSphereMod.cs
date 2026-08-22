@@ -34,24 +34,23 @@ public static class BakeWorldSphereMod
 
         // Step 1: Create the legacy mesh asset
         Mesh mesh = CreateCompoundSphereMesh();
-        string meshPath = "Assets/LegacyMesh/CompoundSphereMesh.asset";
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(dataPath, "..", meshPath)));
-        Directory.CreateDirectory(Path.Combine(dataPath, "LegacyMesh"));
-
+        // Path MUST match what Core.cs:2044+ loads: "Assets/WSM3D/LegacyAssets/CompoundSphereMesh.asset"
+        string meshPath = "Assets/WSM3D/LegacyAssets/CompoundSphereMesh.asset";
+        Directory.CreateDirectory(Path.Combine(dataPath, "WSM3D", "LegacyAssets"));
         AssetDatabase.CreateAsset(mesh, meshPath);
-        Debug.Log("[WSM3D-BakeLegacy] Created CompoundSphereMesh asset");
+        Debug.Log("[WSM3D-BakeLegacy] Created CompoundSphereMesh asset at " + meshPath);
 
         // Step 2: Create the legacy material asset
         Material mat = CreateCompoundSphereMaterial();
-        string matPath = "Assets/LegacyMesh/CompoundSphereMaterial.mat";
+        string matPath = "Assets/WSM3D/LegacyAssets/CompoundSphereMaterial.mat";
         AssetDatabase.CreateAsset(mat, matPath);
-        Debug.Log("[WSM3D-BakeLegacy] Created CompoundSphereMaterial asset");
+        Debug.Log("[WSM3D-BakeLegacy] Created CompoundSphereMaterial asset at " + matPath);
 
         // Step 3: Create the skybox material
         Material skybox = CreateSkyboxMaterial();
-        string skyboxPath = "Assets/LegacyMesh/Skybox.mat";
+        string skyboxPath = "Assets/WSM3D/LegacyAssets/Skybox.mat";
         AssetDatabase.CreateAsset(skybox, skyboxPath);
-        Debug.Log("[WSM3D-BakeLegacy] Created Skybox asset");
+        Debug.Log("[WSM3D-BakeLegacy] Created Skybox asset at " + skyboxPath);
 
         AssetDatabase.Refresh();
 
