@@ -1,4 +1,0 @@
-[submodule "External/Compound-Spheres"]
-	path = External/Compound-Spheres
-	url = https://github.com/KooshaPari/Compound-Spheres-3D.git
-	branch = wsm3d/main
