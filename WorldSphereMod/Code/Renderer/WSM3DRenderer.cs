@@ -32,6 +32,13 @@ namespace WorldSphereMod.Renderer
         Camera? _camera;
         Camera? _attachedCamera;
 
+        // CRASH SAFETY: after N consecutive GPU failures, stop trying entirely.
+        // Prevents Unity crash loop when GPU can't handle the command buffer.
+        static int _consecutiveFailures;
+        const int MaxConsecutiveFailures = 3;
+        static bool _gpuDisabled;
+        static bool _gpuWarningLogged;
+
         static readonly int DepthRtId = Shader.PropertyToID("_WSM3D_DepthRT");
         static readonly int ColorRtId = Shader.PropertyToID("_WSM3D_ColorRT");
         static readonly int AoRtId = Shader.PropertyToID("_WSM3D_AORT");
@@ -178,6 +185,12 @@ namespace WorldSphereMod.Renderer
                 return;
             }
 
+            // CRASH SAFETY: if GPU has failed N times, stop trying.
+            if (_gpuDisabled)
+            {
+                return;
+            }
+
             ConfigureCommandBuffer();
             EnsureCameraBinding();
 
@@ -199,6 +212,24 @@ namespace WorldSphereMod.Renderer
                 AllocateTargets();
                 DepthPrepass();
                 // TileLightCull / ColorPass / PostFXChain / Composite — deferred.
+                _consecutiveFailures = 0; // reset on success
+            }
+            catch (System.Exception ex)
+            {
+                _consecutiveFailures++;
+                if (!_gpuWarningLogged || _consecutiveFailures >= MaxConsecutiveFailures)
+                {
+                    Debug.LogWarning($"[WSM3D][Forward+] Execute failed ({_consecutiveFailures}/{MaxConsecutiveFailures}): {ex.Message}");
+                    _gpuWarningLogged = true;
+                }
+                if (_consecutiveFailures >= MaxConsecutiveFailures)
+                {
+                    Debug.LogError("[WSM3D][Forward+] GPU command buffer disabled after repeated failures. Forward+ renderer will not run.");
+                    _gpuDisabled = true;
+                    DetachCommandBuffer();
+                    _commandBuffer?.Release();
+                    _commandBuffer = null;
+                }
             }
             finally
             {
