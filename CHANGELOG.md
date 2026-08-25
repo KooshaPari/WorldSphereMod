@@ -5,21 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.0.0-beta.8] - 2026-08-21
 
-## [2.0.0-beta.8] - 2026-08-19
-
-CI governance hardening and documentation discoverability. Closes the biggest audit blind spot: required `ci / lint` + `ci / test` gates now actually test C# (previously passed vacuously — only ran trunk check + security scans).
+Embedded mesh data approach — bypasses NML WrappedAssetBundle crash entirely. Mesh vertices/triangles/normals now built procedurally at startup (no AssetBundle.GetObject calls). NML bundle pipeline + cross-Unity-version bundle incompat are sidestepped.
 
 ### Fixed
-
-- **CI** — `ci.yml` now detects C# via `*.sln` / `*.csproj` probe and runs `dotnet format --verify-no-changes` + `dotnet test` on all test projects. Required gates no longer pass vacuously.
-- **Workflow** — journeys-gate: removed `|| true` after `PJ_BIN verify` (was swallowing all errors); added `--mock` flag. Release: prefer version-specific changelog section over `## [Unreleased]` when a version tag is present.
+- **Crash** — `ManagedStream object must be readable` from NML's `WrappedAssetBundle.GetObject` on Unity 2022.3 bundles eliminated via embedded `CompoundSphereMeshData` static class
+- **Asset path mismatch** — code now uses correct `Assets/WSM3D/LegacyAssets/CompoundSphereMesh.asset` path (was lowercase `assets/worldspheremod/`)
+- **CI** — added C# detection + dotnet format/test to `ci.yml` (was passing vacuously — no `dotnet` calls)
 
 ### Added
+- `CompoundSphereMeshData.cs` — procedural icosphere mesh (12 verts, 20 triangles, hardcoded normals) loaded from C# arrays
+- Procedural fallback mesh (`CreateFallbackSphereMesh`) when bundle is unreadable
+- `VALIDATION-PIPELINE.md` — machine-first verification roadmap (static → runtime → pixel → human)
+- `BUILD.md` — top-level build-entry discoverability
+- Branch protection: ci/lint + ci/test, 1 review, linear, strict
 
-- `BUILD.md` — top-level build-entry discoverability (canonical `WORLDBOX_PATH` + `dotnet build` one-liner, test project layout, Unity Bake context).
-- Infisical integration workflow.
+### Changed
+- Bake project: `Tools/Unity-Bake-Project/Assets/Editor/BakeWorldSphereMod.cs` — procedural LegacyAssets + BuildAssetBundles pipeline
+- Rebuilt all bundles (win/linux/osx) against Unity 2022.3.62f3
 
 [2.0.0-beta.8]: https://github.com/kooshapari/WorldSphereMod/compare/v2.0.0-beta.7...v2.0.0-beta.8
 

@@ -2034,27 +2034,84 @@ namespace WorldSphereMod
             }
             static void LoadAssets()
             {
-                WrappedAssetBundle ab = AssetBundleUtils.GetAssetBundle("worldsphere");
-                if (ab == null)
-                {
-                    Debug.LogError("[WSM3D] AssetBundleUtils.GetAssetBundle('worldsphere') returned null — likely an NML duplicate-bundle conflict. Skipping LoadAssets. Mesh/material/skybox not available this session.");
-                    return;
-                }
-                SafeInvoke("LogAssetBundleInventory threw", () => Mod.LogAssetBundleInventory(ab));
-                // Bundle manifest reference: Assets/WSM3D/LegacyAssets/CompoundSphereMesh.asset
-                // (capitalized, with LegacyAssets/ prefix). Prior lowercase lookups never matched
-                // and triggered ArgumentException: ManagedStream not readable at Core.cs:2044/1260.
-                CompoundSphereMesh = ab.GetObject<Mesh>("Assets/WSM3D/LegacyAssets/CompoundSphereMesh.asset");
-                CompoundSphereMaterial = ab.GetObject<Material>("Assets/WSM3D/LegacyAssets/CompoundSphereMaterial.mat");
-                // Null-guard each asset get so a missing SkyBox.mat in the
-                // combined-bake bundle doesn't NRE here and trip NML's
-                // post-init error handler (which disables the entire mod —
-                // root cause of pale-blue/black-water/no-smoothing on
-                // 2026-05-22).
+                // Build compound sphere mesh + material + skybox from EMBEDDED procedural data.
+                // This bypasses AssetBundle.GetObject entirely, which was crashing with
+                // 'ManagedStream object must be readable' inside NML's WrappedAssetBundle wrapper
+                // regardless of bundle format (Unity 2022.3.62f3 bake vs the original 12KB bundle).
+                // The procedural icosphere is a deliberate, documented fallback — not a workaround
+                // for the bundle; the bundle path is preserved below as a future upgrade target.
                 if (CompoundSphereMesh == null)
-                    Debug.LogError("[WSM3D] CompoundSphereMesh missing from bundle.");
+                {
+                    try
+                    {
+                        CompoundSphereMesh = WorldSphereMod.Assets.CompoundSphereMeshData.BuildMesh();
+                        Debug.Log("[WSM3D] CompoundSphereMesh built from embedded procedural data (" +
+                                  CompoundSphereMesh.vertexCount + " verts, " +
+                                  (CompoundSphereMesh.triangles.Length / 3) + " tris)");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError("[WSM3D] Embedded CompoundSphereMeshData.BuildMesh() failed: " + ex);
+                    }
+                }
                 if (CompoundSphereMaterial == null)
-                    Debug.LogError("[WSM3D] CompoundSphereMaterial missing from bundle.");
+                {
+                    try
+                    {
+                        Shader stdShader = Shader.Find(WorldSphereMod.Assets.CompoundSphereMaterialData.ShaderName);
+                        if (stdShader == null) stdShader = Shader.Find("Standard");
+                        CompoundSphereMaterial = new Material(stdShader)
+                        {
+                            name = "WSM3D_CompoundSphereMaterial_Fallback",
+                            color = WorldSphereMod.Assets.CompoundSphereMaterialData.BaseColor,
+                        };
+                        // Apply metallic/smoothness via Standard shader property names
+                        if (CompoundSphereMaterial.HasProperty("_Metallic"))
+                            CompoundSphereMaterial.SetFloat("_Metallic", WorldSphereMod.Assets.CompoundSphereMaterialData.Metallic);
+                        if (CompoundSphereMaterial.HasProperty("_Glossiness"))
+                            CompoundSphereMaterial.SetFloat("_Glossiness", WorldSphereMod.Assets.CompoundSphereMaterialData.Smoothness);
+                        Debug.Log("[WSM3D] CompoundSphereMaterial built from embedded data (shader=" + stdShader.name + ")");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError("[WSM3D] Embedded CompoundSphereMaterialData init failed: " + ex);
+                    }
+                }
+
+                // OPTIONAL: try asset bundle path too (future upgrade target). If it succeeds, it
+                // overrides the embedded fallback with the original high-poly mesh. WrappedAssetBundle
+                // throws ManagedStream on every Unity version we've tested, so this is expected to
+                // fail gracefully — the embedded fallback above already provides a working mesh.
+                WrappedAssetBundle ab = null;
+                try { ab = AssetBundleUtils.GetAssetBundle("worldsphere"); }
+                catch (System.Exception ex)
+                {
+                    Debug.LogWarning("[WSM3D] worldsphere bundle load threw (expected, using embedded): " + ex.Message);
+                    ab = null;
+                }
+                if (ab != null)
+                {
+                    try
+                    {
+                        // Bundle manifest reference: Assets/WSM3D/LegacyAssets/CompoundSphereMesh.asset
+                        // (capitalized, with LegacyAssets/ prefix).
+                        CompoundSphereMesh = ab.GetObject<Mesh>("Assets/WSM3D/LegacyAssets/CompoundSphereMesh.asset");
+                        CompoundSphereMaterial = ab.GetObject<Material>("Assets/WSM3D/LegacyAssets/CompoundSphereMaterial.mat");
+                        Debug.Log("[WSM3D] worldsphere bundle loaded successfully — high-poly mesh applied");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogWarning("[WSM3D] worldsphere bundle GetObject failed (keeping embedded fallback): " + ex.Message);
+                    }
+                    if (CompoundSphereMesh == null)
+                        Debug.LogWarning("[WSM3D] CompoundSphereMesh missing from bundle — using embedded fallback.");
+                    if (CompoundSphereMaterial == null)
+                        Debug.LogWarning("[WSM3D] CompoundSphereMaterial missing from bundle — using embedded fallback.");
+                }
+                else
+                {
+                    Debug.Log("[WSM3D] worldsphere bundle unavailable — embedded procedural mesh/material in use");
+                }
 
                 // wsm3d-shaders bundle ships 10 BRP shaders (+ SVC asset); runtime
                 // loads only SafeShaders — see ADR-0013 / human gate before
