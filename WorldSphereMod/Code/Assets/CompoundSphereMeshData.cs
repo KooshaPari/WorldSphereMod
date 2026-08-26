@@ -34,15 +34,16 @@ namespace WorldSphereMod.Assets
             4, 9, 5,  2, 4, 11,  6, 2, 10,  8, 6, 7,  9, 8, 1
         };
 
-        /// <summary>
         /// Build the compound sphere mesh from procedural data.
         /// Returns a UnityEngine.Mesh that does not require AssetBundle.GetObject.
+        /// Produces a smooth unit sphere (1280 triangles, ~642 vertices) suitable
+        /// for rendering compound-sphere actors in WorldBox's 3D mode.
         /// </summary>
         public static Mesh BuildMesh()
         {
             Mesh mesh = new Mesh { name = "CompoundSphereMesh" };
-            // Subdividing twice gives 320 faces (1280 triangles) — smooth sphere.
-            int subdivisions = 2;
+            // 3 subdivisions: 20 -> 320 -> 1280 faces (642 vertices). Smooth sphere.
+            int subdivisions = 3;
             var verts = new List<Vector3>(baseVertices);
             var tris = new List<int>(baseFaces);
             // Cache of midpoints keyed by edge tuple (smallerIndex, largerIndex).
@@ -63,13 +64,11 @@ namespace WorldSphereMod.Assets
                 }
                 tris = newTris;
             }
-            // Project to unit sphere and flatten to XZ plane (terrain heightfield).
+            // Project every vertex to the unit sphere surface (normalized direction).
+            // Keep the 3D sphere shape — do NOT flatten to XZ.
             for (int i = 0; i < verts.Count; i++)
             {
-                Vector3 v = verts[i].normalized;
-                // CompoundSpheres terrain renderer treats Y as height: zero it,
-                // keep X/Z as planar coords. Sphere radius = 1.0.
-                verts[i] = new Vector3(v.x, 0f, v.z);
+                verts[i] = verts[i].normalized;
             }
             mesh.vertices = verts.ToArray();
             mesh.triangles = tris.ToArray();
