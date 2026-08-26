@@ -142,7 +142,7 @@ public class SavedSettings
         // VoxelSkinned.shader + per-rig StructuredBuffer path ships). Requires SkeletalAnimation.
         public bool GpuProceduralSkinning = false;
         // Phase 7: Worldspace UI (nameplates, health bars, selection rings).
-        public bool WorldspaceUI = false;
+        public bool WorldspaceUI = true;
         // Phase 7: optional worldspace 3D text labels instead of upstream NameplateText.
         public bool WorldspaceLabel3D = false;
         public float NameplateFadeNear = 10f;
@@ -263,7 +263,7 @@ public class SavedSettings
             // bump (Core.cs 2.4 -> 2.5) so loadedData.Version mismatch triggers this migration.
             s.ActorVoxelScaleFactor = 0.125f;
             s.BuildingVoxelScaleFactor = 0.125f;
-            s.MeshWater = false;
+            s.MeshWater = true;
             s.WorldspaceHealth3D = true;
             s.MountainSlopeSmoothing = false;
             s.HighShadows = false;
@@ -271,7 +271,7 @@ public class SavedSettings
             s.ColorGradingLut = false;
             s.SkeletalAnimation = false;
             s.GpuProceduralSkinning = false;
-            s.WorldspaceUI = false;
+            s.WorldspaceUI = true;
             s.WorldspaceLabel3D = false;
             s.DayNightCycle = true;
             s.ForwardPlusRenderer = false;

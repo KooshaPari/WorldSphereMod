@@ -104,7 +104,7 @@ instead of carrying the underlying implementation inline.
 | 4  Mesh water                          | code present, runtime unverified | Current code default: `MeshWater = false`. |
 | 5  Sun + cascaded shadows              | code present, runtime unverified | Current code defaults: `HighShadows = false`, `HdrSkybox = false`, `ColorGradingLut = false`. |
 | 6  Skeletal animation                  | code present, runtime unverified; **disable-gate PROVEN** | Current code default: `SkeletalAnimation = false`. Core.LoadSettings force-overrides to `false` on every load (Core.cs L70 + L79). ActorVoxelEmit.EmitVoxels gates BOTH `ResolveRigType` and `RigDriver.SubmitSkinnedActor` behind `if (Core.savedSettings.SkeletalAnimation && tier != LodTier.Impostor)` (VoxelRender.cs L630). Invariant locked by `SkeletalAnimationDisabledGateTests` (E2E). DIAG-SUBMIT `skel(attempt=0 ok=0 fail=0)` is the runtime confirmation. |
-| 7  Worldspace UI                       | code present, runtime unverified | Current code defaults: `WorldspaceUI = false`, `WorldspaceLabel3D = false`. |
+| 7  Worldspace UI                       | code present, runtime unverified | Current code defaults: `WorldspaceUI = true`, `WorldspaceLabel3D = false`. |
 | 8  Day/night + sky + fog               | code present, runtime unverified | Current code default: `DayNightCycle = true`; `FogDensity = 0.05f`. |
 | 9  Particles + decals + PostFX         | code present, runtime unverified | Current code defaults: `ParticleEffects = false`, `PostFX = false`, `SSAOEnabled = false`, `SSGIEnabled = false`. |
 | 10 LOD + impostor fallback             | code present, runtime unverified | Current code defaults: `LODScale = 0.5f`, `WaterDetail = 1.0f`, `FoliageDensity = 1.0f`. |
@@ -126,7 +126,7 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 | `HdrSkybox` | `false` | 5 | Current live default |
 | `ColorGradingLut` | `false` | 5 | Current live default |
 | `SkeletalAnimation` | `false` | 6 | Default-off skeletal path |
-| `WorldspaceUI` | `false` | 7 | Default-off worldspace UI |
+| `WorldspaceUI` | `true` | 7 | Default-on worldspace UI |
 | `WorldspaceLabel3D` | `false` | 7 | Default-off 3D labels |
 | `DayNightCycle` | `true` | 8 | Default-on TOD driver |
 | `FogDensity` | `0.05f` | 8 | Current live default |
@@ -155,6 +155,7 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 - `MeshWater` — Phase 4
 - `BiomeBlending` — terrain polish
 - `WorldspaceHealth3D` — worldspace HP bar style
+- `WorldspaceUI` — Phase 7
 - `DayNightCycle` — Phase 8
 - `ACESTonemapping` — Phase 9
 
@@ -164,7 +165,6 @@ These are the live `SavedSettings` defaults in `WorldSphereMod/Code/SavedSetting
 - `HdrSkybox` — Phase 5b
 - `ColorGradingLut` — Phase 5b
 - `SkeletalAnimation` — Phase 6
-- `WorldspaceUI` — Phase 7
 - `WorldspaceLabel3D` — Phase 7
 - `PostFX` — Phase 9
 - `SSAOEnabled` — Phase 9
