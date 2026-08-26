@@ -65,6 +65,12 @@ namespace WorldSphereMod
         public static void SaveSettings()
         {
             string json = JsonConvert.SerializeObject(savedSettings, Formatting.Indented);
+            string dir = Paths.ModsConfigPath;
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            {
+                try { Directory.CreateDirectory(dir); }
+                catch (System.Exception ex) { Debug.LogWarning($"[WSM3D] SaveSettings: failed to create config directory {dir}: {ex.Message}"); }
+            }
             File.WriteAllText($"{Paths.ModsConfigPath}/WorldSphereMod.json", json);
         }
         public static bool LoadSettings()
@@ -112,6 +118,11 @@ namespace WorldSphereMod
             // had VoxelEntities=false saved which the version-match path kept). Remove
             // this override once the setting is confirmed stable and user-togglable. (#208)
             savedSettings.VoxelEntities = true;
+            // Force-on WorldspaceUI on every load — same belt-and-suspenders guard.
+            // WorldspaceUI is enabled-by-default; a stale-false persisted in JSON
+            // from before the default was flipped should not disable nameplates +
+            // health bars on upgrade.
+            savedSettings.WorldspaceUI = true;
             LogPhaseFlagDefaults(savedSettings);
             return true;
         }
@@ -2454,6 +2465,11 @@ namespace WorldSphereMod
             public static readonly string[] SafeShaders = new[]
             {
                 "OpaqueVertexColor",
+                "CompoundSphere",
+                "GerstnerWater",
+                "Impostor",
+                "StratumVoxelPBR",
+                "FoliageWind",
             };
 
             // Static cache of bundle-loaded WSM3D/* shaders. Consumers look
@@ -2473,6 +2489,17 @@ namespace WorldSphereMod
 
             public static UnityEngine.Shader ResolveShader(string bundleName)
             {
+                // Check LoadedShaders first (bundle-loaded WSM3D/* shaders)
+                if (!string.IsNullOrEmpty(bundleName))
+                {
+                    foreach (var kvp in LoadedShaders)
+                    {
+                        if (kvp.Key.IndexOf(bundleName, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            return kvp.Value;
+                        }
+                    }
+                }
                 foreach (string shaderName in BuiltInShaderFallbacks)
                 {
                     UnityEngine.Shader shader = UnityEngine.Shader.Find(shaderName);

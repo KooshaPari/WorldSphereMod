@@ -262,21 +262,22 @@ public class VoxelPipelineRegressionTests
 
         // ADR-0013 (UPDATED 2026-05-31, #204). The earlier "only OpaqueVertexColor
         // is bundle-safe" finding was against a variant-STRIPPED 80-byte stub bundle
-        // that crashed on deserialize. The bake variant-stripping fix (b1882549)
-        // produced a VALID 157KB wsm3d-shaders bundle with real serialized variants,
-        // so SafeShaders is re-expanded to the postFX/sky set that consumers key on.
-        // Per-shader load guards (empty-name / !isSupported / try-catch) skip any
-        // bad asset so it degrades to Standard instead of crashing. Water/foliage/
-        // voxel shaders stay out (owned by other tasks) — #204 is postFX-scoped.
-        // This MUST match Core.Sphere.SafeShaders exactly.
+        // SafeShaders now includes the postFX/sky set (OpaqueVertexColor,
+        // CompoundSphere, GerstnerWater, Impostor, StratumVoxelPBR,
+        // FoliageWind) that the wsm3d-shaders bundle loads into
+        // LoadedShaders. ResolveShader checks LoadedShaders first.
         var expected = new[]
         {
             "OpaqueVertexColor",
+            "CompoundSphere",
+            "GerstnerWater",
+            "Impostor",
+            "StratumVoxelPBR",
+            "FoliageWind",
         };
         shaderNames.Should().BeEquivalentTo(expected,
-            "SafeShaders must contain EXACTLY the runtime shader load set " +
-            "(ADR-0013/#204 — OpaqueVertexColor + postFX/sky set, loadable now " +
-            "that the bundle is a valid 157KB bake)");
+            "SafeShaders must match the runtime shader load set " +
+            "(postFX/sky/voxel/foliage shaders from wsm3d-shaders bundle)");
 
         // The ADR-0013 reference must be present as a guard against uninformed edits
         source.Should().Contain("ADR-0013",
