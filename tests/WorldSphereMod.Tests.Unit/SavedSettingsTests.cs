@@ -105,7 +105,7 @@ public class SavedSettingsTests
             ("MeshWater", true),
             ("HighShadows", false),
             ("SkeletalAnimation", false),
-            ("WorldspaceUI", false),
+            ("WorldspaceUI", true),
             ("DayNightCycle", true),
             ("PostFX", false),
             ("ParticleEffects", false)
@@ -194,7 +194,7 @@ public class SavedSettingsTests
     [InlineData("MeshWater", "true")]
     [InlineData("HighShadows", "false")]
     [InlineData("SkeletalAnimation", "false")]
-    [InlineData("WorldspaceUI", "false")]
+    [InlineData("WorldspaceUI", "true")]
     [InlineData("DayNightCycle", "true")]
     [InlineData("PostFX", "false")]
     [InlineData("ParticleEffects", "false")]
