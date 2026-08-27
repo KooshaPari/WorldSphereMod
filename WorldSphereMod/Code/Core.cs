@@ -2265,6 +2265,7 @@ namespace WorldSphereMod
                     // Post-load terrain shader reassignment: ConfigureHeightField runs
                     // before the shader bundle loads, so it uses Standard. Now that
                     // LoadedShaders has the real shaders, reassign terrain material.
+                    Debug.Log($"[WSM3D] Post-load terrain fix: LastTerrainMaterial={LastTerrainMaterial != null}, LoadedShaders.ContainsKey(OpaqueVertexColor)={LoadedShaders.ContainsKey("OpaqueVertexColor")}");
                     if (LastTerrainMaterial != null && LoadedShaders.ContainsKey("OpaqueVertexColor"))
                     {
                         Shader correct = LoadedShaders["OpaqueVertexColor"];

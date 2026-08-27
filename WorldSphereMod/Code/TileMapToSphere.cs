@@ -90,6 +90,18 @@ namespace WorldSphereMod.TileMapToSphere
             }
         }
     }
+    [HarmonyPatch(typeof(UnitLayer), nameof(UnitLayer.UpdateDirty))]
+    class UnitLayerSuppress
+    {
+        static bool Prefix()
+        {
+            // When IsWorld3D is active, suppress 2D sprite rendering for units.
+            // The voxel pipeline renders actors as 3D meshes via DrawMeshInstanced;
+            // letting the 2D sprites draw simultaneously creates z-fighting /
+            // double-rendering where both layers are visible and neither is correct.
+            return !Core.IsWorld3D;
+        }
+    }
     public class TileQueue
     {
         public HashSet<WorldTile>[] TilesByZone;
