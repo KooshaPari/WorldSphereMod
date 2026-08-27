@@ -2262,6 +2262,19 @@ namespace WorldSphereMod
                     // "LoadedShaders[count=2]" in the log can be diagnosed.
                     Debug.Log($"[WSM3D] LoadedShaders[count={LoadedShaders.Count}]: {string.Join(", ", LoadedShaders.Keys)}");
 
+                    // Post-load terrain shader reassignment: ConfigureHeightField runs
+                    // before the shader bundle loads, so it uses Standard. Now that
+                    // LoadedShaders has the real shaders, reassign terrain material.
+                    if (LastTerrainMaterial != null && LoadedShaders.ContainsKey("OpaqueVertexColor"))
+                    {
+                        Shader correct = LoadedShaders["OpaqueVertexColor"];
+                        if (LastTerrainMaterial.shader != correct)
+                        {
+                            LastTerrainMaterial.shader = correct;
+                            Debug.Log($"[WSM3D] Post-load terrain shader reassigned to: {correct.name}");
+                        }
+                    }
+
                     // GPU-compute keystone (ADR-sota-gpu-compute-adoption): load the
                     // baked CompoundSphereCompute ComputeShader so the GPU-driven
                     // CompoundSpheres.Gpu manager / LegacyManagerShim can bind its
@@ -2489,7 +2502,17 @@ namespace WorldSphereMod
 
             public static UnityEngine.Shader ResolveShader(string bundleName)
             {
-                // Check LoadedShaders first (bundle-loaded WSM3D/* shaders)
+                // When bundleName is empty/null, return the first bundle-loaded shader
+                // (OpaqueVertexColor — the default terrain/material shader). Callers
+                // pass "" to mean "give me whatever the bundle loaded."
+                if (string.IsNullOrEmpty(bundleName) && LoadedShaders.Count > 0)
+                {
+                    foreach (var kvp in LoadedShaders)
+                    {
+                        return kvp.Value;
+                    }
+                }
+                // Check LoadedShaders for a named bundle shader
                 if (!string.IsNullOrEmpty(bundleName))
                 {
                     foreach (var kvp in LoadedShaders)
