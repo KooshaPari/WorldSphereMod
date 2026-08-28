@@ -1,0 +1,10 @@
+{
+    "name": "WorldSphereMod3D",
+    "author_number": "6049329125489664",
+    "author_name": "KooshaPari",
+    "category1": "",
+    "description": "Hard fork of WorldSphereMod that finishes the 3D conversion: voxelized actors/items, procedural building meshes, crossed-quad foliage, mesh water, directional sun + cascaded shadows, skeletal animation, worldspace UI. Co-installable with upstream WorldSphereMod.\n\nFeatures:\n- Voxelized 3D actors with GPU instancing\n- Procedural building mesh generation\n- Forward+ renderer with shadow cascades\n- Worldspace UI (health bars, nameplates, damage popups)\n- BridgeServer IPC for external tools\n- 611+ automated tests\n\nNote: If the icon is red, your hardware lacks compute shader / GPU instancing support.",
+    "dependencies": [],
+    "includes": ["WorldSphereMod/"],
+    "website_url": "https://github.com/KooshaPari/WorldSphereMod"
+}
