@@ -1,15 +1,15 @@
 ManifestFileVersion: 0
-CRC: 4225019356
+CRC: 163173825
 Hashes:
   AssetFileHash:
     serializedVersion: 2
-    Hash: 0d51e8d0a6fce779c2f760169f8693aa
+    Hash: 4deb0e0df4e8c77b655797fc419ae22b
   TypeTreeHash:
     serializedVersion: 2
     Hash: 6ee55d1372e9665c4ae73fbe3eacdfc7
   IncrementalBuildHash:
     serializedVersion: 2
-    Hash: 0d51e8d0a6fce779c2f760169f8693aa
+    Hash: 4deb0e0df4e8c77b655797fc419ae22b
 HashAppended: 0
 ClassTypes:
 - Class: 21
@@ -21,9 +21,6 @@ ClassTypes:
 SerializeReferenceClassIdentifiers: []
 Assets:
 - Assets/WSM3D/LegacyAssets/CompoundSphereMesh.asset
-- Assets/LegacyMesh/CompoundSphereMaterial.mat
-- Assets/LegacyMesh/Skybox.mat
 - Assets/WSM3D/LegacyAssets/CompoundSphereMaterial.mat
-- Assets/LegacyMesh/CompoundSphereMesh.asset
 - Assets/WSM3D/LegacyAssets/Skybox.mat
 Dependencies: []
