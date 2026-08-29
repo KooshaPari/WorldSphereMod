@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0-beta.10] - 2026-08-28
+
+### Fixed
+- **Terrain shader**: `ResolveShader` returns `WSM3D/OpaqueVertexColor` (was `Standard`).
+- **LoadedShaders key**: corrected from `WSM3D/OpaqueVertexColor` → `OpaqueVertexColor` (dictionary stores bare shader name).
+- **Version sync**: `VERSION` and `mod.json` both updated to `2.0.0-beta.10`.
+- **Unity upgrade**: bake project now uses `2022.3.62f3` (was `2022.3.60f1`).
+
+### Changed
+- **Actor emission**: reduced from `1.5×` white to black (was washing actors out against terrain).
+- **Embedded mesh**: 1280-face spheroid (was 12-vertex icosphere).
+- **WorldspaceUI**: default changed to `true` (was `false` — mod wouldn't render on launch).
+
+### Added
+- `UnitLayerSuppress` Harmony prefix — suppresses 2D sprite rendering when `IsWorld3D=true`.
+- `manifest.json` for Thunderstore publication.
+- `BakeWorldSphereMod.cs` Unity bake script (generates LegacyAssets procedurally + builds bundles).
+- `VALIDATION-PIPELINE.md` — machine-first verification chain.
+
 ## [2.0.0-beta.8] - 2026-08-21
 
 Embedded mesh data approach — bypasses NML WrappedAssetBundle crash entirely. Mesh vertices/triangles/normals now built procedurally at startup (no AssetBundle.GetObject calls). NML bundle pipeline + cross-Unity-version bundle incompat are sidestepped.
