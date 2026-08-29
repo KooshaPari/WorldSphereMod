@@ -242,6 +242,9 @@ namespace WorldSphereMod
             InitProfiler.Measure("WorldSphereTab.Begin", () => WorldSphereTab.Begin());
             InitProfiler.Measure("DimensionConverter.Prepare", () => DimensionConverter.Prepare());
             InitProfiler.Measure("Patch", () => Patch());
+            // Register the camera pre-cull delegate to suppress 2D sprites when 3D mode is active.
+            // Uses Camera.onPreCull (delegate) not Camera.OnPreCull (Unity message - Harmony cannot patch it).
+            try { WorldSphereMod.Code.SpriteSuppressor.Enable(); } catch (System.Exception ex) { Debug.LogError($"[WSM3D] SpriteSuppressor.Enable FAILED: {ex.Message}"); }
             // Load AssetBundle/shaders/mesh/material eagerly during Init so
             // they are available even when NML skips PostInit (save loaded
             // before post-init phase). World-dependent parts of Prepare run
