@@ -2214,6 +2214,10 @@ namespace WorldSphereMod.Voxel
             // LateUpdate.
             bool hadPending = MeshInstanceBatcher.HasPendingSubmissions;
             int submitsBeforeFlush = Volatile.Read(ref MeshInstanceBatcher._submitCountThisFrame);
+
+            // Suppress 2D renderers BEFORE our 3D meshes are drawn.
+            WorldSphereMod.Code.SpriteSuppressor.Tick();
+
             VoxelRender.Flush();
             VoxelRender.FlushQueuedActorSpriteCards();
             if (Core.savedSettings?.ProceduralBuildings == true)

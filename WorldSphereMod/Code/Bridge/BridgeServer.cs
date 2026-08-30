@@ -215,7 +215,12 @@ namespace WorldSphereMod.Bridge
         // VoxelRender.LateUpdate also calls DrainStaticQueue to handle submits
         // queued mid-frame, so bridge commands still get processed before the camera
         // renders without needing a FixedUpdate path. (#robustness perf)
-        void Update() => DrainStaticQueue();
+        void Update()
+        {
+            DrainStaticQueue();
+            // Tick sprite suppression every frame (disables heightfield MeshRenderers when IsWorld3D=true)
+            WorldSphereMod.Code.SpriteSuppressor.Tick();
+        }
         // LateUpdate and FixedUpdate DrainStaticQueue calls removed — redundant drain.
 
         void OnDestroy()
