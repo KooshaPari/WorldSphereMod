@@ -167,14 +167,21 @@ namespace WorldSphereMod.NewCamera
             }
             Manager.main_camera = MainCamera;
             float defaultZoom = Core.savedSettings != null ? Core.savedSettings.CameraDefaultStrategyZoomHeight : 10f;
-            Height = defaultZoom;
-            Manager._target_zoom = defaultZoom;
-            MainCamera.nearClipPlane = Core.savedSettings != null ? Core.savedSettings.CameraNearClipPlane : 0.5f;
+            Height = Mathf.Min(defaultZoom, 15f);
+            Manager._target_zoom = Height;
+            MainCamera.nearClipPlane = Core.savedSettings != null ? Core.savedSettings.CameraNearClipPlane : 0.1f;
             float farMultiplier = Core.savedSettings != null ? Core.savedSettings.CameraFarClipRadiusMultiplier : 4f;
-            float farPadding = Core.savedSettings != null ? Core.savedSettings.CameraFarClipPadding : 500f;
+            float farPadding = Core.savedSettings != null ? Core.savedSettings.CameraFarClipPadding : 200f;
             MainCamera.farClipPlane = Core.Sphere.Radius * farMultiplier + farPadding;
-            MainCamera.transform.position = Core.Sphere.SpherePos(Position.x, Position.y, Height);
-            UnityEngine.Debug.Log($"[WSM3D] MakeCamera3D: Height={Height} radius={Core.Sphere.Radius:F3} farClip={MainCamera.farClipPlane:F1}");
+            MainCamera.fieldOfView = 45f;
+            // Snap camera to sphere surface immediately after creation so
+            // the first frame renders correctly instead of starting at the
+            // origin (0,0,0) where the terrain tiles converge as a wall.
+            float snapZoom = Core.savedSettings != null ? Core.savedSettings.CameraDefaultStrategyZoomHeight : 10f;
+            MainCamera.transform.position = Core.Sphere.SpherePos(
+                MapBox.width * 0.5f, MapBox.height * 0.5f, Mathf.Min(snapZoom, 15f));
+            MainCamera.transform.eulerAngles = new Vector3(45f, 0f, 0f);
+            UnityEngine.Debug.Log($"[WSM3D] MakeCamera3D: Height={Height} radius={Core.Sphere.Radius:F3} farClip={MainCamera.farClipPlane:F1} snap={MainCamera.transform.position}");
         }
         public static void MakeCamera2D()
         {

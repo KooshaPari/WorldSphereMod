@@ -5,17 +5,14 @@ namespace WorldSphereMod.Code
 {
     /// <summary>
     /// Registers a Camera.onPreCull delegate that disables WorldBox's 2D
-    /// SpriteRenderer components when IsWorld3D=true.
-    ///
-    /// Camera.onPreCull is a PUBLIC STATIC Camera.CameraCallback delegate
-    /// - it can be registered directly via C# delegate += (unlike
-    /// Camera.OnPreCull which is a Unity MESSAGE and cannot be Harmony-patched).
+    /// rendering (SpriteRenderer + MeshRenderer) when IsWorld3D=true.
     /// </summary>
     public static class SpriteSuppressor
     {
         private static bool _registered;
         private static bool _suppressed;
         private static List<SpriteRenderer> _disabledSprites = new List<SpriteRenderer>();
+        private static List<MeshRenderer> _disabledMeshRenderers = new List<MeshRenderer>();
 
         public static void Enable()
         {
@@ -42,12 +39,30 @@ namespace WorldSphereMod.Code
 
             if (_suppressed) return;
 
+            // Suppress SpriteRenderers (2D sprites)
             foreach (var sr in Object.FindObjectsOfType<SpriteRenderer>())
             {
                 if (sr != null && sr.enabled)
                 {
                     sr.enabled = false;
                     _disabledSprites.Add(sr);
+                }
+            }
+
+            // Suppress MeshRenderers matching WorldBox 2D patterns
+            foreach (var mr in Object.FindObjectsOfType<MeshRenderer>())
+            {
+                if (mr != null && mr.enabled)
+                {
+                    string goName = mr.gameObject.name;
+                    if (goName.Contains("TileMap") || goName.Contains("HeightField") ||
+                        goName.Contains("WorldMap") || goName.Contains("Height") ||
+                        goName.StartsWith("map_") || goName.StartsWith("tile_") ||
+                        goName.Contains("Background") || goName.Contains("BG"))
+                    {
+                        mr.enabled = false;
+                        _disabledMeshRenderers.Add(mr);
+                    }
                 }
             }
 
@@ -61,12 +76,20 @@ namespace WorldSphereMod.Code
                 if (sr != null) sr.enabled = true;
             }
             _disabledSprites.Clear();
+
+            foreach (var mr in _disabledMeshRenderers)
+            {
+                if (mr != null) mr.enabled = true;
+            }
+            _disabledMeshRenderers.Clear();
+
             _suppressed = false;
         }
 
         public static void InvalidateCache()
         {
             _disabledSprites.Clear();
+            _disabledMeshRenderers.Clear();
             _suppressed = false;
         }
     }
