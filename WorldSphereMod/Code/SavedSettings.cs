@@ -31,7 +31,7 @@ public class SavedSettings
         }
         public float TileHeight = 1;
         public float BuildingSize = 0.5f;
-        public float CameraDefaultStrategyZoomHeight = 10f;
+        public float CameraDefaultStrategyZoomHeight = 15f;
         public float CameraMinSurfaceDistance = 1f;
         public float CameraMaxSurfaceDistance = 60f;
         public float CameraNearClipPlane = 0.5f;

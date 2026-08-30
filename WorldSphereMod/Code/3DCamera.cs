@@ -167,7 +167,10 @@ namespace WorldSphereMod.NewCamera
             }
             Manager.main_camera = MainCamera;
             float defaultZoom = Core.savedSettings != null ? Core.savedSettings.CameraDefaultStrategyZoomHeight : 10f;
-            Height = Mathf.Min(defaultZoom, 15f);
+            // Scale camera distance to sphere radius so the full sphere is visible.
+            // Sphere.Radius is typically ~40-80 units; we want the camera at ~1.5x radius.
+            float sphereRadius = Core.Sphere.Exists ? Core.Sphere.Radius : 40f;
+            Height = Mathf.Max(defaultZoom, sphereRadius * 1.5f);
             Manager._target_zoom = Height;
             MainCamera.nearClipPlane = Core.savedSettings != null ? Core.savedSettings.CameraNearClipPlane : 0.1f;
             float farMultiplier = Core.savedSettings != null ? Core.savedSettings.CameraFarClipRadiusMultiplier : 4f;
