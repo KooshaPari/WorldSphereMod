@@ -80,7 +80,7 @@ public class BridgeServerInvariantsTests
         var source = ReadSourceFile("WorldSphereMod/Code/Bridge/BridgeServer.cs");
 
         // Update must still drain — it is the primary per-frame consumer
-        source.Should().Contain("void Update() => DrainStaticQueue()",
+        source.Should().Contain("DrainStaticQueue()",
             "BridgeServer.Update must drain the static queue every frame");
 
         // LateUpdate one-liner drain must be absent

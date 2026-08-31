@@ -22,10 +22,25 @@ public class FrameProfilerInvariantsTests
         return dir!.FullName;
     }
 
-    private static Assembly LoadModAssembly()
+    private static string FindModDll()
     {
         var root = FindRepoRoot();
-        var dllPath = Path.Combine(root, "bin", "Release", "net48", "WorldSphereMod3D.dll");
+        var candidates = new[]
+        {
+            Path.Combine(root, "bin", "Release", "net48", "WorldSphereMod3D.dll"),
+            Path.Combine(root, "WorldSphereMod", "bin", "Release", "net48", "WorldSphereMod3D.dll"),
+        };
+        foreach (var p in candidates)
+            if (File.Exists(p)) return p;
+
+        var found = Directory.GetFiles(root, "WorldSphereMod3D.dll", SearchOption.AllDirectories);
+        found.Should().NotBeEmpty("WorldSphereMod3D.dll must be findable after build");
+        return found.First();
+    }
+
+    private static Assembly LoadModAssembly()
+    {
+        var dllPath = FindModDll();
         File.Exists(dllPath).Should().BeTrue($"WorldSphereMod3D.dll must be built at {dllPath}");
         return Assembly.LoadFrom(dllPath);
     }
