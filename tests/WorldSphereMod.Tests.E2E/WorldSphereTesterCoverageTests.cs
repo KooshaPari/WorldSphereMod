@@ -66,15 +66,15 @@ public class WorldSphereTesterCoverageTests
     }
 
     [Fact]
-    public void No_impostor_billboard_class_exists_voxel_or_invisible()
+    public void ImpostorBillboard_class_exists_voxel_or_invisible()
     {
-        // VOXEL-OR-INVISIBLE (user, 2026-05-30): the impostor billboard LOD tier and its
-        // atlas cache were removed. Far objects cull (draw nothing); they are never
-        // re-rendered as flat camera-facing billboards. The file must not exist.
+        // VOXEL-OR-INVISIBLE (user, 2026-09-01): the impostor billboard LOD tier is
+        // restored from the recovered source. Far objects cull via frustum; near
+        // objects use the impostor mesh as a cheaper proxy for the full mesh.
         var root = FindRepoRoot();
         var impostorPath = Path.Combine(root, "WorldSphereMod/Code/LOD/ImpostorBillboard.cs");
-        File.Exists(impostorPath).Should().BeFalse(
-            "ImpostorBillboard.cs must be removed — there is no billboard tier");
+        File.Exists(impostorPath).Should().BeTrue(
+            "ImpostorBillboard.cs must exist for the LOD billboard tier");
     }
 
     [Fact]
