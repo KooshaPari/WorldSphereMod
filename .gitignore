@@ -67,3 +67,6 @@ docs/journeys/scratch/*.png
 docs/journeys/scratch/*.jpg
 # Exclude the explicit before/after baseline pairs that are intentionally committed
 !docs/journeys/scratch/user-actors-AFTER-fix-190314.png
+
+# Local agent scratch (per-project sandbox)
+.sandbox/
