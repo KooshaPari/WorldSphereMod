@@ -2268,13 +2268,13 @@ namespace WorldSphereMod
                     // before the shader bundle loads, so it uses Standard. Now that
                     // LoadedShaders has the real shaders, reassign terrain material.
                     Debug.Log($"[WSM3D] Post-load terrain fix: LastTerrainMaterial={LastTerrainMaterial != null}, LoadedShaders.ContainsKey(OpaqueVertexColor)={LoadedShaders.ContainsKey("OpaqueVertexColor")}, LoadedShaders.Count={LoadedShaders.Count}");
-                    if (LastTerrainMaterial != null && LoadedShaders.ContainsKey("OpaqueVertexColor"))
+                    if (LastTerrainMaterial != null && LoadedShaders.ContainsKey("SphereTerrain"))
                     {
-                        Shader correct = LoadedShaders["OpaqueVertexColor"];
+                        Shader correct = LoadedShaders["SphereTerrain"];
                         if (LastTerrainMaterial.shader != correct)
                         {
                             LastTerrainMaterial.shader = correct;
-                            Debug.Log($"[WSM3D] Post-load terrain shader reassigned to: {correct.name}");
+                            Debug.Log($"[WSM3D] Post-load terrain shader reassigned to: SphereTerrain (sphere UV mapping)");
                         }
                     }
 
@@ -2505,6 +2505,9 @@ namespace WorldSphereMod
 
             public static UnityEngine.Shader ResolveShader(string bundleName)
             {
+                // Prefer SphereTerrain if loaded — it does proper sphere UV mapping
+                if (LoadedShaders.ContainsKey("SphereTerrain"))
+                    return LoadedShaders["SphereTerrain"];
                 // When bundleName is empty/null, return the first bundle-loaded shader
                 // (OpaqueVertexColor — the default terrain/material shader). Callers
                 // pass "" to mean "give me whatever the bundle loaded."
