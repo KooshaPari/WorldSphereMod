@@ -117,9 +117,17 @@ namespace WSM3D
             }
 
             var shaderPaths = new System.Collections.Generic.List<string>();
-            foreach (var name in new[] { "WSM3DUnlit", "WSM3DPbr", "WSM3DTerrainBlend" }) {
+            foreach (var name in new[] { "WSM3DUnlit", "WSM3DPbr", "WSM3DTerrainBlend", "SphereTerrain", "OpaqueVertexColor", "CompoundSphere", "Impostor", "GerstnerWater", "FoliageWind" }) {
                 var p = FindShader(name);
-                if (p != null) shaderPaths.Add(p);
+                if (p != null)
+                {
+                    shaderPaths.Add(p);
+                    Debug.Log($"[WSM3D] Found shader: {p}");
+                }
+                else
+                {
+                    Debug.LogWarning($"[WSM3D] Shader not found: {name}");
+                }
             }
 
             var builds = new[]

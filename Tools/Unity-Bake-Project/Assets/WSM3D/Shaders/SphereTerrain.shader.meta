@@ -1,1 +1,8 @@
-{"fileFormatVersion":2,"guid":"d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1","ShaderImporter":{"externalName":"SphereTerrain","internalNameToExternalNameMap":{"SphereTerrain":"WSM3D/SphereTerrain"},"preprocessorOverride":"None","shaderIsSRP":false}}  
+fileFormatVersion: 2
+guid: a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+ShaderImporter:
+  externalName: SphereTerrain
+  internalNameToExternalNameMap:
+    SphereTerrain: WSM3D/SphereTerrain
+  preprocessorOverride: None
+  shaderIsSRP: 0

@@ -1,17 +1,7 @@
 // WSM3D/SphereTerrain
 //
-// Replaces OpaqueVertexColor for HeightField terrain. Reads per-vertex Color as
-// albedo, multiplies by per-instance _Color (MaterialPropertyBlock tint), then
-// RE-PROJECTS the UV through sphere UV math so the terrain's per-tile UVs map
-// onto a sphere instead of rendering as flat columns.
-//
-// Phi = atan2(worldZ, worldX) / (2*PI) + 0.5
-// Theta = acos(worldY / radius) / PI
-// This gives a wrap-around UV in [0,1] for both axes that aligns with WorldBox's
-// procedural sphere shape.
-//
-// Falls back to per-vertex UVs if sphere math would NaN (vertex at exact origin).
-// Supports a Texture2DArray for biome layers sampled by per-vertex biomeIndex.
+// Replaces OpaqueVertexColor for HeightField terrain. Re-projects per-tile UVs
+// through sphere UV math so the terrain renders as a sphere instead of cylinders.
 
 Shader "WSM3D/SphereTerrain"
 {
@@ -63,7 +53,8 @@ Shader "WSM3D/SphereTerrain"
             };
 
             sampler2D _MainTex;
-            UNITY_DECLARE_TEX2D_ARRAY(_TerrainTexArray);
+            Texture2DArray _TerrainTexArray;
+            SamplerState sampler_TerrainTexArray;
             float _TerrainLayers;
             float _SphereRadius;
 
@@ -87,7 +78,7 @@ Shader "WSM3D/SphereTerrain"
             fixed4 frag(v2f i) : SV_Target
             {
                 int layer = clamp((int)(i.color.a * 255.0), 0, max(0, (int)_TerrainLayers - 1));
-                fixed4 biome = UNITY_SAMPLE_TEX2D_ARRAY(_TerrainTexArray, i.sphereUV.xy, layer);
+                fixed4 biome = _TerrainTexArray.Sample(sampler_TerrainTexArray, float3(i.sphereUV.xy, layer));
                 fixed4 fallback = tex2D(_MainTex, i.sphereUV.xy);
                 fixed4 albedo = lerp(fallback, biome, step(0.5, i.color.a));
                 return albedo * i.color * _Color;
