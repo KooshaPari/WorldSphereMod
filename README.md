@@ -23,6 +23,8 @@
 
 **Canonical checkout:** `E:\Dev\WorldSphereMod` on branch `wip/208-height-fix`. Install path: `worldbox_Data/StreamingAssets/Mods/WorldSphereMod`. See [`docs/CANONICAL.md`](docs/CANONICAL.md).
 
+[![AI slop inside](https://sladge.net/badge.svg)](https://sladge.net) [![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/KooshaPari/WorldSphereMod/total)](https://github.com/KooshaPari/WorldSphereMod/releases)
+
 Docs: <https://kooshapari.github.io/WorldSphereMod/>
 
 A hard fork of [MelvinShwuaner/WorldSphereMod](https://github.com/MelvinShwuaner/WorldSphereMod)
