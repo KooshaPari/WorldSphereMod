@@ -1262,6 +1262,12 @@ namespace WorldSphereMod
             private static bool _texDone = true;
             private static bool _addedDone = true;
             private static bool _colorsDone = true;
+            // PERF: throttle the LegacyManagerShim O(N)/frame full-scans (risk #6).
+            // Running them every RefreshSphere() call (~10Hz) is the documented
+            // ~3-5s/frame storm. Run them every N calls instead; the cheap
+            // GpuManager?.Refresh* dirty-queue flushes remain unconditional.
+            private static int LegacyFullScanCounter = 0;
+            private static int LegacyFullScanEveryN = 6;
 
             public static void RefreshSphere()
             {
@@ -1282,12 +1288,24 @@ namespace WorldSphereMod
                 // it is consumed by RefreshColors into the GPU color buffer.
                 bool hadDirtyHeights = Manager.HasDirtyHeights;
 
+                // PERF: the Manager.* calls below are the LegacyManagerShim
+                // O(N)/frame full-scans (risk #6) — NOT the cheap GPU dirty-queue
+                // (GpuManager?.Refresh*). On a live world the simulation re-dirties
+                // color/texture tiles every frame, so running these full-scans every
+                // RefreshSphere() call (~10Hz) is the ~3-5s/frame rebuild storm.
+                // Throttle them to every LegacyFullScanEveryN calls (~every N frames);
+                // the paired GpuManager?.Refresh* dirty-queue flushes stay
+                // unconditional so real dirty data still reaches the GPU promptly.
+                int legacyFrame = ++LegacyFullScanCounter;
+                bool runLegacyFullScan = (legacyFrame % LegacyFullScanEveryN) == 0;
+
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-                _scalesDone = Manager.RefreshScales();
+                _scalesDone = runLegacyFullScan ? Manager.RefreshScales() : _scalesDone;
                 long scaleMs = sw.ElapsedMilliseconds;
 
                 sw.Restart();
-                _texDone = Manager.RefreshTextures();
+                if (runLegacyFullScan)
+                    _texDone = Manager.RefreshTextures();
                 // #199 Phase 3: mirror the texture-buffer flush to the GPU manager.
                 // GPU Refresh* use the per-buffer dirty queue (Textures.Refresh()),
                 // NOT the LegacyManagerShim O(N)/frame full-scan (risk #6).
@@ -1295,14 +1313,16 @@ namespace WorldSphereMod
                 long texMs = sw.ElapsedMilliseconds;
 
                 sw.Restart();
-                _addedDone = Manager.RefreshCustom("AddedColors");
+                if (runLegacyFullScan)
+                    _addedDone = Manager.RefreshCustom("AddedColors");
                 // AddedColors buffer is registered in CreateGpuSettings (risk #3),
                 // so this RefreshCustom will not throw KeyNotFoundException.
                 GpuManager?.RefreshCustom("AddedColors");
                 long addedMs = sw.ElapsedMilliseconds;
 
                 sw.Restart();
-                RefreshColors();
+                if (runLegacyFullScan)
+                    RefreshColors();
                 long colorMs = sw.ElapsedMilliseconds;
 
                 if (hadDirtyHeights && Manager.UseHeightFieldTerrain)

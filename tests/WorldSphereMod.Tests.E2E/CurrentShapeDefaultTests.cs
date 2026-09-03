@@ -5,9 +5,11 @@ using FluentAssertions;
 using Xunit;
 
 /// <summary>
-/// Guards CurrentShape default at 0 (flat). Sphere/cylindrical mode (1)
-/// causes GPU hangs on large maps — this test prevents silent reversion
-/// via field default, JSON corruption, or schema migration.
+/// Guards CurrentShape default at 1 (flat). Shape indices are defined in
+/// Core.cs Shapes[]: 0 = cylinder (X-wrap), 1 = flat, 2 = cube (3D).
+/// Cylindrical (0) was the old default; flat (1) is now the intended
+/// default. This test prevents silent reversion via field default,
+/// JSON corruption, or schema migration.
 /// </summary>
 [Trait("Category", "E2E")]
 public class CurrentShapeDefaultTests
@@ -33,7 +35,7 @@ public class CurrentShapeDefaultTests
     }
 
     [Fact]
-    public void SavedSettings_CurrentShape_defaults_to_zero_flat()
+    public void SavedSettings_CurrentShape_defaults_to_one_flat()
     {
         var source = ReadSourceFile("WorldSphereMod/Code/SavedSettings.cs");
 
@@ -42,8 +44,8 @@ public class CurrentShapeDefaultTests
         match.Success.Should().BeTrue("SavedSettings must declare a public int CurrentShape field with a default");
 
         int defaultValue = int.Parse(match.Groups[1].Value);
-        defaultValue.Should().Be(0,
-            "CurrentShape must default to 0 (flat) — sphere/cylindrical (1) causes GPU hangs on large maps");
+        defaultValue.Should().Be(1,
+            "CurrentShape must default to 1 (flat) — 0 is cylinder (X-wrap), 2 is cube (3D)");
     }
 
     [Fact]

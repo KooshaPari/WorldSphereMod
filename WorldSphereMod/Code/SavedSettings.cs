@@ -39,9 +39,11 @@ public class SavedSettings
         public float CameraFarClipPadding = 500f;
         public float CameraTouchDragThreshold = 0.1f;
         public float CameraTouchZoomThreshold = 20f;
-        // Default to flat (0) — sphere/cylindrical (1) causes GPU hangs on
-        // large maps until sphere-mode performance is resolved.
-        public int CurrentShape = 0;
+        // World shape index into Core.Shapes:
+        //   0 = cylindrical (X-wrap), 1 = flat, 2 = cube/spherical (3D).
+        // Default to flat (1). Cylindrical (0) and cube (2) are user-toggled
+        // via the World Settings window, not on by default.
+        public int CurrentShape = 1;
 
         // --- v2 (WorldSphereMod3D fork) additions ---
         // Phase 1: Voxel actor/item/projectile rendering. When false, falls back

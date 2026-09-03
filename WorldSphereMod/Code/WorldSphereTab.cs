@@ -202,7 +202,6 @@ namespace WorldSphereMod.UI
             GenerateSlider("render_distance", 1, 20, Core.savedSettings.RowRange, (float val) => { Core.savedSettings.RowRange = val; Core.SaveSettings(); }, "Camera Settings");
             CreateWindowButton("World Settings", "WorldSphereMod/World", "world_settings_window", new List<ButtonData>()
             {
-                new ButtonData("cylindrical_shape", "cylindrical_shape_description", "WorldSphereMod/Round", Core.savedSettings.CurrentShape == 0, SetShape, false),
                 new ButtonData("flat_shape", "flat_shape_description", "WorldSphereMod/Flat", Core.savedSettings.CurrentShape == 1, SetShape, false),
                 new ButtonData("cube_shape", "cube_shape_description", "WorldSphereMod/Flat", Core.savedSettings.CurrentShape == 2, SetShape, false),
                 new ButtonData("perlin_noise", "perlin_noise_description", "WorldSphereMod/PerlinNoise", Core.savedSettings.PerlinNoise, PerlinNoise)
@@ -586,7 +585,6 @@ namespace WorldSphereMod.UI
         }
         static Dictionary<string, int> WorldShapes = new Dictionary<string, int>()
         {
-            { "cylindrical_shape", 0 },
             { "flat_shape", 1 },
             { "cube_shape", 2 }
         };
