@@ -123,6 +123,15 @@ namespace WorldSphereMod
             // from before the default was flipped should not disable nameplates +
             // health bars on upgrade.
             savedSettings.WorldspaceUI = true;
+            // Belt-and-suspenders for the removed cylinder shape: on the version-match
+            // path (no schema migration) a persisted CurrentShape=0 (cylinder) would
+            // survive and boot the game into a now-unreachable cylindrical mode.
+            // Coerce it to flat (1) here, mirroring the VoxelEntities/WorldspaceUI
+            // overrides above. (#208 cylinder-removal)
+            if (savedSettings.CurrentShape == 0)
+            {
+                savedSettings.CurrentShape = 1;
+            }
             LogPhaseFlagDefaults(savedSettings);
             return true;
         }
