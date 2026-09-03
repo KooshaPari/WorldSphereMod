@@ -143,10 +143,15 @@ namespace WorldSphereMod
             loadedData.VoxelEntities = true;
             loadedData.CrossedQuadFoliage = true;
 
-            // Preserve the user's CurrentShape across version bumps.
-            // Only phase boolean flags are reset — numeric/scale/shape
-            // settings are intentionally kept so the user's chosen mode
-            // persists through upgrades.
+            // The cylinder shape (index 0) was removed from the UI and is no
+            // longer offered. If a persisted profile still selects it, coerce
+            // it to flat (index 1) so the game doesn't boot into an
+            // unreachable cylindrical mode. Other numeric/scale/shape
+            // settings are intentionally preserved.
+            if (loadedData.CurrentShape == 0)
+            {
+                loadedData.CurrentShape = 1;
+            }
         }
 
         static void LogPhaseFlagDefaults(SavedSettings loadedData)
