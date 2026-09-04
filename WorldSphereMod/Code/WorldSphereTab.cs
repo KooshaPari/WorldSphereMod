@@ -204,6 +204,7 @@ namespace WorldSphereMod.UI
             {
                 new ButtonData("flat_shape", "flat_shape_description", "WorldSphereMod/Flat", Core.savedSettings.CurrentShape == 1, SetShape, false),
                 new ButtonData("cube_shape", "cube_shape_description", "WorldSphereMod/Flat", Core.savedSettings.CurrentShape == 2, SetShape, false),
+                new ButtonData("spherical_shape", "spherical_shape_description", "WorldSphereMod/Flat", Core.savedSettings.CurrentShape == 3, SetShape, false),
                 new ButtonData("perlin_noise", "perlin_noise_description", "WorldSphereMod/PerlinNoise", Core.savedSettings.PerlinNoise, PerlinNoise)
             });
             GenerateSlider("tile_length_multiplier", 1, 10, Core.savedSettings.TileHeight, (float x) => { Core.savedSettings.TileHeight = x; Core.SaveSettings(); }, "World Settings");
@@ -586,7 +587,8 @@ namespace WorldSphereMod.UI
         static Dictionary<string, int> WorldShapes = new Dictionary<string, int>()
         {
             { "flat_shape", 1 },
-            { "cube_shape", 2 }
+            { "cube_shape", 2 },
+            { "spherical_shape", 3 }
         };
         static void PerlinNoise(string ID)
         {

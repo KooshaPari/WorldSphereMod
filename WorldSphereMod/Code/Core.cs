@@ -931,7 +931,8 @@ namespace WorldSphereMod
             {
                 new Shape(CylindricalToCartesian, CylindricalToCartesianFast, CartesianToCylindrical, CylindricalRotation, CylindricalInitiation, RenderRange, GetMovementVectorSpherical, SphereTileScaleCylindrical, WrappedGate, DefaultGate, (ref int _, ref int _) => { }, CylindricalRotation), //cylinder
                 new Shape(FlatToCartesian, FlatToCartesianFast, CartesianToFlat, FlatRotation, FlatInitiation, RenderRangeFlat, GetMovementVectorFlat, SphereTileScaleFlat, DefaultGate, DefaultGate, (ref int _, ref int _) => { }, FlatRotation), //flat
-                new Shape(CartesianToCube, CartesianToCubeFast, CubeToCartesian, CubeRotation, CubeInitiation, RenderRangeCube, GetMovementVectorCube, SphereTileScaleCube, DefaultGate, DefaultGate, Tools.Cube.Prepare, CubeRotation)
+                new Shape(CartesianToCube, CartesianToCubeFast, CubeToCartesian, CubeRotation, CubeInitiation, RenderRangeCube, GetMovementVectorCube, SphereTileScaleCube, DefaultGate, DefaultGate, Tools.Cube.Prepare, CubeRotation),
+                new Shape(SphericalToCartesian, SphericalToCartesianFast, CartesianToSpherical, SphericalRotation, SphericalInitiation, RenderRange, GetMovementVectorSpherical, SphereTileScaleSpherical, WrappedGate, WrappedGate, (ref int _, ref int _) => { }, SphericalRotation) //sphere (2-axis wrap)
             };
             public static void Begin()
             {
