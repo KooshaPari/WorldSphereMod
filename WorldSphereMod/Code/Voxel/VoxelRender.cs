@@ -708,6 +708,14 @@ namespace WorldSphereMod.Voxel
             return facing * Quaternion.Euler(-12f, 0f, 0f);
         }
 
+        // Reused snapshot buffer for the per-frame front-buffer flush. Replacing the
+        // old `new List<>(_actorSpriteCardFront)` here eliminated one List<> allocation
+        // EVERY frame (plus its backing array), which was measurable 16B-bucket GC churn
+        // and one factor in WorldBox's allocator pressure during heavy actor counts.
+        // Safe to reuse: FlushQueuedActorSpriteCards runs on the main thread only, and
+        // the snapshot is consumed within this method before any later emit rewrites it.
+        static List<KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>>> _frontSnapshot = new();
+
         internal static void FlushQueuedActorSpriteCards()
         {
             // (CARD-FLUSH-ENTER diag removed — per-frame log spam.)
@@ -719,7 +727,9 @@ namespace WorldSphereMod.Voxel
                 // every frame so actors persist across the intermittent-emit gap (no flicker).
                 ActorFrontCount = _actorSpriteCardFront.Count;
                 if (_actorSpriteCardFront.Count == 0) return;
-                batches = new List<KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>>>(_actorSpriteCardFront);
+                _frontSnapshot.Clear();
+                foreach (var kv in _actorSpriteCardFront) _frontSnapshot.Add(kv);
+                batches = _frontSnapshot;
             }
 
             int flushedBatches = 0;
@@ -1126,7 +1136,21 @@ namespace WorldSphereMod.Voxel
                     foreach (var kv in _actorSpriteCardBatches)
                     {
                         if (kv.Value.Count == 0) continue;
-                        _actorSpriteCardFront[kv.Key] = new List<Matrix4x4>(kv.Value);
+                        // Reuse a pooled List instead of `new List<Matrix4x4>(kv.Value)` — the old
+                        // form allocated a fresh List + backing array per emit (and emits can fire
+                        // multiple times/frame), feeding the same 16B GC churn the flush snapshot
+                        // fix addresses. Ownership transfers to _actorSpriteCardFront; the emit
+                        // clears the BACK dict next frame, leaving this list to be re-drawn.
+                        if (!_actorSpriteCardFront.TryGetValue(kv.Key, out var frontList))
+                        {
+                            frontList = new List<Matrix4x4>(kv.Value.Count);
+                            _actorSpriteCardFront[kv.Key] = frontList;
+                        }
+                        else
+                        {
+                            frontList.Clear();
+                        }
+                        frontList.AddRange(kv.Value);
                     }
                 }
                 if (!_billboardDiagLogged)
