@@ -289,7 +289,9 @@ namespace WorldSphereMod.Terrain
 
             WorldTile tile = World.world.GetTileSimple(x, y);
             if (tile == null) return new Color32(128, 128, 128, 255);
-            return Core.Sphere.GetColor(tile.data.tile_id);
+            // Use the 3D texture-slice sampler. GetColor(tile_id) reads the pixel
+            // buffer (never painted in 3D #208) via a non-position index -> flat color.
+            return Core.Sphere.GetTileColor(tile);
         }
 
         /// <summary>
@@ -611,7 +613,7 @@ namespace WorldSphereMod.Terrain
                     }
 
                     float tileHeight = tile.TileHeight();
-                    Color32 tileColor = Core.Sphere.GetColor(tile.data.tile_id);
+                    Color32 tileColor = Core.Sphere.GetTileColor(tile);
 
                     int rightX = x + 1;
                     if (wrapped || rightX < width)
@@ -623,7 +625,7 @@ namespace WorldSphereMod.Terrain
                             float rightHeight = rightTile.TileHeight();
                             if (Mathf.Abs(tileHeight - rightHeight) > 0.1f)
                             {
-                                Color32 rightColor = Core.Sphere.GetColor(rightTile.data.tile_id);
+                                Color32 rightColor = Core.Sphere.GetTileColor(rightTile);
                                 quads.Add(new CliffQuad
                                 {
                                     X = x,
@@ -647,7 +649,7 @@ namespace WorldSphereMod.Terrain
                             float upHeight = upTile.TileHeight();
                             if (Mathf.Abs(tileHeight - upHeight) > 0.1f)
                             {
-                                Color32 upColor = Core.Sphere.GetColor(upTile.data.tile_id);
+                                Color32 upColor = Core.Sphere.GetTileColor(upTile);
                                 quads.Add(new CliffQuad
                                 {
                                     X = x,
