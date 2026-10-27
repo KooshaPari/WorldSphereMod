@@ -166,6 +166,8 @@ namespace WorldSphereMod.TileMapToSphere
         public static bool UpdateTextures => MapBox.isRenderGameplay();
         public static void CheckScale(WorldTile pTile)
         {
+            // Terrain classification/overlays can change without a render_z change.
+            Core.Sphere.ObserveTerrainChange(pTile);
             int height = pTile.GetHeight();
             if (pTile.last_rendered_pos_tile.z != height)
             {

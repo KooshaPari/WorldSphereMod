@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "bundle": "wsm3d-shaders",
+  "sha256": "7743EC4D783E0335E20885A1154F3D8FF218269E7A7BDA65158FD68AD714ABE8",
+  "length": 174400,
+  "unityVersion": "2022.3.60f1",
+  "unityRevision": "5f63fdee6d95",
+  "platform": "StandaloneWindows64",
+  "graphicsApi": "Direct3D11",
+  "shaderSourceCommit": "0e23ed6b5db4ee4339a129a582ebdc0bfccf2027",
+  "rigSourceCommit": "035218a612f97d0aa0114ab0ecb4c51faa050275",
+  "compoundShaderDonorCommit": "5daf5dad9ed56f7ca1c55e91364c56038b311e5f",
+  "editorInspection": {
+    "supportedShaders": 14,
+    "computeAssets": 2,
+    "requiredKernels": ["CSMatrices", "CSColors", "CSMain"],
+    "failures": 0
+  },
+  "playerValidation": "pending",
+  "featureDefaultChanges": false
+}

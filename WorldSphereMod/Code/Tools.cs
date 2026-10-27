@@ -233,6 +233,18 @@ namespace WorldSphereMod
         public static bool IntersectMesh(Ray ray, out Vector2 pVector)
         {
             pVector = Vector2Int.zero;
+            if (Core.Sphere.IsSpherical)
+            {
+                // Analytic base-surface picking avoids low-poly collider error and
+                // unrelated actor/UI colliders stealing the terrain selection.
+                var origin = new Geometry.SphereGeometry.Point(ray.origin.x, ray.origin.y, ray.origin.z);
+                var direction = new Geometry.SphereGeometry.Point(ray.direction.x, ray.direction.y, ray.direction.z);
+                if (!Geometry.SphereGeometry.RayIntersection(origin, direction, Core.Sphere.Radius, out double distance))
+                    return false;
+                Vector3 hit = ray.GetPoint((float)distance);
+                pVector = To2D(hit.x, hit.y, hit.z);
+                return true;
+            }
             if (Physics.Raycast(ray, out var hitinfo, Mathf.Infinity))
             {
                 pVector = To2D(hitinfo.point.x, hitinfo.point.y, hitinfo.point.z);
@@ -278,6 +290,11 @@ namespace WorldSphereMod
         //im not even sure if this works as intended, visually it looks better but idk
         public static float GetTileHeightSmooth(this Vector2 Pos)
         {
+            if (Core.Sphere.IsSpherical)
+            {
+                Pos.x = (float)Geometry.SphereGeometry.WrapLongitude(Pos.x, Core.Sphere.Width);
+                Pos.y = Mathf.Clamp(Pos.y, 0, Core.Sphere.Height - 1);
+            }
             Vector2Int pos = Pos.AsInt();
             Dictionary<Vector2Int, float>? cache = _tileHeightSmoothCache;
             if (cache != null && cache.TryGetValue(pos, out float cachedHeight))
@@ -522,6 +539,17 @@ namespace WorldSphereMod
         {
             return GetRotation(Pos) * ToUpright;
         }
+        public static Quaternion GetSurfaceRotation(Vector3 worldPosition, float yaw = 0)
+        {
+            Quaternion heading = Quaternion.Euler(0f, yaw, 0f);
+            return Core.Sphere.IsSpherical
+                ? CompoundSphereScripts.SphericalRotation(worldPosition.To2D()) * ToUpright * heading
+                : heading;
+        }
+        public static Vector3 LiftOffSurface(Vector3 worldPosition, float height)
+        {
+            return worldPosition + (Core.Sphere.IsSpherical ? worldPosition.normalized : Vector3.up) * height;
+        }
         public static Quaternion RotateToCamera(Vector2 Pos)
         {
             Vector2 direction = Direction3D(CameraManager.Position, Pos);
@@ -598,6 +626,8 @@ namespace WorldSphereMod
             {
                 return Vector2.MoveTowards(current, target, maxDistanceDelta);
             }
+            if (Core.Sphere.IsSpherical)
+                return MoveTowardsV3(current, target, maxDistanceDelta);
             return WrappedMoveTowards(current, target, maxDistanceDelta, Core.Sphere.Width, Core.Sphere.Height);
         }
         public static Vector3 MoveTowardsV3(Vector3 current, Vector3 target, float maxDistanceDelta)
@@ -605,6 +635,14 @@ namespace WorldSphereMod
             if (!Core.IsWorld3D)
             {
                 return Vector3.MoveTowards(current, target, maxDistanceDelta);
+            }
+            if (Core.Sphere.IsSpherical)
+            {
+                var result = Geometry.SphereGeometry.MoveTowards(
+                    new Geometry.SphereGeometry.Point(current.x, current.y, current.z),
+                    new Geometry.SphereGeometry.Point(target.x, target.y, target.z), maxDistanceDelta,
+                    Core.Sphere.Width, Core.Sphere.Height);
+                return new Vector3((float)result.X, (float)result.Y, (float)result.Z);
             }
             return WrappedMoveTowards(current, target, maxDistanceDelta, Core.Sphere.Width, Core.Sphere.Height);
         }

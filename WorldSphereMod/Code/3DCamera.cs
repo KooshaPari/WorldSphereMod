@@ -116,7 +116,7 @@ namespace WorldSphereMod.NewCamera
                 // distance range so vanilla zoom code (which thinks in
                 // 2D half-extents) can't push the camera to orbit.
                 float minSurface = Core.savedSettings != null ? Core.savedSettings.CameraMinSurfaceDistance : 1f;
-                float maxSurface = Core.savedSettings != null ? Core.savedSettings.CameraMaxSurfaceDistance : 60f;
+                float maxSurface = MaxSurfaceDistance;
                 Height = Mathf.Clamp(value, minSurface, maxSurface);
                 return false;
             }
@@ -130,6 +130,15 @@ namespace WorldSphereMod.NewCamera
         const KeyCode EmergencySnapKey = KeyCode.F12;
         public static Vector2 Position => Manager.transform.position;
         public static Transform transform => MainCamera.transform;
+        public static float MaxSurfaceDistance
+        {
+            get
+            {
+                float configured = Core.savedSettings != null ? Core.savedSettings.CameraMaxSurfaceDistance : 60f;
+                return Core.Sphere.IsSpherical && Core.Sphere.Exists
+                    ? Mathf.Max(configured, Core.Sphere.Radius * 3f) : configured;
+            }
+        }
         static void SnapCameraToWorldCenter()
         {
             Camera camera = Camera.main;
@@ -143,16 +152,21 @@ namespace WorldSphereMod.NewCamera
             if (Manager != null)
             {
                 Manager._target_zoom = defaultZoom;
+                if (Core.Sphere.IsSpherical)
+                    Manager.transform.position = new Vector3(MapBox.width * 0.5f, MapBox.height * 0.5f, -0.5f);
             }
             Vector3 snappedPosition = Core.Sphere.Exists
                 ? Core.Sphere.SpherePos(MapBox.width * 0.5f, MapBox.height * 0.5f, Height)
                 : new Vector3(MapBox.width * 0.5f, Height, MapBox.height * 0.5f);
             camera.transform.position = snappedPosition;
-            camera.transform.eulerAngles = new Vector3(45f, 0f, 0f);
+            Quaternion snapRotation = Core.Sphere.IsSpherical
+                ? Quaternion.LookRotation(-snappedPosition.normalized, Vector3.up)
+                : Quaternion.Euler(45f, 0f, 0f);
+            camera.transform.rotation = snapRotation;
             if (MainCamera != null && MainCamera != camera)
             {
                 MainCamera.transform.position = snappedPosition;
-                MainCamera.transform.eulerAngles = new Vector3(45f, 0f, 0f);
+                MainCamera.transform.rotation = snapRotation;
             }
 
             UnityEngine.Debug.Log("[WSM3D] Emergency camera snap: centered at " + snappedPosition + " Height=" + Height);
@@ -183,7 +197,9 @@ namespace WorldSphereMod.NewCamera
             float snapZoom = Core.savedSettings != null ? Core.savedSettings.CameraDefaultStrategyZoomHeight : 10f;
             MainCamera.transform.position = Core.Sphere.SpherePos(
                 MapBox.width * 0.5f, MapBox.height * 0.5f, Mathf.Min(snapZoom, 15f));
-            MainCamera.transform.eulerAngles = new Vector3(45f, 0f, 0f);
+            MainCamera.transform.rotation = Core.Sphere.IsSpherical
+                ? Quaternion.LookRotation(-MainCamera.transform.position.normalized, Vector3.up)
+                : Quaternion.Euler(45f, 0f, 0f);
             UnityEngine.Debug.Log($"[WSM3D] MakeCamera3D: Height={Height} radius={Core.Sphere.Radius:F3} farClip={MainCamera.farClipPlane:F1} snap={MainCamera.transform.position}");
         }
         public static void MakeCamera2D()
@@ -238,10 +254,21 @@ namespace WorldSphereMod.NewCamera
             // reach half the map dimension) doesn't push the 3D camera
             // hundreds of units from the sphere surface.
             float minSurface = Core.savedSettings != null ? Core.savedSettings.CameraMinSurfaceDistance : 1f;
-            float maxSurface = Core.savedSettings != null ? Core.savedSettings.CameraMaxSurfaceDistance : 60f;
+            float maxSurface = MaxSurfaceDistance;
             Height = Mathf.Clamp(Height, minSurface, maxSurface);
             MainCamera.transform.position = Core.Sphere.SpherePos(Position.x, Position.y, Height);
-            MainCamera.transform.rotation = (Core.savedSettings.CameraRotatesWithWorld ? Core.Sphere.GetRotation(MainCamera.transform.position) * Constants.ToUpright : Quaternion.identity) * Quaternion.Euler(RotateCamera.Rotation);
+            // Sphere orientation consumes map longitude/latitude, not a lossy cast
+            // of the camera's world XYZ position to XY. A globe always needs a
+            // radial frame, even when the optional legacy camera-follow flag is off.
+            Vector2 rotationPosition = Core.Sphere.IsSpherical ? Position : (Vector2)MainCamera.transform.position;
+            Vector3 cameraAngles = RotateCamera.Rotation;
+            if (Core.Sphere.IsSpherical)
+            {
+                float pitch = (float)Geometry.SphereGeometry.MinimumCameraPitch(Core.Sphere.Radius, Height);
+                cameraAngles.x = Mathf.Clamp(Mathf.Repeat(cameraAngles.x, 360), pitch, 180 - pitch);
+            }
+            MainCamera.transform.rotation = ((Core.savedSettings.CameraRotatesWithWorld || Core.Sphere.IsSpherical)
+                ? Core.Sphere.GetRotation(rotationPosition) * Constants.ToUpright : Quaternion.identity) * Quaternion.Euler(cameraAngles);
             if (ControllableUnit._unit_main != null && Core.savedSettings.FirstPerson)
             {
                 Manager._target_zoom = ControllableUnit._unit_main.position_height + ControllableUnit._unit_main.GetHeight() + CameraTile.TileHeight();
@@ -444,7 +471,7 @@ namespace WorldSphereMod.NewCamera
             if (Core.IsWorld3D)
             {
                 __result = Tools.IntersectMesh(ray, out Vector2 Vector);
-                pVector = Vector.AsInt();
+                pVector = Vector.AsIntClamped();
                 return false;
             }
             return true;
@@ -485,7 +512,7 @@ namespace WorldSphereMod.NewCamera
             // the camera stays at a playable strategy-view altitude.
             float defaultZoom = Core.savedSettings != null ? Core.savedSettings.CameraDefaultStrategyZoomHeight : 10f;
             float minSurface = Core.savedSettings != null ? Core.savedSettings.CameraMinSurfaceDistance : 1f;
-            float maxSurface = Core.savedSettings != null ? Core.savedSettings.CameraMaxSurfaceDistance : 60f;
+            float maxSurface = MaxSurfaceDistance;
             Manager.orthographic_size_max = maxSurface;
             Manager._target_zoom = defaultZoom;
             Height = defaultZoom;

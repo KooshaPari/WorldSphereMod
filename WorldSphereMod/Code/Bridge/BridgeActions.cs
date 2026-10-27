@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Reflection;
 using UnityEngine;
 
@@ -55,6 +56,32 @@ namespace WorldSphereMod.Bridge
             object r = TryInvoke(map.save_manager, "saveToCurrentPath");
             if (r != null) return r;
             return NotFound("SaveManager.saveToCurrentPath");
+        }
+
+        /// <summary>Save a copy into a new sandbox directory without changing the current slot.</summary>
+        public static object SaveAs(string requestedPath)
+        {
+            if (Map == null || Map.save_manager == null) return Fail("save_manager_not_ready");
+            string path;
+            try { path = SandboxSavePath.ResolveNew(requestedPath, SandboxSavePath.DefaultRoot); }
+            catch (Exception ex) { return Fail("invalid_save_destination:" + ex.Message); }
+            string previousPath = SaveManager.currentSavePath;
+            try
+            {
+                // Verified game API: this writes preview, metadata and compressed map;
+                // unlike saveToCurrentPath it works for a never-saved world.
+                SaveManager.saveWorldToDirectory(path, true, true);
+                string mapFile = Path.Combine(path, "map.wbox");
+                string metadata = Path.Combine(path, "map.meta");
+                if (!File.Exists(mapFile) || new FileInfo(mapFile).Length == 0 ||
+                    !File.Exists(metadata) || new FileInfo(metadata).Length == 0)
+                    return new { ok = false, error = "save_files_missing_or_empty", path };
+                return new { ok = true, path, mapBytes = new FileInfo(mapFile).Length,
+                    mapSha256 = RuntimeIdentity.HashFile(mapFile), metadataSha256 = RuntimeIdentity.HashFile(metadata),
+                    currentSlotUnchanged = true, reloadVerified = false };
+            }
+            catch (Exception ex) { return new { ok = false, error = "save_as_failed:" + ex.Message, path }; }
+            finally { SaveManager.currentSavePath = previousPath; }
         }
 
         /// <summary>

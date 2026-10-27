@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 using WorldSphereMod.NewCamera;
+using WorldSphereMod.Geometry;
 using Debug = UnityEngine.Debug;
 using static UnityEngine.UI.CanvasScaler;
 using static WorldSphereMod.Constants;
@@ -26,6 +27,11 @@ namespace WorldSphereMod
         {
             GetDist = (a, b, c) => Tools.MathStuff.WrappedDist(a, b, c),
             GetChange = (a, b, c) => Tools.MathStuff.WrappedChange(a, b, c)
+        };
+        public static readonly PhaseGate LatitudeGate = new()
+        {
+            GetDist = (a, b, c) => a - b,
+            GetChange = (a, b, c) => Mathf.Clamp(a + b, 0, Mathf.Max(0, c - 1))
         };
         public static int SphereTileTexture(SphereTile Tile)
         {
@@ -270,62 +276,57 @@ namespace WorldSphereMod
             Debug.Log($"[WSM3D][PERF] CompoundSphereScripts.CylindricalInitiation={sw.Elapsed.TotalMilliseconds:F3}ms");
         }
         // ---------------------------------------------------------------------
-        // TRUE SPHERE shape: wraps BOTH axes. Generalization of the cylinder.
+        // TRUE SPHERE shape: longitude wraps; latitude ends at the poles.
         //   X (rows) -> azimuth (longitude) around the equator circle.
-        //   Y (cols) -> latitude, from south pole (Y=0) to north pole (Y=Cols).
+        //   Y (cols) -> latitude; tile edges -0.5/Cols-0.5 are south/north poles.
         // The 3D position lies on a sphere of radius (Radius + Height): x/z form
         // the equatorial ring scaled by cos(latitude); y is the latitude sine.
         // ---------------------------------------------------------------------
         public static Vector2 SphericalToCartesianFast(SphereManager manager, float x, float y, float z)
         {
-            // Inverse of CartesianToSpherical: azimuth (X) from the equatorial ring,
-            // latitude (Y) from the vertical sine. Mirrors the cylinder's X unwrap.
-            float X = manager.Clamp(Tools.MathStuff.Flip(Mathf.Atan2(z, x) / (2f * Mathf.PI) * manager.Rows, manager.Rows), 0);
-            float norm = Mathf.Max(Mathf.Sqrt((x * x) + (y * y) + (z * z)), 0.001f);
-            float thetaY = Mathf.Asin(Mathf.Clamp(y / norm, -1f, 1f));
-            float Y = (thetaY + (Mathf.PI / 2f)) / Mathf.PI * manager.Cols;
-            return new Vector2(X, manager.Clamp(Y, 0));
+            Vector3 map = SphericalToCartesian(manager, x, y, z);
+            return new Vector2(map.x, map.y);
         }
         public static Vector3 SphericalToCartesian(SphereManager manager, float x, float y, float z)
         {
-            Vector2 flat = SphericalToCartesianFast(manager, x, y, z);
-            float Height = Mathf.Sqrt((x * x) + (y * y) + (z * z)) - manager.Radius;
-            return new Vector3(flat.x, flat.y, Height);
+            var map = SphereGeometry.Inverse(x, y, z, manager.Rows, manager.Cols, manager.Radius);
+            return new Vector3((float)map.X, (float)map.Y, (float)map.Z);
         }
         public static Vector3 CartesianToSpherical(SphereManager manager, float X, float Y, float Height = 0)
         {
-            // Azimuth wraps X identically to the cylinder's horizontal ring.
-            Vector2 eq = Tools.MathStuff.PointOnCircle(-X, manager.Radius, Height);
-            // Latitude wraps Y over [0..Cols] from the -pi/2 (south) to +pi/2 (north).
-            float thetaY = (Y / Mathf.Max(manager.Cols, 1f)) * Mathf.PI - (Mathf.PI / 2f);
-            float cosLat = Mathf.Cos(thetaY);
-            float y = (manager.Radius + Height) * Mathf.Sin(thetaY);
-            return new Vector3(eq.x * cosLat, y, eq.y * cosLat);
+            var point = SphereGeometry.Forward(X, Y, Height, manager.Rows, manager.Cols, manager.Radius);
+            return new Vector3((float)point.X, (float)point.Y, (float)point.Z);
         }
         public static Quaternion SphericalRotation(SphereTile tile)
         {
-            // Face tiles upright relative to the camera, matching CubeRotation.
-            return ConstRot * ToUpright;
+            return SphericalRotation(new Vector2(tile.X, tile.Y), tile.Manager.Rows, tile.Manager.Cols);
         }
-        public static Quaternion SphericalRotation(Vector2 _)
+        public static Quaternion SphericalRotation(Vector2 position)
         {
-            return ConstRot * ToUpright;
+            return SphericalRotation(position, Core.Sphere.Width, Core.Sphere.Height);
+        }
+        static Quaternion SphericalRotation(Vector2 position, int width, int height)
+        {
+            var normal = SphereGeometry.Forward(position.x, position.y, 0, width, height, 1);
+            var north = SphereGeometry.North(position.x, position.y, width, height);
+            // Tile local +Z is elevation; multiplying by ToUpright makes actor +Y radial.
+            return Quaternion.LookRotation(new Vector3((float)normal.X, (float)normal.Y, (float)normal.Z),
+                new Vector3((float)north.X, (float)north.Y, (float)north.Z));
         }
         public static Vector3 SphereTileScaleSpherical(SphereTile Tile)
         {
             float Height = SphereTileHeight(Tile);
-            return new Vector3(1, 1 + (Height * YConst), Height * Core.Sphere.HeightMult);
+            return new Vector3(1, 1, Height * Core.Sphere.HeightMult);
         }
         public static void SphericalInitiation(SphereManager Manager)
         {
             var sw = Stopwatch.StartNew();
-            GameObject Sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            Sphere.transform.SetPositionAndRotation(new Vector3(0, 0, (Manager.Cols / 2) + ZDisplacement), Quaternion.identity);
-            Sphere.transform.localScale = new Vector3(Manager.Diameter, Manager.Diameter, Manager.Diameter);
-            Object.Destroy(Sphere.GetComponent<SphereCollider>());
-            Object.Destroy(Sphere.GetComponent<MeshRenderer>());
-            Sphere.AddComponent<MeshCollider>();
-            Sphere.transform.parent = Manager.transform;
+            // Manager geometry is emitted in world coordinates about zero, without
+            // a transform matrix. Match that center, not the cylinder's Z offset.
+            GameObject Sphere = new GameObject("WSM3D Sphere Picking Surface");
+            Sphere.transform.SetParent(Manager.transform, true);
+            Sphere.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+            Sphere.AddComponent<SphereCollider>().radius = Manager.Radius;
             Debug.Log($"[WSM3D][PERF] CompoundSphereScripts.SphericalInitiation={sw.Elapsed.TotalMilliseconds:F3}ms");
         }
         public static void FlatInitiation(SphereManager Manager)
@@ -353,6 +354,13 @@ namespace WorldSphereMod
             float Rows = SphereManager.Rows;
             Min = (int)-(Rows / Devide);
             Max = (int)(Rows / Devide);
+        }
+        public static void RenderRangeSpherical(SphereManager manager, out int Min, out int Max)
+        {
+            // At a pole all longitude rows can be visible. The cylinder's camera
+            // strip incorrectly removes those rows; let mesh frustum culling decide.
+            Min = 0;
+            Max = manager.Rows;
         }
         public static void RenderRangeFlat(SphereManager SphereManager, out int Min, out int Max)
         {

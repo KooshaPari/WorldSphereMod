@@ -708,6 +708,14 @@ namespace WorldSphereMod.Voxel
             return facing * Quaternion.Euler(-12f, 0f, 0f);
         }
 
+        // Reused snapshot buffer for the per-frame front-buffer flush. Replacing the
+        // old `new List<>(_actorSpriteCardFront)` here eliminated one List<> allocation
+        // EVERY frame (plus its backing array), which was measurable 16B-bucket GC churn
+        // and one factor in WorldBox's allocator pressure during heavy actor counts.
+        // Safe to reuse: FlushQueuedActorSpriteCards runs on the main thread only, and
+        // the snapshot is consumed within this method before any later emit rewrites it.
+        static List<KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>>> _frontSnapshot = new();
+
         internal static void FlushQueuedActorSpriteCards()
         {
             // (CARD-FLUSH-ENTER diag removed — per-frame log spam.)
@@ -719,7 +727,9 @@ namespace WorldSphereMod.Voxel
                 // every frame so actors persist across the intermittent-emit gap (no flicker).
                 ActorFrontCount = _actorSpriteCardFront.Count;
                 if (_actorSpriteCardFront.Count == 0) return;
-                batches = new List<KeyValuePair<ActorSpriteCardBatchKey, List<Matrix4x4>>>(_actorSpriteCardFront);
+                _frontSnapshot.Clear();
+                foreach (var kv in _actorSpriteCardFront) _frontSnapshot.Add(kv);
+                batches = _frontSnapshot;
             }
 
             int flushedBatches = 0;
@@ -865,7 +875,7 @@ namespace WorldSphereMod.Voxel
                             if (da == null || da.asset == null) { nullActor++; continue; }
                             if (Constants.PerpActors.ContainsKey(da.asset.id)) { perpSkipped++; continue; }
                             Vector3 dCullPos = diagRd.positions[di];
-                            if (dCullPos.z < Constants.ZDisplacement * 0.5f)
+                            if (!Core.Sphere.IsSpherical && dCullPos.z < Constants.ZDisplacement * 0.5f)
                                 dCullPos = dCullPos.To3DTileHeight(false);
                             if (!WorldSphereMod.LOD.FrustumCuller.IsVisible(dCullPos, 2f))
                             { frustumFail++; continue; }
@@ -951,7 +961,7 @@ namespace WorldSphereMod.Voxel
                     // if (!rd.has_normal_render[i]) continue;
 
                     Vector3 cullPos = rd.positions[i];
-                    if (cullPos.z < Constants.ZDisplacement * 0.5f)
+                    if (!Core.Sphere.IsSpherical && cullPos.z < Constants.ZDisplacement * 0.5f)
                     {
                         cullPos = cullPos.To3DTileHeight(false);
                     }
@@ -1000,7 +1010,7 @@ namespace WorldSphereMod.Voxel
                             // apply the same VoxelScaleMultiplier * ActorVoxelScaleFactor
                             // the normal static actor submit uses.
                             skScl *= Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.ActorVoxelScaleFactor;
-                            if (skPos.z < Constants.ZDisplacement * 0.5f)
+                            if (!Core.Sphere.IsSpherical && skPos.z < Constants.ZDisplacement * 0.5f)
                             {
                                 skPos = skPos.To3DTileHeight(false);
                             }
@@ -1011,10 +1021,10 @@ namespace WorldSphereMod.Voxel
                             // — that would double-lift now that skScl carries the
                             // multiplier). ~0.5 world units of mesh height pre-scale.
                             float skHalfHeight = Mathf.Abs(skScl.y) * 0.5f;
-                            skPos.y += skHalfHeight;
+                            skPos = Tools.LiftOffSurface(skPos, skHalfHeight);
                             LogActorSubmitDiagnostic("skeletal", ref _actorSkeletalDiagnosticLogged, a, ResolveActorSprite(rd, i, a), skPosBeforeLift, skPos, rd.colors[i]);
                             if (WorldSphereMod.Rig.RigDriver.SubmitSkinnedActor(
-                                    a, skPos, Quaternion.Euler(0f, skRot.y, 0f), skScl, rd.colors[i], rigType))
+                                    a, skPos, Tools.GetSurfaceRotation(skPos, skRot.y), skScl, rd.colors[i], rigType))
                             {
                                 dsSkeletalSubmitOk++;
                                 rd.has_normal_render[i] = false;
@@ -1074,7 +1084,7 @@ namespace WorldSphereMod.Voxel
                         dsVoxelMeshNull++;
                         diagSkipNull++;
                         Vector3 errPos = rd.positions[i];
-                        if (errPos.z < Constants.ZDisplacement * 0.5f) errPos = errPos.To3DTileHeight(false);
+                        if (!Core.Sphere.IsSpherical && errPos.z < Constants.ZDisplacement * 0.5f) errPos = errPos.To3DTileHeight(false);
                         RecordActorError(RenderErrorType.VoxelNotReady,
                             a, sp != null ? "sprite-card mesh null/empty (cache build pending) sprite=" + sp.name : "sprite-card mesh null/empty", errPos);
                         continue;
@@ -1084,7 +1094,7 @@ namespace WorldSphereMod.Voxel
 
                     Vector3 pos = rd.positions[i];
                     Vector3 posBeforeLift = pos;
-                    if (pos.z < Constants.ZDisplacement * 0.5f)
+                    if (!Core.Sphere.IsSpherical && pos.z < Constants.ZDisplacement * 0.5f)
                     {
                         pos = pos.To3DTileHeight(false);
                     }
@@ -1092,11 +1102,11 @@ namespace WorldSphereMod.Voxel
                     SanityTestCube.CaptureFirstActorPos(pos);
                     Vector3 rot = rd.rotations[i];
                     // Real 3D volume: upright (Y-up), no camera-facing billboard. Uniform actorScale.
-                    Quaternion faceRot = Quaternion.identity;
+                    Quaternion faceRot = Tools.GetSurfaceRotation(pos);
                     Vector3 scl = new Vector3(actorScale, actorScale, actorScale);
                     if (rd.flip_x_states[i]) scl.x = -scl.x;
                     float halfHeight = m.bounds.size.y * 0.5f * actorScale;
-                    pos.y += halfHeight;
+                    pos = Tools.LiftOffSurface(pos, halfHeight);
                     LogFirstActorPos(posBeforeLift, pos, scl);
                     Matrix4x4 trs = Matrix4x4.TRS(pos, faceRot, scl);
                     RecordActorVoxelTrs(trs);
@@ -1126,7 +1136,21 @@ namespace WorldSphereMod.Voxel
                     foreach (var kv in _actorSpriteCardBatches)
                     {
                         if (kv.Value.Count == 0) continue;
-                        _actorSpriteCardFront[kv.Key] = new List<Matrix4x4>(kv.Value);
+                        // Reuse a pooled List instead of `new List<Matrix4x4>(kv.Value)` — the old
+                        // form allocated a fresh List + backing array per emit (and emits can fire
+                        // multiple times/frame), feeding the same 16B GC churn the flush snapshot
+                        // fix addresses. Ownership transfers to _actorSpriteCardFront; the emit
+                        // clears the BACK dict next frame, leaving this list to be re-drawn.
+                        if (!_actorSpriteCardFront.TryGetValue(kv.Key, out var frontList))
+                        {
+                            frontList = new List<Matrix4x4>(kv.Value.Count);
+                            _actorSpriteCardFront[kv.Key] = frontList;
+                        }
+                        else
+                        {
+                            frontList.Clear();
+                        }
+                        frontList.AddRange(kv.Value);
                     }
                 }
                 if (!_billboardDiagLogged)
@@ -1428,7 +1452,7 @@ namespace WorldSphereMod.Voxel
                     else
                     {
                         cullPos = rd.positions[i];
-                        if (cullPos.z < Constants.ZDisplacement * 0.5f)
+                        if (!Core.Sphere.IsSpherical && cullPos.z < Constants.ZDisplacement * 0.5f)
                             cullPos = cullPos.To3DTileHeight(false);
                     }
                     // One-shot DIAG: log the actual cullPos for the first building so the
@@ -1493,8 +1517,8 @@ namespace WorldSphereMod.Voxel
                         continue;
                     }
 
-                    Vector3 pos = rd.positions[i];
-                    if (pos.z < Constants.ZDisplacement * 0.5f)
+                    Vector3 pos = Core.Sphere.IsSpherical ? cullPos : rd.positions[i];
+                    if (!Core.Sphere.IsSpherical && pos.z < Constants.ZDisplacement * 0.5f)
                     {
                         pos = pos.To3DTileHeight(false);
                     }
@@ -1512,8 +1536,8 @@ namespace WorldSphereMod.Voxel
                     scl.y = Mathf.Min(scl.y, BuildingMaxScale);
                     scl.z = Mathf.Min(scl.z, BuildingMaxScale);
                     float bldHalfHeight = m.bounds.size.y * 0.5f * scl.y;
-                    pos.y += bldHalfHeight;
-                    Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
+                    pos = Tools.LiftOffSurface(pos, bldHalfHeight);
+                    Matrix4x4 trs = Matrix4x4.TRS(pos, Tools.GetSurfaceRotation(pos, rot.y), scl);
                     if (!_buildingVoxelEmitSubmitLogged && Core.savedSettings != null && Core.savedSettings.ProfilerDump)
                     {
                         _buildingVoxelEmitSubmitLogged = true;
@@ -1584,7 +1608,7 @@ namespace WorldSphereMod.Voxel
                 // frustum and get culled — same class of bug as the documented
                 // 2D-position vs 3D-frustum issue in ActorVoxelEmit/BuildingVoxelEmit.
                 Vector3 cullPos = __instance.transform.position;
-                if (cullPos.z < Constants.ZDisplacement * 0.5f)
+                if (!Core.Sphere.IsSpherical && cullPos.z < Constants.ZDisplacement * 0.5f)
                 {
                     cullPos = cullPos.To3DTileHeight(false);
                 }
@@ -1623,9 +1647,9 @@ namespace WorldSphereMod.Voxel
                 Vector3 scl = new Vector3(scale, scale, scale);
                 scl.z = scl.x;
                 float halfHeight = mesh.bounds.size.y * 0.5f * scl.y;
-                pos.y += halfHeight;
+                pos = Tools.LiftOffSurface(pos, halfHeight);
                 float yaw = __instance.transform.eulerAngles.y;
-                Matrix4x4 trs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, yaw, 0f), scl);
+                Matrix4x4 trs = Matrix4x4.TRS(pos, Tools.GetSurfaceRotation(pos, yaw), scl);
                 // Submit the real voxel mesh. Whether or not it submits, the sprite stays
                 // suppressed (set above) — voxel-or-nothing, never a billboard fallback.
                 Submit(mesh, trs, tint);
@@ -1711,10 +1735,12 @@ namespace WorldSphereMod.Voxel
                     Vector3 scl = new Vector3(scale, scale, scale);
                     scl.z = scl.x;
                     float halfHeight = mesh.bounds.size.y * 0.5f * scl.y;
-                    pos.y += halfHeight;
+                    pos = Tools.LiftOffSurface(pos, halfHeight);
                     Quaternion rot = perp
                         ? projectile.rotation
                         : Quaternion.Euler(0f, projectile.rotation.eulerAngles.y, 0f);
+                    if (Core.Sphere.IsSpherical)
+                        rot = Tools.GetSurfaceRotation(pos) * rot;
                     Matrix4x4 trs = Matrix4x4.TRS(pos, rot, scl);
                     if (Submit(mesh, trs, tint))
                     {
