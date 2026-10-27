@@ -155,7 +155,12 @@ namespace WorldSphereMod.ProcGen
                     if (Constants.PerpBuildings.ContainsKey(b.asset.id)) continue;
 
                     Vector3 cullPos = rd.positions[i];
-                    if (cullPos.z < Constants.ZDisplacement * 0.5f)
+                    if (Core.Sphere.IsSpherical && b.current_position != null)
+                    {
+                        Vector2 mapPosition = b.current_position;
+                        cullPos = mapPosition.To3DTileHeight();
+                    }
+                    else if (!Core.Sphere.IsSpherical && cullPos.z < Constants.ZDisplacement * 0.5f)
                     {
                         cullPos = cullPos.To3DTileHeight(false);
                     }
@@ -170,6 +175,8 @@ namespace WorldSphereMod.ProcGen
                     // maxDist is in tile-units (RenderRange rows * VoxelScaleMultiplier).
                     float maxDist = Core.savedSettings != null ? Core.savedSettings.RenderRange * Core.savedSettings.VoxelScaleMultiplier : 16f;
                     Vector3 camPos = new Vector3(WorldSphereMod.NewCamera.CameraManager.Position.x, cullPos.y, WorldSphereMod.NewCamera.CameraManager.Position.y);
+                    if (Core.Sphere.IsSpherical && WorldSphereMod.NewCamera.CameraManager.MainCamera != null)
+                        camPos = WorldSphereMod.NewCamera.CameraManager.MainCamera.transform.position;
                     float sqrDist = (cullPos - camPos).sqrMagnitude;
                     if (sqrDist > maxDist * maxDist)
                     {
@@ -220,12 +227,17 @@ namespace WorldSphereMod.ProcGen
 
                             Vector3 pos = rd.positions[i];
                             Vector3 rawPos = pos;
-                            if (pos.z < Constants.ZDisplacement * 0.5f)
+                            if (Core.Sphere.IsSpherical && b.current_position != null)
+                            {
+                                Vector2 mapPosition = b.current_position;
+                                pos = mapPosition.To3DTileHeight();
+                            }
+                            else if (!Core.Sphere.IsSpherical && pos.z < Constants.ZDisplacement * 0.5f)
                             {
                                 pos = pos.To3DTileHeight(false);
                             }
                             float renderRange = Core.savedSettings.RenderRange;
-                            if (pos.sqrMagnitude > renderRange * renderRange * 4f)
+                            if (!Core.Sphere.IsSpherical && pos.sqrMagnitude > renderRange * renderRange * 4f)
                             {
                                 continue;
                             }
@@ -236,7 +248,8 @@ namespace WorldSphereMod.ProcGen
                             scl *= Core.savedSettings.VoxelScaleMultiplier * Core.savedSettings.BuildingVoxelScaleFactor;
                             Sprite? sp = rd.main_sprites[i];
                             if (sp == null) continue;
-                            Matrix4x4 legacyTrs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), scl);
+                            Quaternion surfaceRotation = Tools.GetSurfaceRotation(pos, rot.y);
+                            Matrix4x4 legacyTrs = Matrix4x4.TRS(pos, surfaceRotation, scl);
 
                             if (rules.Shape == BuildingShape.CrossedQuad || rules.Shape == BuildingShape.Single)
                             {
@@ -275,7 +288,7 @@ namespace WorldSphereMod.ProcGen
                                     if (m == null) continue;
                                 float procScale = buildingScale;
                                     if (rd.flip_x_states[i]) procScale = -procScale;
-                                    Matrix4x4 procTrs = Matrix4x4.TRS(pos, Quaternion.Euler(0f, rot.y, 0f), Vector3.one * procScale);
+                                    Matrix4x4 procTrs = Matrix4x4.TRS(pos, surfaceRotation, Vector3.one * procScale);
                                     if (TryQueueBuildingDraw(m, procTrs))
                                     {
                                         submitted = true;

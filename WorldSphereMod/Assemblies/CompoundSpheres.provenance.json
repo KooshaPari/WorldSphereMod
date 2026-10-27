@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "assembly": "CompoundSpheres.dll",
+  "sha256": "AB3CFF0B320A5E03AAF75A55E61F353F86CAECA983317D965B428DACB2492D64",
+  "sourceRepository": "https://github.com/KooshaPari/Compound-Spheres-3D",
+  "sourceCommit": "32b5c1c760ac427563ba41a706887bda652fd3f7",
+  "sourceBranch": "fix/source-recovery-20260906",
+  "sourcePublished": false,
+  "project": "CompoundSpheres/CompoundSpheres.csproj",
+  "configuration": "Release",
+  "targetFramework": "net48",
+  "donorCommit": "5daf5dad9ed56f7ca1c55e91364c56038b311e5f",
+  "previousSha256": "62D4DEA1138AC2EF03DA08EFE5C28511164E40B212EF943EB1304443B9DD28E7",
+  "validation": {
+    "libraryBuild": "passed",
+    "solutionBuild": "passed",
+    "sphereTests": 51,
+    "meshTests": 19,
+    "runtimeAcceptance": "pending"
+  }
+}

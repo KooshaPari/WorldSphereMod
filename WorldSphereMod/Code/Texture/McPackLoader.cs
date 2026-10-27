@@ -351,7 +351,7 @@ namespace WorldSphereMod.Textures
                     return null;
                 }
 
-                var wrappedBundle = AssetBundleUtils.GetAssetBundle(Path.GetFileNameWithoutExtension(path));
+                var wrappedBundle = AssetBundleUtils.LoadFromFile(path);
                 if (wrappedBundle == null)
                 {
                     Debug.LogWarning($"[WSM3D] Failed to load atlas AssetBundle '{path}'.");

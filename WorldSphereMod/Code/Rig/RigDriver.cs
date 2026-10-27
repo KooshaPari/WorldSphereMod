@@ -162,6 +162,7 @@ namespace WorldSphereMod.Rig
         /// </summary>
         public static void Update()
         {
+            RigGpuSkinning.TickFrame();
             double frameElapsedMs = 0.0;
             long startTimestamp = Stopwatch.GetTimestamp();
 
@@ -192,6 +193,8 @@ namespace WorldSphereMod.Rig
 
                 UpdateRigPose(rig, rig.Actor);
                 ApplyTint(rig, rig.Tint);
+                if (RigGpuSkinning.IsEnabled(Core.savedSettings) && RigGpuSkinning.CanDispatchGPU())
+                    RigGpuSkinning.DispatchSkin(rig.SourceKey, rig.Mesh, rig.Bones, rig.Renderer, rig.Tint);
             }
 
             for (int i = 0; i < _scratchRemove.Count; i++)
@@ -201,7 +204,7 @@ namespace WorldSphereMod.Rig
 
             if (RigGpuSkinning.IsEnabled(Core.savedSettings))
             {
-                RigGpuSkinning.TickFrame();
+                RigGpuSkinning.FlushDraws();
             }
 
             frameElapsedMs = (Stopwatch.GetTimestamp() - startTimestamp) * 1000.0 / Stopwatch.Frequency;

@@ -17,9 +17,16 @@ namespace WorldSphereMod.Textures
             public int Y { get; set; }
             public int Width { get; set; }
             public int Height { get; set; }
+            [JsonProperty("uv_x")]
             public float UvX { get; set; }
+
+            [JsonProperty("uv_y")]
             public float UvY { get; set; }
+
+            [JsonProperty("uv_width")]
             public float UvWidth { get; set; }
+
+            [JsonProperty("uv_height")]
             public float UvHeight { get; set; }
         }
 

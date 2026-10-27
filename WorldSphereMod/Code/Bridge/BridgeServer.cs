@@ -47,6 +47,8 @@ namespace WorldSphereMod.Bridge
         static long _cachedLastNonZeroDrawCalls;
         static long _cachedInstances;
         static int _telemetryCacheFrame = -1;
+        static FrameSampleRing _frameSamples;
+        static bool _frameSampling;
         static int _telemetryProbeSuccessFrame = -1;
 
         /// <summary>
@@ -136,6 +138,7 @@ namespace WorldSphereMod.Bridge
             {
                 _telemetryCacheFrame = frame;
                 RefreshTelemetryCache();
+                CaptureFrameSample(frame);
             }
 
             TryRunLiveTelemetryProbeEndOfFrame();
@@ -416,6 +419,9 @@ namespace WorldSphereMod.Bridge
             _getRoutes = new Dictionary<string, Action<HttpListenerContext>>(StringComparer.OrdinalIgnoreCase)
             {
                 ["/health"] = HandleHealth,
+                ["/provenance"] = HandleProvenance,
+                ["/diag/benchmark"] = HandleBenchmark,
+                ["/diag/benchmark/samples"] = HandleFrameSamples,
                 ["/telemetry"] = HandleTelemetry,
                 ["/settings"] = HandleSettings,
                 ["/voxel/sprite"] = HandleVoxelSprite,
@@ -437,6 +443,8 @@ namespace WorldSphereMod.Bridge
 
             _postRoutes = new Dictionary<string, Action<HttpListenerContext>>(StringComparer.OrdinalIgnoreCase)
             {
+                ["/diag/benchmark/start"] = HandleFrameStart,
+                ["/diag/benchmark/stop"] = HandleFrameStop,
                 ["/actions/load_save"] = HandleLoadSave,
                 ["/actions/screenshot"] = HandleScreenshot,
                 ["/screenshot/now"] = HandleScreenshot,
@@ -448,6 +456,7 @@ namespace WorldSphereMod.Bridge
                 ["/actions/new_world"] = HandleNewWorld,
                 ["/actions/regenerate"] = HandleRegenerate,
                 ["/actions/save"] = HandleSave,
+                ["/actions/save_as"] = HandleSaveAs,
                 ["/actions/close_dialog"] = HandleCloseDialog,
                 ["/actions/pause"] = HandlePause,
                 ["/actions/play"] = HandlePlay,
@@ -462,6 +471,99 @@ namespace WorldSphereMod.Bridge
         }
 
         void HandleHealth(HttpListenerContext context) => WriteJson(context.Response, BuildHealthPayload());
+        void HandleProvenance(HttpListenerContext context) => WriteJson(context.Response, new
+        {
+            ok = true, capturedAtUtc = DateTime.UtcNow.ToString("O"),
+            processId = System.Diagnostics.Process.GetCurrentProcess().Id,
+            mod = RuntimeIdentity.Describe(typeof(BridgeServer).Assembly),
+            compound = RuntimeIdentity.Describe(typeof(CompoundSpheres.SphereManager).Assembly),
+        });
+
+        static void CaptureFrameSample(int frame)
+        {
+            if (!_frameSampling || _frameSamples == null) return;
+            var sample = new FrameSampleRing.Sample {
+                frame = frame, intervalMs = Time.unscaledDeltaTime * 1000f, focused = Application.isFocused,
+                gen0Collections = GC.CollectionCount(0), gen1Collections = GC.CollectionCount(1), gen2Collections = GC.CollectionCount(2)
+            };
+            try
+            {
+                var renderer = Core.Sphere.ManagerInstance?.HeightField;
+                if (renderer != null)
+                {
+                    sample.terrainDirty = renderer.Dirty;
+                    sample.fullRebuildCount = ReadOptionalCounter(renderer, "FullRebuildCount");
+                    sample.incrementalUpdateCount = ReadOptionalCounter(renderer, "IncrementalUpdateCount");
+                }
+            }
+            catch { /* Missing renderer/counters stay null, never fabricated zero. */ }
+            _frameSamples.Add(sample);
+        }
+
+        static long? ReadOptionalCounter(object renderer, string name)
+        {
+            var property = renderer.GetType().GetProperty(name, BindingFlags.Public | BindingFlags.Instance);
+            return property == null ? (long?)null : Convert.ToInt64(property.GetValue(renderer, null));
+        }
+
+        void HandleFrameStart(HttpListenerContext context)
+        {
+            int capacity = 3600;
+            string value = context.Request.QueryString["capacity"];
+            if (value != null && (!int.TryParse(value, out capacity) || capacity < 1 || capacity > 36000))
+            { WriteJson(context.Response, new { ok = false, error = "capacity_must_be_1_to_36000" }, HttpStatusCode.BadRequest); return; }
+            WriteJson(context.Response, InvokeOnMainThread<object>(() => {
+                if (_frameSampling) return new { ok = false, error = "sampling_already_active_stop_first" };
+                _frameSamples = new FrameSampleRing(capacity); _frameSampling = true;
+                return new { ok = true, capacity, scope = "Unity unscaled frame intervals; not GPU timings" };
+            }) ?? new { ok = false, error = "main_thread_result_unconfirmed" });
+        }
+
+        static object FrameSamplesPayload() => new {
+            ok = true, active = _frameSampling, totalSamples = _frameSamples?.TotalSamples ?? 0,
+            samples = _frameSamples?.Snapshot() ?? new FrameSampleRing.Sample[0],
+            scope = "bounded latest samples; one per observed Unity frame; GC counts cumulative; unavailable terrain counters null; snapshot does not drain"
+        };
+        void HandleFrameSamples(HttpListenerContext context) => WriteJson(context.Response,
+            InvokeOnMainThread(FrameSamplesPayload) ?? new { ok = false, error = "main_thread_result_unconfirmed" });
+        void HandleFrameStop(HttpListenerContext context) => WriteJson(context.Response,
+            InvokeOnMainThread(() => { _frameSampling = false; return FrameSamplesPayload(); }) ?? new { ok = false, error = "main_thread_result_unconfirmed" });
+
+        void HandleBenchmark(HttpListenerContext context)
+        {
+            long? workingSet = null, privateBytes = null;
+            string processMemoryError = null;
+            try
+            {
+                using (var process = System.Diagnostics.Process.GetCurrentProcess())
+                { workingSet = process.WorkingSet64; privateBytes = process.PrivateMemorySize64; }
+            }
+            catch (Exception ex) { processMemoryError = ex.Message; }
+            object heightField = InvokeOnMainThread<object>(() =>
+            {
+                var manager = Core.Sphere.ManagerInstance;
+                if (manager == null || manager.HeightField == null) return new { available = false, reason = "no_heightfield" };
+                var renderer = manager.HeightField;
+                var counters = new Dictionary<string, object>();
+                var unavailable = new List<string>();
+                foreach (string name in new[] { "FullRebuildCount", "IncrementalUpdateCount", "LastRebuildMs", "LastPartialUpdateMs" })
+                {
+                    var property = renderer.GetType().GetProperty(name, BindingFlags.Public | BindingFlags.Instance);
+                    if (property == null) unavailable.Add(name);
+                    else counters[name] = property.GetValue(renderer, null);
+                }
+                return new { available = true, frameCount = Time.frameCount, applicationFocused = Application.isFocused, dirty = renderer.Dirty, counters, unavailable };
+            }) ?? new { available = false, reason = "main_thread_sample_unconfirmed" };
+            WriteJson(context.Response, new
+            {
+                ok = true, capturedAtUtc = DateTime.UtcNow.ToString("O"),
+                managedBytesEstimate = GC.GetTotalMemory(false),
+                gen0Collections = GC.CollectionCount(0), gen1Collections = GC.CollectionCount(1), gen2Collections = GC.CollectionCount(2),
+                workingSetBytes = workingSet, privateBytes, processMemoryError,
+                cachedFrameMs = _cachedFrameMs, cachedDrawCalls = _cachedDrawCalls, heightField,
+                scope = "passive snapshot; no forced collection; frame interval is not GPU time"
+            });
+        }
         void HandleTelemetry(HttpListenerContext context) => WriteJson(context.Response, BuildTelemetryPayload());
         void HandleSettings(HttpListenerContext context) => WriteRawJson(context.Response, InvokeOnMainThread(BuildSettingsJson));
 
@@ -578,6 +680,14 @@ namespace WorldSphereMod.Bridge
         void HandleNewWorld(HttpListenerContext context) => WriteJson(context.Response, QueueAction("new_world", BridgeActions.NewWorld));
         void HandleRegenerate(HttpListenerContext context) => WriteJson(context.Response, QueueAction("regenerate", BridgeActions.Regenerate));
         void HandleSave(HttpListenerContext context) => WriteJson(context.Response, QueueAction("save", BridgeActions.Save));
+        void HandleSaveAs(HttpListenerContext context)
+        {
+            string path;
+            try { path = SandboxSavePath.ResolveNew(BridgeParams.From(context.Request).Get("path", string.Empty), SandboxSavePath.DefaultRoot); }
+            catch (Exception ex) { WriteJson(context.Response, new { ok = false, error = ex.Message }, HttpStatusCode.BadRequest); return; }
+            object result = QueueAction("save_as", () => BridgeActions.SaveAs(path));
+            WriteJson(context.Response, result ?? new { ok = false, error = "save_result_unconfirmed", path, note = "Queued work may complete later; inspect this path before retrying." });
+        }
         void HandleCloseDialog(HttpListenerContext context) => WriteJson(context.Response, QueueAction("close_dialog", BridgeActions.CloseDialog));
         void HandlePause(HttpListenerContext context) => WriteJson(context.Response, QueueAction("pause", BridgeActions.Pause));
         void HandlePlay(HttpListenerContext context) => WriteJson(context.Response, QueueAction("play", BridgeActions.Play));
@@ -2521,7 +2631,9 @@ namespace WorldSphereMod.Bridge
         T InvokeOnMainThread<T>(Func<T> func)
         {
             if (_mainThreadId != 0 && Thread.CurrentThread.ManagedThreadId == _mainThreadId) return func();
-            using (var done = new ManualResetEventSlim(false))
+            // Completion can occur after the HTTP timeout. A TaskCompletionSource
+            // has no disposed wait handle for late queued work to signal.
+            var done = new System.Threading.Tasks.TaskCompletionSource<bool>();
             {
                 T result = default(T);
                 Exception? error = null;
@@ -2529,12 +2641,12 @@ namespace WorldSphereMod.Bridge
                 {
                     try { result = func(); }
                     catch (Exception ex) { error = ex; }
-                    finally { done.Set(); }
+                    finally { done.TrySetResult(true); }
                 });
                 // 5s timeout — if Update() isn't draining (paused / disabled / mid-load),
                 // returns default(T) + logs warning instead of hanging the listener thread
                 // indefinitely, which would back up the entire HTTP accept loop.
-                if (!done.Wait(5000))
+                if (!done.Task.Wait(5000))
                 {
                     UnityEngine.Debug.LogWarning("[WSM3D][Bridge] main-thread dispatch timed out (5s) — returning default(T).");
                     return default(T);

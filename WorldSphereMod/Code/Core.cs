@@ -864,7 +864,7 @@ namespace WorldSphereMod
                     this.GetCameraVector = getVector;
                     this.Prepare = isvalid;
                 }
-                public bool IsWrapped => object.ReferenceEquals(XGate, WrappedGate);
+                public bool IsWrapped => XGate.GetChange == WrappedGate.GetChange;
                 public PrepareShape Prepare;
                 public PhaseGate XGate;
                 public PhaseGate YGate;
@@ -884,6 +884,7 @@ namespace WorldSphereMod
             public static int Width => Manager.Rows;
             public static int Height => Manager.Cols;
             public static bool IsWrapped => CurrentShape.IsWrapped;
+            public static bool IsSpherical => CurrentShape.To3D == CartesianToSpherical;
             public static Transform CenterCapsule => Manager.transform.childCount > 0 ? Manager.transform.GetChild(0) : null;
             public static bool Exists => Manager != null;
             public static Texture2DArray TerrainTextureArray => Textures;
@@ -932,10 +933,11 @@ namespace WorldSphereMod
                 new Shape(CylindricalToCartesian, CylindricalToCartesianFast, CartesianToCylindrical, CylindricalRotation, CylindricalInitiation, RenderRange, GetMovementVectorSpherical, SphereTileScaleCylindrical, WrappedGate, DefaultGate, (ref int _, ref int _) => { }, CylindricalRotation), //cylinder
                 new Shape(FlatToCartesian, FlatToCartesianFast, CartesianToFlat, FlatRotation, FlatInitiation, RenderRangeFlat, GetMovementVectorFlat, SphereTileScaleFlat, DefaultGate, DefaultGate, (ref int _, ref int _) => { }, FlatRotation), //flat
                 new Shape(CartesianToCube, CartesianToCubeFast, CubeToCartesian, CubeRotation, CubeInitiation, RenderRangeCube, GetMovementVectorCube, SphereTileScaleCube, DefaultGate, DefaultGate, Tools.Cube.Prepare, CubeRotation),
-                new Shape(SphericalToCartesian, SphericalToCartesianFast, CartesianToSpherical, SphericalRotation, SphericalInitiation, RenderRange, GetMovementVectorSpherical, SphereTileScaleSpherical, WrappedGate, WrappedGate, (ref int _, ref int _) => { }, SphericalRotation) //sphere (2-axis wrap)
+                new Shape(SphericalToCartesian, SphericalToCartesianFast, CartesianToSpherical, SphericalRotation, SphericalInitiation, RenderRangeSpherical, GetMovementVectorSpherical, SphereTileScaleSpherical, WrappedGate, LatitudeGate, (ref int _, ref int _) => { }, SphericalRotation) //sphere: longitude wraps, latitude clamps
             };
             public static void Begin()
             {
+                _terrainVisualStates.Clear();
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 HeightMult = savedSettings.TileHeight;
                 PerlinNoise = Core.savedSettings.PerlinNoise;
@@ -1268,59 +1270,30 @@ namespace WorldSphereMod
             public static void UpdateScale(SphereTile Tile)
             {
                 Manager.UpdateScale(Tile.X, Tile.Y);
+                _scalesDone = false;
             }
             public static void UpdateTexture(SphereTile Tile)
             {
                 Manager.UpdateTexture(Tile.X, Tile.Y);
+                _texDone = false;
             }
             private static bool _scalesDone = true;
             private static bool _texDone = true;
             private static bool _addedDone = true;
             private static bool _colorsDone = true;
-            // PERF: throttle the LegacyManagerShim O(N)/frame full-scans (risk #6).
-            // Running them every RefreshSphere() call (~10Hz) is the documented
-            // ~3-5s/frame storm. Run them every N calls instead; the cheap
-            // GpuManager?.Refresh* dirty-queue flushes remain unconditional.
-            private static int LegacyFullScanCounter = 0;
-            private static int LegacyFullScanEveryN = 6;
-
             public static void RefreshSphere()
             {
-                // Snapshot whether any HEIGHT-AFFECTING tile data changed BEFORE we
-                // drain the queues. The heightfield mesh rebuild is expensive (~1M
-                // verts on a 316² map at 43k tiles) — we must only invalidate it
-                // when terrain GEOMETRY actually changes.
-                //
-                // PERF (per-frame rebuild storm fix): we previously gated on
-                // HasDirtyTiles, which includes the COLOR + TEXTURE queues. On a
-                // live world the simulation (water flow, fire, lava, mob tints)
-                // re-enqueues color/texture updates for visible tiles EVERY frame,
-                // so HasDirtyTiles was effectively always true → MarkDirty every
-                // frame → a full ~5s geometry rebuild every frame = the storm seen
-                // in Player.log. Terrain SHAPE only changes when a tile's elevation
-                // (scale) changes, so gate the geometry rebuild on HasDirtyHeights
-                // (the scale queue) alone. Color churn no longer triggers a rebuild;
-                // it is consumed by RefreshColors into the GPU color buffer.
-                bool hadDirtyHeights = Manager.HasDirtyHeights;
-
-                // PERF: the Manager.* calls below are the LegacyManagerShim
-                // O(N)/frame full-scans (risk #6) — NOT the cheap GPU dirty-queue
-                // (GpuManager?.Refresh*). On a live world the simulation re-dirties
-                // color/texture tiles every frame, so running these full-scans every
-                // RefreshSphere() call (~10Hz) is the ~3-5s/frame rebuild storm.
-                // Throttle them to every LegacyFullScanEveryN calls (~every N frames);
-                // the paired GpuManager?.Refresh* dirty-queue flushes stay
-                // unconditional so real dirty data still reaches the GPU promptly.
-                int legacyFrame = ++LegacyFullScanCounter;
-                bool runLegacyFullScan = (legacyFrame % LegacyFullScanEveryN) == 0;
-
+                if (Manager == null) return;
+                // Upload queues and the terrain-change journal have independent
+                // lifetimes. Flush uploads promptly; DrawTiles consumes and
+                // acknowledges the journal only after a successful mesh update.
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-                _scalesDone = runLegacyFullScan ? Manager.RefreshScales() : _scalesDone;
+                _scalesDone = Manager.RefreshScales();
+                GpuManager?.RefreshScales();
                 long scaleMs = sw.ElapsedMilliseconds;
 
                 sw.Restart();
-                if (runLegacyFullScan)
-                    _texDone = Manager.RefreshTextures();
+                _texDone = Manager.RefreshTextures();
                 // #199 Phase 3: mirror the texture-buffer flush to the GPU manager.
                 // GPU Refresh* use the per-buffer dirty queue (Textures.Refresh()),
                 // NOT the LegacyManagerShim O(N)/frame full-scan (risk #6).
@@ -1328,32 +1301,18 @@ namespace WorldSphereMod
                 long texMs = sw.ElapsedMilliseconds;
 
                 sw.Restart();
-                if (runLegacyFullScan)
-                    _addedDone = Manager.RefreshCustom("AddedColors");
+                _addedDone = Manager.RefreshCustom("AddedColors");
                 // AddedColors buffer is registered in CreateGpuSettings (risk #3),
                 // so this RefreshCustom will not throw KeyNotFoundException.
                 GpuManager?.RefreshCustom("AddedColors");
                 long addedMs = sw.ElapsedMilliseconds;
 
                 sw.Restart();
-                if (runLegacyFullScan)
-                    RefreshColors();
+                RefreshColors();
                 long colorMs = sw.ElapsedMilliseconds;
 
-                if (hadDirtyHeights && Manager.UseHeightFieldTerrain)
-                {
-                    // Risk #5: keep GPU RefreshScales INSIDE the hadDirtyHeights gate.
-                    // Tile elevation only changes when the scale (height) queue is
-                    // dirty; flushing every frame re-broke the 3.2s/frame rebuild
-                    // storm. The GPU scale flush uses the dirty-queue (Scales.Refresh()).
-                    GpuManager?.RefreshScales();
-                    // Mirror ProfilerDump into the fork so the parallelized
-                    // HeightField.Rebuild emits its Stopwatch breakdown ONLY when
-                    // profiling is on (per the debug-console-overlay spam trap).
-                    CompoundSpheres.HeightFieldRenderer.ProfileRebuild =
-                        Core.savedSettings != null && Core.savedSettings.ProfilerDump;
-                    Manager.HeightField.MarkDirty();
-                }
+                CompoundSpheres.HeightFieldRenderer.ProfileRebuild =
+                    Core.savedSettings != null && Core.savedSettings.ProfilerDump;
 
                 long total = scaleMs + texMs + addedMs + colorMs;
                 if (total > 16 && Core.savedSettings != null && Core.savedSettings.ProfilerDump)
@@ -1369,7 +1328,8 @@ namespace WorldSphereMod
 
             public static bool HasPendingUpdates()
             {
-                return !_scalesDone || !_texDone || !_addedDone || !_colorsDone;
+                return Manager != null && (!_scalesDone || !_texDone || !_addedDone || !_colorsDone ||
+                    Manager.HasDirtyTiles || (Manager.UseHeightFieldTerrain && Manager.HasDirtyHeights));
             }
             public static void RefreshColors()
             {
@@ -1386,6 +1346,8 @@ namespace WorldSphereMod
             public static void UpdateLayer(SphereTile Tile)
             {
                 Manager.UpdateCustom("AddedColors", Tile.X, Tile.Y);
+                _addedDone = false;
+                ObserveTerrainChange(Tile.SphereToWorld());
                 // #199 Phase 3: mark the same AddedColors slot dirty on the GPU buffer.
                 // GpuSphereManager.UpdateCustom takes a flat index (X*Cols+Y).
                 GpuManager?.UpdateCustom("AddedColors", (Tile.X * Height) + Tile.Y);
@@ -1393,6 +1355,8 @@ namespace WorldSphereMod
             public static void UpdateBaseLayer(SphereTile Tile)
             {
                 Manager.UpdateColor(Tile.X, Tile.Y);
+                _colorsDone = false;
+                ObserveTerrainChange(Tile.SphereToWorld());
                 // #199 Phase 3: mirror the per-tile base-color dirty mark to the GPU
                 // dirty queue. GpuSphereManager.UpdateColor(X,Y) maps to (X*Cols+Y).
                 GpuManager?.UpdateColor(Tile.X, Tile.Y);
@@ -1404,6 +1368,7 @@ namespace WorldSphereMod
             }
             public static void Finish()
             {
+                _terrainVisualStates.Clear();
                 if (Manager == null || Manager.gameObject == null)
                 {
                     return;
@@ -1428,7 +1393,11 @@ namespace WorldSphereMod
                 float cameraToSurface = -1f;
                 if (Manager != null && CameraManager.MainCamera != null)
                 {
-                    if (IsWrapped)
+                    if (IsSpherical)
+                    {
+                        cameraToSurface = Mathf.Abs(cameraPos.magnitude - radius);
+                    }
+                    else if (IsWrapped)
                     {
                         // Cylindrical: distance from camera to cylinder surface
                         float camR = Mathf.Sqrt(cameraPos.x * cameraPos.x + cameraPos.y * cameraPos.y);
@@ -1451,7 +1420,12 @@ namespace WorldSphereMod
                     tileBoundsMin = Vector3.Min(p00, pMaxMax);
                     tileBoundsMax = Vector3.Max(p00, pMaxMax);
                     // For cylindrical, also sample the extremes
-                    if (IsWrapped)
+                    if (IsSpherical)
+                    {
+                        tileBoundsMin = Vector3.one * -radius;
+                        tileBoundsMax = Vector3.one * radius;
+                    }
+                    else if (IsWrapped)
                     {
                         Vector3 pMidMax = Manager.SphereTilePosition(Manager.Rows / 2, Manager.Cols - 1);
                         Vector3 pMid0 = Manager.SphereTilePosition(Manager.Rows / 2, 0);
@@ -1488,7 +1462,7 @@ namespace WorldSphereMod
                 float cameraFov = CameraManager.MainCamera != null ? CameraManager.MainCamera.fieldOfView : -1f;
                 float cameraNear = CameraManager.MainCamera != null ? CameraManager.MainCamera.nearClipPlane : -1f;
                 float cameraFar = CameraManager.MainCamera != null ? CameraManager.MainCamera.farClipPlane : -1f;
-                string shape = IsWrapped ? "cylindrical" : "flat";
+                string shape = IsSpherical ? "spherical" : IsWrapped ? "cylindrical" : "flat/cube";
                 Debug.Log(
                     $"{prefix} camera={cameraName} cameraPos={cameraPos} shape={shape} sphereCenter={centerPos} radius={radius:F3} " +
                     $"cameraToOrigin={cameraDistance:F3} cameraToSurface={cameraToSurface:F3} cameraInsideSphere={cameraInside} " +
@@ -1819,6 +1793,25 @@ namespace WorldSphereMod
                 return ov;
             }
 
+            static readonly Terrain.TerrainVisualStateTracker _terrainVisualStates = new Terrain.TerrainVisualStateTracker();
+            public static void ObserveTerrainChange(WorldTile tile)
+            {
+                if (tile == null || Manager == null || !Manager.UseHeightFieldTerrain) return;
+                var main = tile.main_type;
+                var top = tile.top_type;
+                var overlay = SampleTileOverlay(tile);
+                int classification = IsWaterTile(main, top, tile.TileHeight(), Tools.TrueHeight(17)) ? 1 : 0;
+                if (main != null && main.lava) classification |= 2;
+                if (main != null && !main.lava && IdContains(main, "swamp")) classification |= 4;
+                if (IdContains(main, "acid")) classification |= 8;
+                var state = new Terrain.TerrainVisualState(main?.id, top?.id, WorldTileTexture(tile), classification,
+                    overlay.Snow, overlay.Frozen, overlay.Corruption, overlay.Burnt);
+                int index = tile.x * Manager.Cols + tile.y;
+                // Pixel changes alone do not change this signature. Frozen/burnt/
+                // corruption and liquid masks do, even at an unchanged elevation.
+                if (_terrainVisualStates.Observe(index, state)) Manager.UpdateTerrain(index);
+            }
+
             static void EnsureMeshNormals(Mesh mesh, string label)
             {
                 if (mesh == null || mesh.vertexCount == 0) return;
@@ -2143,9 +2136,28 @@ namespace WorldSphereMod
                     {
                         // Bundle manifest reference: Assets/WSM3D/LegacyAssets/CompoundSphereMesh.asset
                         // (capitalized, with LegacyAssets/ prefix).
-                        CompoundSphereMesh = ab.GetObject<Mesh>("Assets/WSM3D/LegacyAssets/CompoundSphereMesh.asset");
-                        CompoundSphereMaterial = ab.GetObject<Material>("Assets/WSM3D/LegacyAssets/CompoundSphereMaterial.mat");
-                        Debug.Log("[WSM3D] worldsphere bundle loaded successfully — high-poly mesh applied");
+                        var bundledMesh = ab.GetObject<Mesh>("Assets/WSM3D/LegacyAssets/CompoundSphereMesh.asset");
+                        var bundledMaterial = ab.GetObject<Material>("Assets/WSM3D/LegacyAssets/CompoundSphereMaterial.mat");
+                        if (bundledMesh != null)
+                            CompoundSphereMesh = bundledMesh;
+                        // Some Unity player/bundle-version combinations deserialize the
+                        // material with an empty shader reference. Never replace the
+                        // embedded known-good material with that broken object: doing so
+                        // makes every sphere render through Standard and loses the
+                        // StructuredBuffer/sphere terrain shader contract.
+                        var bundledShaderName = bundledMaterial != null && bundledMaterial.shader != null
+                            ? bundledMaterial.shader.name : string.Empty;
+                        if (bundledMaterial != null && !string.IsNullOrEmpty(bundledShaderName)
+                            && !bundledShaderName.StartsWith("Hidden/Internal", System.StringComparison.OrdinalIgnoreCase))
+                        {
+                            CompoundSphereMaterial = bundledMaterial;
+                        }
+                        else if (bundledMaterial != null)
+                        {
+                            Debug.LogWarning("[WSM3D] worldsphere material shader reference was empty/broken; retaining embedded material fallback.");
+                        }
+                        Debug.Log("[WSM3D] worldsphere bundle loaded successfully — mesh applied; material accepted=" +
+                            (CompoundSphereMaterial == bundledMaterial));
                     }
                     catch (System.Exception ex)
                     {
@@ -2310,6 +2322,22 @@ namespace WorldSphereMod
                         {
                             LastTerrainMaterial.shader = correct;
                             Debug.Log($"[WSM3D] Post-load terrain shader reassigned to: SphereTerrain (sphere UV mapping)");
+                        }
+                    }
+
+                    // W11 is opt-in: never deserialize the new assets on the default path.
+                    if (WorldSphereMod.Rig.RigGpuSkinning.IsEnabled(savedSettings))
+                    {
+                        try
+                        {
+                            var skinCompute = shaderAb.GetObject<ComputeShader>("assets/wsm3d/shaders/voxelskin.compute");
+                            var skinShader = shaderAb.GetObject<Shader>("assets/wsm3d/shaders/voxelskinned.shader");
+                            WorldSphereMod.Rig.RigGpuSkinning.ConfigureResources(skinCompute, skinShader);
+                        }
+                        catch (System.Exception ex)
+                        {
+                            WorldSphereMod.Rig.RigGpuSkinning.ConfigureResources(null, null);
+                            Debug.LogWarning("[WSM3D] GPU skinning assets unavailable; CPU fallback: " + ex.Message);
                         }
                     }
 
