@@ -69,6 +69,10 @@ test-e2e:
         echo "tests/WorldSphereMod.Tests.E2E not present yet — skipping."; \
     fi
 
+# Run linked-source screenshot safety tests; requires explicit WSM_SCREENSHOT_TEST_ROOT.
+test-screenshot-safety:
+    pwsh -NoLogo -NoProfile -File Tools/test-screenshot-safety.ps1
+
 # Run unit + integration + e2e suites.
 test-all: test test-integration test-e2e
 
