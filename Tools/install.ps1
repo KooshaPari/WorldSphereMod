@@ -46,6 +46,16 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$transactionRoot = $null
+$priorMoved = $false
+
+function Assert-InstallPath([string]$Path) {
+    for ($cursor = [IO.DirectoryInfo]::new([IO.Path]::GetFullPath($Path)); $null -ne $cursor; $cursor = $cursor.Parent) {
+        try {
+            if (([IO.File]::GetAttributes($cursor.FullName) -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Linked install path refused: $($cursor.FullName)" }
+        } catch [IO.FileNotFoundException] { } catch [IO.DirectoryNotFoundException] { }
+    }
+}
 
 function Write-InstallFailureHint {
     Write-Host "[install] For environment diagnostics, run: pwsh Tools/wsm3d.ps1 doctor" -ForegroundColor Yellow
@@ -54,7 +64,7 @@ function Write-InstallFailureHint {
 try {
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $modSrc   = Join-Path $repoRoot "WorldSphereMod"
-$modDst   = Join-Path $WorldBoxPath "worldbox_Data/StreamingAssets/Mods/WorldSphereMod"
+$modTarget = [IO.Path]::GetFullPath((Join-Path $WorldBoxPath "worldbox_Data/StreamingAssets/Mods/WorldSphereMod"))
 $builtDll = Join-Path $repoRoot "bin/$Configuration/$Tfm/$AssemblyName.dll"
 $builtPdb = Join-Path $repoRoot "bin/$Configuration/$Tfm/$AssemblyName.pdb"
 
@@ -76,22 +86,33 @@ if (-not $SkipBuild) {
     }
 }
 
-# --- Wipe prior install (retry loop for Windows lock / antivirus contention) ---
-if (Test-Path $modDst) {
-    Write-Host "[install] removing prior install at $modDst" -ForegroundColor DarkGray
-    $retries = 3
-    for ($attempt = 1; $attempt -le $retries; $attempt++) {
-        Remove-Item -Recurse -Force $modDst -ErrorAction SilentlyContinue
-        if (-not (Test-Path $modDst)) { break }
-        if ($attempt -lt $retries) {
-            Write-Host "[install]   removal incomplete (locked handles?), retry $attempt/$retries..." -ForegroundColor Yellow
-            Start-Sleep -Seconds 1
-        } else {
-            throw "Could not fully remove $modDst after $retries attempts. Close WorldBox / antivirus and retry."
+if ($Precompiled -and -not (Test-Path -LiteralPath $builtDll)) {
+    throw "Precompiled mode requested, but $builtDll does not exist. Run dotnet build first."
+}
+# Keep staging and retained backups outside Mods so NML cannot load duplicate GUIDs.
+$transactionRoot = Join-Path (Split-Path (Split-Path $modTarget -Parent) -Parent) (".wsm-install-" + [guid]::NewGuid().ToString('N'))
+$modDst = Join-Path $transactionRoot 'new'
+$backup = Join-Path $transactionRoot 'previous'
+Assert-InstallPath $modTarget
+Assert-InstallPath $transactionRoot
+foreach ($tree in @($modSrc, $modTarget)) {
+    if (Test-Path -LiteralPath $tree) {
+        foreach ($entry in (Get-ChildItem -LiteralPath $tree -Recurse -Force)) {
+            if (($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Linked payload refused: $($entry.FullName)" }
         }
     }
 }
-New-Item -ItemType Directory -Force -Path $modDst | Out-Null
+New-Item -ItemType Directory -Path $transactionRoot | Out-Null
+if (Test-Path -LiteralPath $modTarget) {
+    Copy-Item -LiteralPath $modTarget -Destination $modDst -Recurse
+} else {
+    New-Item -ItemType Directory -Path $modDst | Out-Null
+}
+if ($Precompiled -and (Test-Path -LiteralPath (Join-Path $modDst 'Code'))) {
+    $stagedCode = [IO.Path]::GetFullPath((Join-Path $modDst 'Code'))
+    if (-not $stagedCode.StartsWith([IO.Path]::GetFullPath($transactionRoot) + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe staged path.' }
+    Remove-Item -LiteralPath $stagedCode -Recurse -Force
+}
 
 # --- Copy every item fresh via robocopy /MIR (dirs) or Copy-Item (files) ---
 # robocopy /MIR guarantees a byte-identical mirror regardless of timestamps,
@@ -122,6 +143,21 @@ foreach ($item in $items) {
         Write-Host "[install]   $item (skipped - not present in source)" -ForegroundColor DarkGray
     }
 }
+
+foreach ($item in $items) {
+    $src = Join-Path $modSrc $item
+    if (-not (Test-Path -LiteralPath $src)) { continue }
+    $files = if ((Get-Item -LiteralPath $src) -is [IO.DirectoryInfo]) { Get-ChildItem -LiteralPath $src -Recurse -File } else { Get-Item -LiteralPath $src }
+    foreach ($file in $files) {
+        $relative = [IO.Path]::GetRelativePath($modSrc, $file.FullName)
+        $staged = Join-Path $modDst $relative
+        if (-not (Test-Path -LiteralPath $staged) -or (Get-FileHash -LiteralPath $file.FullName).Hash -ne (Get-FileHash -LiteralPath $staged).Hash) {
+            throw "Staged payload hash mismatch: $relative"
+        }
+    }
+}
+$manifest = Get-Content -LiteralPath (Join-Path $modDst 'mod.json') -Raw | ConvertFrom-Json
+if ($manifest.GUID -ne 'worldsphere3d.fork') { throw 'Staged mod GUID is not worldsphere3d.fork.' }
 
 # --- Verify critical artifacts landed ---
 if (-not $Precompiled) {
@@ -165,7 +201,7 @@ foreach ($stalePath in @(
     (Join-Path $modDst "$AssemblyName.dll"),
     (Join-Path $modDst "$AssemblyName.pdb")
 )) {
-    if (Test-Path $stalePath) { Remove-Item -Force $stalePath }
+    if (Test-Path -LiteralPath $stalePath) { Remove-Item -LiteralPath $stalePath -Force }
 }
 
 if (Test-Path $builtDll) {
@@ -195,6 +231,24 @@ if ($Precompiled) {
         Write-Host "[install] skipping $AssemblyName.dll copy (NML double-loads it + Code/ -> CS0121). See install.ps1 comment." -ForegroundColor DarkYellow
     }
 }
+if ($Precompiled -and (Get-FileHash -LiteralPath $builtDll).Hash -ne (Get-FileHash -LiteralPath (Join-Path $modDst "$AssemblyName.dll")).Hash) { throw 'Staged precompiled DLL hash mismatch.' }
+Assert-InstallPath $modTarget
+Assert-InstallPath $modDst
+New-Item -ItemType Directory -Path (Split-Path $modTarget -Parent) -Force | Out-Null
+if (Test-Path -LiteralPath $modTarget) {
+    Move-Item -LiteralPath $modTarget -Destination $backup
+    $priorMoved = $true
+}
+try {
+    Move-Item -LiteralPath $modDst -Destination $modTarget
+} catch {
+    if ($transactionRoot) { Write-Host "[install] retained failed transaction at $transactionRoot" -ForegroundColor Yellow }
+    if ($priorMoved) { Move-Item -LiteralPath $backup -Destination $modTarget; $priorMoved = $false }
+    throw
+}
+$modDst = $modTarget
+Write-Host "[install] retained transaction and prior files at $transactionRoot" -ForegroundColor DarkGray
+
 # Warn if a stale duplicate mod still exists in the non-standard Mods root.
 # This folder can contain the same GUID (worldsphere3d.fork) and trigger NML
 # repeat-mod behavior. We do not delete it automatically.
