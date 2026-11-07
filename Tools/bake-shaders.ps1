@@ -87,7 +87,7 @@ if ([string]::IsNullOrEmpty($UnityExe) -or -not (Test-Path $UnityExe)) {
     exit 1
 }
 
-if ($UnityExe -notmatch '\\2022\.3\.') {
+if ($UnityExe -notmatch '[\\/]2022\.3\.') {
     Write-Output "[bake] WARN: Selected editor is not a 2022.3.x install: $UnityExe"
     Write-Output "[bake]       Bundles may fail to load in WorldBox (runtime: Unity 2022.3.54f1)."
 }
