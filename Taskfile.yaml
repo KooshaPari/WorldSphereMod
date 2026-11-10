@@ -104,6 +104,11 @@ tasks:
           echo "tests/WorldSphereMod.Tests.E2E not present yet — skipping."
         fi
 
+  test-screenshot-safety:
+    desc: "Run linked-source screenshot safety tests; requires explicit WSM_SCREENSHOT_TEST_ROOT."
+    cmds:
+      - pwsh -NoLogo -NoProfile -File Tools/test-screenshot-safety.ps1
+
   test-all:
     desc: "Run unit + integration + e2e suites."
     cmds:

@@ -11,9 +11,9 @@ namespace WorldSphereMod
     [Serializable]
 public class SavedSettings
 {
-    public bool AutoScreenshotEnabled = true;
+    public bool AutoScreenshotEnabled = false;
     public float AutoScreenshotIntervalSeconds = 60f;
-    public string AutoScreenshotPath = @"C:\Users\koosh\Dev\WorldSphereMod\docs\journeys\scratch\";
+    public string AutoScreenshotPath = string.Empty;
 
         public string Version = "2.14";
         public bool Is3D = true;

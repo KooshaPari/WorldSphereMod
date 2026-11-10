@@ -16,18 +16,41 @@ namespace WorldSphereMod
 
         public static IEnumerator CaptureCoroutine(string outputPath, Action<string, bool, string> completed)
         {
-            yield return new WaitForEndOfFrame();
-            yield return new WaitForEndOfFrame();
+            return CaptureCoroutine(outputPath, completed, null);
+        }
 
-            string path = string.IsNullOrWhiteSpace(outputPath) ? BuildDefaultPath() : Path.GetFullPath(outputPath);
-            string directory = Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(directory))
+        public static IEnumerator CaptureCoroutine(string outputPath, Action<string, bool, string> completed,
+            Func<bool> canCapture)
+        {
+            if (canCapture != null && !canCapture())
             {
-                Directory.CreateDirectory(directory);
+                completed?.Invoke(outputPath, false, "capture_cancelled");
+                yield break;
+            }
+            yield return new WaitForEndOfFrame();
+            if (canCapture != null && !canCapture())
+            {
+                completed?.Invoke(outputPath, false, "capture_cancelled");
+                yield break;
+            }
+            yield return new WaitForEndOfFrame();
+            if (canCapture != null && !canCapture())
+            {
+                completed?.Invoke(outputPath, false, "capture_cancelled");
+                yield break;
             }
 
+            string path = outputPath;
             try
             {
+                path = string.IsNullOrWhiteSpace(outputPath) ? BuildDefaultPath() : Path.GetFullPath(outputPath);
+                string directory = Path.GetDirectoryName(path);
+                if (canCapture != null && !canCapture())
+                {
+                    completed?.Invoke(path, false, "capture_cancelled");
+                    yield break;
+                }
+                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
                 Type captureType = Type.GetType("UnityEngine.ScreenCapture, UnityEngine")
                                    ?? Type.GetType("UnityEngine.ScreenCapture, UnityEngine.CoreModule");
                 if (captureType == null)
@@ -43,6 +66,11 @@ namespace WorldSphereMod
                     yield break;
                 }
 
+                if (canCapture != null && !canCapture())
+                {
+                    completed?.Invoke(path, false, "capture_cancelled");
+                    yield break;
+                }
                 method.Invoke(null, new object[] { path });
                 completed?.Invoke(path, true, string.Empty);
             }
